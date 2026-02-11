@@ -1,37 +1,34 @@
-import { useState } from "react";
-import { api } from "../lib/api";
-import { Link } from "react-router-dom";
-import AlertSuccess from "../components/AlertSuccess";
+import { useEffect , useState } from "react";
+import { api } from "../../lib/api";
+import AlertSuccess from "../../components/AlertSuccess";
 
-export default function Login({ onLogin }) {
+export default function Register({ onRegister }) {
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [remember, setRemember] = useState(false);
     const [err, setErr] = useState("");
     const [processing, setProcessing] = useState(false);
     const [success, setSuccess] = useState("");
+
+    useEffect(() => {
+        document.title = "Register | Alora Group Indonesia";
+    }, []);
 
     async function submit(e) {
         e.preventDefault();
         setErr("");
         setProcessing(true);
-
         try {
-            const data = await api("/auth/login", {
+            const res = await api("/auth/register", {
                 method: "POST",
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ name, email, password }),
             });
-
-            // Simpan user ke localStorage
-            localStorage.setItem("user", JSON.stringify(data.user));
-
-            // Panggil callback onLogin
-            onLogin(data.user);
-
-            // Redirect ke portal
-            window.location.href = "/portal";
-        } catch (error) {
-            setErr(error.message || "Login failed");
+            setSuccess("Registrasi berhasil! Silakan login.");
+            if (onRegister) onRegister(res);
+            // Optional: redirect ke login setelah beberapa detik
+            setTimeout(() => window.location.href = "/login", 1500);
+        } catch (e) {
+            setErr(e.message);
         } finally {
             setProcessing(false);
         }
@@ -80,7 +77,7 @@ export default function Login({ onLogin }) {
                             </p>
                         </section>
 
-                        {/* Right: Glass card with login form */}
+                        {/* Right: Glass card with register form */}
                         <aside className="relative">
                             <div className="absolute -inset-1 rounded-[2rem] bg-gradient-to-r from-indigo-400/30 via-sky-400/30 to-emerald-300/30 blur-xl" />
 
@@ -88,19 +85,32 @@ export default function Login({ onLogin }) {
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <h2 className="text-lg font-semibold text-slate-900">
-                                            Masuk ke Portal Alora
+                                            Register Akun Baru
                                         </h2>
                                         <p className="mt-1 text-sm text-slate-600">
-                                            Login langsung di sini, cepat dan praktis.
+                                            Isi data di bawah untuk membuat akun.
                                         </p>
                                     </div>
-
                                     <span className="rounded-full border border-white/50 bg-white/40 px-3 py-1 text-xs font-medium text-slate-700">
                                         v1.0
                                     </span>
                                 </div>
 
                                 <form onSubmit={submit} className="mt-6 space-y-4">
+                                    {/* Name */}
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-700">
+                                            Nama Lengkap
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            className="mt-1 w-full rounded-2xl border border-white/50 bg-white/45 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm outline-none backdrop-blur-md transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/50"
+                                            placeholder="Nama lengkap"
+                                            required
+                                        />
+                                    </div>
                                     {/* Email */}
                                     <div>
                                         <label className="text-xs font-medium text-slate-700">
@@ -116,7 +126,6 @@ export default function Login({ onLogin }) {
                                             required
                                         />
                                     </div>
-
                                     {/* Password */}
                                     <div>
                                         <label className="text-xs font-medium text-slate-700">
@@ -128,29 +137,9 @@ export default function Login({ onLogin }) {
                                             onChange={(e) => setPassword(e.target.value)}
                                             className="mt-1 w-full rounded-2xl border border-white/50 bg-white/45 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm outline-none backdrop-blur-md transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/50"
                                             placeholder="••••••••"
-                                            autoComplete="current-password"
+                                            autoComplete="new-password"
                                             required
                                         />
-                                    </div>
-
-                                    {/* Remember & Forgot Password */}
-                                    <div className="flex items-center justify-between gap-3">
-                                        <label className="inline-flex items-center gap-2 text-xs text-slate-700">
-                                            <input
-                                                type="checkbox"
-                                                checked={remember}
-                                                onChange={(e) => setRemember(e.target.checked)}
-                                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            Remember me
-                                        </label>
-
-                                        <a
-                                            href="#"
-                                            className="text-xs font-medium text-indigo-700 hover:text-indigo-800"
-                                        >
-                                            Lupa password?
-                                        </a>
                                     </div>
 
                                     {/* Error message */}
@@ -166,20 +155,20 @@ export default function Login({ onLogin }) {
                                         disabled={processing}
                                         className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        {processing ? "Memproses..." : "Login"}
+                                        {processing ? "Memproses..." : "Register"}
                                         <span className="transition group-hover:translate-x-0.5">
                                             →
                                         </span>
                                     </button>
 
-                                    {/* Register hint */}
+                                    {/* Login hint */}
                                     <div className="rounded-2xl border border-white/40 bg-white/30 p-4 text-xs text-slate-600 text-center backdrop-blur-md">
-                                        Belum punya akun?{" "}
+                                        Sudah punya akun?{" "}
                                         <a
-                                            href="/register"
+                                            href="/login"
                                             className="font-semibold text-indigo-700 hover:text-indigo-800"
                                         >
-                                            Register
+                                            Login
                                         </a>
                                     </div>
                                 </form>

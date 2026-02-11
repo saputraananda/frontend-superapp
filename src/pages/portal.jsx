@@ -8,6 +8,7 @@ export default function Portal({ user, onLogout }) {
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
+    document.title = "Portal | Alora Group Indonesia";
     api("/apps").then((d) => setApps(d.apps || []));
   }, []);
 
