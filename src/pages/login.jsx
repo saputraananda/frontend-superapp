@@ -15,18 +15,23 @@ export default function Login({ onLogin }) {
         e.preventDefault();
         setErr("");
         setProcessing(true);
+
         try {
-            const { user } = await api("/auth/login", {
+            const data = await api("/auth/login", {
                 method: "POST",
                 body: JSON.stringify({ email, password }),
             });
-            setSuccess("Login berhasil! Mengarahkan ke portal...");
-            // Tunda redirect agar alert terlihat
-            setTimeout(() => {
-                onLogin(user);
-            }, 3000);
-        } catch (e) {
-            setErr(e.message);
+
+            // Simpan user ke localStorage
+            localStorage.setItem("user", JSON.stringify(data.user));
+
+            // Panggil callback onLogin
+            onLogin(data.user);
+
+            // Redirect ke portal
+            window.location.href = "/portal";
+        } catch (error) {
+            setErr(error.message || "Login failed");
         } finally {
             setProcessing(false);
         }

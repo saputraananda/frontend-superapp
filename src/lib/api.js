@@ -1,12 +1,19 @@
 const API = "http://localhost:3001";
 
 export async function api(path, options = {}) {
-  const res = await fetch(API + path, {
+  const res = await fetch(`http://localhost:3001${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    credentials: "include",
+    credentials: "include", // ← wajib agar cookie session terkirim
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Request failed");
-  return data;
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Network error" }));
+    throw new Error(err.message || "Request failed");
+  }
+
+  return res.json();
 }

@@ -1,27 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { api } from "./lib/api";
 import Login from "./pages/login";
 import Register from "./pages/Register";
 import Portal from "./pages/portal";
+import Profile from "./pages/profile";
 
 export default function App() {
-  // Inisialisasi user langsung dari localStorage
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Fungsi login
+  useEffect(() => {
+    // Cek session dari backend
+    api("/auth/me")
+      .then((d) => {
+        setUser(d.user);
+        localStorage.setItem("user", JSON.stringify(d.user));
+      })
+      .catch(() => {
+        setUser(null);
+        localStorage.removeItem("user");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
   const handleLogin = (userData) => {
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
   };
 
-  // Fungsi logout
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
     setUser(null);
     localStorage.removeItem("user");
+    window.location.href = "/login";
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100">
+        <p className="text-slate-600">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>
@@ -41,13 +66,20 @@ export default function App() {
         <Route
           path="/portal"
           element={
-            user ? <Portal user={user} onLogout={handleLogout} /> : <Navigate to="/login" />
+            user ? (
+              <Portal user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
           }
         />
         <Route
-          path="*"
-          element={<Navigate to={user ? "/portal" : "/login"} />}
+          path="/profile"
+          element={
+            user ? <Profile /> : <Navigate to="/login" />
+          }
         />
+        <Route path="*" element={<Navigate to={user ? "/portal" : "/login"} />} />
       </Routes>
     </BrowserRouter>
   );
