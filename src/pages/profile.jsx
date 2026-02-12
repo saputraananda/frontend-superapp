@@ -346,8 +346,11 @@ export default function Profile() {
                   name="full_name"
                   value={formData.full_name || ""}
                   onChange={handleChange}
-                  className={cn(baseInput, fieldErrors.full_name && "ring-4 ring-rose-200/60")}
-                  placeholder="Masukkan nama lengkap"
+                  className={cn(
+                    baseInput,
+                    fieldErrors.full_name && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )} placeholder="Masukkan nama lengkap"
                   required
                 />
               </Field>
@@ -357,8 +360,11 @@ export default function Profile() {
                   type="email"
                   name="email"
                   value={formData.email || ""}
-                  className="w-full rounded-2xl border border-white bg-white/50 px-4 py-2.5 text-sm text-slate-500 outline-none"
-                  disabled
+                  className={cn(
+                    baseInput,
+                    fieldErrors.email && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )} disabled
                 />
               </Field>
 
@@ -367,7 +373,11 @@ export default function Profile() {
                   name="gender"
                   value={formData.gender || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.gender && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   <option value="L">Laki-laki</option>
@@ -381,7 +391,11 @@ export default function Profile() {
                   name="birth_place"
                   value={formData.birth_place || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.birth_place && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                   placeholder="Contoh: Jakarta"
                 />
               </Field>
@@ -392,7 +406,11 @@ export default function Profile() {
                   name="birth_date"
                   value={formData.birth_date || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.full_name && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 />
               </Field>
 
@@ -402,7 +420,11 @@ export default function Profile() {
                   name="phone_number"
                   value={formData.phone_number || ""}
                   onChange={handleChange}
-                  className={cn(baseInput, fieldErrors.phone_number && "ring-4 ring-rose-200/60")}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.phone_number && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                   placeholder="Contoh: +62 812-3456-7890"
                 />
               </Field>
@@ -413,7 +435,12 @@ export default function Profile() {
                   value={formData.address || ""}
                   onChange={handleChange}
                   rows={3}
-                  className={cn(baseInput, "resize-none")}
+                  className={cn(
+                    baseInput,
+                    "resize-none",
+                    fieldErrors.address && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                   placeholder="Tulis alamat lengkap"
                 />
               </Field>
@@ -424,7 +451,11 @@ export default function Profile() {
                   name="ktp_number"
                   value={formData.ktp_number || ""}
                   onChange={handleChange}
-                  className={cn(baseInput, fieldErrors.ktp_number && "ring-4 ring-rose-200/60")}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.ktp_number && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                   placeholder="Contoh: 3276xxxxxxxxxxxx"
                 />
               </Field>
@@ -435,7 +466,11 @@ export default function Profile() {
                   name="family_card_number"
                   value={formData.family_card_number || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.family_card_number && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                   placeholder="Contoh: 3276xxxxxxxxxxxx"
                 />
               </Field>
@@ -445,7 +480,11 @@ export default function Profile() {
                   name="religion_id"
                   value={formData.religion_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.religion_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.religions?.map((r) => (
@@ -461,7 +500,11 @@ export default function Profile() {
                   name="marital_status"
                   value={formData.marital_status || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseInput,
+                    fieldErrors.marital_status && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   <option value="Single">Single</option>
@@ -487,7 +530,11 @@ export default function Profile() {
                   name="company_id"
                   value={formData.company_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.company_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.companies?.map((c) => (
@@ -503,7 +550,11 @@ export default function Profile() {
                   name="department_id"
                   value={formData.department_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.department_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.departments?.map((d) => (
@@ -519,7 +570,11 @@ export default function Profile() {
                   name="position_id"
                   value={formData.position_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.position_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.positions?.map((p) => (
@@ -530,12 +585,36 @@ export default function Profile() {
                 </select>
               </Field>
 
+              <Field label="Jabatan">
+                <select
+                  name="job_level_id"
+                  value={formData.job_level_id || ""}
+                  onChange={handleChange}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.job_level_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
+                >
+                  <option value="">Pilih</option>
+                  {masterData.jobLevels?.map((j) => (
+                    <option key={j.job_level_id} value={j.job_level_id}>
+                      {j.job_level_name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
               <Field label="Status Kepegawaian">
                 <select
                   name="employment_status_id"
                   value={formData.employment_status_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.employment_status_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.employmentStatuses?.map((e) => (
@@ -552,7 +631,11 @@ export default function Profile() {
                   name="join_date"
                   value={formData.join_date || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.join_date && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 />
               </Field>
 
@@ -562,7 +645,11 @@ export default function Profile() {
                   name="contract_end_date"
                   value={formData.contract_end_date || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.contract_end_date && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 />
               </Field>
 
@@ -571,7 +658,11 @@ export default function Profile() {
                   name="education_level_id"
                   value={formData.education_level_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.education_level_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.educationLevels?.map((e) => (
@@ -582,16 +673,22 @@ export default function Profile() {
                 </select>
               </Field>
 
-              <Field label="Nama Sekolah/Universitas">
-                <input
-                  type="text"
-                  name="school_name"
-                  value={formData.school_name || ""}
-                  onChange={handleChange}
-                  className={baseInput}
-                  placeholder="Contoh: Universitas Indonesia"
-                />
-              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Nama Sekolah/Universitas">
+                  <input
+                    type="text"
+                    name="school_name"
+                    value={formData.school_name || ""}
+                    onChange={handleChange}
+                    className={cn(
+                      baseSelect,
+                      fieldErrors.school_name && "ring-4 ring-rose-200/60",
+                      "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    )}
+                    placeholder="Contoh: Universitas Indonesia"
+                  />
+                </Field>
+              </div>
             </div>
           </Section>
 
@@ -609,7 +706,11 @@ export default function Profile() {
                   name="bank_id"
                   value={formData.bank_id || ""}
                   onChange={handleChange}
-                  className={baseSelect}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.bank_id && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 >
                   <option value="">Pilih</option>
                   {masterData.banks?.map((b) => (
@@ -626,7 +727,11 @@ export default function Profile() {
                   name="bank_account_number"
                   value={formData.bank_account_number || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.bank_account_number && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                   placeholder="Contoh: 1234567890"
                 />
               </Field>
@@ -637,7 +742,11 @@ export default function Profile() {
                   name="bpjs_health_number"
                   value={formData.bpjs_health_number || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.bpjs_health_number && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 />
               </Field>
 
@@ -647,7 +756,11 @@ export default function Profile() {
                   name="bpjs_employment_number"
                   value={formData.bpjs_employment_number || ""}
                   onChange={handleChange}
-                  className={baseInput}
+                  className={cn(
+                    baseSelect,
+                    fieldErrors.bpjs_employment_number && "ring-4 ring-rose-200/60",
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  )}
                 />
               </Field>
 
@@ -658,7 +771,11 @@ export default function Profile() {
                     name="npwp_number"
                     value={formData.npwp_number || ""}
                     onChange={handleChange}
-                    className={cn(baseInput, fieldErrors.npwp_number && "ring-4 ring-rose-200/60")}
+                    className={cn(
+                      baseSelect,
+                      fieldErrors.npwp_number && "ring-4 ring-rose-200/60",
+                      "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    )}
                     placeholder="Contoh: 12.345.678.9-012.345"
                   />
                 </Field>
@@ -681,7 +798,11 @@ export default function Profile() {
                 value={formData.emergency_contact || ""}
                 onChange={handleChange}
                 placeholder="Contoh: Bapak Deny (082198765432)"
-                className={baseInput}
+                className={cn(
+                  baseSelect,
+                  fieldErrors.emergency_contact && "ring-4 ring-rose-200/60",
+                  "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                )}
               />
             </Field>
           </Section>
@@ -699,8 +820,11 @@ export default function Profile() {
               value={formData.notes || ""}
               onChange={handleChange}
               rows={4}
-              className={cn(baseInput, "resize-none")}
-              placeholder="Tambahkan catatan tambahan..."
+              className={cn(
+                baseSelect,
+                fieldErrors.notes && "ring-4 ring-rose-200/60",
+                "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+              )} placeholder="Tambahkan catatan tambahan..."
             />
           </Section>
 

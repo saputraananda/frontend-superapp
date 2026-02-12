@@ -6,10 +6,23 @@ export default function Portal({ user, onLogout }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("populer");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [employeeData, setEmployeeData] = useState(null);
 
   useEffect(() => {
     document.title = "Portal | Alora Group Indonesia";
     api("/apps").then((d) => setApps(d.apps || []));
+
+    // Pisahkan pembacaan localStorage ke fungsi tersendiri
+    function loadEmployeeData() {
+      const storedUser = localStorage.getItem("user");
+      if (!storedUser) return;
+
+      const parsed = JSON.parse(storedUser);
+      const user = parsed.user ?? parsed;
+
+      setEmployeeData(user.employee ?? null);
+    }
+    loadEmployeeData();
   }, []);
 
   const filteredApps = useMemo(() => {
@@ -17,16 +30,26 @@ export default function Portal({ user, onLogout }) {
     return apps.filter((a) => a.name.toLowerCase().includes(q));
   }, [apps, searchQuery]);
 
-  const statusUI = (status) => {
-    if (status === "aktif") return "text-emerald-700 bg-emerald-100/70";
-    if (status === "segera") return "text-amber-700 bg-amber-100/70";
-    return "text-rose-700 bg-rose-100/70";
+  const statusUI = (is_active) => {
+    return is_active === 1
+      ? "text-emerald-700 bg-emerald-100/70"
+      : "text-rose-700 bg-rose-100/70";
   };
 
-  const statusText = (status) => {
-    if (status === "aktif") return "Aktif";
-    if (status === "segera") return "Segera";
-    return "Perbaikan";
+  const statusText = (is_active) => {
+    return is_active === 1 ? "Aktif" : "Perbaikan";
+  };
+
+  // Format jabatan dari job_level + position
+  const getJobTitle = () => {
+    if (!employeeData) return "Employee";
+
+    const jobLevel = employeeData.job_level_name?.trim() || "";
+    const position = employeeData.position_name?.trim() || "";
+
+    return jobLevel && position
+      ? `${jobLevel} ${position}`
+      : jobLevel || position || "Employee";
   };
 
   return (
@@ -51,7 +74,7 @@ export default function Portal({ user, onLogout }) {
               <p className="text-sm font-semibold text-slate-700">
                 Halo, {user?.name || "User"}
               </p>
-              <p className="text-xs text-slate-500">{user?.role || "Employee"}</p>
+              <p className="text-xs text-slate-500">{getJobTitle()}</p>
             </div>
 
             <div className="relative">
@@ -127,11 +150,10 @@ export default function Portal({ user, onLogout }) {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                  activeTab === tab.key
-                    ? "bg-purple-600 text-white shadow-md"
-                    : "bg-white/70 text-purple-700 hover:bg-white"
-                }`}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition ${activeTab === tab.key
+                  ? "bg-purple-600 text-white shadow-md"
+                  : "bg-white/70 text-purple-700 hover:bg-white"
+                  }`}
               >
                 {tab.label}
               </button>
@@ -159,10 +181,10 @@ export default function Portal({ user, onLogout }) {
               <div className="mt-4 flex items-center justify-between">
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-medium ${statusUI(
-                    app.status
+                    app.is_active
                   )}`}
                 >
-                  {statusText(app.status)}
+                  {statusText(app.is_active)}
                 </span>
 
                 <span className="text-sm text-purple-600 opacity-0 transition group-hover:opacity-100">
