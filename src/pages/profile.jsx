@@ -270,7 +270,7 @@ export default function Profile() {
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100 py-10">
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
-      <div className="mx-auto max-w-4xl px-6" ref={topRef}>
+      <div className="mx-auto max-w-7xl px-6" ref={topRef}>
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -349,7 +349,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.full_name && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )} placeholder="Masukkan nama lengkap"
                   required
                 />
@@ -363,7 +363,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.email && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )} disabled
                 />
               </Field>
@@ -376,7 +376,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.gender && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -394,7 +394,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.birth_place && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                   placeholder="Contoh: Jakarta"
                 />
@@ -409,7 +409,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.full_name && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 />
               </Field>
@@ -423,7 +423,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.phone_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                   placeholder="Contoh: +62 812-3456-7890"
                 />
@@ -439,7 +439,7 @@ export default function Profile() {
                     baseInput,
                     "resize-none",
                     fieldErrors.address && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                   placeholder="Tulis alamat lengkap"
                 />
@@ -454,7 +454,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.ktp_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                   placeholder="Contoh: 3276xxxxxxxxxxxx"
                 />
@@ -469,7 +469,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.family_card_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                   placeholder="Contoh: 3276xxxxxxxxxxxx"
                 />
@@ -483,7 +483,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.religion_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -503,7 +503,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.marital_status && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -533,7 +533,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.company_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -553,7 +553,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.department_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -573,7 +573,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.position_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -593,7 +593,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.job_level_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -613,7 +613,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.employment_status_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -634,7 +634,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.join_date && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 />
               </Field>
@@ -648,7 +648,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.contract_end_date && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 />
               </Field>
@@ -661,7 +661,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.education_level_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -683,7 +683,7 @@ export default function Profile() {
                     className={cn(
                       baseSelect,
                       fieldErrors.school_name && "ring-4 ring-rose-200/60",
-                      "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                      "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                     )}
                     placeholder="Contoh: Universitas Indonesia"
                   />
@@ -709,7 +709,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bank_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -730,7 +730,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bank_account_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                   placeholder="Contoh: 1234567890"
                 />
@@ -745,7 +745,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bpjs_health_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 />
               </Field>
@@ -759,7 +759,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bpjs_employment_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 />
               </Field>
@@ -774,7 +774,7 @@ export default function Profile() {
                     className={cn(
                       baseSelect,
                       fieldErrors.npwp_number && "ring-4 ring-rose-200/60",
-                      "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                      "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                     )}
                     placeholder="Contoh: 12.345.678.9-012.345"
                   />
@@ -801,7 +801,7 @@ export default function Profile() {
                 className={cn(
                   baseSelect,
                   fieldErrors.emergency_contact && "ring-4 ring-rose-200/60",
-                  "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                  "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                 )}
               />
             </Field>
@@ -823,7 +823,7 @@ export default function Profile() {
               className={cn(
                 baseSelect,
                 fieldErrors.notes && "ring-4 ring-rose-200/60",
-                "shadow-[0_2px_8px_rgba(80,80,120,0.10)]"
+                "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
               )} placeholder="Tambahkan catatan tambahan..."
             />
           </Section>

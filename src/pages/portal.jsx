@@ -58,7 +58,7 @@ export default function Portal({ user, onLogout }) {
       <header className="sticky top-0 z-20 border-b border-white/50 bg-white/40 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <img src="/logo_waschen.webp" alt="Waschen" className="h-10" />
+            <img src="/alora.png" alt="Alora Group Indonesia" className="h-20" />
             <div>
               <h1 className="text-lg font-bold text-slate-800">
                 Alora Group Indonesia
