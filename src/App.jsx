@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./lib/api";
 import Login from "./pages/auth/login";
-import Register from "./pages/auth/Register";
+import Register from "./pages/auth/register";
 import Portal from "./pages/portal";
 import Profile from "./pages/profile";
 
