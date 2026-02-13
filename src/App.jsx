@@ -87,6 +87,16 @@ export default function App() {
             user ? <Dashboard /> : <Navigate to="/login" />
           }
         />
+        <Route
+          path="/"
+          element={<Navigate to={user ? "/portal" : "/login"} />}
+        />
+
+        {/* fallback kalau path tidak dikenal */}
+        <Route
+          path="*"
+          element={<Navigate to={user ? "/portal" : "/login"} />}
+        />
       </Routes>
     </BrowserRouter>
   );
