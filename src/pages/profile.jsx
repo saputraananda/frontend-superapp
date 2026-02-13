@@ -449,6 +449,7 @@ export default function Profile() {
                 <input
                   type="text"
                   name="ktp_number"
+                  autoComplete="off"
                   value={formData.ktp_number || ""}
                   onChange={handleChange}
                   className={cn(
@@ -725,6 +726,7 @@ export default function Profile() {
                 <input
                   type="text"
                   name="bank_account_number"
+                  autoComplete="off"
                   value={formData.bank_account_number || ""}
                   onChange={handleChange}
                   className={cn(
@@ -740,6 +742,7 @@ export default function Profile() {
                 <input
                   type="text"
                   name="bpjs_health_number"
+                  autoComplete="off"
                   value={formData.bpjs_health_number || ""}
                   onChange={handleChange}
                   className={cn(
@@ -754,6 +757,7 @@ export default function Profile() {
                 <input
                   type="text"
                   name="bpjs_employment_number"
+                  autoComplete="off"
                   value={formData.bpjs_employment_number || ""}
                   onChange={handleChange}
                   className={cn(
@@ -769,6 +773,7 @@ export default function Profile() {
                   <input
                     type="text"
                     name="npwp_number"
+                    autoComplete="off"
                     value={formData.npwp_number || ""}
                     onChange={handleChange}
                     className={cn(

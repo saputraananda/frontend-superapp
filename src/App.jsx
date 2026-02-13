@@ -5,6 +5,8 @@ import Login from "./pages/auth/login";
 import Register from "./pages/auth/register";
 import Portal from "./pages/portal";
 import Profile from "./pages/profile";
+import Dashboard from "./pages/dashboard";
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -79,7 +81,12 @@ export default function App() {
             user ? <Profile /> : <Navigate to="/login" />
           }
         />
-        <Route path="*" element={<Navigate to={user ? "/portal" : "/login"} />} />
+        <Route
+          path="/dashboard"
+          element={
+            user ? <Dashboard /> : <Navigate to="/login" />
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
