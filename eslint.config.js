@@ -10,7 +10,7 @@ export default defineConfig([
   // ===== React Frontend (Browser) =====
   {
     files: ['**/*.{js,jsx}'],
-    ignores: ['server.js'], // Ignore server file here
+    ignores: ['server.js','start.js'], // Ignore server file here
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -32,7 +32,7 @@ export default defineConfig([
 
   // ===== Node Server (Express) =====
   {
-    files: ['server.js'],
+    files: ['server.js','start.js'],
     languageOptions: {
       globals: globals.node,
     },
