@@ -6,11 +6,8 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
-
-  // ===== React Frontend (Browser) =====
   {
     files: ['**/*.{js,jsx}'],
-    ignores: ['server.js','start.js'], // Ignore server file here
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -27,14 +24,6 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
-    },
-  },
-
-  // ===== Node Server (Express) =====
-  {
-    files: ['server.js','start.js'],
-    languageOptions: {
-      globals: globals.node,
     },
   },
 ])
