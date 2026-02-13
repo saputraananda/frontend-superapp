@@ -9,18 +9,18 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const distPath = path.join(__dirname, "dist");
 
-// Set MIME types
-express.static.mime.define({'application/javascript': ['js']});
-express.static.mime.define({'text/css': ['css']});
-
+// Serve static dengan MIME types yang benar
 app.use(express.static(distPath, {
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
+    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+    } else if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=UTF-8');
     }
   }
 }));
 
+// SPA fallback
 app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
