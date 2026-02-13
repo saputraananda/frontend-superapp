@@ -1,9 +1,9 @@
-const API = "http://localhost:3001";
+const API = import.meta.env.VITE_API_URL;
 
 export async function api(path, options = {}) {
-  const res = await fetch(`http://localhost:3001${path}`, {
+  const res = await fetch(`${API}${path}`, {
     ...options,
-    credentials: "include", // ← wajib agar cookie session terkirim
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
