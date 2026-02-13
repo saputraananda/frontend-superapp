@@ -96,7 +96,7 @@ export default function Portal({ user, onLogout }) {
                 </button>
 
                 {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/60 bg-white/90 backdrop-blur-xl shadow-xl">
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/60 bg-white/90 backdrop-blur-xl shadow-xl z-30">
                     <a
                       href="/profile"
                       className="block px-4 py-3 text-sm font-medium text-slate-700 hover:bg-purple-50 rounded-t-xl"
@@ -195,24 +195,6 @@ export default function Portal({ user, onLogout }) {
                   🚪 Logout
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Desktop Dropdown (outside mobile menu) */}
-          {showDropdown && (
-            <div className="hidden md:block absolute right-6 mt-2 w-48 rounded-xl border border-white/60 bg-white/90 backdrop-blur-xl shadow-xl">
-              <a
-                href="/profile"
-                className="block px-4 py-3 text-sm font-medium text-slate-700 hover:bg-purple-50 rounded-t-xl"
-              >
-                👤 Lihat Profil
-              </a>
-              <button
-                onClick={onLogout}
-                className="w-full px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50 rounded-b-xl"
-              >
-                🚪 Logout
-              </button>
             </div>
           )}
         </div>
