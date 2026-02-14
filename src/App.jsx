@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [appRoles, setAppRoles] = useState({});
 
   useEffect(() => {
     // Cek session dari backend
@@ -26,6 +27,22 @@ export default function App() {
         localStorage.removeItem("user");
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    // Fetch mapping path -> allowedRoles dari backend
+    api("/apps/authorization")
+      .then((data) => {
+        // data: [{ path: "/dashboard", authorization: "admin,manager,spv_bdsm" }, ...]
+        const mapping = {};
+        data.forEach((app) => {
+          mapping[app.path] = app.authorization
+            ? app.authorization.split(",").map((r) => r.trim())
+            : [];
+        });
+        setAppRoles(mapping);
+      })
+      .catch(() => setAppRoles({}));
   }, []);
 
   const handleLogin = (userData) => {
@@ -83,12 +100,12 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        
-        {/* Dashboard hanya untuk Admin & Manager */}
+
+        {/* Dinamis allowedRoles */}
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute user={user} allowedRoles={["admin", "manager","spv_bdsm"]}>
+            <ProtectedRoute user={user} allowedRoles={appRoles["/dashboard"]}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -97,7 +114,7 @@ export default function App() {
         <Route
           path="/projectmanagement"
           element={
-            <ProtectedRoute user={user} allowedRoles={["admin", "manager", "employee", "hr", "spv_bdsm"]}>
+            <ProtectedRoute user={user} allowedRoles={appRoles["/projectmanagement"]}>
               <ProjectManagement />
             </ProtectedRoute>
           }
@@ -106,7 +123,7 @@ export default function App() {
         <Route
           path="/employeesatisfaction"
           element={
-            <ProtectedRoute user={user} allowedRoles={["admin", "manager", "employee", "hr", "spv_bdsm"]}>
+            <ProtectedRoute user={user} allowedRoles={appRoles["/employeesatisfaction"]}>
               <EmployeeSatisfaction />
             </ProtectedRoute>
           }
