@@ -121,9 +121,9 @@ export default function Portal({ user, onLogout }) {
               <img src="/alora.png" alt="Alora Group Indonesia" className="h-12" />
               <div>
                 <h1 className="text-sm font-bold text-slate-800">
-                  Alora Group
+                  Alora Group Indonesia
                 </h1>
-                <p className="text-xs text-slate-500">Portal</p>
+                <p className="text-xs text-slate-500">Portal App Alora</p>
               </div>
             </div>
 

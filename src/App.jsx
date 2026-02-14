@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./lib/api";
-import Login from "./pages/auth/login";
-import Register from "./pages/auth/register";
-import Portal from "./pages/portal";
-import Profile from "./pages/profile";
-import Dashboard from "./pages/dashboard";
-
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import Portal from "./pages/Portal";
+import Profile from "./pages/Profile";
+import Dashboard from "./pages/Dashboard";
+import ProjectManagement from "./pages/ProjectManagement";
+import EmployeeSatisfaction from "./pages/EmployeeSatisfaction";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -68,31 +70,53 @@ export default function App() {
         <Route
           path="/portal"
           element={
-            user ? (
+            <ProtectedRoute user={user}>
               <Portal user={user} onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/profile"
           element={
-            user ? <Profile /> : <Navigate to="/login" />
+            <ProtectedRoute user={user}>
+              <Profile />
+            </ProtectedRoute>
           }
         />
+        
+        {/* Dashboard hanya untuk Admin & Manager */}
         <Route
           path="/dashboard"
           element={
-            user ? <Dashboard /> : <Navigate to="/login" />
+            <ProtectedRoute user={user} allowedRoles={["admin", "manager","spv_bdsm"]}>
+              <Dashboard />
+            </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/projectmanagement"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["admin", "manager", "employee", "hr", "spv_bdsm"]}>
+              <ProjectManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/employeesatisfaction"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["admin", "manager", "employee", "hr", "spv_bdsm"]}>
+              <EmployeeSatisfaction />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/"
           element={<Navigate to={user ? "/portal" : "/login"} />}
         />
 
-        {/* fallback kalau path tidak dikenal */}
         <Route
           path="*"
           element={<Navigate to={user ? "/portal" : "/login"} />}
