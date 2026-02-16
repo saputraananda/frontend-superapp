@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import AlertSuccess from "../components/AlertSuccess";
+import LoadingScreen from "../components/LoadingScreen";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -76,10 +77,6 @@ const baseInput =
   "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm transition " +
   "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 placeholder:text-slate-400 shadow-[0_2px_8px_rgba(80,80,120,0.20)]";
 
-const baseSelect =
-  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm transition " +
-  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 shadow-[0_2px_8px_rgba(80,80,120,0.20)]";
-
 // Likert scale questions for Section C
 const likertQuestions = [
   { key: "c1", text: "Aku merasa bersemangat saat memulai hari kerja." },
@@ -137,6 +134,11 @@ export default function EmployeeSatisfaction() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  
+  // Track individual loading states
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
+  const [apiDataLoaded, setApiDataLoaded] = useState(false);
+  const [formDataReady, setFormDataReady] = useState(false);
 
   const [open, setOpen] = useState({
     info: true,
@@ -146,9 +148,10 @@ export default function EmployeeSatisfaction() {
   });
 
   const [formData, setFormData] = useState({
-    company_id: "",
-    department_text: "",
-    job_level: "",
+    full_name: "",
+    company_name: "",
+    department_name: "",
+    job_level_name: "",
     tenure: "",
     overall_satisfaction: "",
     main_factors: [],
@@ -164,22 +167,82 @@ export default function EmployeeSatisfaction() {
 
   const topRef = useRef(null);
 
+  function getTenureLabel(joinDateStr) {
+    if (!joinDateStr) return "";
+    const joinDate = new Date(joinDateStr);
+    const now = new Date();
+    const diffMs = now - joinDate;
+    const diffMonth = diffMs / (1000 * 60 * 60 * 24 * 30.44);
+
+    if (diffMonth < 3) return "< 3 bulan";
+    if (diffMonth < 6) return "3 - 6 bulan";
+    if (diffMonth < 12) return "6 - 12 bulan";
+    return "> 1 tahun";
+  }
+
+  // Effect: Load semua data secara berurutan
   useEffect(() => {
     document.title = "Employee Satisfaction Survey | Alora Group Indonesia";
-    Promise.all([
-      api("/satisfaction/status"),
-      api("/satisfaction/master-data"),
-    ])
-      .then(([statusRes, masterRes]) => {
+
+    const loadAllData = async () => {
+      try {
+        // Step 1: Load user data dari localStorage
+        let userData = null;
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            userData = parsed;
+          } catch (err) {
+            console.error("Error parsing user data:", err);
+          }
+        }
+        setUserDataLoaded(true);
+
+        // Step 2: Load API data
+        const [statusRes, masterRes] = await Promise.all([
+          api("/satisfaction/status"),
+          api("/satisfaction/master-data"),
+        ]);
+
         setSurveyStatus(statusRes);
         setMasterData(masterRes);
-        setLoading(false);
-      })
-      .catch((err) => {
+        setApiDataLoaded(true);
+
+        // Step 3: Update formData dengan userData
+        if (userData && userData.employee) {
+          const employee = userData.employee;
+          setFormData(prev => ({
+            ...prev,
+            full_name: employee.full_name || "",
+            company_name: employee.company_name || "",
+            department_name: employee.department_name || "",
+            job_level_name: employee.job_level_name || "",
+            tenure: getTenureLabel(employee.join_date) || "",
+          }));
+        }
+        
+        setFormDataReady(true);
+      } catch (err) {
         setError(err.message);
-        setLoading(false);
-      });
+        setApiDataLoaded(true);
+        setFormDataReady(true);
+      }
+    };
+
+    loadAllData();
   }, []);
+
+  // Set loading false hanya ketika semua data ready
+  useEffect(() => {
+    if (userDataLoaded && apiDataLoaded && formDataReady) {
+      // Tambah sedikit delay untuk memastikan state sudah ter-render
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [userDataLoaded, apiDataLoaded, formDataReady]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -209,10 +272,11 @@ export default function EmployeeSatisfaction() {
     let filled = 0;
     let total = 0;
 
-    // Section A - Info (4 fields required)
-    total += 4;
-    if (formData.department_text) filled++;
-    if (formData.job_level) filled++;
+    // Section A - Info (5 fields required)
+    total += 5;
+    if (formData.full_name) filled++;
+    if (formData.department_name) filled++;
+    if (formData.job_level_name) filled++;
     if (formData.tenure) filled++;
     if (formData.overall_satisfaction) filled++;
 
@@ -221,6 +285,12 @@ export default function EmployeeSatisfaction() {
     likertQuestions.forEach((q) => {
       if (formData[q.key] !== null) filled++;
     });
+
+    // Section D - Pengalaman Kerja (3 questions)
+    total += 3;
+    if (formData.d1) filled++;
+    if (formData.d2) filled++;
+    if (formData.d3) filled++;
 
     const pct = Math.round((filled / total) * 100);
     return { filled, total, pct };
@@ -232,7 +302,7 @@ export default function EmployeeSatisfaction() {
     setError("");
 
     // Validation
-    if (!formData.department_text || !formData.job_level || !formData.tenure) {
+    if (!formData.full_name || !formData.department_name || !formData.job_level_name || !formData.tenure) {
       setError("Mohon lengkapi informasi umum terlebih dahulu.");
       setSubmitting(false);
       topRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -283,20 +353,7 @@ export default function EmployeeSatisfaction() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100 flex items-center justify-center px-6">
-        <div className="w-full max-w-lg rounded-3xl border border-white/60 bg-white/50 p-6 backdrop-blur-xl shadow-xl">
-          <div className="h-5 w-40 animate-pulse rounded bg-white/70" />
-          <div className="mt-2 h-3 w-64 animate-pulse rounded bg-white/60" />
-          <div className="mt-6 space-y-3">
-            <div className="h-11 w-full animate-pulse rounded-2xl bg-white/70" />
-            <div className="h-11 w-full animate-pulse rounded-2xl bg-white/70" />
-            <div className="h-24 w-full animate-pulse rounded-2xl bg-white/70" />
-          </div>
-          <p className="mt-4 text-xs text-slate-600">Memuat survei...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen type="form" />;
   }
 
   // Already submitted
@@ -311,14 +368,14 @@ export default function EmployeeSatisfaction() {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-slate-800 mb-3">
-              Terima Kasih!
+              Terima Kasih, {surveyStatus.submittedBy}!
             </h1>
             <p className="text-slate-600 mb-6">
               Anda sudah mengisi survei kepuasan karyawan untuk periode{" "}
               <span className="font-semibold text-purple-700">{surveyStatus.surveyKey}</span>.
             </p>
             <p className="text-sm text-slate-500 mb-8">
-              Masukan Anda sangat berarti bagi perkembangan perusahaan. 
+              Masukan Anda sangat berarti bagi perkembangan perusahaan.
               Survei berikutnya akan tersedia di periode selanjutnya.
             </p>
             <a
@@ -363,9 +420,8 @@ export default function EmployeeSatisfaction() {
               <strong>Head Office – PT. Waschen Alora Indonesia</strong>
             </p>
             <p className="text-xs text-purple-700 mt-1">
-              Survei ini bertujuan untuk meningkatkan kualitas lingkungan kerja dan sistem manajemen. 
-              Seluruh jawaban bersifat <strong>rahasia</strong>, tidak digunakan untuk penilaian individu, 
-              dan akan diolah secara agregat.
+              Survei ini bertujuan untuk meningkatkan kualitas lingkungan kerja dan sistem manajemen.
+              Data Anda akan digunakan untuk analisis dan audit. Mohon isi dengan jujur dan lengkap.
             </p>
           </div>
 
@@ -396,69 +452,108 @@ export default function EmployeeSatisfaction() {
           <Section
             id="info"
             title="A. Informasi Umum"
-            desc="Data demografis untuk analisis agregat."
+            desc="Data Anda terisi otomatis dan rahasia. Jika ada perubahan silahkan mengunjungi halaman profil."
             isOpen={open.info}
             onToggle={() => setOpen((p) => ({ ...p, info: !p.info }))}
           >
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nama Lengkap" required>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  readOnly
+                  disabled
+                  style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#6b7280',
+                    cursor: 'not-allowed',
+                    borderColor: '#d1d5db',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    opacity: 1
+                  }}
+                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
+                  placeholder="Nama Anda"
+                />
+              </Field>
+
+              <Field label="Perusahaan">
+                <input
+                  type="text"
+                  name="company_name"
+                  value={formData.company_name}
+                  readOnly
+                  disabled
+                  style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#6b7280',
+                    cursor: 'not-allowed',
+                    borderColor: '#d1d5db',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    opacity: 1
+                  }}
+                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
+                />
+              </Field>
+
               <Field label="Departemen / Unit Kerja" required>
                 <input
                   type="text"
-                  name="department_text"
-                  value={formData.department_text}
-                  onChange={handleChange}
-                  className={baseInput}
-                  placeholder="Contoh: Finance, IT, Marketing"
+                  name="department_name"
+                  value={formData.department_name}
+                  readOnly
+                  disabled
+                  style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#6b7280',
+                    cursor: 'not-allowed',
+                    borderColor: '#d1d5db',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    opacity: 1
+                  }}
+                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
                 />
               </Field>
 
               <Field label="Jabatan" required>
-                <select
-                  name="job_level"
-                  value={formData.job_level}
-                  onChange={handleChange}
-                  className={baseSelect}
-                >
-                  <option value="">Pilih jabatan</option>
-                  {masterData.jobLevels?.map((j) => (
-                    <option key={j.value} value={j.value}>
-                      {j.label}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  name="job_level_name"
+                  value={formData.job_level_name}
+                  readOnly
+                  disabled
+                  style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#6b7280',
+                    cursor: 'not-allowed',
+                    borderColor: '#d1d5db',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    opacity: 1
+                  }}
+                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
+                />
               </Field>
 
-              <Field label="Masa Kerja" required>
-                <select
-                  name="tenure"
-                  value={formData.tenure}
-                  onChange={handleChange}
-                  className={baseSelect}
-                >
-                  <option value="">Pilih masa kerja</option>
-                  {masterData.tenures?.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Perusahaan" hint="Opsional">
-                <select
-                  name="company_id"
-                  value={formData.company_id}
-                  onChange={handleChange}
-                  className={baseSelect}
-                >
-                  <option value="">Pilih perusahaan</option>
-                  {masterData.companies?.map((c) => (
-                    <option key={c.company_id} value={c.company_id}>
-                      {c.company_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Masa Kerja" required>
+                  <input
+                    type="text"
+                    name="tenure"
+                    value={formData.tenure}
+                    readOnly
+                    disabled
+                    style={{
+                      backgroundColor: '#e5e7eb',
+                      color: '#6b7280',
+                      cursor: 'not-allowed',
+                      borderColor: '#d1d5db',
+                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                      opacity: 1
+                    }}
+                    className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
+                  />
+                </Field>
+              </div>
             </div>
           </Section>
 
@@ -705,3 +800,4 @@ export default function EmployeeSatisfaction() {
     </div>
   );
 }
+

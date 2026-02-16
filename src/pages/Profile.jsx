@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import AlertSuccess from "../components/AlertSuccess";
+import { Link } from "react-router-dom";
+import LoadingScreen from "../components/LoadingScreen";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -87,36 +89,45 @@ function Field({
 }
 
 const baseInput =
-  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm transition " +
-  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 placeholder:text-slate-400";
+  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none transition " +
+  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 placeholder:text-slate-400 " +
+  "shadow-[0_2px_8px_rgba(80,80,120,0.25)]";
 
 const baseSelect =
-  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm transition " +
-  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70";
+  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none transition " +
+  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 " +
+  "shadow-[0_2px_8px_rgba(80,80,120,0.25)]";
 
 export default function Profile() {
   const [masterData, setMasterData] = useState({});
   const [formData, setFormData] = useState({});
   const [initialData, setInitialData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
   const [open, setOpen] = useState({
     personal: true,
-    employment: true,
-    financial: true,
-    emergency: true,
-    notes: true,
+    employment: false,
+    financial: false,
+    emergency: false,
+    notes: false,
   });
 
   const topRef = useRef(null);
 
   useEffect(() => {
     document.title = "Profil | Alora Group Indonesia";
-    Promise.all([api("/employees/profile"), api("/employees/master-data")])
-      .then(([profileRes, masterRes]) => {
+
+    const loadData = async () => {
+      try {
+        const [profileRes, masterRes] = await Promise.all([
+          api("/employees/profile"),
+          api("/employees/master-data")
+        ]);
+
         let employee = { ...(profileRes.employee || {}) };
 
         ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach(
@@ -128,12 +139,15 @@ export default function Profile() {
         setFormData(employee);
         setInitialData(employee);
         setMasterData(masterRes);
-        setLoading(false);
-      })
-      .catch((err) => {
+        setDataReady(true); // Set data ready setelah semua data terload
+      } catch (err) {
         setError(err.message);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    loadData();
   }, []);
 
   const dirty = useMemo(() => {
@@ -249,21 +263,8 @@ export default function Profile() {
     return { filled, total, pct };
   }, [formData, allFieldNames]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100 flex items-center justify-center px-6">
-        <div className="w-full max-w-lg rounded-3xl border border-white/60 bg-white/50 p-6 backdrop-blur-xl shadow-xl">
-          <div className="h-5 w-40 animate-pulse rounded bg-white/70" />
-          <div className="mt-2 h-3 w-64 animate-pulse rounded bg-white/60" />
-          <div className="mt-6 space-y-3">
-            <div className="h-11 w-full animate-pulse rounded-2xl bg-white/70" />
-            <div className="h-11 w-full animate-pulse rounded-2xl bg-white/70" />
-            <div className="h-24 w-full animate-pulse rounded-2xl bg-white/70" />
-          </div>
-          <p className="mt-4 text-xs text-slate-600">Loading profil...</p>
-        </div>
-      </div>
-    );
+  if (loading || !dataReady) {
+    return <LoadingScreen type="profile" />;
   }
 
   return (
@@ -349,13 +350,12 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.full_name && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )} placeholder="Masukkan nama lengkap"
                   required
                 />
               </Field>
 
-              <Field label="Email" required hint="Email tidak dapat diubah dari halaman ini.">
+              <Field label="Email" required>
                 <input
                   type="email"
                   name="email"
@@ -363,12 +363,19 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.email && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
-                  )} disabled
+                  )}
+                  style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#6b7280',
+                    cursor: 'not-allowed',
+                    borderColor: '#d1d5db',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    opacity: 1
+                  }} disabled
                 />
               </Field>
 
-              <Field label="Jenis Kelamin" hint="Pilih sesuai identitas pada dokumen.">
+              <Field label="Jenis Kelamin">
                 <select
                   name="gender"
                   value={formData.gender || ""}
@@ -376,7 +383,6 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.gender && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
                   )}
                 >
                   <option value="">Pilih</option>
@@ -394,7 +400,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.birth_place && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                   placeholder="Contoh: Jakarta"
                 />
@@ -409,12 +415,12 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.full_name && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 />
               </Field>
 
-              <Field label="No. Telepon" hint="Gunakan format angka, boleh +62." error={fieldErrors.phone_number}>
+              <Field label="No. Telepon" error={fieldErrors.phone_number}>
                 <input
                   type="text"
                   name="phone_number"
@@ -423,7 +429,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.phone_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                   placeholder="Contoh: +62 812-3456-7890"
                 />
@@ -434,18 +440,18 @@ export default function Profile() {
                   name="address"
                   value={formData.address || ""}
                   onChange={handleChange}
-                  rows={3}
+                  rows={1}
                   className={cn(
                     baseInput,
                     "resize-none",
                     fieldErrors.address && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                   placeholder="Tulis alamat lengkap"
                 />
               </Field>
 
-              <Field label="No. KTP" error={fieldErrors.ktp_number} hint="Opsional, isi jika diminta HR.">
+              <Field label="No. KTP" error={fieldErrors.ktp_number}>
                 <input
                   type="text"
                   name="ktp_number"
@@ -455,7 +461,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.ktp_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                   placeholder="Contoh: 3276xxxxxxxxxxxx"
                 />
@@ -470,7 +476,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.family_card_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                   placeholder="Contoh: 3276xxxxxxxxxxxx"
                 />
@@ -484,7 +490,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.religion_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -504,7 +510,7 @@ export default function Profile() {
                   className={cn(
                     baseInput,
                     fieldErrors.marital_status && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -524,6 +530,13 @@ export default function Profile() {
             desc="Data terkait posisi dan status kerja."
             isOpen={open.employment}
             onToggle={() => setOpen((p) => ({ ...p, employment: !p.employment }))}
+            right={
+              <span className="text-[11px] text-slate-600">
+                {["company_id", "department_id", "position_id", "job_level_id", "employment_status_id", "join_date", "contract_end_date", "education_level_id", "school_name"]
+                  .filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
+                /9
+              </span>
+            }
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Perusahaan">
@@ -534,7 +547,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.company_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -554,7 +567,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.department_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -574,7 +587,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.position_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -594,7 +607,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.job_level_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -614,7 +627,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.employment_status_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -635,7 +648,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.join_date && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 />
               </Field>
@@ -649,7 +662,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.contract_end_date && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 />
               </Field>
@@ -662,7 +675,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.education_level_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -684,7 +697,7 @@ export default function Profile() {
                     className={cn(
                       baseSelect,
                       fieldErrors.school_name && "ring-4 ring-rose-200/60",
-                      "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                     )}
                     placeholder="Contoh: Universitas Indonesia"
                   />
@@ -700,6 +713,13 @@ export default function Profile() {
             desc="Data rekening dan identitas pajak (jika diperlukan)."
             isOpen={open.financial}
             onToggle={() => setOpen((p) => ({ ...p, financial: !p.financial }))}
+            right={
+              <span className="text-[11px] text-slate-600">
+                {["bank_id", "bank_account_number", "bpjs_health_number", "bpjs_employment_number", "npwp_number"]
+                  .filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
+                /5
+              </span>
+            }
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Bank">
@@ -710,7 +730,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bank_id && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 >
                   <option value="">Pilih</option>
@@ -722,7 +742,7 @@ export default function Profile() {
                 </select>
               </Field>
 
-              <Field label="No. Rekening" hint="Pastikan sesuai buku tabungan.">
+              <Field label="No. Rekening">
                 <input
                   type="text"
                   name="bank_account_number"
@@ -732,7 +752,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bank_account_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                   placeholder="Contoh: 1234567890"
                 />
@@ -748,7 +768,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bpjs_health_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 />
               </Field>
@@ -763,7 +783,7 @@ export default function Profile() {
                   className={cn(
                     baseSelect,
                     fieldErrors.bpjs_employment_number && "ring-4 ring-rose-200/60",
-                    "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                   )}
                 />
               </Field>
@@ -779,7 +799,7 @@ export default function Profile() {
                     className={cn(
                       baseSelect,
                       fieldErrors.npwp_number && "ring-4 ring-rose-200/60",
-                      "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                     )}
                     placeholder="Contoh: 12.345.678.9-012.345"
                   />
@@ -795,8 +815,14 @@ export default function Profile() {
             desc="Orang yang bisa dihubungi jika terjadi keadaan darurat."
             isOpen={open.emergency}
             onToggle={() => setOpen((p) => ({ ...p, emergency: !p.emergency }))}
+            right={
+              <span className="text-[11px] text-slate-600">
+                {["emergency_contact"].filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
+                /1
+              </span>
+            }
           >
-            <Field label="Nama & No. Telepon" hint="Contoh: Bapak Deny (082198765432)">
+            <Field label="Nama & No. Telepon">
               <input
                 type="text"
                 name="emergency_contact"
@@ -806,7 +832,7 @@ export default function Profile() {
                 className={cn(
                   baseSelect,
                   fieldErrors.emergency_contact && "ring-4 ring-rose-200/60",
-                  "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
                 )}
               />
             </Field>
@@ -819,16 +845,22 @@ export default function Profile() {
             desc="Tambahkan informasi tambahan bila perlu."
             isOpen={open.notes}
             onToggle={() => setOpen((p) => ({ ...p, notes: !p.notes }))}
+            right={
+              <span className="text-[11px] text-slate-600">
+                {["notes"].filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
+                /1
+              </span>
+            }
           >
             <textarea
               name="notes"
               value={formData.notes || ""}
               onChange={handleChange}
-              rows={4}
+              rows={2}
               className={cn(
                 baseSelect,
                 fieldErrors.notes && "ring-4 ring-rose-200/60",
-                "shadow-[0_2px_8px_rgba(80,80,120,0.20)]"
+
               )} placeholder="Tambahkan catatan tambahan..."
             />
           </Section>
@@ -850,12 +882,12 @@ export default function Profile() {
                 </div>
 
                 <div className="flex justify-end gap-3">
-                  <a
-                    href="/portal"
+                  <Link
+                    to="/portal"
                     className="rounded-2xl bg-white/70 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-white transition"
                   >
                     Batal
-                  </a>
+                  </Link>
                   <button
                     type="submit"
                     disabled={saving}

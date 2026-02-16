@@ -1,6 +1,5 @@
 import { useEffect , useState } from "react";
 import { api } from "../../lib/api";
-import { Link } from "react-router-dom";
 import AlertSuccess from "../../components/AlertSuccess";
 
 export default function Login({ onLogin }) {
@@ -9,7 +8,7 @@ export default function Login({ onLogin }) {
     const [remember, setRemember] = useState(false);
     const [err, setErr] = useState("");
     const [processing, setProcessing] = useState(false);
-    const [success, setSuccess] = useState("");
+    const [success, setSuccess] = useState(""); // ← inisialisasi useNavigate
 
     useEffect(() => {
         document.title = "Login | Alora Group Indonesia";
@@ -26,14 +25,20 @@ export default function Login({ onLogin }) {
                 body: JSON.stringify({ email, password }),
             });
 
-            // Simpan user ke localStorage
-            localStorage.setItem("user", JSON.stringify(data.user));
+            // Simpan user ke localStorage dengan struktur yang konsisten
+            // Pastikan struktur: { user: {...}, employee: {...} }
+            const userToStore = {
+                ...data.user,
+                employee: data.user.employee || data.employee || null
+            };
+            
+            localStorage.setItem("user", JSON.stringify(userToStore));
 
             // Panggil callback onLogin
-            onLogin(data.user);
+            onLogin(userToStore);
 
-            // Redirect ke portal
-            window.location.href = "/portal";
+            // Redirect ke portal pakai href (bukan SPA)
+            window.location.href = "/portal"; // ← ganti window.location.href
         } catch (error) {
             setErr(error.message || "Login failed");
         } finally {

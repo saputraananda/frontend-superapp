@@ -9,31 +9,34 @@ import Dashboard from "./pages/Dashboard";
 import ProjectManagement from "./pages/ProjectManagement";
 import EmployeeSatisfaction from "./pages/EmployeeSatisfaction";
 import ProtectedRoute from "./components/ProtectedRoute";
+import LoadingScreen from "./components/LoadingScreen";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [appRoles, setAppRoles] = useState({});
+  const [authChecked, setAuthChecked] = useState(false);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   useEffect(() => {
     // Cek session dari backend
-    api("/auth/me")
-      .then((d) => {
+    const checkAuth = async () => {
+      try {
+        const d = await api("/auth/me");
         setUser(d.user);
         localStorage.setItem("user", JSON.stringify(d.user));
-      })
-      .catch(() => {
+      } catch {
         setUser(null);
         localStorage.removeItem("user");
-      })
-      .finally(() => setLoading(false));
-  }, []);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
 
-  useEffect(() => {
     // Fetch mapping path -> allowedRoles dari backend
-    api("/apps/authorization")
-      .then((data) => {
-        // data: [{ path: "/dashboard", authorization: "admin,manager,spv_bdsm" }, ...]
+    const loadRoles = async () => {
+      try {
+        const data = await api("/apps/authorization");
         const mapping = {};
         data.forEach((app) => {
           mapping[app.path] = app.authorization
@@ -41,9 +44,23 @@ export default function App() {
             : [];
         });
         setAppRoles(mapping);
-      })
-      .catch(() => setAppRoles({}));
+      } catch {
+        setAppRoles({});
+      } finally {
+        setRolesLoaded(true);
+      }
+    };
+
+    checkAuth();
+    loadRoles();
   }, []);
+
+  // Set loading false hanya ketika auth dan roles sudah dicek
+  useEffect(() => {
+    if (authChecked && rolesLoaded) {
+      setLoading(false);
+    }
+  }, [authChecked, rolesLoaded]);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -62,11 +79,7 @@ export default function App() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100">
-        <p className="text-slate-600">Loading...</p>
-      </div>
-    );
+    return <LoadingScreen type="full" />;
   }
 
   return (
@@ -112,7 +125,7 @@ export default function App() {
         />
 
         <Route
-          path="/projectmanagement"
+          path="/projectmanagement/*"
           element={
             <ProtectedRoute user={user} allowedRoles={appRoles["/projectmanagement"]}>
               <ProjectManagement />

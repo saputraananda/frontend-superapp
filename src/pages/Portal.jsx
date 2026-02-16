@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import LoadingScreen from "../components/LoadingScreen";
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -8,23 +9,53 @@ export default function Portal({ user, onLogout }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [employeeData, setEmployeeData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [appsLoaded, setAppsLoaded] = useState(false);
+  const [employeeLoaded, setEmployeeLoaded] = useState(false);
 
   useEffect(() => {
     document.title = "Portal | Alora Group Indonesia";
-    api("/apps").then((d) => setApps(d.apps || []));
 
-    // Pisahkan pembacaan localStorage ke fungsi tersendiri
-    function loadEmployeeData() {
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser) return;
+    // Load apps dari API
+    const loadApps = async () => {
+      try {
+        const d = await api("/apps");
+        setApps(d.apps || []);
+      } catch (err) {
+        console.error("Error loading apps:", err);
+        setApps([]);
+      } finally {
+        setAppsLoaded(true);
+      }
+    };
 
-      const parsed = JSON.parse(storedUser);
-      const user = parsed.user ?? parsed;
+    // Load employee data dari localStorage
+    const loadEmployeeData = () => {
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          const userData = parsed.user ?? parsed;
+          setEmployeeData(userData.employee ?? null);
+        }
+      } catch (err) {
+        console.error("Error parsing user data:", err);
+        setEmployeeData(null);
+      } finally {
+        setEmployeeLoaded(true);
+      }
+    };
 
-      setEmployeeData(user.employee ?? null);
-    }
+    loadApps();
     loadEmployeeData();
   }, []);
+
+  // Set loading false hanya ketika semua data sudah ready
+  useEffect(() => {
+    if (appsLoaded && employeeLoaded) {
+      setLoading(false);
+    }
+  }, [appsLoaded, employeeLoaded]);
 
   const filteredApps = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -52,6 +83,11 @@ export default function Portal({ user, onLogout }) {
       ? `${jobLevel} ${position}`
       : jobLevel || position || "Employee";
   };
+
+  // Tampilkan loading sampai semua data ready
+  if (loading) {
+    return <LoadingScreen type="portal" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100">
@@ -253,7 +289,7 @@ export default function Portal({ user, onLogout }) {
           {filteredApps.map((app) => (
             <a
               key={app.id}
-              href={app.href}
+              href={app.href}   // ⬅️ Ganti dari <Link> ke <a href>
               className="group rounded-3xl border border-white/60 bg-white/50 p-5 sm:p-6 backdrop-blur-xl shadow-lg transition hover:-translate-y-1 hover:shadow-2xl"
             >
               <div className="mb-4 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-md">
@@ -266,11 +302,7 @@ export default function Portal({ user, onLogout }) {
               <p className="mt-1 text-sm text-slate-600">{app.description}</p>
 
               <div className="mt-4 flex items-center justify-between">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${statusUI(
-                    app.is_active
-                  )}`}
-                >
+                <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusUI(app.is_active)}`}>
                   {statusText(app.is_active)}
                 </span>
 
