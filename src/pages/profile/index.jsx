@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../lib/api";
-import AlertSuccess from "../components/AlertSuccess";
+import { api } from "../../lib/api";
+import AlertSuccess from "../../components/AlertSuccess";
 import { Link } from "react-router-dom";
-import LoadingScreen from "../components/LoadingScreen";
+import LoadingScreen from "../../components/LoadingScreen";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");

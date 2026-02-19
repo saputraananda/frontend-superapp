@@ -3,11 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./lib/api";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import Portal from "./pages/Portal";
-import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
-import ProjectManagement from "./pages/ProjectManagement";
-import EmployeeSatisfaction from "./pages/EmployeeSatisfaction";
+import Portal from "./pages/portal";
+import Profile from "./pages/profile";
+import Dashboard from "./pages/dashboard";
+import ProjectManagement from "./pages/project-management";
+import EmployeeSatisfaction from "./pages/employee-satisfaction";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
 
@@ -98,7 +98,7 @@ export default function App() {
           }
         />
         <Route
-          path="/portal"
+          path="/portal/*"
           element={
             <ProtectedRoute user={user}>
               <Portal user={user} onLogout={handleLogout} />
@@ -106,7 +106,7 @@ export default function App() {
           }
         />
         <Route
-          path="/profile"
+          path="/profile/*"
           element={
             <ProtectedRoute user={user}>
               <Profile />
@@ -116,7 +116,7 @@ export default function App() {
 
         {/* Dinamis allowedRoles */}
         <Route
-          path="/dashboard"
+          path="/dashboard/*"
           element={
             <ProtectedRoute user={user} allowedRoles={appRoles["/dashboard"]}>
               <Dashboard />
@@ -134,7 +134,7 @@ export default function App() {
         />
 
         <Route
-          path="/employeesatisfaction"
+          path="/employeesatisfaction/*"
           element={
             <ProtectedRoute user={user} allowedRoles={appRoles["/employeesatisfaction"]}>
               <EmployeeSatisfaction />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../lib/api";
-import AlertSuccess from "../components/AlertSuccess";
-import LoadingScreen from "../components/LoadingScreen";
+import { api } from "../../lib/api";
+import AlertSuccess from "../../components/AlertSuccess";
+import LoadingScreen from "../../components/LoadingScreen";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -800,4 +800,3 @@ export default function EmployeeSatisfaction() {
     </div>
   );
 }
-
