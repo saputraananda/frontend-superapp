@@ -353,7 +353,7 @@ export default function EmployeeSatisfaction() {
   };
 
   if (loading) {
-    return <LoadingScreen type="form" />;
+    return <LoadingScreen />;
   }
 
   // Already submitted

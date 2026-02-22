@@ -79,7 +79,7 @@ export default function Portal({ user, onLogout }) {
   };
 
   if (loading) {
-    return <LoadingScreen type="portal" />;
+    return <LoadingScreen />;
   }
 
   return (

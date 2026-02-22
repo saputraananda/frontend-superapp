@@ -3,100 +3,106 @@ import { api } from "../../lib/api";
 import AlertSuccess from "../../components/AlertSuccess";
 import { Link } from "react-router-dom";
 import LoadingScreen from "../../components/LoadingScreen";
+import PhotoUpload from "./components/PhotoUpload";
+import {
+  HiOutlinePhoto,
+  HiOutlineUser,
+  HiOutlineBriefcase,
+  HiOutlineBanknotes,
+  HiOutlinePhone,
+  HiOutlineDocumentText,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight,
+  HiOutlineBars3,
+  HiOutlineXMark,
+  HiOutlineExclamationTriangle,
+  HiOutlineCheckCircle,
+  HiOutlineExclamationCircle,
+  HiOutlineArrowLeft,
+} from "react-icons/hi2";
+import { FiSave } from "react-icons/fi";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function Section({
-  title,
-  desc,
-  isOpen,
-  onToggle,
-  children,
-  right,
-  id,
-}) {
-  return (
-    <section
-      id={id}
-      className="mb-6 overflow-hidden rounded-3xl border border-white/60 bg-white/50 backdrop-blur-xl shadow-lg"
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-6 py-5 text-left hover:bg-white/40 transition"
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-semibold text-slate-800">
-              {title}
-            </h2>
-            {desc && <p className="mt-1 text-xs sm:text-sm text-slate-600">{desc}</p>}
-          </div>
-          <div className="flex items-center gap-3">
-            {right}
-            <span
-              className={cn(
-                "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/70 bg-white/60 text-slate-700 shadow-sm",
-                "transition",
-                isOpen ? "rotate-180" : "rotate-0"
-              )}
-              aria-hidden="true"
-            >
-              ▾
-            </span>
-          </div>
-        </div>
-      </button>
+const TABS = [
+  { id: "personal", label: "Data Pribadi", Icon: HiOutlineUser },
+  { id: "employment", label: "Data Pekerjaan", Icon: HiOutlineBriefcase },
+  { id: "financial", label: "Data Keuangan", Icon: HiOutlineBanknotes },
+  { id: "emergency", label: "Kontak Darurat", Icon: HiOutlinePhone },
+  { id: "photos", label: "Unggah Dokumen", Icon: HiOutlinePhoto },
+  { id: "notes", label: "Catatan", Icon: HiOutlineDocumentText },
+];
 
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
-          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="px-6 pb-6">{children}</div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  required,
-  hint,
-  error,
-  children,
-  rightSlot,
-}) {
+function Field({ label, required, hint, error, children, colSpan }) {
   return (
-    <div>
-      <div className="flex items-start justify-between gap-2">
-        <label className="text-xs font-medium text-slate-700">
-          {label} {required ? <span className="text-rose-500">*</span> : null}
-        </label>
-        {rightSlot}
-      </div>
-      <div className="mt-1">{children}</div>
-      {hint && !error && <p className="mt-1 text-[11px] text-slate-500">{hint}</p>}
-      {error && <p className="mt-1 text-[11px] text-rose-600">{error}</p>}
+    <div className={cn(colSpan === 2 && "sm:col-span-2")}>
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+        {label}{required && <span className="ml-1 text-rose-500">*</span>}
+      </label>
+      {children}
+      {hint && !error && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
+      {error && (
+        <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1">
+          <HiOutlineExclamationCircle className="w-3 h-3 shrink-0" />
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-const baseInput =
-  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none transition " +
-  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 placeholder:text-slate-400 " +
-  "shadow-[0_2px_8px_rgba(80,80,120,0.25)]";
+const inputCls = (err) => cn(
+  "w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-slate-800",
+  "outline-none transition-all duration-150 placeholder:text-slate-300",
+  "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400",
+  err ? "border-rose-300 ring-2 ring-rose-200/50" : "border-slate-200 hover:border-slate-300"
+);
 
-const baseSelect =
-  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none transition " +
-  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 " +
-  "shadow-[0_2px_8px_rgba(80,80,120,0.25)]";
+const selectCls = (err) => cn(
+  "w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-slate-800",
+  "outline-none transition-all duration-150 cursor-pointer",
+  "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400",
+  err ? "border-rose-300 ring-2 ring-rose-200/50" : "border-slate-200 hover:border-slate-300"
+);
+
+function Panel({ title, children }) {
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="h-px flex-1 bg-slate-100" />
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{title}</h3>
+        <div className="h-px flex-1 bg-slate-100" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ProgressBar({ pct }) {
+  const color = pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : "bg-amber-500";
+  return (
+    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+      <div className={cn("h-full rounded-full transition-all duration-500", color)} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function Badge({ filled }) {
+  if (filled) return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+      <HiOutlineCheckCircle className="w-3 h-3" />
+      Lengkap
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+      <HiOutlineExclamationCircle className="w-3 h-3" />
+      Belum diisi
+    </span>
+  );
+}
 
 export default function Profile() {
   const [masterData, setMasterData] = useState({});
@@ -107,78 +113,62 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [activeTab, setActiveTab] = useState("personal");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [open, setOpen] = useState({
-    personal: true,
-    employment: false,
-    financial: false,
-    emergency: false,
-    notes: false,
-  });
-
+  const [profilePhoto, setProfilePhoto] = useState({ path: null, name: null });
+  const [ktpPhoto, setKtpPhoto] = useState({ path: null, name: null });
   const topRef = useRef(null);
 
   useEffect(() => {
-    document.title = "Profil | Alora Group Indonesia";
-
+    document.title = "Profil Karyawan | Alora Group Indonesia";
     const loadData = async () => {
       try {
         const [profileRes, masterRes] = await Promise.all([
           api("/employees/profile"),
-          api("/employees/master-data")
+          api("/employees/master-data"),
         ]);
-
         let employee = { ...(profileRes.employee || {}) };
-
-        ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach(
-          (field) => {
-            if (employee[field]) employee[field] = employee[field].split("T")[0];
-          }
-        );
-
+        ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach((f) => {
+          if (employee[f]) employee[f] = employee[f].split("T")[0];
+        });
+        setProfilePhoto({ path: employee.profile_path || null, name: employee.profile_name || null });
+        setKtpPhoto({ path: employee.ktp_path || null, name: employee.ktp_name || null });
         setFormData(employee);
         setInitialData(employee);
         setMasterData(masterRes);
-        setDataReady(true); // Set data ready setelah semua data terload
+        setDataReady(true);
       } catch (err) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     loadData();
   }, []);
 
   const dirty = useMemo(() => {
-    try {
-      return JSON.stringify(formData) !== JSON.stringify(initialData);
-    } catch {
-      return false;
-    }
+    try { return JSON.stringify(formData) !== JSON.stringify(initialData); } catch { return false; }
   }, [formData, initialData]);
 
   useEffect(() => {
-    const handler = (e) => {
-      if (!dirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
+    const h = (e) => { if (!dirty) return; e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((p) => ({ ...p, [name]: value }));
+    if (fieldErrors[name]) setFieldErrors((p) => ({ ...p, [name]: "" }));
   };
 
   const validate = () => {
     const errs = {};
     if (!formData.full_name?.trim()) errs.full_name = "Nama lengkap wajib diisi.";
-    // email disabled; tidak divalidasi
     if (formData.phone_number && !/^[0-9+()\-\s]{6,}$/.test(formData.phone_number))
-      errs.phone_number = "Format nomor telepon terlihat tidak valid.";
+      errs.phone_number = "Format nomor telepon tidak valid.";
     if (formData.ktp_number && formData.ktp_number.length < 10)
       errs.ktp_number = "No. KTP terlalu pendek.";
     if (formData.npwp_number && formData.npwp_number.length < 10)
@@ -186,737 +176,582 @@ export default function Profile() {
     return errs;
   };
 
-  const [fieldErrors, setFieldErrors] = useState({});
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     setFieldErrors({});
-
     const errs = validate();
     if (Object.keys(errs).length) {
       setFieldErrors(errs);
-      setError("Masih ada field yang perlu diperbaiki.");
+      setError("Masih ada field yang kosong / tidak valid.");
       setSaving(false);
-      setTimeout(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-
     try {
-      await api("/employees/profile", {
-        method: "PUT",
-        body: JSON.stringify(formData),
-      });
-      setSuccess("Profil berhasil diperbarui!");
+      await api("/employees/profile", { method: "PUT", body: JSON.stringify(formData) });
+      setSuccess("Profil berhasil diperbarui.");
       setInitialData(formData);
-
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(err.message);
-      setTimeout(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } finally {
       setSaving(false);
     }
   };
 
-  const allFieldNames = useMemo(
-    () => [
-      "full_name",
-      "email",
-      "gender",
-      "birth_place",
-      "birth_date",
-      "phone_number",
-      "address",
-      "ktp_number",
-      "family_card_number",
-      "religion_id",
-      "marital_status",
-      "company_id",
-      "department_id",
-      "position_id",
-      "employment_status_id",
-      "join_date",
-      "contract_end_date",
-      "education_level_id",
-      "school_name",
-      "bank_id",
-      "bank_account_number",
-      "bpjs_health_number",
-      "bpjs_employment_number",
-      "npwp_number",
-      "emergency_contact",
-      "notes",
-    ],
-    []
-  );
+  const ALL_FIELDS = useMemo(() => [
+    "full_name", "email", "gender", "birth_place", "birth_date", "phone_number",
+    "address", "ktp_number", "family_card_number", "religion_id", "marital_status",
+    "company_id", "department_id", "position_id", "employment_status_id", "join_date",
+    "contract_end_date", "education_level_id", "school_name", "bank_id",
+    "bank_account_number", "bpjs_health_number", "bpjs_employment_number",
+    "npwp_number", "emergency_contact", "notes", "profile_path", "ktp_path",
+  ], []);
 
   const completion = useMemo(() => {
-    const filled = allFieldNames.reduce((acc, k) => {
-      const v = formData?.[k];
-      if (v !== undefined && v !== null && String(v).trim() !== "") return acc + 1;
-      return acc;
-    }, 0);
-    const total = allFieldNames.length;
-    const pct = Math.round((filled / total) * 100);
-    return { filled, total, pct };
-  }, [formData, allFieldNames]);
+    const combined = { ...formData, profile_path: profilePhoto.path, ktp_path: ktpPhoto.path };
+    const filled = ALL_FIELDS.filter((k) => String(combined[k] ?? "").trim() !== "").length;
+    return { filled, total: ALL_FIELDS.length, pct: Math.round((filled / ALL_FIELDS.length) * 100) };
+  }, [formData, ALL_FIELDS, profilePhoto, ktpPhoto]);
 
-  if (loading || !dataReady) {
-    return <LoadingScreen type="profile" />;
-  }
+  const tabCompletion = useMemo(() => {
+    const combined = { ...formData, profile_path: profilePhoto.path, ktp_path: ktpPhoto.path };
+    const check = (keys) => keys.every((k) => String(combined[k] ?? "").trim() !== "");
+    return {
+      photos: check(["profile_path", "ktp_path"]),
+      personal: check(["full_name", "gender", "birth_date", "phone_number", "address", "ktp_number"]),
+      employment: check(["company_id", "department_id", "position_id", "join_date"]),
+      financial: check(["bank_id", "bank_account_number"]),
+      emergency: check(["emergency_contact"]),
+      notes: check(["notes"]),
+    };
+  }, [formData, profilePhoto, ktpPhoto]);
+
+  const handleTabChange = (id) => {
+    setActiveTab(id);
+    setSidebarOpen(false);
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  if (loading || !dataReady) return <LoadingScreen />;
+
+  const activeTabObj = TABS.find((t) => t.id === activeTab);
+  const activeTabIdx = TABS.findIndex((t) => t.id === activeTab);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100 py-10">
+    <div className="min-h-screen bg-[#f4f6f9]" ref={topRef}>
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
-      <div className="mx-auto max-w-7xl px-6" ref={topRef}>
-        {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">Profil Saya</h1>
-            <p className="text-sm text-slate-600">
-              Kelola informasi profil Anda •{" "}
-              <span className="font-medium text-slate-700">
-                {completion.filled}/{completion.total}
-              </span>{" "}
-              terisi
-            </p>
+      {/* ── TOP BANNER ── */}
+      <div className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
-            {/* Progress */}
-            <div className="mt-3 w-full max-w-sm">
-              <div className="flex items-center justify-between text-[11px] text-slate-600">
-                <span>Kelengkapan profil</span>
-                <span className="font-medium text-slate-700">{completion.pct}%</span>
-              </div>
-              <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/60">
-                <div
-                  className="h-full rounded-full bg-purple-500 transition-all"
-                  style={{ width: `${completion.pct}%` }}
-                />
+            <div className="flex items-center gap-3">
+              {/* Hamburger mobile */}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden flex items-center justify-center h-9 w-9 rounded-lg bg-slate-100 hover:bg-slate-200 transition border border-slate-200 shrink-0"
+              >
+                <HiOutlineBars3 className="h-5 w-5 text-slate-600" />
+              </button>
+
+              <a href="/portal" className="flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition shrink-0">
+                <HiOutlineArrowLeft className="w-4 h-4" />
+              </a>
+
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-0.5">
+                  <a href="/portal" className="hover:text-blue-600 transition">Portal</a>
+                  <span>/</span>
+                  <span className="text-slate-600 font-medium">Profil Karyawan</span>
+                </div>
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
+                  Data Karyawan
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {formData.full_name || "—"}
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  <span className="text-slate-400">{formData.email}</span>
+                </p>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            {dirty && (
-              <span className="rounded-full border border-amber-200 bg-amber-50/70 px-3 py-1 text-[11px] font-medium text-amber-700">
-                Perubahan belum disimpan
-              </span>
-            )}
-            <a
-              href="/portal"
-              className="rounded-2xl bg-white/60 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur hover:bg-white/80 transition"
-            >
-              ← Kembali
-            </a>
+            {/* Completion */}
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="min-w-[160px] sm:min-w-[200px]">
+                <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                  <span>Kelengkapan Profil</span>
+                  <span className={cn(
+                    "font-bold text-sm",
+                    completion.pct >= 80 ? "text-emerald-600" :
+                      completion.pct >= 50 ? "text-blue-600" : "text-amber-600"
+                  )}>{completion.pct}%</span>
+                </div>
+                <ProgressBar pct={completion.pct} />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {completion.filled} dari {completion.total} field terisi
+                </p>
+              </div>
+
+              {dirty && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Belum disimpan
+                </span>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="relative rounded-3xl border border-white/60 bg-white/40 p-4 sm:p-6 backdrop-blur-xl shadow-xl"
-        >
+      {/* ── MAIN LAYOUT ── */}
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-5">
+        <form onSubmit={handleSubmit}>
+
           {error && (
-            <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50/70 p-3 text-sm text-rose-700">
-              {error}
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <HiOutlineExclamationTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+              <span className="flex-1">{error}</span>
+              <button type="button" onClick={() => setError("")} className="text-rose-400 hover:text-rose-600 transition">
+                <HiOutlineXMark className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          {/* Personal Info */}
-          <Section
-            id="personal"
-            title="Informasi Pribadi"
-            desc="Data identitas dan kontak Anda."
-            isOpen={open.personal}
-            onToggle={() => setOpen((p) => ({ ...p, personal: !p.personal }))}
-            right={
-              <span className="text-[11px] text-slate-600">
-                {["full_name", "gender", "birth_place", "birth_date", "phone_number", "address", "ktp_number", "family_card_number", "religion_id", "marital_status"]
-                  .filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
-                /10
-              </span>
-            }
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nama Lengkap" required error={fieldErrors.full_name}>
-                <input
-                  type="text"
-                  name="full_name"
-                  value={formData.full_name || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.full_name && "ring-4 ring-rose-200/60",
-                  )} placeholder="Masukkan nama lengkap"
-                  required
-                />
-              </Field>
-
-              <Field label="Email" required>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email || ""}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.email && "ring-4 ring-rose-200/60",
-                  )}
-                  style={{
-                    backgroundColor: '#e5e7eb',
-                    color: '#6b7280',
-                    cursor: 'not-allowed',
-                    borderColor: '#d1d5db',
-                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                    opacity: 1
-                  }} disabled
-                />
-              </Field>
-
-              <Field label="Jenis Kelamin">
-                <select
-                  name="gender"
-                  value={formData.gender || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.gender && "ring-4 ring-rose-200/60",
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  <option value="L">Laki-laki</option>
-                  <option value="P">Perempuan</option>
-                </select>
-              </Field>
-
-              <Field label="Tempat Lahir">
-                <input
-                  type="text"
-                  name="birth_place"
-                  value={formData.birth_place || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.birth_place && "ring-4 ring-rose-200/60",
-
-                  )}
-                  placeholder="Contoh: Jakarta"
-                />
-              </Field>
-
-              <Field label="Tanggal Lahir">
-                <input
-                  type="date"
-                  name="birth_date"
-                  value={formData.birth_date || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.full_name && "ring-4 ring-rose-200/60",
-
-                  )}
-                />
-              </Field>
-
-              <Field label="No. Telepon" error={fieldErrors.phone_number}>
-                <input
-                  type="text"
-                  name="phone_number"
-                  value={formData.phone_number || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.phone_number && "ring-4 ring-rose-200/60",
-
-                  )}
-                  placeholder="Contoh: +62 812-3456-7890"
-                />
-              </Field>
-
-              <Field label="Alamat">
-                <textarea
-                  name="address"
-                  value={formData.address || ""}
-                  onChange={handleChange}
-                  rows={1}
-                  className={cn(
-                    baseInput,
-                    "resize-none",
-                    fieldErrors.address && "ring-4 ring-rose-200/60",
-
-                  )}
-                  placeholder="Tulis alamat lengkap"
-                />
-              </Field>
-
-              <Field label="No. KTP" error={fieldErrors.ktp_number}>
-                <input
-                  type="text"
-                  name="ktp_number"
-                  autoComplete="off"
-                  value={formData.ktp_number || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.ktp_number && "ring-4 ring-rose-200/60",
-
-                  )}
-                  placeholder="Contoh: 3276xxxxxxxxxxxx"
-                />
-              </Field>
-
-              <Field label="No. KK">
-                <input
-                  type="text"
-                  name="family_card_number"
-                  value={formData.family_card_number || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.family_card_number && "ring-4 ring-rose-200/60",
-
-                  )}
-                  placeholder="Contoh: 3276xxxxxxxxxxxx"
-                />
-              </Field>
-
-              <Field label="Agama">
-                <select
-                  name="religion_id"
-                  value={formData.religion_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.religion_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.religions?.map((r) => (
-                    <option key={r.religion_id} value={r.religion_id}>
-                      {r.religion_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Status Pernikahan">
-                <select
-                  name="marital_status"
-                  value={formData.marital_status || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseInput,
-                    fieldErrors.marital_status && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Divorced">Divorced</option>
-                  <option value="Widowed">Widowed</option>
-                </select>
-              </Field>
+          {/* Dirty warning mobile */}
+          {dirty && (
+            <div className="sm:hidden mb-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              Ada perubahan yang belum disimpan
             </div>
-          </Section>
+          )}
 
-          {/* Employment Info */}
-          <Section
-            id="employment"
-            title="Informasi Pekerjaan"
-            desc="Data terkait posisi dan status kerja."
-            isOpen={open.employment}
-            onToggle={() => setOpen((p) => ({ ...p, employment: !p.employment }))}
-            right={
-              <span className="text-[11px] text-slate-600">
-                {["company_id", "department_id", "position_id", "job_level_id", "employment_status_id", "join_date", "contract_end_date", "education_level_id", "school_name"]
-                  .filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
-                /9
-              </span>
-            }
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Perusahaan">
-                <select
-                  name="company_id"
-                  value={formData.company_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.company_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.companies?.map((c) => (
-                    <option key={c.company_id} value={c.company_id}>
-                      {c.company_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Department">
-                <select
-                  name="department_id"
-                  value={formData.department_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.department_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.departments?.map((d) => (
-                    <option key={d.department_id} value={d.department_id}>
-                      {d.department_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Posisi">
-                <select
-                  name="position_id"
-                  value={formData.position_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.position_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.positions?.map((p) => (
-                    <option key={p.position_id} value={p.position_id}>
-                      {p.position_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Jabatan">
-                <select
-                  name="job_level_id"
-                  value={formData.job_level_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.job_level_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.jobLevels?.map((j) => (
-                    <option key={j.job_level_id} value={j.job_level_id}>
-                      {j.job_level_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Status Kepegawaian">
-                <select
-                  name="employment_status_id"
-                  value={formData.employment_status_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.employment_status_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.employmentStatuses?.map((e) => (
-                    <option key={e.employment_status_id} value={e.employment_status_id}>
-                      {e.employment_status_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Tanggal Bergabung">
-                <input
-                  type="date"
-                  name="join_date"
-                  value={formData.join_date || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.join_date && "ring-4 ring-rose-200/60",
-
-                  )}
-                />
-              </Field>
-
-              <Field label="Tanggal Akhir Kontrak" hint="Isi jika Anda kontrak.">
-                <input
-                  type="date"
-                  name="contract_end_date"
-                  value={formData.contract_end_date || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.contract_end_date && "ring-4 ring-rose-200/60",
-
-                  )}
-                />
-              </Field>
-
-              <Field label="Pendidikan Terakhir">
-                <select
-                  name="education_level_id"
-                  value={formData.education_level_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.education_level_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.educationLevels?.map((e) => (
-                    <option key={e.education_level_id} value={e.education_level_id}>
-                      {e.education_level_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <div className="sm:col-span-2">
-                <Field label="Nama Sekolah/Universitas">
-                  <input
-                    type="text"
-                    name="school_name"
-                    value={formData.school_name || ""}
-                    onChange={handleChange}
-                    className={cn(
-                      baseSelect,
-                      fieldErrors.school_name && "ring-4 ring-rose-200/60",
-
-                    )}
-                    placeholder="Contoh: Universitas Indonesia"
-                  />
-                </Field>
-              </div>
-            </div>
-          </Section>
-
-          {/* Financial Info */}
-          <Section
-            id="financial"
-            title="Informasi Keuangan"
-            desc="Data rekening dan identitas pajak (jika diperlukan)."
-            isOpen={open.financial}
-            onToggle={() => setOpen((p) => ({ ...p, financial: !p.financial }))}
-            right={
-              <span className="text-[11px] text-slate-600">
-                {["bank_id", "bank_account_number", "bpjs_health_number", "bpjs_employment_number", "npwp_number"]
-                  .filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
-                /5
-              </span>
-            }
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Bank">
-                <select
-                  name="bank_id"
-                  value={formData.bank_id || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.bank_id && "ring-4 ring-rose-200/60",
-
-                  )}
-                >
-                  <option value="">Pilih</option>
-                  {masterData.banks?.map((b) => (
-                    <option key={b.bank_id} value={b.bank_id}>
-                      {b.bank_name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="No. Rekening">
-                <input
-                  type="text"
-                  name="bank_account_number"
-                  autoComplete="off"
-                  value={formData.bank_account_number || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.bank_account_number && "ring-4 ring-rose-200/60",
-
-                  )}
-                  placeholder="Contoh: 1234567890"
-                />
-              </Field>
-
-              <Field label="No. BPJS Kesehatan">
-                <input
-                  type="text"
-                  name="bpjs_health_number"
-                  autoComplete="off"
-                  value={formData.bpjs_health_number || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.bpjs_health_number && "ring-4 ring-rose-200/60",
-
-                  )}
-                />
-              </Field>
-
-              <Field label="No. BPJS Ketenagakerjaan">
-                <input
-                  type="text"
-                  name="bpjs_employment_number"
-                  autoComplete="off"
-                  value={formData.bpjs_employment_number || ""}
-                  onChange={handleChange}
-                  className={cn(
-                    baseSelect,
-                    fieldErrors.bpjs_employment_number && "ring-4 ring-rose-200/60",
-
-                  )}
-                />
-              </Field>
-
-              <div className="sm:col-span-2">
-                <Field label="No. NPWP" error={fieldErrors.npwp_number}>
-                  <input
-                    type="text"
-                    name="npwp_number"
-                    autoComplete="off"
-                    value={formData.npwp_number || ""}
-                    onChange={handleChange}
-                    className={cn(
-                      baseSelect,
-                      fieldErrors.npwp_number && "ring-4 ring-rose-200/60",
-
-                    )}
-                    placeholder="Contoh: 12.345.678.9-012.345"
-                  />
-                </Field>
-              </div>
-            </div>
-          </Section>
-
-          {/* Emergency Contact */}
-          <Section
-            id="emergency"
-            title="Kontak Darurat"
-            desc="Orang yang bisa dihubungi jika terjadi keadaan darurat."
-            isOpen={open.emergency}
-            onToggle={() => setOpen((p) => ({ ...p, emergency: !p.emergency }))}
-            right={
-              <span className="text-[11px] text-slate-600">
-                {["emergency_contact"].filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
-                /1
-              </span>
-            }
-          >
-            <Field label="Nama & No. Telepon">
-              <input
-                type="text"
-                name="emergency_contact"
-                value={formData.emergency_contact || ""}
-                onChange={handleChange}
-                placeholder="Contoh: Bapak Deny (082198765432)"
-                className={cn(
-                  baseSelect,
-                  fieldErrors.emergency_contact && "ring-4 ring-rose-200/60",
-
-                )}
-              />
-            </Field>
-          </Section>
-
-          {/* Notes */}
-          <Section
-            id="notes"
-            title="Catatan"
-            desc="Tambahkan informasi tambahan bila perlu."
-            isOpen={open.notes}
-            onToggle={() => setOpen((p) => ({ ...p, notes: !p.notes }))}
-            right={
-              <span className="text-[11px] text-slate-600">
-                {["notes"].filter((k) => String(formData?.[k] ?? "").trim() !== "").length}
-                /1
-              </span>
-            }
-          >
-            <textarea
-              name="notes"
-              value={formData.notes || ""}
-              onChange={handleChange}
-              rows={2}
-              className={cn(
-                baseSelect,
-                fieldErrors.notes && "ring-4 ring-rose-200/60",
-
-              )} placeholder="Tambahkan catatan tambahan..."
-            />
-          </Section>
-
-          {/* Sticky action bar */}
-          <div className="sticky bottom-4 mt-6">
-            <div className="rounded-3xl border border-white/60 bg-white/70 p-3 backdrop-blur-xl shadow-xl">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center justify-between sm:justify-start gap-3">
-                  <span className="text-xs text-slate-600">
-                    Status:{" "}
-                    <span className={cn("font-medium", dirty ? "text-amber-700" : "text-emerald-700")}>
-                      {dirty ? "Belum disimpan" : "Tersimpan"}
-                    </span>
-                  </span>
-                  <span className="text-xs text-slate-600">
-                    Kelengkapan: <span className="font-medium text-slate-700">{completion.pct}%</span>
-                  </span>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <Link
-                    to="/portal"
-                    className="rounded-2xl bg-white/70 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-white transition"
-                  >
-                    Batal
-                  </Link>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-2xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-purple-700 disabled:opacity-60"
-                  >
-                    {saving ? "Menyimpan..." : "Simpan Perubahan"}
+          {/* Mobile Sidebar Overlay */}
+          {sidebarOpen && (
+            <div className="lg:hidden fixed inset-0 z-40 flex">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+              <div className="relative z-50 w-64 bg-white h-full shadow-2xl flex flex-col p-4 gap-1">
+                <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+                  <h2 className="text-sm font-bold text-slate-700">Menu Profil</h2>
+                  <button type="button" onClick={() => setSidebarOpen(false)}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition">
+                    <HiOutlineXMark className="w-4 h-4" />
                   </button>
                 </div>
+
+                {TABS.map(({ id, label, Icon }) => (
+                  <button key={id} type="button" onClick={() => handleTabChange(id)}
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
+                      activeTab === id
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                    )}>
+                    <span className="flex items-center gap-2.5">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {label}
+                    </span>
+                    <span className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      tabCompletion[id] ? "bg-emerald-400" : "bg-slate-300"
+                    )} />
+                  </button>
+                ))}
+
+                <div className="mt-auto pt-4 border-t border-slate-100 space-y-2">
+                  <button type="submit" disabled={saving || !dirty}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                      dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    )}>
+                    <FiSave className="w-4 h-4" />
+                    {saving ? "Menyimpan..." : "Simpan"}
+                  </button>
+                  <Link to="/portal"
+                    className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
+                    <HiOutlineArrowLeft className="w-4 h-4" />
+                    Kembali
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Quick jump */}
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-600">
-            <button type="button" onClick={() => document.getElementById("personal")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80">
-              Personal
-            </button>
-            <button type="button" onClick={() => document.getElementById("employment")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80">
-              Pekerjaan
-            </button>
-            <button type="button" onClick={() => document.getElementById("financial")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80">
-              Keuangan
-            </button>
-            <button type="button" onClick={() => document.getElementById("emergency")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80">
-              Darurat
-            </button>
-            <button type="button" onClick={() => document.getElementById("notes")?.scrollIntoView({ behavior: "smooth" })} className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80">
-              Catatan
-            </button>
+          <div className="flex gap-5">
+
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:flex flex-col w-56 xl:w-60 shrink-0 gap-3 self-start sticky top-6">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-1">
+                {TABS.map(({ id, label, Icon }) => (
+                  <button key={id} type="button" onClick={() => handleTabChange(id)}
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-left w-full transition-all",
+                      activeTab === id
+                        ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                    )}>
+                    <span className="flex items-center gap-2.5">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {label}
+                    </span>
+                    <span className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      tabCompletion[id] ? "bg-emerald-400" : "bg-slate-300"
+                    )} />
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-2">
+                <button type="submit" disabled={saving || !dirty}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                    dirty
+                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200"
+                      : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  )}>
+                  {saving
+                    ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
+                    : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
+                  }
+                </button>
+                <Link to="/portal"
+                  className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
+                  <HiOutlineArrowLeft className="w-4 h-4" />
+                  Kembali
+                </Link>
+              </div>
+            </aside>
+
+            {/* Content Panel */}
+            <main className="flex-1 min-w-0">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+
+                {/* Panel Header */}
+                <div className="border-b border-slate-100 bg-slate-50 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {activeTabObj && (
+                      <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-blue-600 text-white shrink-0">
+                        <activeTabObj.Icon className="w-4 h-4" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h2 className="text-base font-bold text-slate-800 truncate">{activeTabObj?.label}</h2>
+                      <p className="text-xs text-slate-400 mt-0.5 truncate">
+                        {activeTab === "photos" && "Upload pas foto dan foto KTP Anda."}
+                        {activeTab === "personal" && "Informasi identitas dan kontak."}
+                        {activeTab === "employment" && "Data posisi, jabatan, dan masa kerja."}
+                        {activeTab === "financial" && "Rekening bank, BPJS, dan NPWP."}
+                        {activeTab === "emergency" && "Kontak yang bisa dihubungi saat darurat."}
+                        {activeTab === "notes" && "Catatan pengalaman kerja sebelumnya."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <Badge filled={tabCompletion[activeTab]} />
+                  </div>
+                </div>
+
+                {/* Panel Body */}
+                <div className="px-4 sm:px-6 py-5 sm:py-6">
+
+                  {/* TAB: FOTO */}
+                  {activeTab === "photos" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      {[
+                        {
+                          label: "Pas Foto",
+                          desc: "Foto formal, latar belakang polos. Maks. 5 MB (JPG/PNG/WEBP).",
+                          photo: profilePhoto,
+                          type: "profile",
+                          onUploaded: ({ path, name }) => { setProfilePhoto({ path, name }); setSuccess("Pas foto berhasil diupload."); setTimeout(() => setSuccess(""), 3000); },
+                          onDeleted: () => { setProfilePhoto({ path: null, name: null }); setSuccess("Pas foto berhasil dihapus."); setTimeout(() => setSuccess(""), 3000); },
+                        },
+                        {
+                          label: "Foto KTP",
+                          desc: "Foto KTP terlihat jelas. Maks. 5 MB (JPG/PNG/WEBP).",
+                          photo: ktpPhoto,
+                          type: "ktp",
+                          onUploaded: ({ path, name }) => { setKtpPhoto({ path, name }); setSuccess("Foto KTP berhasil diupload."); setTimeout(() => setSuccess(""), 3000); },
+                          onDeleted: () => { setKtpPhoto({ path: null, name: null }); setSuccess("Foto KTP berhasil dihapus."); setTimeout(() => setSuccess(""), 3000); },
+                        },
+                      ].map(({ label, desc, photo, type, onUploaded, onDeleted }) => (
+                        <div key={type} className="rounded-xl border border-slate-100 bg-slate-50 p-4 sm:p-6 flex flex-col items-center gap-3 text-center">
+                          <div className="w-full flex items-center justify-between mb-1">
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">{label}</p>
+                            <Badge filled={!!photo.path} />
+                          </div>
+                          <p className="text-[11px] text-slate-400">{desc}</p>
+                          <PhotoUpload
+                            type={type}
+                            currentPath={photo.path}
+                            currentName={photo.name}
+                            onUploaded={onUploaded}
+                            onDeleted={onDeleted}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* TAB: PERSONAL */}
+                  {activeTab === "personal" && (
+                    <div className="space-y-6">
+                      <Panel title="Identitas Diri">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                          <Field label="Nama Lengkap" required error={fieldErrors.full_name}>
+                            <input type="text" name="full_name" value={formData.full_name || ""} onChange={handleChange}
+                              className={inputCls(fieldErrors.full_name)} placeholder="Masukkan nama lengkap" />
+                          </Field>
+                          <Field label="Email">
+                            <input type="email" value={formData.email || ""}
+                              className={cn(inputCls(false), "bg-slate-50 text-slate-400 cursor-not-allowed")} disabled />
+                          </Field>
+                          <Field label="Jenis Kelamin">
+                            <select name="gender" value={formData.gender || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              <option value="L">Laki-laki</option>
+                              <option value="P">Perempuan</option>
+                            </select>
+                          </Field>
+                          <Field label="Status Pernikahan">
+                            <select name="marital_status" value={formData.marital_status || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              <option value="Single">Single</option>
+                              <option value="Married">Menikah</option>
+                              <option value="Divorced">Cerai</option>
+                              <option value="Widowed">Duda/Janda</option>
+                            </select>
+                          </Field>
+                          <Field label="Tempat Lahir">
+                            <input type="text" name="birth_place" value={formData.birth_place || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="Contoh: Jakarta" />
+                          </Field>
+                          <Field label="Tanggal Lahir">
+                            <input type="date" name="birth_date" value={formData.birth_date || ""} onChange={handleChange}
+                              className={inputCls(false)} />
+                          </Field>
+                          <Field label="Agama">
+                            <select name="religion_id" value={formData.religion_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.religions?.map((r) => (
+                                <option key={r.religion_id} value={r.religion_id}>{r.religion_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="No. Telepon" error={fieldErrors.phone_number}>
+                            <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange}
+                              className={inputCls(fieldErrors.phone_number)} placeholder="+62 812-3456-7890" />
+                          </Field>
+                        </div>
+                      </Panel>
+
+                      <Panel title="Dokumen Identitas">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                          <Field label="No. KTP" error={fieldErrors.ktp_number}>
+                            <input type="text" name="ktp_number" autoComplete="off" value={formData.ktp_number || ""} onChange={handleChange}
+                              className={inputCls(fieldErrors.ktp_number)} placeholder="16 digit NIK" />
+                          </Field>
+                          <Field label="No. Kartu Keluarga">
+                            <input type="text" name="family_card_number" value={formData.family_card_number || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="16 digit No. KK" />
+                          </Field>
+                          <div className="sm:col-span-2 xl:col-span-3">
+                            <Field label="Alamat Lengkap">
+                              <textarea name="address" rows={3} value={formData.address || ""} onChange={handleChange}
+                                className={cn(inputCls(false), "resize-none")} placeholder="Alamat sesuai KTP" />
+                            </Field>
+                          </div>
+                        </div>
+                      </Panel>
+                    </div>
+                  )}
+
+                  {/* TAB: EMPLOYMENT */}
+                  {activeTab === "employment" && (
+                    <div className="space-y-6">
+                      <Panel title="Informasi Jabatan">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                          <Field label="Perusahaan">
+                            <select name="company_id" value={formData.company_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.companies?.map((c) => (
+                                <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Departemen">
+                            <select name="department_id" value={formData.department_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.departments?.map((d) => (
+                                <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Posisi / Jabatan">
+                            <select name="position_id" value={formData.position_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.positions?.map((p) => (
+                                <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Level Jabatan">
+                            <select name="job_level_id" value={formData.job_level_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.jobLevels?.map((j) => (
+                                <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Status Kepegawaian">
+                            <select name="employment_status_id" value={formData.employment_status_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.employmentStatuses?.map((e) => (
+                                <option key={e.employment_status_id} value={e.employment_status_id}>{e.employment_status_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Tanggal Bergabung">
+                            <input type="date" name="join_date" value={formData.join_date || ""} onChange={handleChange}
+                              className={inputCls(false)} />
+                          </Field>
+                          <Field label="Tanggal Akhir Kontrak" hint="Kosongkan jika karyawan tetap.">
+                            <input type="date" name="contract_end_date" value={formData.contract_end_date || ""} onChange={handleChange}
+                              className={inputCls(false)} />
+                          </Field>
+                        </div>
+                      </Panel>
+
+                      <Panel title="Riwayat Pendidikan">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                          <Field label="Pendidikan Terakhir">
+                            <select name="education_level_id" value={formData.education_level_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih —</option>
+                              {masterData.educationLevels?.map((e) => (
+                                <option key={e.education_level_id} value={e.education_level_id}>{e.education_level_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Nama Institusi">
+                            <input type="text" name="school_name" value={formData.school_name || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="Universitas / Sekolah" />
+                          </Field>
+                        </div>
+                      </Panel>
+                    </div>
+                  )}
+
+                  {/* TAB: FINANCIAL */}
+                  {activeTab === "financial" && (
+                    <div className="space-y-6">
+                      <Panel title="Informasi Rekening">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                          <Field label="Bank">
+                            <select name="bank_id" value={formData.bank_id || ""} onChange={handleChange} className={selectCls(false)}>
+                              <option value="">— Pilih Bank —</option>
+                              {masterData.banks?.map((b) => (
+                                <option key={b.bank_id} value={b.bank_id}>{b.bank_name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Nomor Rekening">
+                            <input type="text" name="bank_account_number" autoComplete="off" value={formData.bank_account_number || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="Nomor rekening aktif" />
+                          </Field>
+                        </div>
+                      </Panel>
+
+                      <Panel title="Identitas Perpajakan & Jaminan">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                          <Field label="No. BPJS Kesehatan">
+                            <input type="text" name="bpjs_health_number" autoComplete="off" value={formData.bpjs_health_number || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="13 digit" />
+                          </Field>
+                          <Field label="No. BPJS Ketenagakerjaan">
+                            <input type="text" name="bpjs_employment_number" autoComplete="off" value={formData.bpjs_employment_number || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="11 digit" />
+                          </Field>
+                          <Field label="No. NPWP" error={fieldErrors.npwp_number}>
+                            <input type="text" name="npwp_number" autoComplete="off" value={formData.npwp_number || ""} onChange={handleChange}
+                              className={inputCls(fieldErrors.npwp_number)} placeholder="12.345.678.9-012.345" />
+                          </Field>
+                        </div>
+                      </Panel>
+                    </div>
+                  )}
+
+                  {/* TAB: EMERGENCY */}
+                  {activeTab === "emergency" && (
+                    <Panel title="Kontak Darurat">
+                      <div className="max-w-lg">
+                        <Field label="Nama & Nomor Telepon">
+                          <input type="text" name="emergency_contact" value={formData.emergency_contact || ""} onChange={handleChange}
+                            className={inputCls(false)} placeholder="Contoh: Bapak Deny — 082198765432" />
+                        </Field>
+                        <p className="mt-3 text-xs text-slate-400 leading-relaxed">
+                          Berikan nama lengkap dan nomor telepon yang dapat dihubungi saat darurat.
+                        </p>
+                      </div>
+                    </Panel>
+                  )}
+
+                  {/* TAB: NOTES */}
+                  {activeTab === "notes" && (
+                    <Panel title="Catatan Pengalaman Kerja">
+                      <Field label="Riwayat Pekerjaan Sebelumnya">
+                        <textarea name="notes" rows={8} value={formData.notes || ""} onChange={handleChange}
+                          className={cn(inputCls(false), "resize-y")}
+                          placeholder="Jelaskan pengalaman kerja Anda sebelumnya: Departemen, Jobdesk, Masa Kerja, dan hal-hal relevan." />
+                      </Field>
+                    </Panel>
+                  )}
+
+                </div>
+
+                {/* Panel Footer */}
+                <div className="border-t border-slate-100 bg-slate-50 px-4 sm:px-6 py-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex gap-2">
+                      {activeTabIdx > 0 && (
+                        <button type="button"
+                          onClick={() => handleTabChange(TABS[activeTabIdx - 1].id)}
+                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
+                          <HiOutlineChevronLeft className="w-4 h-4" />
+                          Sebelumnya
+                        </button>
+                      )}
+                      {activeTabIdx < TABS.length - 1 && (
+                        <button type="button"
+                          onClick={() => handleTabChange(TABS[activeTabIdx + 1].id)}
+                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 transition">
+                          Berikutnya
+                          <HiOutlineChevronRight className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <button type="submit" disabled={saving || !dirty}
+                      className={cn(
+                        "inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all w-full sm:w-auto",
+                        dirty
+                          ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      )}>
+                      {saving
+                        ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
+                        : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
+                      }
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </main>
           </div>
         </form>
       </div>

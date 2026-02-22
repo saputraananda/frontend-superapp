@@ -5,9 +5,11 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
 import Profile from "./pages/profile";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/dashboard-sales";
 import ProjectManagement from "./pages/project-management";
 import EmployeeSatisfaction from "./pages/employee-satisfaction";
+import MasterKaryawan from "./pages/master-karyawan/index";
+import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
 
@@ -19,7 +21,6 @@ export default function App() {
   const [rolesLoaded, setRolesLoaded] = useState(false);
 
   useEffect(() => {
-    // Cek session dari backend
     const checkAuth = async () => {
       try {
         const d = await api("/auth/me");
@@ -33,7 +34,6 @@ export default function App() {
       }
     };
 
-    // Fetch mapping path -> allowedRoles dari backend
     const loadRoles = async () => {
       try {
         const data = await api("/apps/authorization");
@@ -55,7 +55,6 @@ export default function App() {
     loadRoles();
   }, []);
 
-  // Set loading false hanya ketika auth dan roles sudah dicek
   useEffect(() => {
     if (authChecked && rolesLoaded) {
       setLoading(false);
@@ -78,24 +77,18 @@ export default function App() {
     window.location.href = "/login";
   };
 
-  if (loading) {
-    return <LoadingScreen type="full" />;
-  }
+  if (loading) return <LoadingScreen />;
 
   return (
     <BrowserRouter>
       <Routes>
         <Route
           path="/login"
-          element={
-            user ? <Navigate to="/portal" /> : <Login onLogin={handleLogin} />
-          }
+          element={user ? <Navigate to="/portal" /> : <Login onLogin={handleLogin} />}
         />
         <Route
           path="/register"
-          element={
-            user ? <Navigate to="/portal" /> : <Register />
-          }
+          element={user ? <Navigate to="/portal" /> : <Register />}
         />
         <Route
           path="/portal/*"
@@ -113,8 +106,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Dinamis allowedRoles */}
         <Route
           path="/dashboard/*"
           element={
@@ -123,7 +114,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/projectmanagement/*"
           element={
@@ -132,7 +122,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/employeesatisfaction/*"
           element={
@@ -142,15 +131,26 @@ export default function App() {
           }
         />
 
+        {/* ── Master Karyawan ── */}
         <Route
-          path="/"
-          element={<Navigate to={user ? "/portal" : "/login"} />}
+          path="/master-karyawan"
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/master-karyawan"]}>
+              <MasterKaryawan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/master-karyawan/:id"
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/master-karyawan"]}>
+              <EmployeeDetail />
+            </ProtectedRoute>
+          }
         />
 
-        <Route
-          path="*"
-          element={<Navigate to={user ? "/portal" : "/login"} />}
-        />
+        <Route path="/" element={<Navigate to={user ? "/portal" : "/login"} />} />
+        <Route path="*" element={<Navigate to={user ? "/portal" : "/login"} />} />
       </Routes>
     </BrowserRouter>
   );
