@@ -7,13 +7,13 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 // ─── Constants ────────────────────────────────────────
 const STATUS_LIST = [
-  { key: "assigned",             label: "Assigned",    dot: "bg-slate-400",   pill: "bg-slate-100 text-slate-700 ring-1 ring-slate-300" },
-  { key: "in_progress",          label: "In Progress", dot: "bg-amber-500",   pill: "bg-amber-50 text-amber-800 ring-1 ring-amber-300" },
-  { key: "on_hold",              label: "On Hold",     dot: "bg-zinc-400",    pill: "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300" },
-  { key: "submitted_for_review", label: "For Review",  dot: "bg-indigo-500",  pill: "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-300" },
-  { key: "revision_required",    label: "Revision",    dot: "bg-rose-500",    pill: "bg-rose-50 text-rose-800 ring-1 ring-rose-300" },
-  { key: "approved",             label: "Approved",    dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300" },
-  { key: "completed",            label: "Completed",   dot: "bg-emerald-700", pill: "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-400" },
+  { key: "assigned", label: "Assigned", dot: "bg-slate-400", pill: "bg-slate-100 text-slate-700 ring-1 ring-slate-300" },
+  { key: "in_progress", label: "In Progress", dot: "bg-amber-500", pill: "bg-amber-50 text-amber-800 ring-1 ring-amber-300" },
+  { key: "on_hold", label: "On Hold", dot: "bg-zinc-400", pill: "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-300" },
+  { key: "submitted_for_review", label: "For Review", dot: "bg-indigo-500", pill: "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-300" },
+  { key: "revision_required", label: "Revision", dot: "bg-rose-500", pill: "bg-rose-50 text-rose-800 ring-1 ring-rose-300" },
+  { key: "approved", label: "Approved", dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300" },
+  { key: "completed", label: "Completed", dot: "bg-emerald-700", pill: "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-400" },
 ];
 
 const STATUS_WEIGHT = {
@@ -23,12 +23,12 @@ const STATUS_WEIGHT = {
 };
 
 const PRIORITY_LIST = [
-  { key: "critical", label: "Critical", pill: "bg-rose-600 text-white",    dot: "bg-rose-600" },
-  { key: "medium",   label: "Medium",   pill: "bg-amber-500 text-white",   dot: "bg-amber-500" },
-  { key: "low",      label: "Low",      pill: "bg-emerald-600 text-white", dot: "bg-emerald-600" },
+  { key: "critical", label: "Critical", pill: "bg-rose-600 text-white", dot: "bg-rose-600" },
+  { key: "medium", label: "Medium", pill: "bg-amber-500 text-white", dot: "bg-amber-500" },
+  { key: "low", label: "Low", pill: "bg-emerald-600 text-white", dot: "bg-emerald-600" },
 ];
 
-const statusOf   = (key) => STATUS_LIST.find((s) => s.key === key)   || STATUS_LIST[0];
+const statusOf = (key) => STATUS_LIST.find((s) => s.key === key) || STATUS_LIST[0];
 const priorityOf = (key) => PRIORITY_LIST.find((p) => p.key === key) || PRIORITY_LIST[1];
 
 // ─── Helpers ──────────────────────────────────────────
@@ -58,7 +58,7 @@ function initials(name) {
 
 function formatBytes(bytes) {
   if (!bytes) return "";
-  if (bytes < 1024)        return `${bytes} B`;
+  if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
@@ -66,7 +66,7 @@ function formatBytes(bytes) {
 function isImage(fileType, fileName) {
   if (fileType?.startsWith("image/")) return true;
   const ext = fileName?.split(".").pop()?.toLowerCase();
-  return ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
+  return ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(ext);
 }
 
 function isPdf(fileType, fileName) {
@@ -75,11 +75,11 @@ function isPdf(fileType, fileName) {
 }
 
 function fileIcon(fileType, fileName) {
-  if (isImage(fileType, fileName))         return "IMG";
-  if (isPdf(fileType, fileName))           return "PDF";
+  if (isImage(fileType, fileName)) return "IMG";
+  if (isPdf(fileType, fileName)) return "PDF";
   if (fileType?.includes("spreadsheet") || fileName?.match(/\.xlsx?$/i)) return "XLS";
-  if (fileType?.includes("word")         || fileName?.match(/\.docx?$/i)) return "DOC";
-  if (fileType?.includes("zip")          || fileName?.match(/\.(zip|rar|7z)$/i)) return "ZIP";
+  if (fileType?.includes("word") || fileName?.match(/\.docx?$/i)) return "DOC";
+  if (fileType?.includes("zip") || fileName?.match(/\.(zip|rar|7z)$/i)) return "ZIP";
   return "FILE";
 }
 
@@ -130,10 +130,10 @@ const ProgressBar = ({ value = 0 }) => {
 };
 
 const QuickStatusButton = ({ taskId, currentStatus, onUpdated }) => {
-  const [open,   setOpen]   = useState(false);
+  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pos,    setPos]    = useState({ top: 0, left: 0 });
-  const btnRef              = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
 
   function openMenu(e) {
     e.stopPropagation();
@@ -141,8 +141,8 @@ const QuickStatusButton = ({ taskId, currentStatus, onUpdated }) => {
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       setPos({
-        top:  rect.bottom + window.scrollY + 4,
-        left: rect.left   + window.scrollX,
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
       });
     }
     setOpen((v) => !v);
@@ -216,12 +216,12 @@ const QuickStatusButton = ({ taskId, currentStatus, onUpdated }) => {
 
 // ─── Evidence Panel ────────────────────────────────────
 const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
-  const [files,     setFiles]     = useState(initialFiles);
+  const [files, setFiles] = useState(initialFiles);
   const [uploading, setUploading] = useState(false);
-  const [deleting,  setDeleting]  = useState(null);
-  const [err,       setErr]       = useState("");
-  const [preview,   setPreview]   = useState(null);
-  const inputRef                  = useRef(null);
+  const [deleting, setDeleting] = useState(null);
+  const [err, setErr] = useState("");
+  const [preview, setPreview] = useState(null);
+  const inputRef = useRef(null);
 
   useEffect(() => { setFiles(initialFiles); }, [taskId, initialFiles.length]);
 
@@ -296,7 +296,7 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
       ) : (
         <div className="space-y-1.5">
           {files.map((ev) => {
-            const img     = isImage(ev.file_type, ev.file_name);
+            const img = isImage(ev.file_type, ev.file_name);
             const baseUrl = import.meta.env.VITE_API_URL || "";
             const fullUrl = `${baseUrl}${ev.file_path}`;
 
@@ -411,58 +411,65 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
 // ─── Main Component ────────────────────────────────────
 export default function PMBoard() {
   const { monthlyId } = useParams();
-  const nav           = useNavigate();
-  const location      = useLocation();
-  const from          = location.state || {};
+  const nav = useNavigate();
+  const location = useLocation();
+  const from = location.state || {};
 
-  const employee     = useMemo(() => getEmployeeFromLocal(), []);
-  const isDirektur   = useMemo(() => canDirektur(employee), [employee]);       // level 1
+  const employee = useMemo(() => getEmployeeFromLocal(), []);
+  const isDirektur = useMemo(() => canDirektur(employee), [employee]);       // level 1
   const isSupervisor = useMemo(() => canSupervisorUp(employee), [employee]);  // level 1 & 2
 
-  const [loading,  setLoading]  = useState(true);
-  const [monthly,  setMonthly]  = useState(null);
-  const [tasks,    setTasks]    = useState([]);
-  const [err,      setErr]      = useState("");
+  const [loading, setLoading] = useState(true);
+  const [monthly, setMonthly] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [err, setErr] = useState("");
 
-  const [statusFilter,   setStatusFilter]   = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [query,          setQuery]          = useState("");
+  const [query, setQuery] = useState("");
+  const [meOnly, setMeOnly] = useState(false);   // ← tambah state
 
   const [selectedId, setSelectedId] = useState(null);
-  const [editMode,   setEditMode]   = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
-  const [eTitle,    setETitle]    = useState("");
-  const [eDesc,     setEDesc]     = useState("");
-  const [eStart,    setEStart]    = useState("");
-  const [eEnd,      setEEnd]      = useState("");
+  const [eTitle, setETitle] = useState("");
+  const [eDesc, setEDesc] = useState("");
+  const [eStart, setEStart] = useState("");
+  const [eEnd, setEEnd] = useState("");
   const [ePriority, setEPriority] = useState("medium");
-  const [eStatus,   setEStatus]   = useState("assigned");
-  const [ePic,      setEPic]      = useState("");
-  const [updating,  setUpdating]  = useState(false);
+  const [eStatus, setEStatus] = useState("assigned");
+  const [ePic, setEPic] = useState("");
+  const [updating, setUpdating] = useState(false);
 
-  const [comments,       setComments]       = useState([]);
-  const [commentText,    setCommentText]    = useState("");
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
 
-  const [openAdd,     setOpenAdd]     = useState(false);
-  const [tTitle,      setTTitle]      = useState("");
-  const [tDesc,       setTDesc]       = useState("");
-  const [tStart,      setTStart]      = useState("");
-  const [tEnd,        setTEnd]        = useState("");
-  const [tPriority,   setTPriority]   = useState("medium");
-  const [tStatus,     setTStatus]     = useState("assigned");
-  const [tPic,        setTPic]        = useState("");
+  const [openAdd, setOpenAdd] = useState(false);
+  const [tTitle, setTTitle] = useState("");
+  const [tDesc, setTDesc] = useState("");
+  const [tStart, setTStart] = useState("");
+  const [tEnd, setTEnd] = useState("");
+  const [tPriority, setTPriority] = useState("medium");
+  const [tStatus, setTStatus] = useState("assigned");
+  const [tPic, setTPic] = useState("");
   const [tSubmitting, setTSubmitting] = useState(false);
+
+  const [employees, setEmployees] = useState([]);
 
   async function load() {
     setErr("");
     setLoading(true);
     try {
-      const res = await pmApi.getMonthDetail(monthlyId);
-      setMonthly(res?.monthly || null);
-      const t = res?.tasks || [];
+      const [boardRes, empRes] = await Promise.all([
+        pmApi.getMonthDetail(monthlyId),
+        pmApi.listEmployees(),
+      ]);
+      setMonthly(boardRes?.monthly || null);
+      const t = boardRes?.tasks || [];
       setTasks(t);
       setSelectedId((prev) => prev || t[0]?.id || null);
+      setEmployees(empRes?.data || []);
     } catch (e) {
       setErr(e?.message || "Gagal load board");
     } finally {
@@ -497,12 +504,12 @@ export default function PMBoard() {
     setUpdating(true);
     try {
       await pmApi.updateTask(selectedId, {
-        title:           eTitle.trim(),
-        desc:            eDesc.trim() || null,
-        startdate:       eStart || null,
-        enddate:         eEnd || null,
-        status:          eStatus,
-        priority:        ePriority,
+        title: eTitle.trim(),
+        desc: eDesc.trim() || null,
+        startdate: eStart || null,
+        enddate: eEnd || null,
+        status: eStatus,
+        priority: ePriority,
         // ✅ Hanya Direktur & Supervisor yang bisa ganti PIC
         pic_employee_id: isSupervisor ? (ePic ? Number(ePic) : null) : undefined,
       });
@@ -535,12 +542,12 @@ export default function PMBoard() {
     setTSubmitting(true);
     try {
       await pmApi.createTask(monthlyId, {
-        title:           tTitle.trim(),
-        desc:            tDesc.trim() || null,
-        startdate:       tStart || null,
-        enddate:         tEnd || null,
-        status:          tStatus,
-        priority:        tPriority,
+        title: tTitle.trim(),
+        desc: tDesc.trim() || null,
+        startdate: tStart || null,
+        enddate: tEnd || null,
+        status: tStatus,
+        priority: tPriority,
         // ✅ Hanya Direktur & Supervisor yang bisa set PIC ke orang lain
         pic_employee_id: isSupervisor ? (tPic ? Number(tPic) : null) : null,
       });
@@ -562,22 +569,30 @@ export default function PMBoard() {
     if (t && !editMode) selectTask(t);
   }, [tasks]);
 
-  const progress  = useMemo(() => computeProgress(tasks), [tasks]);
+  // ← Move this UP first
+  const statsTasks = useMemo(() => {
+    if (!meOnly) return tasks;
+    return tasks.filter((t) => t.pic_employee_id === employee?.employee_id);
+  }, [tasks, meOnly, employee]);
+
+  // ← Then these can safely reference statsTasks
+  const progress = useMemo(() => computeProgress(statsTasks), [statsTasks]);
   const taskStats = useMemo(() => ({
-    total:      tasks.length,
-    done:       tasks.filter((t) => t.status === "completed").length,
-    inProgress: tasks.filter((t) => t.status === "in_progress").length,
-    critical:   tasks.filter((t) => t.priority === "critical").length,
-    overdue:    tasks.filter((t) => isOverdue(t.enddate, t.status)).length,
-  }), [tasks]);
+    total:      statsTasks.length,
+    done:       statsTasks.filter((t) => t.status === "completed").length,
+    inProgress: statsTasks.filter((t) => t.status === "in_progress").length,
+    critical:   statsTasks.filter((t) => t.priority === "critical").length,
+    overdue:    statsTasks.filter((t) => isOverdue(t.enddate, t.status)).length,
+  }), [statsTasks]);
 
   const filteredTasks = useMemo(() => {
     const q = query.trim().toLowerCase();
     return tasks
-      .filter((t) => statusFilter   === "all" || t.status   === statusFilter)
+      .filter((t) => statusFilter === "all" || t.status === statusFilter)
       .filter((t) => priorityFilter === "all" || t.priority === priorityFilter)
-      .filter((t) => !q || t.title?.toLowerCase().includes(q));
-  }, [tasks, statusFilter, priorityFilter, query]);
+      .filter((t) => !q || t.title?.toLowerCase().includes(q))
+      .filter((t) => !meOnly || t.pic_employee_id === employee?.employee_id);
+  }, [tasks, statusFilter, priorityFilter, query, meOnly, employee]);
 
   const selected = useMemo(() => tasks.find((t) => t.id === selectedId) || null, [tasks, selectedId]);
 
@@ -617,9 +632,9 @@ export default function PMBoard() {
                 <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
                 {/* ✅ Label role sesuai job_level_id */}
                 <div className="text-[10px] text-slate-400">
-                  {isDirektur   ? "Direktur"   :
-                   isSupervisor ? "Supervisor" :
-                                  "Staff"}
+                  {isDirektur ? "Direktur" :
+                    isSupervisor ? "Supervisor" :
+                      "Staff"}
                 </div>
               </div>
             </div>
@@ -653,11 +668,11 @@ export default function PMBoard() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             {[
-              { label: "Total Tasks",  value: taskStats.total,      cls: "border-slate-200" },
-              { label: "In Progress",  value: taskStats.inProgress,  cls: "border-amber-200 bg-amber-50" },
-              { label: "Completed",    value: taskStats.done,        cls: "border-emerald-200 bg-emerald-50" },
-              { label: "Critical",     value: taskStats.critical,    cls: "border-rose-200 bg-rose-50" },
-              { label: "Overdue",      value: taskStats.overdue,     cls: "border-orange-200 bg-orange-50" },
+              { label: "Total Tasks", value: taskStats.total, cls: "border-slate-200" },
+              { label: "In Progress", value: taskStats.inProgress, cls: "border-amber-200 bg-amber-50" },
+              { label: "Completed", value: taskStats.done, cls: "border-emerald-200 bg-emerald-50" },
+              { label: "Critical", value: taskStats.critical, cls: "border-rose-200 bg-rose-50" },
+              { label: "Overdue", value: taskStats.overdue, cls: "border-orange-200 bg-orange-50" },
             ].map((s) => (
               <div key={s.label} className={`rounded-lg border px-4 py-3 bg-white ${s.cls}`}>
                 <div className="text-xl font-bold text-slate-900">{s.value}</div>
@@ -700,7 +715,30 @@ export default function PMBoard() {
                     ].join(" ")}
                   >{s.label}</button>
                 ))}
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setMeOnly((v) => !v)}
+                  className={["inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold border transition",
+                    meOnly
+                      ? "bg-blue-700 text-white border-blue-700"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ].join(" ")}
+                >
+                  <span className={["h-4 w-4 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0",
+                    meOnly ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+                  ].join(" ")}>
+                    {initials(employee?.full_name)}
+                  </span>
+                  Me Only
+                  {meOnly && <span className="ml-0.5 opacity-70">✓</span>}
+                </button>
+                {meOnly && (
+                  <span className="text-xs text-slate-400 italic">
+                    Menampilkan task milik kamu saja
+                  </span>
+                )}
+              </div>    
+
               {/* Search + priority */}
               <div className="flex items-center gap-2">
                 <input value={query} onChange={(e) => setQuery(e.target.value)}
@@ -719,12 +757,12 @@ export default function PMBoard() {
 
             {loading ? (
               <div className="space-y-2">
-                {[1,2,3].map((i) => <div key={i} className="h-24 rounded-lg bg-slate-100 animate-pulse" />)}
+                {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-lg bg-slate-100 animate-pulse" />)}
               </div>
             ) : filteredTasks.length ? (
               <div className="space-y-2">
                 {filteredTasks.map((t) => {
-                  const pr   = priorityOf(t.priority);
+                  const pr = priorityOf(t.priority);
                   const over = isOverdue(t.enddate, t.status);
                   return (
                     <div key={t.id} role="button" tabIndex={0}
@@ -946,15 +984,20 @@ export default function PMBoard() {
                       </div>
                       <div>
                         <SectionLabel>PIC / Assigned To</SectionLabel>
-                        {/* ✅ isSupervisor bukan isHoD */}
                         {editMode && isSupervisor ? (
-                          <input
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 transition"
+                          <select
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
                             value={ePic}
                             onChange={(e) => setEPic(e.target.value)}
-                            placeholder="Employee ID"
                             disabled={updating}
-                          />
+                          >
+                            <option value="">— Pilih Karyawan —</option>
+                            {employees.map((emp) => (
+                              <option key={emp.employee_id} value={emp.employee_id}>
+                                {emp.full_name} {emp.email ? `(${emp.email})` : ""}
+                              </option>
+                            ))}
+                          </select>
                         ) : (
                           <EmployeeChip
                             id={selected.pic_employee_id}
@@ -979,15 +1022,15 @@ export default function PMBoard() {
                         </div>
                         <div className="flex items-center gap-0.5 flex-wrap">
                           {STATUS_LIST.map((s, i) => {
-                            const cur    = editMode ? eStatus : selected.status;
+                            const cur = editMode ? eStatus : selected.status;
                             const curIdx = STATUS_LIST.findIndex((x) => x.key === cur);
-                            const past   = i < curIdx;
+                            const past = i < curIdx;
                             const active = s.key === cur;
                             return (
                               <React.Fragment key={s.key}>
                                 <div className={["text-[9px] px-2 py-0.5 rounded font-semibold transition",
                                   active ? "bg-slate-900 text-white" :
-                                  past   ? "bg-slate-300 text-slate-600" : "bg-slate-100 text-slate-400"
+                                    past ? "bg-slate-300 text-slate-600" : "bg-slate-100 text-slate-400"
                                 ].join(" ")}>
                                   {s.label}
                                 </div>
@@ -1138,7 +1181,7 @@ export default function PMBoard() {
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Priority</span>
                   <select
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400"
+                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
                     value={tPriority} onChange={(e) => setTPriority(e.target.value)} disabled={tSubmitting}
                   >
                     {PRIORITY_LIST.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -1147,7 +1190,7 @@ export default function PMBoard() {
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Status</span>
                   <select
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400"
+                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
                     value={tStatus} onChange={(e) => setTStatus(e.target.value)} disabled={tSubmitting}
                   >
                     {STATUS_LIST.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -1157,14 +1200,20 @@ export default function PMBoard() {
 
               {isSupervisor && (
                 <label className="block">
-                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">PIC Employee ID</span>
-                  <input
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 transition"
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">PIC / Assigned To</span>
+                  <select
+                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
                     value={tPic}
                     onChange={(e) => setTPic(e.target.value)}
-                    placeholder="contoh: 123"
                     disabled={tSubmitting}
-                  />
+                  >
+                    <option value="">— Pilih Karyawan —</option>
+                    {employees.map((emp) => (
+                      <option key={emp.employee_id} value={emp.employee_id}>
+                        {emp.full_name} {emp.email ? `(${emp.email})` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               )}
 
@@ -1180,9 +1229,9 @@ export default function PMBoard() {
                 >
                   {tSubmitting
                     ? <span className="flex items-center gap-2">
-                        <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        Creating...
-                      </span>
+                      <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Creating...
+                    </span>
                     : "Add Task"}
                 </button>
               </div>

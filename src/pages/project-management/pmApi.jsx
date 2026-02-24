@@ -81,4 +81,7 @@ export const pmApi = {
       return json;
     });
   },
+
+  // Employees
+  listEmployees: () => http("/employees"),
 };
