@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import LoadingScreen from "../../components/LoadingScreen";
 import HeaderLayout from "../../layouts/HeaderLayout";
+import { Typewriter } from 'react-simple-typewriter';
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -84,6 +85,37 @@ export default function Portal({ user, onLogout }) {
 
   return (
     <HeaderLayout user={user} jobTitle={getJobTitle()} onLogout={onLogout}>
+      {/* Alert */}
+      <div className="mb-6 rounded-2xl bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 text-sm font-semibold shadow">
+        <ul className="list-disc pl-5 space-y-1">
+          <li>
+            <span>
+              <Typewriter
+                words={['System sedang dalam tahap pengembangan. Mohon untuk tidak mengakses portal ini setelah pukul 17.00 WIB.']}
+                loop={1}
+                cursor
+                cursorStyle=""
+                typeSpeed={50}
+                deleteSpeed={0}
+                delaySpeed={1000}
+              />
+            </span>
+          </li>
+          <li>
+            <span>
+              <Typewriter
+                words={['Mohon lengkapi data karyawan Anda di halaman "Lihat Profil".']}
+                loop={1}
+                cursor
+                cursorStyle=""
+                typeSpeed={50}
+                deleteSpeed={0}
+                delaySpeed={1000}
+              />
+            </span>
+          </li>
+        </ul>
+      </div>
       {/* Search */}
       <div className="mb-6 sm:mb-8 rounded-3xl border border-white/60 bg-white/40 p-4 sm:p-6 backdrop-blur-xl shadow-xl">
         <div className="relative">

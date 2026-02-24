@@ -2,99 +2,99 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import AlertSuccess from "../../components/AlertSuccess";
 import LoadingScreen from "../../components/LoadingScreen";
+import {
+  HiOutlineUser,
+  HiOutlineClipboardDocumentList,
+  HiOutlineChartBarSquare,
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineExclamationTriangle,
+  HiOutlineXMark,
+  HiOutlineCheckCircle,
+  HiOutlineArrowLeft,
+} from "react-icons/hi2";
+import { FiSend } from "react-icons/fi";
 
-function cn(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
+function cn(...c) { return c.filter(Boolean).join(" "); }
 
-function Section({ title, desc, isOpen, onToggle, children, badge, id }) {
-  return (
-    <section
-      id={id}
-      className="mb-6 overflow-hidden rounded-3xl border border-white/60 bg-white/50 backdrop-blur-xl shadow-lg"
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-6 py-5 text-left hover:bg-white/40 transition"
-        aria-expanded={isOpen}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-semibold text-slate-800">
-              {title}
-            </h2>
-            {desc && (
-              <p className="mt-1 text-xs sm:text-sm text-slate-600">{desc}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {badge}
-            <span
-              className={cn(
-                "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-white/70 bg-white/60 text-slate-700 shadow-sm",
-                "transition",
-                isOpen ? "rotate-180" : "rotate-0"
-              )}
-              aria-hidden="true"
-            >
-              ▾
-            </span>
-          </div>
-        </div>
-      </button>
+const inputCls = cn(
+  "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800",
+  "outline-none transition-all placeholder:text-slate-300",
+  "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400",
+  "hover:border-slate-300",
+  "disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-80 disabled:cursor-not-allowed"
+);
 
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
-          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="px-6 pb-6">{children}</div>
-        </div>
-      </div>
-    </section>
-  );
-}
+const textareaCls = cn(
+  "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800",
+  "outline-none transition-all placeholder:text-slate-300 resize-y",
+  "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400",
+  "hover:border-slate-300",
+  "disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-80 disabled:cursor-not-allowed"
+);
 
 function Field({ label, required, hint, error, children }) {
   return (
     <div>
-      <label className="text-xs font-medium text-slate-700">
-        {label} {required && <span className="text-rose-500">*</span>}
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+        {label}{required && <span className="ml-1 text-rose-500">*</span>}
       </label>
-      <div className="mt-1">{children}</div>
-      {hint && !error && (
-        <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
+      {children}
+      {hint && !error && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
+      {error && (
+        <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1">
+          <HiOutlineExclamationTriangle className="w-3 h-3" />{error}
+        </p>
       )}
-      {error && <p className="mt-1 text-[11px] text-rose-600">{error}</p>}
     </div>
   );
 }
 
-const baseInput =
-  "w-full rounded-2xl border border-white bg-white/70 px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm transition " +
-  "focus:ring-4 focus:ring-purple-200/60 focus:border-white/70 placeholder:text-slate-400 shadow-[0_2px_8px_rgba(80,80,120,0.20)]";
+function Panel({ title, Icon, children }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-4">
+      <div className="border-b border-slate-100 bg-slate-50 px-4 sm:px-6 py-4 flex items-center gap-3">
+        {Icon && (
+          <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-blue-600 text-white shrink-0">
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+        <h2 className="text-base font-bold text-slate-800">{title}</h2>
+      </div>
+      <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-5">
+        {children}
+      </div>
+    </div>
+  );
+}
 
-// Likert scale questions for Section C
+function SectionDivider({ title }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="h-px flex-1 bg-slate-100" />
+      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{title}</h3>
+      <div className="h-px flex-1 bg-slate-100" />
+    </div>
+  );
+}
+
+// Likert scale questions
 const likertQuestions = [
-  { key: "c1", text: "Aku merasa bersemangat saat memulai hari kerja." },
-  { key: "c2", text: "Pekerjaan yang aku lakukan terasa bermakna, bukan sekadar rutinitas." },
-  { key: "c3", text: "Saat bekerja, aku merasa berenergi dan antusias." },
-  { key: "c4", text: "Aku merasa fokus dan terlibat dengan apa yang sedang aku kerjakan." },
-  { key: "c5", text: "Ada rasa bangga tersendiri dengan pekerjaan yang aku lakukan." },
-  { key: "c6", text: "Secara keseluruhan, gaji yang aku terima sudah sesuai dengan kontribusiku." },
-  { key: "c7", text: "Tunjangan dan fasilitas dari perusahaan mendukung kebutuhanku dengan baik." },
-  { key: "c8", text: "Lingkungan kerja (baik secara fisik maupun suasana tim) terasa nyaman." },
-  { key: "c9", text: "Rekan kerja di sekitarku suportif dan menyenangkan untuk diajak bekerja sama." },
-  { key: "c10", text: "Atasan langsungku memberikan arahan yang jelas serta dukungan yang aku butuhkan." },
-  { key: "c11", text: "Aku melihat adanya peluang untuk berkembang dan belajar di perusahaan ini." },
-  { key: "c12", text: "Aku merasa memiliki keterikatan emosional dengan perusahaan ini." },
-  { key: "c13", text: "Aku merasa bangga bisa menjadi bagian dari perusahaan ini." },
-  { key: "c14", text: "Perusahaan ini memiliki arti penting bagiku, bukan sekadar tempat bekerja." },
-  { key: "c15", text: "Saat ini, aku punya keinginan untuk tetap bekerja di perusahaan ini ke depannya." },
-  { key: "c16", text: "Aku merasa punya tanggung jawab untuk ikut berkontribusi terhadap kemajuan perusahaan." },
+  { key: "c1", group: "Keterlibatan Kerja", text: "Aku merasa bersemangat saat memulai hari kerja." },
+  { key: "c2", group: "Keterlibatan Kerja", text: "Pekerjaan yang aku lakukan terasa bermakna, bukan sekadar rutinitas." },
+  { key: "c3", group: "Keterlibatan Kerja", text: "Saat bekerja, aku merasa berenergi dan antusias." },
+  { key: "c4", group: "Keterlibatan Kerja", text: "Aku merasa fokus dan terlibat dengan apa yang sedang aku kerjakan." },
+  { key: "c5", group: "Keterlibatan Kerja", text: "Ada rasa bangga tersendiri dengan pekerjaan yang aku lakukan." },
+  { key: "c6", group: "Kompensasi & Fasilitas", text: "Secara keseluruhan, gaji yang aku terima sudah sesuai dengan kontribusiku." },
+  { key: "c7", group: "Kompensasi & Fasilitas", text: "Tunjangan dan fasilitas dari perusahaan mendukung kebutuhanku dengan baik." },
+  { key: "c8", group: "Lingkungan Kerja", text: "Lingkungan kerja (baik secara fisik maupun suasana tim) terasa nyaman." },
+  { key: "c9", group: "Lingkungan Kerja", text: "Rekan kerja di sekitarku suportif dan menyenangkan untuk diajak bekerja sama." },
+  { key: "c10", group: "Lingkungan Kerja", text: "Atasan langsungku memberikan arahan yang jelas serta dukungan yang aku butuhkan." },
+  { key: "c11", group: "Lingkungan Kerja", text: "Aku melihat adanya peluang untuk berkembang dan belajar di perusahaan ini." },
+  { key: "c12", group: "Keterikatan Perusahaan", text: "Aku merasa memiliki keterikatan emosional dengan perusahaan ini." },
+  { key: "c13", group: "Keterikatan Perusahaan", text: "Aku merasa bangga bisa menjadi bagian dari perusahaan ini." },
+  { key: "c14", group: "Keterikatan Perusahaan", text: "Perusahaan ini memiliki arti penting bagiku, bukan sekadar tempat bekerja." },
+  { key: "c15", group: "Keterikatan Perusahaan", text: "Saat ini, aku punya keinginan untuk tetap bekerja di perusahaan ini ke depannya." },
+  { key: "c16", group: "Keterikatan Perusahaan", text: "Aku merasa punya tanggung jawab untuk ikut berkontribusi terhadap kemajuan perusahaan." },
 ];
 
 const likertOptions = [
@@ -105,6 +105,14 @@ const likertOptions = [
   { value: 5, label: "Sangat Setuju" },
 ];
 
+const likertColors = {
+  1: "border-rose-300 bg-rose-50 text-rose-700",
+  2: "border-orange-300 bg-orange-50 text-orange-700",
+  3: "border-slate-300 bg-slate-100 text-slate-700",
+  4: "border-blue-300 bg-blue-50 text-blue-700",
+  5: "border-emerald-300 bg-emerald-50 text-emerald-700",
+};
+
 function LikertScale({ value, onChange, name }) {
   return (
     <div className="flex flex-wrap gap-2 mt-2">
@@ -114,10 +122,10 @@ function LikertScale({ value, onChange, name }) {
           type="button"
           onClick={() => onChange(name, opt.value)}
           className={cn(
-            "px-3 py-1.5 text-xs rounded-xl border transition-all",
+            "px-3 py-1.5 text-xs rounded-lg border transition-all font-medium",
             value === opt.value
-              ? "bg-purple-600 text-white border-purple-600 shadow-md"
-              : "bg-white/70 text-slate-600 border-white/70 hover:bg-purple-50 hover:border-purple-200"
+              ? likertColors[opt.value]
+              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
           )}
         >
           {opt.label}
@@ -134,18 +142,10 @@ export default function EmployeeSatisfaction() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  
-  // Track individual loading states
+
   const [userDataLoaded, setUserDataLoaded] = useState(false);
   const [apiDataLoaded, setApiDataLoaded] = useState(false);
   const [formDataReady, setFormDataReady] = useState(false);
-
-  const [open, setOpen] = useState({
-    info: true,
-    satisfaction: true,
-    aspects: true,
-    feedback: true,
-  });
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -173,55 +173,42 @@ export default function EmployeeSatisfaction() {
     const now = new Date();
     const diffMs = now - joinDate;
     const diffMonth = diffMs / (1000 * 60 * 60 * 24 * 30.44);
-
     if (diffMonth < 3) return "< 3 bulan";
     if (diffMonth < 6) return "3 - 6 bulan";
     if (diffMonth < 12) return "6 - 12 bulan";
     return "> 1 tahun";
   }
 
-  // Effect: Load semua data secara berurutan
   useEffect(() => {
     document.title = "Employee Satisfaction Survey | Alora Group Indonesia";
-
     const loadAllData = async () => {
       try {
-        // Step 1: Load user data dari localStorage
         let userData = null;
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-          try {
-            const parsed = JSON.parse(storedUser);
-            userData = parsed;
-          } catch (err) {
-            console.error("Error parsing user data:", err);
-          }
+          try { userData = JSON.parse(storedUser); } catch (e) { /* ignore parse error */ }
         }
         setUserDataLoaded(true);
 
-        // Step 2: Load API data
         const [statusRes, masterRes] = await Promise.all([
           api("/satisfaction/status"),
           api("/satisfaction/master-data"),
         ]);
-
         setSurveyStatus(statusRes);
         setMasterData(masterRes);
         setApiDataLoaded(true);
 
-        // Step 3: Update formData dengan userData
-        if (userData && userData.employee) {
-          const employee = userData.employee;
-          setFormData(prev => ({
+        if (userData?.employee) {
+          const emp = userData.employee;
+          setFormData((prev) => ({
             ...prev,
-            full_name: employee.full_name || "",
-            company_name: employee.company_name || "",
-            department_name: employee.department_name || "",
-            job_level_name: employee.job_level_name || "",
-            tenure: getTenureLabel(employee.join_date) || "",
+            full_name: emp.full_name || "",
+            company_name: emp.company_name || "",
+            department_name: emp.department_name || "",
+            job_level_name: emp.job_level_name || "",
+            tenure: getTenureLabel(emp.join_date) || "",
           }));
         }
-        
         setFormDataReady(true);
       } catch (err) {
         setError(err.message);
@@ -229,35 +216,25 @@ export default function EmployeeSatisfaction() {
         setFormDataReady(true);
       }
     };
-
     loadAllData();
   }, []);
 
-  // Set loading false hanya ketika semua data ready
   useEffect(() => {
     if (userDataLoaded && apiDataLoaded && formDataReady) {
-      // Tambah sedikit delay untuk memastikan state sudah ter-render
-      const timer = setTimeout(() => {
-        setLoading(false);
-      }, 100);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setLoading(false), 100);
+      return () => clearTimeout(t);
     }
   }, [userDataLoaded, apiDataLoaded, formDataReady]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     if (type === "checkbox") {
       setFormData((prev) => {
-        const currentFactors = prev.main_factors || [];
-        if (checked) {
-          return { ...prev, main_factors: [...currentFactors, value] };
-        } else {
-          return {
-            ...prev,
-            main_factors: currentFactors.filter((f) => f !== value),
-          };
-        }
+        const cur = prev.main_factors || [];
+        return {
+          ...prev,
+          main_factors: checked ? [...cur, value] : cur.filter((f) => f !== value),
+        };
       });
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -269,79 +246,68 @@ export default function EmployeeSatisfaction() {
   };
 
   const completion = useMemo(() => {
-    let filled = 0;
-    let total = 0;
-
-    // Section A - Info (5 fields required)
+    let filled = 0, total = 0;
     total += 5;
     if (formData.full_name) filled++;
     if (formData.department_name) filled++;
     if (formData.job_level_name) filled++;
     if (formData.tenure) filled++;
     if (formData.overall_satisfaction) filled++;
-
-    // Section C - Likert (16 questions)
     total += 16;
-    likertQuestions.forEach((q) => {
-      if (formData[q.key] !== null) filled++;
-    });
-
-    // Section D - Pengalaman Kerja (3 questions)
+    likertQuestions.forEach((q) => { if (formData[q.key] !== null) filled++; });
     total += 3;
     if (formData.d1) filled++;
     if (formData.d2) filled++;
     if (formData.d3) filled++;
-
-    const pct = Math.round((filled / total) * 100);
-    return { filled, total, pct };
+    return { filled, total, pct: Math.round((filled / total) * 100) };
   }, [formData]);
+
+  // Group likert questions by group
+  const likertGroups = useMemo(() => {
+    const groups = {};
+    likertQuestions.forEach((q) => {
+      if (!groups[q.group]) groups[q.group] = [];
+      groups[q.group].push(q);
+    });
+    return groups;
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
-    // Validation
     if (!formData.full_name || !formData.department_name || !formData.job_level_name || !formData.tenure) {
       setError("Mohon lengkapi informasi umum terlebih dahulu.");
       setSubmitting(false);
       topRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
-
     if (!formData.overall_satisfaction) {
       setError("Mohon pilih tingkat kepuasan kerja Anda.");
       setSubmitting(false);
       return;
     }
-
-    // Check if all likert questions are answered
     const unanswered = likertQuestions.filter((q) => formData[q.key] === null);
     if (unanswered.length > 0) {
       setError(`Mohon jawab semua pertanyaan penilaian aspek kerja (${unanswered.length} belum dijawab).`);
       setSubmitting(false);
-      document.getElementById("aspects")?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("section-aspects")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
 
     try {
-      // Prepare main_factors with "Lainnya" if filled
       let finalFactors = [...formData.main_factors];
       if (formData.main_factors_other?.trim()) {
         finalFactors.push(`Lainnya: ${formData.main_factors_other.trim()}`);
       }
-
-      const payload = {
-        ...formData,
-        main_factors: finalFactors,
-      };
+      const payload = { ...formData, main_factors: finalFactors };
       delete payload.main_factors_other;
 
       const res = await api("/satisfaction/submit", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-
       setSuccess(res.message || "Survei berhasil dikirim!");
       setSurveyStatus({ hasSubmitted: true, surveyKey: res.surveyKey });
     } catch (err) {
@@ -352,448 +318,301 @@ export default function EmployeeSatisfaction() {
     }
   };
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  if (loading) return <LoadingScreen />;
 
-  // Already submitted
   if (surveyStatus.hasSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100 py-10">
-        <div className="mx-auto max-w-2xl px-6">
-          <div className="rounded-3xl border border-white/60 bg-white/50 p-8 backdrop-blur-xl shadow-xl text-center">
-            <div className="mx-auto w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mb-6">
-              <svg className="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-800 mb-3">
-              Terima Kasih, {surveyStatus.submittedBy}!
-            </h1>
-            <p className="text-slate-600 mb-6">
-              Anda sudah mengisi survei kepuasan karyawan untuk periode{" "}
-              <span className="font-semibold text-purple-700">{surveyStatus.surveyKey}</span>.
-            </p>
-            <p className="text-sm text-slate-500 mb-8">
-              Masukan Anda sangat berarti bagi perkembangan perusahaan.
-              Survei berikutnya akan tersedia di periode selanjutnya.
-            </p>
-            <a
-              href="/portal"
-              className="inline-block rounded-2xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-purple-700"
-            >
-              Kembali ke Portal
-            </a>
+      <div className="min-h-screen bg-[#f4f6f9] flex items-center justify-center py-10 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-sm p-8 text-center">
+          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-5">
+            <HiOutlineCheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
+          <h1 className="text-xl font-bold text-slate-800 mb-2">Survei Terkirim!</h1>
+          <p className="text-sm text-slate-500 mb-1">
+            Terima kasih, <span className="font-semibold text-slate-700">{surveyStatus.submittedBy}</span>!
+          </p>
+          <p className="text-sm text-slate-500 mb-1">
+            Periode: <span className="font-semibold text-blue-600">{surveyStatus.surveyKey}</span>
+          </p>
+          <p className="text-xs text-slate-400 mt-3 mb-6">
+            Masukan Anda sangat berarti bagi perkembangan perusahaan. Survei berikutnya tersedia di periode selanjutnya.
+          </p>
+          <a href="/portal"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition">
+            <HiOutlineArrowLeft className="w-4 h-4" />
+            Kembali ke Portal
+          </a>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100 py-10">
+    <div className="min-h-screen bg-[#f4f6f9]">
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
-      <div className="mx-auto max-w-4xl px-6" ref={topRef}>
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                Alora Employee Satisfaction
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">
-                Periode: <span className="font-semibold text-purple-700">{surveyStatus.surveyKey}</span>
-              </p>
+      {/* Top Banner */}
+      <div className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <a href="/portal"
+                className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 transition shrink-0">
+                <HiOutlineArrowLeft className="w-4 h-4 text-slate-600" />
+              </a>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-0.5">
+                  <a href="/portal" className="hover:text-blue-600 transition">Portal</a>
+                  <span>/</span>
+                  <span className="text-slate-600 font-medium">Employee Satisfaction Survey</span>
+                </div>
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight">Alora Employee Satisfaction</h1>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Periode: <span className="font-semibold text-blue-600">{surveyStatus.surveyKey}</span>
+                </p>
+              </div>
             </div>
-            <a
-              href="/portal"
-              className="rounded-2xl bg-white/60 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur hover:bg-white/80 transition"
-            >
-              ← Kembali
-            </a>
-          </div>
 
-          {/* Info Banner */}
-          <div className="mt-4 rounded-2xl border border-purple-200 bg-purple-50/70 p-4">
-            <p className="text-sm text-purple-800">
-              <strong>Head Office – PT. Waschen Alora Indonesia</strong>
-            </p>
-            <p className="text-xs text-purple-700 mt-1">
-              Survei ini bertujuan untuk meningkatkan kualitas lingkungan kerja dan sistem manajemen.
-              Data Anda akan digunakan untuk analisis dan audit. Mohon isi dengan jujur dan lengkap.
-            </p>
-          </div>
-
-          {/* Progress */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-[11px] text-slate-600">
-              <span>Progress pengisian</span>
-              <span className="font-medium text-slate-700">{completion.pct}%</span>
-            </div>
-            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/60">
-              <div
-                className="h-full rounded-full bg-purple-500 transition-all"
-                style={{ width: `${completion.pct}%` }}
-              />
+            {/* Progress di banner */}
+            <div className="flex items-center gap-3 sm:flex-col sm:items-end">
+              <span className="text-xs text-slate-500">Progress pengisian</span>
+              <div className="flex items-center gap-2">
+                <div className="w-32 h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      completion.pct === 100 ? "bg-emerald-500" : "bg-blue-500"
+                    )}
+                    style={{ width: `${completion.pct}%` }}
+                  />
+                </div>
+                <span className={cn(
+                  "text-xs font-semibold",
+                  completion.pct === 100 ? "text-emerald-600" : "text-blue-600"
+                )}>
+                  {completion.pct}%
+                </span>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Form */}
+      {/* Main */}
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-5" ref={topRef}>
+        {/* Info banner */}
+        <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+          <span className="font-semibold">Head Office – PT. Waschen Alora Indonesia.</span>{" "}
+          Survei ini bertujuan meningkatkan kualitas lingkungan kerja dan sistem manajemen.
+          Data Anda digunakan untuk analisis internal. Mohon isi dengan jujur dan lengkap.
+        </div>
+
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50/70 p-3 text-sm text-rose-700">
-              {error}
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <HiOutlineExclamationTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+              <span className="flex-1">{error}</span>
+              <button type="button" onClick={() => setError("")}><HiOutlineXMark className="w-4 h-4" /></button>
             </div>
           )}
 
-          {/* Section A: Informasi Umum */}
-          <Section
-            id="info"
-            title="A. Informasi Umum"
-            desc="Data Anda terisi otomatis dan rahasia. Jika ada perubahan silahkan mengunjungi halaman profil."
-            isOpen={open.info}
-            onToggle={() => setOpen((p) => ({ ...p, info: !p.info }))}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
+          {/* ── Section A: Informasi Umum ── */}
+          <Panel title="A. Informasi Umum" Icon={HiOutlineUser}>
+            <p className="text-xs text-slate-400 -mt-2 mb-4">
+              Data terisi otomatis dari profil. Jika ada perubahan, kunjungi halaman profil karyawan.
+            </p>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <Field label="Nama Lengkap" required>
-                <input
-                  type="text"
-                  name="full_name"
-                  value={formData.full_name}
-                  readOnly
-                  disabled
-                  style={{
-                    backgroundColor: '#e5e7eb',
-                    color: '#6b7280',
-                    cursor: 'not-allowed',
-                    borderColor: '#d1d5db',
-                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                    opacity: 1
-                  }}
-                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
-                  placeholder="Nama Anda"
-                />
+                <input type="text" name="full_name" value={formData.full_name} readOnly disabled
+                  className={cn(inputCls, "bg-slate-50 text-slate-400 cursor-not-allowed")} />
               </Field>
-
               <Field label="Perusahaan">
-                <input
-                  type="text"
-                  name="company_name"
-                  value={formData.company_name}
-                  readOnly
-                  disabled
-                  style={{
-                    backgroundColor: '#e5e7eb',
-                    color: '#6b7280',
-                    cursor: 'not-allowed',
-                    borderColor: '#d1d5db',
-                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                    opacity: 1
-                  }}
-                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
-                />
+                <input type="text" name="company_name" value={formData.company_name} readOnly disabled
+                  className={cn(inputCls, "bg-slate-50 text-slate-400 cursor-not-allowed")} />
               </Field>
-
               <Field label="Departemen / Unit Kerja" required>
-                <input
-                  type="text"
-                  name="department_name"
-                  value={formData.department_name}
-                  readOnly
-                  disabled
-                  style={{
-                    backgroundColor: '#e5e7eb',
-                    color: '#6b7280',
-                    cursor: 'not-allowed',
-                    borderColor: '#d1d5db',
-                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                    opacity: 1
-                  }}
-                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
-                />
+                <input type="text" name="department_name" value={formData.department_name} readOnly disabled
+                  className={cn(inputCls, "bg-slate-50 text-slate-400 cursor-not-allowed")} />
               </Field>
-
               <Field label="Jabatan" required>
-                <input
-                  type="text"
-                  name="job_level_name"
-                  value={formData.job_level_name}
-                  readOnly
-                  disabled
-                  style={{
-                    backgroundColor: '#e5e7eb',
-                    color: '#6b7280',
-                    cursor: 'not-allowed',
-                    borderColor: '#d1d5db',
-                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                    opacity: 1
-                  }}
-                  className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
-                />
+                <input type="text" name="job_level_name" value={formData.job_level_name} readOnly disabled
+                  className={cn(inputCls, "bg-slate-50 text-slate-400 cursor-not-allowed")} />
               </Field>
-
               <div className="sm:col-span-2">
                 <Field label="Masa Kerja" required>
-                  <input
-                    type="text"
-                    name="tenure"
-                    value={formData.tenure}
-                    readOnly
-                    disabled
-                    style={{
-                      backgroundColor: '#e5e7eb',
-                      color: '#6b7280',
-                      cursor: 'not-allowed',
-                      borderColor: '#d1d5db',
-                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                      opacity: 1
-                    }}
-                    className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none"
-                  />
+                  <input type="text" name="tenure" value={formData.tenure} readOnly disabled
+                    className={cn(inputCls, "bg-slate-50 text-slate-400 cursor-not-allowed")} />
                 </Field>
               </div>
             </div>
-          </Section>
+          </Panel>
 
-          {/* Section B: Kepuasan Kerja */}
-          <Section
-            id="satisfaction"
-            title="B. Kepuasan Kerja"
-            desc="Penilaian umum kepuasan Anda."
-            isOpen={open.satisfaction}
-            onToggle={() => setOpen((p) => ({ ...p, satisfaction: !p.satisfaction }))}
-          >
+          {/* ── Section B: Kepuasan Kerja ── */}
+          <Panel title="B. Kepuasan Kerja" Icon={HiOutlineClipboardDocumentList}>
             <div className="space-y-6">
-              <Field
-                label="1. Bagaimana tingkat kepuasan kerja kamu secara keseluruhan di perusahaan ini?"
-                required
-              >
+              {/* Pertanyaan 1 */}
+              <Field label="1. Bagaimana tingkat kepuasan kerja kamu secara keseluruhan?" required>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {masterData.satisfactionLevels?.map((level) => (
-                    <label
-                      key={level.value}
+                    <label key={level.value}
                       className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-2xl border cursor-pointer transition-all",
+                        "flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all text-sm font-medium",
                         formData.overall_satisfaction === level.value
-                          ? "bg-purple-600 text-white border-purple-600"
-                          : "bg-white/70 text-slate-700 border-white/70 hover:bg-purple-50 hover:border-purple-200"
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="overall_satisfaction"
-                        value={level.value}
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50"
+                      )}>
+                      <input type="radio" name="overall_satisfaction" value={level.value}
                         checked={formData.overall_satisfaction === level.value}
-                        onChange={handleChange}
-                        className="sr-only"
-                      />
-                      <span className="text-sm">{level.label}</span>
+                        onChange={handleChange} className="sr-only" />
+                      {level.label}
                     </label>
                   ))}
                 </div>
               </Field>
 
-              <Field
-                label="2. Faktor utama yang paling memengaruhi tingkat kepuasan kerja kamu saat ini adalah:"
-                hint="Dapat memilih lebih dari satu"
-              >
+              {/* Pertanyaan 2 */}
+              <Field label="2. Faktor utama yang paling memengaruhi tingkat kepuasan kerja kamu saat ini:"
+                hint="Dapat memilih lebih dari satu">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                   {masterData.mainFactors?.map((factor) => (
-                    <label
-                      key={factor.value}
+                    <label key={factor.value}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-2.5 rounded-2xl border cursor-pointer transition-all",
+                        "flex items-center gap-3 px-4 py-2.5 rounded-lg border cursor-pointer transition-all",
                         formData.main_factors.includes(factor.value)
-                          ? "bg-purple-100 border-purple-300"
-                          : "bg-white/70 border-white/70 hover:bg-purple-50"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        name="main_factors"
-                        value={factor.value}
+                          ? "bg-blue-50 border-blue-300 text-blue-800"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                      )}>
+                      <input type="checkbox" name="main_factors" value={factor.value}
                         checked={formData.main_factors.includes(factor.value)}
                         onChange={handleChange}
-                        className="w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="text-sm text-slate-700">{factor.label}</span>
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm">{factor.label}</span>
                     </label>
                   ))}
                 </div>
                 <div className="mt-3">
-                  <input
-                    type="text"
-                    name="main_factors_other"
-                    value={formData.main_factors_other}
-                    onChange={handleChange}
-                    className={baseInput}
-                    placeholder="Lainnya (sebutkan)..."
-                  />
+                  <input type="text" name="main_factors_other" value={formData.main_factors_other}
+                    onChange={handleChange} className={inputCls}
+                    placeholder="Lainnya (sebutkan)..." />
                 </div>
               </Field>
             </div>
-          </Section>
+          </Panel>
 
-          {/* Section C: Penilaian Aspek Kerja */}
-          <Section
-            id="aspects"
+          {/* ── Section C: Penilaian Aspek Kerja ── */}
+          <Panel
             title="C. Penilaian Aspek Kerja"
-            desc="Berikan penilaian kamu terhadap aspek-aspek berikut."
-            isOpen={open.aspects}
-            onToggle={() => setOpen((p) => ({ ...p, aspects: !p.aspects }))}
-            badge={
-              <span className="text-[11px] text-slate-600">
-                {likertQuestions.filter((q) => formData[q.key] !== null).length}/16
-              </span>
-            }
+            Icon={HiOutlineChartBarSquare}
           >
-            <div className="space-y-6">
-              {likertQuestions.map((q, idx) => (
-                <div
-                  key={q.key}
-                  className={cn(
-                    "p-4 rounded-2xl transition-all",
-                    formData[q.key] !== null
-                      ? "bg-purple-50/50 border border-purple-100"
-                      : "bg-white/40 border border-white/60"
-                  )}
-                >
-                  <p className="text-sm text-slate-700">
-                    <span className="font-medium text-purple-700">{idx + 1}.</span> {q.text}
-                  </p>
-                  <LikertScale
-                    name={q.key}
-                    value={formData[q.key]}
-                    onChange={handleLikertChange}
-                  />
-                </div>
-              ))}
+            <div id="section-aspects">
+              {/* Progress aspek */}
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-4 -mt-2">
+                <span>Pertanyaan terjawab</span>
+                <span className={cn(
+                  "font-semibold",
+                  likertQuestions.filter((q) => formData[q.key] !== null).length === 16
+                    ? "text-emerald-600" : "text-slate-700"
+                )}>
+                  {likertQuestions.filter((q) => formData[q.key] !== null).length} / 16
+                </span>
+              </div>
+
+              <div className="space-y-6">
+                {Object.entries(likertGroups).map(([groupName, questions]) => (
+                  <div key={groupName}>
+                    <SectionDivider title={groupName} />
+                    <div className="space-y-4">
+                      {questions.map((q) => {
+                        const globalIdx = likertQuestions.findIndex((lq) => lq.key === q.key);
+                        return (
+                          <div key={q.key}
+                            className={cn(
+                              "rounded-lg border p-4 transition-all",
+                              formData[q.key] !== null
+                                ? "border-blue-100 bg-blue-50/40"
+                                : "border-slate-200 bg-white"
+                            )}>
+                            <p className="text-sm text-slate-700">
+                              <span className="font-semibold text-slate-400 mr-1.5">{globalIdx + 1}.</span>
+                              {q.text}
+                            </p>
+                            <LikertScale name={q.key} value={formData[q.key]} onChange={handleLikertChange} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </Section>
+          </Panel>
 
-          {/* Section D: Pengalaman Kerja */}
-          <Section
-            id="feedback"
-            title="D. Pengalaman Kerja"
-            desc="Silakan isi dengan jujur dan konstruktif. Masukan Anda sangat berarti bagi perkembangan karyawan dan perusahaan."
-            isOpen={open.feedback}
-            onToggle={() => setOpen((p) => ({ ...p, feedback: !p.feedback }))}
-          >
-            <div className="space-y-6">
-              <Field
-                label="1. Hal apa sih yang paling bikin kamu kurang nyaman atau capek secara mental selama kerja di sini?"
-              >
-                <textarea
-                  name="d1"
-                  value={formData.d1}
-                  onChange={handleChange}
-                  rows={3}
-                  className={cn(baseInput, "resize-none")}
-                  placeholder="Ceritakan pengalamanmu..."
-                />
+          {/* ── Section D: Pengalaman Kerja ── */}
+          <Panel title="D. Pengalaman Kerja" Icon={HiOutlineChatBubbleLeftRight}>
+            <p className="text-xs text-slate-400 -mt-2 mb-4">
+              Isi dengan jujur dan konstruktif. Masukan Anda sangat berarti bagi perkembangan karyawan dan perusahaan.
+            </p>
+            <div className="space-y-5">
+              <Field label="1. Hal apa yang paling membuat kamu kurang nyaman atau lelah secara mental selama bekerja di sini?">
+                <textarea name="d1" value={formData.d1} onChange={handleChange}
+                  rows={3} className={textareaCls}
+                  placeholder="Ceritakan pengalamanmu..." />
               </Field>
-
-              <Field
-                label="2. Hal apa yang paling bikin kamu betah, senang, atau termotivasi kerja di sini?"
-              >
-                <textarea
-                  name="d2"
-                  value={formData.d2}
-                  onChange={handleChange}
-                  rows={3}
-                  className={cn(baseInput, "resize-none")}
-                  placeholder="Ceritakan pengalamanmu..."
-                />
+              <Field label="2. Hal apa yang paling membuat kamu betah, senang, atau termotivasi bekerja di sini?">
+                <textarea name="d2" value={formData.d2} onChange={handleChange}
+                  rows={3} className={textareaCls}
+                  placeholder="Ceritakan pengalamanmu..." />
               </Field>
-
-              <Field
-                label="3. Menurut kamu, hal apa yang paling butuh dibenahi secepatnya supaya kerja di sini menjadi lebih nyaman?"
-              >
-                <textarea
-                  name="d3"
-                  value={formData.d3}
-                  onChange={handleChange}
-                  rows={3}
-                  className={cn(baseInput, "resize-none")}
-                  placeholder="Berikan saranmu..."
-                />
+              <Field label="3. Menurut kamu, hal apa yang paling perlu dibenahi agar bekerja di sini menjadi lebih nyaman?">
+                <textarea name="d3" value={formData.d3} onChange={handleChange}
+                  rows={3} className={textareaCls}
+                  placeholder="Berikan saranmu..." />
               </Field>
             </div>
-          </Section>
+          </Panel>
 
-          {/* Thank you message */}
-          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
-            <p className="text-sm text-emerald-800 font-medium">
-              Terima kasih atas waktu dan partisipasi kamu.
-            </p>
-            <p className="text-xs text-emerald-700 mt-1">
-              Masukan kamu akan menjadi bagian penting dalam proses perbaikan dan pengembangan perusahaan.
-            </p>
+          {/* Thank you note */}
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+            <span className="font-semibold">Terima kasih atas waktu dan partisipasi kamu.</span>{" "}
+            Masukan kamu akan menjadi bagian penting dalam proses perbaikan dan pengembangan perusahaan.
           </div>
 
-          {/* Sticky Submit Button */}
+          {/* Sticky footer */}
           <div className="sticky bottom-4">
-            <div className="rounded-3xl border border-white/60 bg-white/70 p-4 backdrop-blur-xl shadow-xl">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="rounded-xl border border-slate-200 bg-white/90 backdrop-blur-sm shadow-lg px-4 sm:px-6 py-4">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <span className="text-xs text-slate-600">
-                    Progress: <span className="font-medium text-slate-700">{completion.pct}%</span>
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {completion.filled}/{completion.total} pertanyaan dijawab
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          completion.pct === 100 ? "bg-emerald-500" : "bg-blue-500"
+                        )}
+                        style={{ width: `${completion.pct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-600">{completion.pct}%</span>
+                  </div>
+                  <span className="text-xs text-slate-400 hidden sm:inline">
+                    {completion.filled}/{completion.total} terjawab
                   </span>
                 </div>
-                <div className="flex justify-end gap-3">
-                  <a
-                    href="/portal"
-                    className="rounded-2xl bg-white/70 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-white transition"
-                  >
+                <div className="flex items-center gap-2">
+                  <a href="/portal"
+                    className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
                     Batal
                   </a>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-2xl bg-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-purple-700 disabled:opacity-60"
-                  >
-                    {submitting ? "Mengirim..." : "Kirim Survei"}
+                  <button type="submit" disabled={submitting}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition shadow-sm">
+                    {submitting
+                      ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Mengirim...</>
+                      : <><FiSend className="w-4 h-4" />Kirim Survei</>
+                    }
                   </button>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Quick navigation */}
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-600">
-            <button
-              type="button"
-              onClick={() => document.getElementById("info")?.scrollIntoView({ behavior: "smooth" })}
-              className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80"
-            >
-              Info Umum
-            </button>
-            <button
-              type="button"
-              onClick={() => document.getElementById("satisfaction")?.scrollIntoView({ behavior: "smooth" })}
-              className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80"
-            >
-              Kepuasan
-            </button>
-            <button
-              type="button"
-              onClick={() => document.getElementById("aspects")?.scrollIntoView({ behavior: "smooth" })}
-              className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80"
-            >
-              Aspek Kerja
-            </button>
-            <button
-              type="button"
-              onClick={() => document.getElementById("feedback")?.scrollIntoView({ behavior: "smooth" })}
-              className="rounded-full bg-white/60 px-3 py-1 hover:bg-white/80"
-            >
-              Pengalaman
-            </button>
           </div>
         </form>
       </div>

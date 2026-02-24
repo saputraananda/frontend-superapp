@@ -15,9 +15,10 @@ import { FiSave } from "react-icons/fi";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
-// ── PhotoCard — pakai assetUrl dari lib/api ────────────────────────────────
+// ── PhotoCard — support gambar & PDF ──────────────────────────────────────
 function PhotoCard({ label, filePath, fileName }) {
-  const url = assetUrl(filePath);
+  const url     = assetUrl(filePath);
+  const isPdf   = fileName?.toLowerCase().endsWith(".pdf") || filePath?.toLowerCase().endsWith(".pdf");
   const [imgError, setImgError] = useState(false);
 
   const handleDownload = async () => {
@@ -38,55 +39,77 @@ function PhotoCard({ label, filePath, fileName }) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">{label}</p>
         {url ? (
-          <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-            <HiOutlineCheckCircle className="w-3 h-3 mr-1" />Tersedia
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+            <HiOutlineCheckCircle className="w-3 h-3" />Tersedia
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
             Belum diupload
           </span>
         )}
       </div>
 
+      {/* Filename */}
       {fileName && (
-        <p className="text-[11px] text-slate-400 -mt-2 truncate" title={fileName}>{fileName}</p>
+        <p className="text-[11px] text-slate-400 -mt-1 truncate" title={fileName}>{fileName}</p>
       )}
 
-      {url && !imgError ? (
-        <div className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center min-h-[10rem]">
-          <img
-            src={url}
-            alt={label}
-            className="w-full max-h-64 object-contain"
-            onError={() => setImgError(true)}
-          />
-        </div>
-      ) : url && imgError ? (
-        <div className="h-40 w-full rounded-lg border border-dashed border-rose-200 bg-rose-50 flex flex-col items-center justify-center gap-2">
-          <HiOutlineExclamationTriangle className="w-7 h-7 text-rose-300" />
-          <p className="text-xs text-rose-400">Gagal memuat gambar</p>
-          <p className="text-[10px] text-rose-300 max-w-[80%] text-center truncate">{url}</p>
-        </div>
+      {/* Preview area */}
+      {url ? (
+        isPdf ? (
+          // PDF preview
+          <div className="h-36 w-full rounded-lg border border-red-100 bg-red-50 flex flex-col items-center justify-center gap-2">
+            <HiOutlineDocumentText className="w-10 h-10 text-red-400" />
+            <p className="text-xs font-medium text-red-600">Dokumen PDF</p>
+            <p className="text-[10px] text-red-400 max-w-[80%] truncate text-center">{fileName}</p>
+          </div>
+        ) : !imgError ? (
+          // Gambar preview
+          <div className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center min-h-[9rem]">
+            <img
+              src={url}
+              alt={label}
+              className="w-full max-h-60 object-contain"
+              onError={() => setImgError(true)}
+            />
+          </div>
+        ) : (
+          // Gambar gagal dimuat
+          <div className="h-36 w-full rounded-lg border border-dashed border-rose-200 bg-rose-50 flex flex-col items-center justify-center gap-2">
+            <HiOutlineExclamationTriangle className="w-7 h-7 text-rose-300" />
+            <p className="text-xs text-rose-400">Gagal memuat gambar</p>
+          </div>
+        )
       ) : (
-        <div className="h-40 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2">
+        // Belum ada file
+        <div className="h-36 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2">
           <HiOutlinePhoto className="w-8 h-8 text-slate-300" />
-          <p className="text-xs text-slate-400">Belum ada foto</p>
+          <p className="text-xs text-slate-400">Belum ada dokumen</p>
         </div>
       )}
 
+      {/* Action buttons */}
       {url && (
         <div className="flex gap-2">
-          <a href={url} target="_blank" rel="noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+          >
             <HiOutlineArrowTopRightOnSquare className="w-3.5 h-3.5" />
-            Buka Tab Baru
+            Buka
           </a>
-          <button type="button" onClick={handleDownload}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition">
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+          >
             <HiOutlineArrowDownTray className="w-3.5 h-3.5" />
             Download
           </button>
@@ -96,13 +119,26 @@ function PhotoCard({ label, filePath, fileName }) {
   );
 }
 
-// ── Konstanta & helper kecil ───────────────────────────────────────────────
+// ── Daftar dokumen untuk tab Docs ─────────────────────────────────────────
+const EMPLOYEE_DOCS = [
+  { key: "profile", label: "Pas Foto",                   pathKey: "profile_path",     nameKey: "profile_name"     },
+  { key: "ktp",     label: "KTP",                        pathKey: "ktp_path",         nameKey: "ktp_name"         },
+  { key: "kk",      label: "Kartu Keluarga",             pathKey: "kk_path",          nameKey: "kk_name"          },
+  { key: "npwp",    label: "NPWP",                       pathKey: "npwp_path",        nameKey: "npwp_name"        },
+  { key: "bpjs",    label: "BPJS Kesehatan",             pathKey: "bpjs_path",        nameKey: "bpjs_name"        },
+  { key: "bpjs_tk", label: "BPJS Ketenagakerjaan",       pathKey: "bpjs_tk_path",     nameKey: "bpjs_tk_name"     },
+  { key: "ijazah",  label: "Ijazah",                     pathKey: "ijazah_path",      nameKey: "ijazah_name"      },
+  { key: "sert",    label: "Sertifikat",                 pathKey: "sertifikat_path",  nameKey: "sertifikat_name"  },
+  { key: "rekom",   label: "Surat Rekomendasi Kerja",    pathKey: "rekomkerja_path",  nameKey: "rekomkerja_name"  },
+];
+
+// ── Konstanta & helper ────────────────────────────────────────────────────
 const TABS = [
   { id: "personal",   label: "Data Pribadi",   Icon: HiOutlineUser          },
   { id: "employment", label: "Data Pekerjaan", Icon: HiOutlineBriefcase     },
   { id: "financial",  label: "Data Keuangan",  Icon: HiOutlineBanknotes     },
   { id: "emergency",  label: "Kontak Darurat", Icon: HiOutlinePhone         },
-  { id: "docs",       label: "Dokumen",        Icon: HiOutlinePhoto         },
+  { id: "docs",       label: "Dokumen",        Icon: HiOutlineDocumentText  },
   { id: "notes",      label: "Catatan",        Icon: HiOutlineDocumentText  },
 ];
 
@@ -125,7 +161,7 @@ function Field({ label, required, hint, error, children }) {
         {label}{required && <span className="ml-1 text-rose-500">*</span>}
       </label>
       {children}
-      {hint && !error && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
+      {hint  && !error && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
       {error && (
         <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1">
           <HiOutlineExclamationCircle className="w-3 h-3" />{error}
@@ -153,21 +189,21 @@ export default function EmployeeDetail() {
   const { id }    = useParams();
   const navigate  = useNavigate();
 
-  const [employee, setEmployee]       = useState(null);
-  const [formData, setFormData]       = useState({});
+  const [employee,    setEmployee]    = useState(null);
+  const [formData,    setFormData]    = useState({});
   const [initialData, setInitialData] = useState({});
-  const [masterData, setMasterData]   = useState({});
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
-  const [success, setSuccess]         = useState("");
-  const [error, setError]             = useState("");
+  const [masterData,  setMasterData]  = useState({});
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [success,     setSuccess]     = useState("");
+  const [error,       setError]       = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
-  const [activeTab, setActiveTab]     = useState("personal");
+  const [activeTab,   setActiveTab]   = useState("personal");
 
   const [showResignModal, setShowResignModal] = useState(false);
-  const [resignDate, setResignDate]           = useState("");
-  const [resignReason, setResignReason]       = useState("");
-  const [resignSaving, setResignSaving]       = useState(false);
+  const [resignDate,      setResignDate]      = useState("");
+  const [resignReason,    setResignReason]    = useState("");
+  const [resignSaving,    setResignSaving]    = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -210,6 +246,10 @@ export default function EmployeeDetail() {
       setFieldErrors({ full_name: "Nama wajib diisi." });
       return;
     }
+    if (!formData.employee_code?.trim()) {
+      setFieldErrors({ employee_code: "Nomor Induk Karyawan wajib diisi." });
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -236,7 +276,7 @@ export default function EmployeeDetail() {
         body: JSON.stringify({ exit_date: resignDate, exit_reason: resignReason }),
       });
       setSuccess("Status karyawan berhasil diperbarui.");
-      setFormData((p) => ({ ...p, exit_date: resignDate, exit_reason: resignReason }));
+      setFormData((p)    => ({ ...p, exit_date: resignDate, exit_reason: resignReason }));
       setInitialData((p) => ({ ...p, exit_date: resignDate, exit_reason: resignReason }));
       setShowResignModal(false);
       setTimeout(() => setSuccess(""), 3000);
@@ -246,6 +286,12 @@ export default function EmployeeDetail() {
       setResignSaving(false);
     }
   };
+
+  // Hitung berapa dokumen sudah diupload
+  const uploadedDocCount = useMemo(() => {
+    if (!employee) return 0;
+    return EMPLOYEE_DOCS.filter(({ pathKey }) => !!employee[pathKey]).length;
+  }, [employee]);
 
   const activeTabIdx = TABS.findIndex((t) => t.id === activeTab);
   const activeTabObj = TABS.find((t) => t.id === activeTab);
@@ -353,14 +399,17 @@ export default function EmployeeDetail() {
           <div className="flex gap-5">
             {/* ── Sidebar ── */}
             <aside className="hidden lg:flex flex-col w-56 xl:w-60 shrink-0 gap-3 self-start sticky top-6">
-              {/* Foto profil di sidebar */}
+              {/* Foto profil */}
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col items-center gap-3">
                 {employee?.profile_path ? (
                   <img
                     src={assetUrl(employee.profile_path)}
                     alt={employee.full_name}
                     className="h-20 w-20 rounded-full object-cover border-2 border-slate-200"
-                    onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
                   />
                 ) : null}
                 <div className={`h-20 w-20 rounded-full bg-slate-100 border-2 border-slate-200 items-center justify-center ${employee?.profile_path ? "hidden" : "flex"}`}>
@@ -382,8 +431,23 @@ export default function EmployeeDetail() {
                         ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-50"
                     )}>
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {label}
+                    <span className="flex items-center gap-2.5">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {label}
+                    </span>
+                    {/* Badge dokumen di sidebar */}
+                    {tid === "docs" && (
+                      <span className={cn(
+                        "text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0",
+                        activeTab === "docs"
+                          ? "bg-white/20 text-white"
+                          : uploadedDocCount === EMPLOYEE_DOCS.length
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                      )}>
+                        {uploadedDocCount}/{EMPLOYEE_DOCS.length}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -433,7 +497,14 @@ export default function EmployeeDetail() {
                         <activeTabObj.Icon className="w-4 h-4" />
                       </div>
                     )}
-                    <h2 className="text-base font-bold text-slate-800">{activeTabObj?.label}</h2>
+                    <div className="min-w-0">
+                      <h2 className="text-base font-bold text-slate-800">{activeTabObj?.label}</h2>
+                      {activeTab === "docs" && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {uploadedDocCount} dari {EMPLOYEE_DOCS.length} dokumen tersedia
+                        </p>
+                      )}
+                    </div>
                   </div>
                   {dirty && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700">
@@ -513,39 +584,127 @@ export default function EmployeeDetail() {
                     <>
                       <Panel title="Informasi Jabatan">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                          <Field label="Nomor Induk Karyawan" required error={fieldErrors.employee_code}>
+                            <input
+                              type="text"
+                              name="employee_code"
+                              value={formData.employee_code || ""}
+                              onChange={handleChange}
+                              className={inputCls(fieldErrors.employee_code)}
+                              placeholder="Contoh: WAI-2024-001"
+                            />
+                          </Field>
+
+                          {/* Perusahaan */}
                           <Field label="Perusahaan">
-                            <select name="company_id" value={formData.company_id || ""} onChange={handleChange} className={selectCls()}>
+                            <select
+                              name="company_id"
+                              value={formData.company_id || ""}
+                              onChange={(e) => {
+                                setFormData((p) => ({ ...p, company_id: e.target.value, department_id: "" }));
+                                if (fieldErrors.company_id) setFieldErrors((p) => ({ ...p, company_id: "" }));
+                              }}
+                              className={selectCls()}
+                            >
                               <option value="">— Pilih —</option>
-                              {masterData.companies?.map((c) => <option key={c.company_id} value={c.company_id}>{c.company_name}</option>)}
+                              {masterData.companies?.map((c) => (
+                                <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
+                              ))}
                             </select>
                           </Field>
+
+                          {/* Departemen — turunan dari Perusahaan */}
                           <Field label="Departemen">
-                            <select name="department_id" value={formData.department_id || ""} onChange={handleChange} className={selectCls()}>
-                              <option value="">— Pilih —</option>
-                              {masterData.departments?.map((d) => <option key={d.department_id} value={d.department_id}>{d.department_name}</option>)}
-                            </select>
+                            {(() => {
+                              const selectedCompany = masterData.companies?.find(
+                                (c) => String(c.company_id) === String(formData.company_id)
+                              );
+                              const filteredDepts = selectedCompany
+                                ? masterData.departments?.filter(
+                                    (d) => d.company_code === selectedCompany.company_code
+                                  )
+                                : masterData.departments;
+                              return (
+                                <select
+                                  name="department_id"
+                                  value={formData.department_id || ""}
+                                  onChange={handleChange}
+                                  className={selectCls()}
+                                  disabled={!formData.company_id}
+                                >
+                                  <option value="">
+                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
+                                  </option>
+                                  {filteredDepts?.map((d) => (
+                                    <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
                           </Field>
+
+                          {/* Posisi */}
                           <Field label="Posisi">
-                            <select name="position_id" value={formData.position_id || ""} onChange={handleChange} className={selectCls()}>
+                            <select
+                              name="position_id"
+                              value={formData.position_id || ""}
+                              onChange={(e) => {
+                                setFormData((p) => ({ ...p, position_id: e.target.value, job_level_id: "" }));
+                                if (fieldErrors.position_id) setFieldErrors((p) => ({ ...p, position_id: "" }));
+                              }}
+                              className={selectCls()}
+                            >
                               <option value="">— Pilih —</option>
-                              {masterData.positions?.map((p) => <option key={p.position_id} value={p.position_id}>{p.position_name}</option>)}
+                              {masterData.positions?.map((p) => (
+                                <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
+                              ))}
                             </select>
                           </Field>
+
+                          {/* Level Jabatan — turunan dari Posisi */}
                           <Field label="Level Jabatan">
-                            <select name="job_level_id" value={formData.job_level_id || ""} onChange={handleChange} className={selectCls()}>
-                              <option value="">— Pilih —</option>
-                              {masterData.jobLevels?.map((j) => <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>)}
-                            </select>
+                            {(() => {
+                              const selectedPosition = masterData.positions?.find(
+                                (p) => String(p.position_id) === String(formData.position_id)
+                              );
+                              const filteredLevels = selectedPosition
+                                ? masterData.jobLevels?.filter(
+                                    (j) => j.position_code === selectedPosition.position_code
+                                  )
+                                : masterData.jobLevels;
+                              return (
+                                <select
+                                  name="job_level_id"
+                                  value={formData.job_level_id || ""}
+                                  onChange={handleChange}
+                                  className={selectCls()}
+                                  disabled={!formData.position_id}
+                                >
+                                  <option value="">
+                                    {formData.position_id ? "— Pilih —" : "— Pilih posisi dulu —"}
+                                  </option>
+                                  {filteredLevels?.map((j) => (
+                                    <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
                           </Field>
+
+                          {/* Status Kepegawaian */}
                           <Field label="Status Kepegawaian">
                             <select name="employment_status_id" value={formData.employment_status_id || ""} onChange={handleChange} className={selectCls()}>
                               <option value="">— Pilih —</option>
                               {masterData.employmentStatuses?.map((e) => <option key={e.employment_status_id} value={e.employment_status_id}>{e.employment_status_name}</option>)}
                             </select>
                           </Field>
+
+                          {/* Tanggal Bergabung */}
                           <Field label="Tanggal Bergabung">
                             <input type="date" name="join_date" value={formData.join_date || ""} onChange={handleChange} className={inputCls(false)} />
                           </Field>
+
+                          {/* Tanggal Akhir Kontrak */}
                           <Field label="Tanggal Akhir Kontrak" hint="Kosongkan jika karyawan tetap.">
                             <input type="date" name="contract_end_date" value={formData.contract_end_date || ""} onChange={handleChange} className={inputCls(false)} />
                           </Field>
@@ -626,21 +785,20 @@ export default function EmployeeDetail() {
                   {/* ── DOCS ── */}
                   {activeTab === "docs" && (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <PhotoCard
-                          label="Pas Foto"
-                          filePath={employee?.profile_path}
-                          fileName={employee?.profile_name}
-                        />
-                        <PhotoCard
-                          label="Foto KTP"
-                          filePath={employee?.ktp_path}
-                          fileName={employee?.ktp_name}
-                        />
-                      </div>
-                      <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-500">
-                        Klik <span className="font-semibold text-slate-600">Buka Tab Baru</span> untuk melihat foto ukuran penuh,
-                        atau <span className="font-semibold text-slate-600">Download</span> untuk mengunduh file ke perangkat Anda.
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Dokumen yang telah diupload oleh karyawan. Klik{" "}
+                        <span className="font-semibold text-slate-600">Buka</span> untuk melihat, atau{" "}
+                        <span className="font-semibold text-slate-600">Download</span> untuk mengunduh file.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {EMPLOYEE_DOCS.map(({ key, label, pathKey, nameKey }) => (
+                          <PhotoCard
+                            key={key}
+                            label={label}
+                            filePath={employee?.[pathKey]}
+                            fileName={employee?.[nameKey]}
+                          />
+                        ))}
                       </div>
                     </div>
                   )}

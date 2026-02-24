@@ -4,6 +4,7 @@ import AlertSuccess from "../../components/AlertSuccess";
 import { Link } from "react-router-dom";
 import LoadingScreen from "../../components/LoadingScreen";
 import PhotoUpload from "./components/PhotoUpload";
+import DocumentUpload from "./components/DocumentUpload";
 import {
   HiOutlinePhoto,
   HiOutlineUser,
@@ -26,13 +27,27 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+// ── Tab "photos" → label "Pas Foto", tab baru "documents" → "Unggah Dokumen"
 const TABS = [
-  { id: "personal", label: "Data Pribadi", Icon: HiOutlineUser },
-  { id: "employment", label: "Data Pekerjaan", Icon: HiOutlineBriefcase },
-  { id: "financial", label: "Data Keuangan", Icon: HiOutlineBanknotes },
-  { id: "emergency", label: "Kontak Darurat", Icon: HiOutlinePhone },
-  { id: "photos", label: "Unggah Dokumen", Icon: HiOutlinePhoto },
-  { id: "notes", label: "Catatan", Icon: HiOutlineDocumentText },
+  { id: "personal",   label: "Data Pribadi",    Icon: HiOutlineUser },
+  { id: "employment", label: "Data Pekerjaan",  Icon: HiOutlineBriefcase },
+  { id: "financial",  label: "Data Keuangan",   Icon: HiOutlineBanknotes },
+  { id: "emergency",  label: "Kontak Darurat",  Icon: HiOutlinePhone },
+  { id: "photos",     label: "Pas Foto",        Icon: HiOutlinePhoto },
+  { id: "documents",  label: "Unggah Dokumen",  Icon: HiOutlineDocumentText },
+  { id: "notes",      label: "Catatan",         Icon: HiOutlineDocumentText },
+];
+
+// Daftar dokumen (KTP masuk sini, bukan di photos lagi)
+const EXTRA_DOCUMENTS = [
+  { docType: "ktp",        label: "KTP",                      hint: "Foto/scan KTP yang masih berlaku." },
+  { docType: "kk",         label: "Kartu Keluarga",           hint: "Foto/scan KK yang masih berlaku." },
+  { docType: "npwp",       label: "NPWP",                     hint: "Kartu NPWP atau dokumen perpajakan." },
+  { docType: "bpjs",       label: "BPJS Kesehatan",           hint: "Kartu/surat kepesertaan BPJS Kesehatan." },
+  { docType: "bpjs_tk",    label: "BPJS Ketenagakerjaan",     hint: "Kartu/surat kepesertaan BPJS Ketenagakerjaan." },
+  { docType: "ijazah",     label: "Ijazah",                   hint: "Ijazah pendidikan terakhir." },
+  { docType: "sertifikat", label: "Sertifikat",               hint: "Sertifikat kompetensi/pelatihan (jika ada)." },
+  { docType: "rekomkerja", label: "Surat Rekomendasi Kerja",  hint: "Surat referensi dari perusahaan sebelumnya (jika ada)." },
 ];
 
 function Field({ label, required, hint, error, children, colSpan }) {
@@ -92,33 +107,47 @@ function ProgressBar({ pct }) {
 function Badge({ filled }) {
   if (filled) return (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-      <HiOutlineCheckCircle className="w-3 h-3" />
-      Lengkap
+      <HiOutlineCheckCircle className="w-3 h-3" />Lengkap
     </span>
   );
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-      <HiOutlineExclamationCircle className="w-3 h-3" />
-      Belum diisi
+      <HiOutlineExclamationCircle className="w-3 h-3" />Belum diisi
     </span>
   );
 }
 
 export default function Profile() {
-  const [masterData, setMasterData] = useState({});
-  const [formData, setFormData] = useState({});
-  const [initialData, setInitialData] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [dataReady, setDataReady] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [activeTab, setActiveTab] = useState("personal");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [masterData,   setMasterData]   = useState({});
+  const [formData,     setFormData]     = useState({});
+  const [initialData,  setInitialData]  = useState({});
+  const [loading,      setLoading]      = useState(true);
+  const [dataReady,    setDataReady]    = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [success,      setSuccess]      = useState("");
+  const [error,        setError]        = useState("");
+  const [fieldErrors,  setFieldErrors]  = useState({});
+  const [activeTab,    setActiveTab]    = useState("personal");
+  const [sidebarOpen,  setSidebarOpen]  = useState(false);
 
+  // Pas foto (hanya gambar)
   const [profilePhoto, setProfilePhoto] = useState({ path: null, name: null });
-  const [ktpPhoto, setKtpPhoto] = useState({ path: null, name: null });
+
+  // Semua dokumen (gambar + PDF) — KTP masuk sini
+  const [docs, setDocs] = useState({
+    ktp:        { path: null, name: null },
+    kk:         { path: null, name: null },
+    npwp:       { path: null, name: null },
+    bpjs:       { path: null, name: null },
+    bpjs_tk:    { path: null, name: null },
+    ijazah:     { path: null, name: null },
+    sertifikat: { path: null, name: null },
+    rekomkerja: { path: null, name: null },
+  });
+
+  const setDoc = (docType, value) =>
+    setDocs((prev) => ({ ...prev, [docType]: value }));
+
   const topRef = useRef(null);
 
   useEffect(() => {
@@ -133,8 +162,21 @@ export default function Profile() {
         ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach((f) => {
           if (employee[f]) employee[f] = employee[f].split("T")[0];
         });
+
         setProfilePhoto({ path: employee.profile_path || null, name: employee.profile_name || null });
-        setKtpPhoto({ path: employee.ktp_path || null, name: employee.ktp_name || null });
+
+        // Load semua dokumen sekaligus
+        setDocs({
+          ktp:        { path: employee.ktp_path        || null, name: employee.ktp_name        || null },
+          kk:         { path: employee.kk_path         || null, name: employee.kk_name         || null },
+          npwp:       { path: employee.npwp_path       || null, name: employee.npwp_name       || null },
+          bpjs:       { path: employee.bpjs_path       || null, name: employee.bpjs_name       || null },
+          bpjs_tk:    { path: employee.bpjs_tk_path    || null, name: employee.bpjs_tk_name    || null },
+          ijazah:     { path: employee.ijazah_path     || null, name: employee.ijazah_name     || null },
+          sertifikat: { path: employee.sertifikat_path || null, name: employee.sertifikat_name || null },
+          rekomkerja: { path: employee.rekomkerja_path || null, name: employee.rekomkerja_name || null },
+        });
+
         setFormData(employee);
         setInitialData(employee);
         setMasterData(masterRes);
@@ -166,7 +208,8 @@ export default function Profile() {
 
   const validate = () => {
     const errs = {};
-    if (!formData.full_name?.trim()) errs.full_name = "Nama lengkap wajib diisi.";
+    if (!formData.full_name?.trim())    errs.full_name    = "Nama lengkap wajib diisi.";
+    if (!formData.employee_code?.trim()) errs.employee_code = "Nomor Induk Karyawan wajib diisi.";
     if (formData.phone_number && !/^[0-9+()\-\s]{6,}$/.test(formData.phone_number))
       errs.phone_number = "Format nomor telepon tidak valid.";
     if (formData.ktp_number && formData.ktp_number.length < 10)
@@ -208,27 +251,55 @@ export default function Profile() {
     "company_id", "department_id", "position_id", "employment_status_id", "join_date",
     "contract_end_date", "education_level_id", "school_name", "bank_id",
     "bank_account_number", "bpjs_health_number", "bpjs_employment_number",
-    "npwp_number", "emergency_contact", "notes", "profile_path", "ktp_path",
+    "npwp_number", "emergency_contact", "notes", "profile_path", "employee_code",
+    // dokumen
+    "ktp_path", "kk_path", "npwp_path", "bpjs_path",
+    "bpjs_tk_path", "ijazah_path", "sertifikat_path", "rekomkerja_path",
   ], []);
 
   const completion = useMemo(() => {
-    const combined = { ...formData, profile_path: profilePhoto.path, ktp_path: ktpPhoto.path };
+    const combined = {
+      ...formData,
+      profile_path:    profilePhoto.path,
+      ktp_path:        docs.ktp.path,
+      kk_path:         docs.kk.path,
+      npwp_path:       docs.npwp.path,
+      bpjs_path:       docs.bpjs.path,
+      bpjs_tk_path:    docs.bpjs_tk.path,
+      ijazah_path:     docs.ijazah.path,
+      sertifikat_path: docs.sertifikat.path,
+      rekomkerja_path: docs.rekomkerja.path,
+    };
     const filled = ALL_FIELDS.filter((k) => String(combined[k] ?? "").trim() !== "").length;
     return { filled, total: ALL_FIELDS.length, pct: Math.round((filled / ALL_FIELDS.length) * 100) };
-  }, [formData, ALL_FIELDS, profilePhoto, ktpPhoto]);
+  }, [formData, ALL_FIELDS, profilePhoto, docs]);
 
   const tabCompletion = useMemo(() => {
-    const combined = { ...formData, profile_path: profilePhoto.path, ktp_path: ktpPhoto.path };
+    const combined = {
+      ...formData,
+      profile_path:    profilePhoto.path,
+      ktp_path:        docs.ktp.path,
+      kk_path:         docs.kk.path,
+      npwp_path:       docs.npwp.path,
+      bpjs_path:       docs.bpjs.path,
+      bpjs_tk_path:    docs.bpjs_tk.path,
+      ijazah_path:     docs.ijazah.path,
+      sertifikat_path: docs.sertifikat.path,
+      rekomkerja_path: docs.rekomkerja.path,
+    };
     const check = (keys) => keys.every((k) => String(combined[k] ?? "").trim() !== "");
     return {
-      photos: check(["profile_path", "ktp_path"]),
-      personal: check(["full_name", "gender", "birth_date", "phone_number", "address", "ktp_number"]),
-      employment: check(["company_id", "department_id", "position_id", "join_date"]),
-      financial: check(["bank_id", "bank_account_number"]),
-      emergency: check(["emergency_contact"]),
-      notes: check(["notes"]),
+      personal:   check(["full_name", "gender", "birth_date", "phone_number", "address", "ktp_number"]),
+      employment: check(["company_id", "department_id", "position_id", "join_date", "employee_code"]),
+      financial:  check(["bank_id", "bank_account_number"]),
+      emergency:  check(["emergency_contact"]),
+      // photos: hanya pas foto
+      photos:     check(["profile_path"]),
+      // documents: semua 8 dokumen (termasuk KTP)
+      documents:  check(["ktp_path", "kk_path", "npwp_path", "bpjs_path", "bpjs_tk_path", "ijazah_path", "sertifikat_path", "rekomkerja_path"]),
+      notes:      check(["notes"]),
     };
-  }, [formData, profilePhoto, ktpPhoto]);
+  }, [formData, profilePhoto, docs]);
 
   const handleTabChange = (id) => {
     setActiveTab(id);
@@ -251,7 +322,6 @@ export default function Profile() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
             <div className="flex items-center gap-3">
-              {/* Hamburger mobile */}
               <button
                 type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -259,20 +329,16 @@ export default function Profile() {
               >
                 <HiOutlineBars3 className="h-5 w-5 text-slate-600" />
               </button>
-
               <a href="/portal" className="flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition shrink-0">
                 <HiOutlineArrowLeft className="w-4 h-4" />
               </a>
-
               <div>
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-0.5">
                   <a href="/portal" className="hover:text-blue-600 transition">Portal</a>
                   <span>/</span>
                   <span className="text-slate-600 font-medium">Profil Karyawan</span>
                 </div>
-                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
-                  Data Karyawan
-                </h1>
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">Data Karyawan</h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {formData.full_name || "—"}
                   <span className="mx-1.5 text-slate-300">·</span>
@@ -281,23 +347,18 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Completion */}
             <div className="flex items-center gap-4 sm:gap-6">
               <div className="min-w-[160px] sm:min-w-[200px]">
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                   <span>Kelengkapan Profil</span>
                   <span className={cn(
                     "font-bold text-sm",
-                    completion.pct >= 80 ? "text-emerald-600" :
-                      completion.pct >= 50 ? "text-blue-600" : "text-amber-600"
+                    completion.pct >= 80 ? "text-emerald-600" : completion.pct >= 50 ? "text-blue-600" : "text-amber-600"
                   )}>{completion.pct}%</span>
                 </div>
                 <ProgressBar pct={completion.pct} />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  {completion.filled} dari {completion.total} field terisi
-                </p>
+                <p className="text-[10px] text-slate-400 mt-1">{completion.filled} dari {completion.total} field terisi</p>
               </div>
-
               {dirty && (
                 <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -323,7 +384,6 @@ export default function Profile() {
             </div>
           )}
 
-          {/* Dirty warning mobile */}
           {dirty && (
             <div className="sm:hidden mb-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
@@ -343,39 +403,26 @@ export default function Profile() {
                     <HiOutlineXMark className="w-4 h-4" />
                   </button>
                 </div>
-
                 {TABS.map(({ id, label, Icon }) => (
                   <button key={id} type="button" onClick={() => handleTabChange(id)}
                     className={cn(
                       "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
-                      activeTab === id
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                      activeTab === id ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}>
-                    <span className="flex items-center gap-2.5">
-                      <Icon className="w-4 h-4 shrink-0" />
-                      {label}
-                    </span>
-                    <span className={cn(
-                      "h-2 w-2 rounded-full shrink-0",
-                      tabCompletion[id] ? "bg-emerald-400" : "bg-slate-300"
-                    )} />
+                    <span className="flex items-center gap-2.5"><Icon className="w-4 h-4 shrink-0" />{label}</span>
+                    <span className={cn("h-2 w-2 rounded-full shrink-0", tabCompletion[id] ? "bg-emerald-400" : "bg-slate-300")} />
                   </button>
                 ))}
-
                 <div className="mt-auto pt-4 border-t border-slate-100 space-y-2">
                   <button type="submit" disabled={saving || !dirty}
-                    className={cn(
-                      "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
-                      dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    )}>
+                    className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                      dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
                     <FiSave className="w-4 h-4" />
                     {saving ? "Menyimpan..." : "Simpan"}
                   </button>
                   <Link to="/portal"
                     className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
-                    <HiOutlineArrowLeft className="w-4 h-4" />
-                    Kembali
+                    <HiOutlineArrowLeft className="w-4 h-4" />Kembali
                   </Link>
                 </div>
               </div>
@@ -383,7 +430,6 @@ export default function Profile() {
           )}
 
           <div className="flex gap-5">
-
             {/* Desktop Sidebar */}
             <aside className="hidden lg:flex flex-col w-56 xl:w-60 shrink-0 gap-3 self-start sticky top-6">
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-1">
@@ -391,30 +437,17 @@ export default function Profile() {
                   <button key={id} type="button" onClick={() => handleTabChange(id)}
                     className={cn(
                       "flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-left w-full transition-all",
-                      activeTab === id
-                        ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                      activeTab === id ? "bg-blue-600 text-white shadow-sm shadow-blue-200" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}>
-                    <span className="flex items-center gap-2.5">
-                      <Icon className="w-4 h-4 shrink-0" />
-                      {label}
-                    </span>
-                    <span className={cn(
-                      "h-2 w-2 rounded-full shrink-0",
-                      tabCompletion[id] ? "bg-emerald-400" : "bg-slate-300"
-                    )} />
+                    <span className="flex items-center gap-2.5"><Icon className="w-4 h-4 shrink-0" />{label}</span>
+                    <span className={cn("h-2 w-2 rounded-full shrink-0", tabCompletion[id] ? "bg-emerald-400" : "bg-slate-300")} />
                   </button>
                 ))}
               </div>
-
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-2">
                 <button type="submit" disabled={saving || !dirty}
-                  className={cn(
-                    "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
-                    dirty
-                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200"
-                      : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  )}>
+                  className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                    dirty ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
                   {saving
                     ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
                     : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
@@ -422,8 +455,7 @@ export default function Profile() {
                 </button>
                 <Link to="/portal"
                   className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
-                  <HiOutlineArrowLeft className="w-4 h-4" />
-                  Kembali
+                  <HiOutlineArrowLeft className="w-4 h-4" />Kembali
                 </Link>
               </div>
             </aside>
@@ -443,59 +475,71 @@ export default function Profile() {
                     <div className="min-w-0">
                       <h2 className="text-base font-bold text-slate-800 truncate">{activeTabObj?.label}</h2>
                       <p className="text-xs text-slate-400 mt-0.5 truncate">
-                        {activeTab === "photos" && "Upload pas foto dan foto KTP Anda."}
-                        {activeTab === "personal" && "Informasi identitas dan kontak."}
+                        {activeTab === "photos"     && "Upload pas foto Anda."}
+                        {activeTab === "documents"  && "Upload KTP, KK, NPWP, BPJS, Ijazah, dan dokumen lainnya."}
+                        {activeTab === "personal"   && "Informasi identitas dan kontak."}
                         {activeTab === "employment" && "Data posisi, jabatan, dan masa kerja."}
-                        {activeTab === "financial" && "Rekening bank, BPJS, dan NPWP."}
-                        {activeTab === "emergency" && "Kontak yang bisa dihubungi saat darurat."}
-                        {activeTab === "notes" && "Catatan pengalaman kerja sebelumnya."}
+                        {activeTab === "financial"  && "Rekening bank, BPJS, dan NPWP."}
+                        {activeTab === "emergency"  && "Kontak yang bisa dihubungi saat darurat."}
+                        {activeTab === "notes"      && "Catatan pengalaman kerja sebelumnya."}
                       </p>
                     </div>
                   </div>
-                  <div className="shrink-0">
-                    <Badge filled={tabCompletion[activeTab]} />
-                  </div>
+                  <div className="shrink-0"><Badge filled={tabCompletion[activeTab]} /></div>
                 </div>
 
                 {/* Panel Body */}
                 <div className="px-4 sm:px-6 py-5 sm:py-6">
 
-                  {/* TAB: FOTO */}
+                  {/* TAB: PAS FOTO — hanya profile photo */}
                   {activeTab === "photos" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                      {[
-                        {
-                          label: "Pas Foto",
-                          desc: "Foto formal, latar belakang polos. Maks. 5 MB (JPG/PNG/WEBP).",
-                          photo: profilePhoto,
-                          type: "profile",
-                          onUploaded: ({ path, name }) => { setProfilePhoto({ path, name }); setSuccess("Pas foto berhasil diupload."); setTimeout(() => setSuccess(""), 3000); },
-                          onDeleted: () => { setProfilePhoto({ path: null, name: null }); setSuccess("Pas foto berhasil dihapus."); setTimeout(() => setSuccess(""), 3000); },
-                        },
-                        {
-                          label: "Foto KTP",
-                          desc: "Foto KTP terlihat jelas. Maks. 5 MB (JPG/PNG/WEBP).",
-                          photo: ktpPhoto,
-                          type: "ktp",
-                          onUploaded: ({ path, name }) => { setKtpPhoto({ path, name }); setSuccess("Foto KTP berhasil diupload."); setTimeout(() => setSuccess(""), 3000); },
-                          onDeleted: () => { setKtpPhoto({ path: null, name: null }); setSuccess("Foto KTP berhasil dihapus."); setTimeout(() => setSuccess(""), 3000); },
-                        },
-                      ].map(({ label, desc, photo, type, onUploaded, onDeleted }) => (
-                        <div key={type} className="rounded-xl border border-slate-100 bg-slate-50 p-4 sm:p-6 flex flex-col items-center gap-3 text-center">
-                          <div className="w-full flex items-center justify-between mb-1">
-                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">{label}</p>
-                            <Badge filled={!!photo.path} />
-                          </div>
-                          <p className="text-[11px] text-slate-400">{desc}</p>
-                          <PhotoUpload
-                            type={type}
-                            currentPath={photo.path}
-                            currentName={photo.name}
-                            onUploaded={onUploaded}
-                            onDeleted={onDeleted}
-                          />
+                    <div className="flex justify-center">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-6 flex flex-col items-center gap-3 text-center w-full max-w-sm">
+                        <div className="w-full flex items-center justify-between mb-1">
+                          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pas Foto</p>
+                          <Badge filled={!!profilePhoto.path} />
                         </div>
-                      ))}
+                        <p className="text-[11px] text-slate-400">Foto formal, latar belakang polos. Maks. 5 MB (JPG/PNG/WEBP).</p>
+                        <PhotoUpload
+                          type="profile"
+                          currentPath={profilePhoto.path}
+                          currentName={profilePhoto.name}
+                          onUploaded={({ path, name }) => { setProfilePhoto({ path, name }); setSuccess("Pas foto berhasil diupload."); setTimeout(() => setSuccess(""), 3000); }}
+                          onDeleted={() => { setProfilePhoto({ path: null, name: null }); setSuccess("Pas foto berhasil dihapus."); setTimeout(() => setSuccess(""), 3000); }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB: DOKUMEN — KTP + semua dokumen lain */}
+                  {activeTab === "documents" && (
+                    <div className="space-y-4">
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Upload dokumen pendukung Anda. Format yang diterima:{" "}
+                        <strong>JPG, PNG, WEBP, atau PDF</strong>. Ukuran maksimal <strong>10 MB</strong> per file.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {EXTRA_DOCUMENTS.map(({ docType, label, hint }) => (
+                          <DocumentUpload
+                            key={docType}
+                            docType={docType}
+                            label={label}
+                            hint={hint}
+                            currentPath={docs[docType].path}
+                            currentName={docs[docType].name}
+                            onUploaded={({ path, name }) => {
+                              setDoc(docType, { path, name });
+                              setSuccess(`${label} berhasil diupload.`);
+                              setTimeout(() => setSuccess(""), 3000);
+                            }}
+                            onDeleted={() => {
+                              setDoc(docType, { path: null, name: null });
+                              setSuccess(`${label} berhasil dihapus.`);
+                              setTimeout(() => setSuccess(""), 3000);
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -577,38 +621,137 @@ export default function Profile() {
                     <div className="space-y-6">
                       <Panel title="Informasi Jabatan">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+
+                          <Field
+                            label="Nomor Induk Karyawan"
+                            required
+                            hint="Format: Kode Perusahaan + Tahun Masuk + No Urut"
+                            error={fieldErrors.employee_code}
+                          >
+                            <input
+                              type="text"
+                              name="employee_code"
+                              value={formData.employee_code || ""}
+                              onChange={handleChange}
+                              className={inputCls(fieldErrors.employee_code)}
+                              placeholder="Contoh: WAI-2024-001"
+                            />
+                          </Field>
+
                           <Field label="Perusahaan">
-                            <select name="company_id" value={formData.company_id || ""} onChange={handleChange} className={selectCls(false)}>
+                            <select
+                              name="company_id"
+                              value={formData.company_id || ""}
+                              onChange={(e) => {
+                                handleChange(e);
+                                // Reset department, position, job_level saat company berubah
+                                setFormData((p) => ({
+                                  ...p,
+                                  company_id: e.target.value,
+                                  department_id: "",
+                                  position_id: "",
+                                  job_level_id: "",
+                                }));
+                              }}
+                              className={selectCls(false)}
+                            >
                               <option value="">— Pilih —</option>
                               {masterData.companies?.map((c) => (
                                 <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
                               ))}
                             </select>
                           </Field>
+
                           <Field label="Departemen">
-                            <select name="department_id" value={formData.department_id || ""} onChange={handleChange} className={selectCls(false)}>
-                              <option value="">— Pilih —</option>
-                              {masterData.departments?.map((d) => (
-                                <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
-                              ))}
-                            </select>
+                            {(() => {
+                              const selectedCompany = masterData.companies?.find(
+                                (c) => String(c.company_id) === String(formData.company_id)
+                              );
+                              const filteredDepts = selectedCompany
+                                ? masterData.departments?.filter(
+                                    (d) => d.company_code === selectedCompany.company_code
+                                  )
+                                : masterData.departments;
+                              return (
+                                <select
+                                  name="department_id"
+                                  value={formData.department_id || ""}
+                                  onChange={handleChange}
+                                  className={selectCls(false)}
+                                  disabled={!formData.company_id}
+                                >
+                                  <option value="">
+                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
+                                  </option>
+                                  {filteredDepts?.map((d) => (
+                                    <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
                           </Field>
+
                           <Field label="Posisi / Jabatan">
-                            <select name="position_id" value={formData.position_id || ""} onChange={handleChange} className={selectCls(false)}>
-                              <option value="">— Pilih —</option>
-                              {masterData.positions?.map((p) => (
-                                <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
-                              ))}
-                            </select>
+                            {(() => {
+                              const selectedCompany = masterData.companies?.find(
+                                (c) => String(c.company_id) === String(formData.company_id)
+                              );
+                              const filteredPositions = selectedCompany
+                                ? masterData.positions?.filter(
+                                    (p) => p.company_code === selectedCompany.company_code
+                                  )
+                                : masterData.positions;
+                              return (
+                                <select
+                                  name="position_id"
+                                  value={formData.position_id || ""}
+                                  onChange={(e) => {
+                                    handleChange(e);
+                                    setFormData((p) => ({ ...p, position_id: e.target.value, job_level_id: "" }));
+                                  }}
+                                  className={selectCls(false)}
+                                  disabled={!formData.company_id}
+                                >
+                                  <option value="">
+                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
+                                  </option>
+                                  {filteredPositions?.map((p) => (
+                                    <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
                           </Field>
+
                           <Field label="Level Jabatan">
-                            <select name="job_level_id" value={formData.job_level_id || ""} onChange={handleChange} className={selectCls(false)}>
-                              <option value="">— Pilih —</option>
-                              {masterData.jobLevels?.map((j) => (
-                                <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
-                              ))}
-                            </select>
+                            {(() => {
+                              const selectedCompany = masterData.companies?.find(
+                                (c) => String(c.company_id) === String(formData.company_id)
+                              );
+                              const filteredJobLevels = selectedCompany
+                                ? masterData.jobLevels?.filter(
+                                    (j) => j.company_code === selectedCompany.company_code
+                                  )
+                                : masterData.jobLevels;
+                              return (
+                                <select
+                                  name="job_level_id"
+                                  value={formData.job_level_id || ""}
+                                  onChange={handleChange}
+                                  className={selectCls(false)}
+                                  disabled={!formData.company_id}
+                                >
+                                  <option value="">
+                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
+                                  </option>
+                                  {filteredJobLevels?.map((j) => (
+                                    <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
+                                  ))}
+                                </select>
+                              );
+                            })()}
                           </Field>
+
                           <Field label="Status Kepegawaian">
                             <select name="employment_status_id" value={formData.employment_status_id || ""} onChange={handleChange} className={selectCls(false)}>
                               <option value="">— Pilih —</option>
@@ -617,10 +760,12 @@ export default function Profile() {
                               ))}
                             </select>
                           </Field>
+
                           <Field label="Tanggal Bergabung">
                             <input type="date" name="join_date" value={formData.join_date || ""} onChange={handleChange}
                               className={inputCls(false)} />
                           </Field>
+
                           <Field label="Tanggal Akhir Kontrak" hint="Kosongkan jika karyawan tetap.">
                             <input type="date" name="contract_end_date" value={formData.contract_end_date || ""} onChange={handleChange}
                               className={inputCls(false)} />

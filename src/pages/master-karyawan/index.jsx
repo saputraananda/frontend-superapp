@@ -272,7 +272,7 @@ export default function MasterKaryawan() {
                     {/* Tab bar */}
                     <div className="flex gap-0.5 -mb-px">
                         {[
-                            { id: "dashboard", icon: HiOutlineChartBar, label: "Ringkasan" },
+                            { id: "dashboard", icon: HiOutlineChartBar, label: "Dashboard" },
                             { id: "list", icon: HiOutlineUsers, label: "Data Karyawan" },
                         ].map(({ id, icon: Icon, label }) => (
                             <button
@@ -309,7 +309,7 @@ export default function MasterKaryawan() {
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                                 <div className="flex items-center gap-2 mb-6">
                                     <HiOutlineBuildingOffice2 className="w-4 h-4 text-slate-400" />
-                                    <p className="text-xs font-bold tracking-widest uppercase text-slate-400">Distribusi per Cabang</p>
+                                    <p className="text-xs font-bold tracking-widest uppercase text-slate-400">Data Karyawan Tiap Perusahaan</p>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                     {summary.byCompany.map((c, i) => {
@@ -344,8 +344,8 @@ export default function MasterKaryawan() {
                         )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            <BarList icon={HiOutlineUsers}           title="Per Departemen"         items={summary.byDepartment} total={summary.total} />
-                            <BarList icon={HiOutlineArrowTrendingUp} title="Per Status Kepegawaian" items={summary.byStatus}     total={summary.total} />
+                            <BarList icon={HiOutlineUsers}           title="Departemen"         items={summary.byDepartment} total={summary.total} />
+                            <BarList icon={HiOutlineArrowTrendingUp} title="Status Kepegawaian" items={summary.byStatus}     total={summary.total} />
                         </div>
 
                         {summary.recentJoins?.length > 0 && (
@@ -471,6 +471,9 @@ export default function MasterKaryawan() {
                                                                 <div className="min-w-0">
                                                                     <p className="font-semibold text-slate-800 truncate text-sm">{emp.full_name}</p>
                                                                     <p className="text-xs text-slate-400 truncate mt-0.5">{emp.email}</p>
+                                                                    {emp.employee_code && (
+                                                                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">{emp.employee_code}</p>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </td>

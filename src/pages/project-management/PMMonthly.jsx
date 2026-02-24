@@ -1,73 +1,83 @@
 // src/pages/project-management/PMMonthly.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { pmApi } from "./pmApi";
-import { getEmployeeFromLocal, canHoD } from "./role";
+import { getEmployeeFromLocal, canSupervisorUp } from "./role";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+    HiOutlineArrowLeft,
+    HiOutlinePlus,
+    HiOutlineChevronRight,
+    HiOutlineCalendarDays,
+    HiOutlineLockClosed,
+    HiOutlineExclamationTriangle,
+    HiOutlineInboxStack,
+    HiOutlineXMark,
+    HiOutlineRectangleStack,
+    HiOutlineAcademicCap,
+    HiOutlineBriefcase,
+    HiOutlineMagnifyingGlass,
+    HiOutlineAdjustmentsHorizontal,
+    HiOutlineTableCells,
+    HiOutlineViewColumns,
+} from "react-icons/hi2";
 
-const Card = ({ children, className = "", ...props }) => (
-    <div
-        className={["rounded-2xl bg-white shadow-md ring-1 ring-slate-100 transition-all duration-200", className].join(" ")}
-        {...props}
-    >
-        {children}
-    </div>
-);
+function cn(...c) { return c.filter(Boolean).join(" "); }
 
-const Badge = ({ children, color = "slate" }) => {
-    const colors = {
-        slate: "bg-slate-100 text-slate-700",
-        blue: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-        green: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-        amber: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-        orange: "bg-orange-50 text-orange-700 ring-1 ring-orange-200",
-    };
-    return (
-        <span className={["inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", colors[color]].join(" ")}>
-            {children}
-        </span>
-    );
-};
-
-const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_FULL = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const monthName = (m) => MONTH_NAMES[Number(m) - 1] || `M${m}`;
+const monthFull = (m) => MONTH_FULL[Number(m) - 1] || `Bulan ${m}`;
 
-const MONTH_COLORS = [
-    "from-rose-500 to-rose-400",
-    "from-orange-500 to-orange-400",
-    "from-amber-500 to-amber-400",
-    "from-lime-600 to-lime-500",
-    "from-emerald-600 to-emerald-500",
-    "from-teal-600 to-teal-500",
-    "from-cyan-600 to-cyan-500",
-    "from-sky-600 to-sky-500",
-    "from-blue-600 to-blue-500",
-    "from-violet-600 to-violet-500",
-    "from-purple-600 to-purple-500",
-    "from-pink-600 to-pink-500",
+const MONTH_CONFIGS = [
+    { gradient: "from-rose-500 to-pink-500", light: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" },
+    { gradient: "from-orange-500 to-amber-500", light: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" },
+    { gradient: "from-amber-500 to-yellow-500", light: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
+    { gradient: "from-lime-500 to-green-500", light: "bg-lime-50", border: "border-lime-200", text: "text-lime-700" },
+    { gradient: "from-emerald-500 to-teal-500", light: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
+    { gradient: "from-teal-500 to-cyan-500", light: "bg-teal-50", border: "border-teal-200", text: "text-teal-700" },
+    { gradient: "from-cyan-500 to-sky-500", light: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" },
+    { gradient: "from-sky-500 to-blue-500", light: "bg-sky-50", border: "border-sky-200", text: "text-sky-700" },
+    { gradient: "from-blue-500 to-indigo-500", light: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
+    { gradient: "from-violet-500 to-purple-500", light: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" },
+    { gradient: "from-purple-500 to-fuchsia-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
+    { gradient: "from-pink-500 to-rose-500", light: "bg-pink-50", border: "border-pink-200", text: "text-pink-700" },
 ];
-const monthColor = (m) => MONTH_COLORS[(Number(m) - 1) % 12];
+const monthConfig = (m) => MONTH_CONFIGS[(Number(m) - 1) % 12];
+
+function initials(name) {
+    if (!name) return "?";
+    const parts = name.trim().split(" ");
+    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].slice(0, 2).toUpperCase();
+}
+
+function fmtDate(str) {
+    if (!str) return "—";
+    return new Date(str).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function monthIdOf(x) {
-    return x?.id ?? x?.monthly_id ?? x?.id_monthly ?? x?.id_montlhy ?? null;
+    return x?.id ?? x?.monthly_id ?? x?.id_monthly ?? null;
 }
 
 export default function PMMonthly() {
     const { projectId, semesterId } = useParams();
     const nav = useNavigate();
-
     const employee = useMemo(() => getEmployeeFromLocal(), []);
-    const isHoD = useMemo(() => canHoD(employee), [employee]);
+    const isSupervisorUp = useMemo(() => canSupervisorUp(employee), [employee]);
 
     const [loading, setLoading] = useState(true);
     const [months, setMonths] = useState([]);
-    const [semesterData, setSemesterData] = useState(null); // ← tambah ini
+    const [semesterData, setSemesterData] = useState(null);
+    const [projectData, setProjectData] = useState(null); // ← tambah ini
     const [err, setErr] = useState("");
-
     const [open, setOpen] = useState(false);
     const [month, setMonth] = useState(1);
     const [title, setTitle] = useState("");
     const [desc, setDesc] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [search, setSearch] = useState("");
+    const [sortBy, setSortBy] = useState("month_asc");
+    const [viewMode, setViewMode] = useState("grid");
 
     async function load() {
         setErr("");
@@ -77,10 +87,21 @@ export default function PMMonthly() {
                 pmApi.getSemesterDetail(semesterId),
                 pmApi.listMonths(semesterId),
             ]);
-            setSemesterData(semRes?.data || null); // ← simpan semester data
+            const sem = semRes?.data || null;
+            setSemesterData(sem);
             setMonths(monthRes?.data || []);
+
+            // fetch project detail untuk ambil title
+            if (sem?.id_project) {
+                try {
+                    const projRes = await pmApi.getProjectDetail(sem.id_project);
+                    setProjectData(projRes?.project || null);
+                } catch {
+                    // project detail not critical, silently ignore
+                }
+            }
         } catch (e) {
-            setErr(e?.message || "Gagal load monthly");
+            setErr(e?.message || "Gagal memuat monthly");
         } finally {
             setLoading(false);
         }
@@ -89,12 +110,11 @@ export default function PMMonthly() {
     async function create() {
         setErr("");
         const t = title.trim();
-        const d = desc.trim();
         if (!t) return setErr("Title wajib diisi.");
-        if (!semesterId) return setErr("semesterId tidak ditemukan dari URL.");
+        if (!semesterId) return setErr("semesterId tidak ditemukan.");
         setSubmitting(true);
         try {
-            await pmApi.createMonth(semesterId, { projectId, month, title: t, desc: d });
+            await pmApi.createMonth(semesterId, { projectId, month, title: t, desc: desc.trim() });
             setOpen(false);
             setTitle("");
             setDesc("");
@@ -109,214 +129,407 @@ export default function PMMonthly() {
     const goBoard = (m) => {
         const id = monthIdOf(m);
         if (!id) { setErr("Monthly ID tidak ditemukan."); return; }
-        nav(`/projectmanagement/month/${id}`, {
-            state: { projectId, semesterId }
-        });
+        nav(`/projectmanagement/month/${id}`, { state: { projectId, semesterId } });
     };
 
     useEffect(() => { load(); }, [semesterId]);
 
+    const filtered = useMemo(() => {
+        let list = [...months];
+        if (search.trim()) {
+            const q = search.trim().toLowerCase();
+            list = list.filter(m => m.title?.toLowerCase().includes(q) || m.desc?.toLowerCase().includes(q));
+        }
+        if (sortBy === "month_asc") list.sort((a, b) => Number(a.month) - Number(b.month));
+        if (sortBy === "month_desc") list.sort((a, b) => Number(b.month) - Number(a.month));
+        if (sortBy === "newest") list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        if (sortBy === "az") list.sort((a, b) => a.title?.localeCompare(b.title));
+        return list;
+    }, [months, search, sortBy]);
+
+    // Semester color
+    const semCfg = semesterData?.semester === 1
+        ? { gradient: "from-emerald-600 to-teal-500", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" }
+        : { gradient: "from-violet-600 to-purple-500", bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-            {/* Topbar */}
-            <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur-md shadow-sm">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 items-center justify-between">
-                        <button
-                            type="button"
-                            onClick={() => nav(`/projectmanagement/${projectId}`)}
-                            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
-                        >
-                            <span className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition">←</span>
-                            <span className="hidden sm:inline">Semesters</span>
-                        </button>
+        <div className="min-h-screen bg-slate-50">
 
-                        <div className="text-sm font-extrabold text-slate-900">Monthly Projects</div>
+            {/* ── Topbar ── */}
+            <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
+                <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4 sm:px-6 lg:px-8">
+                    <button
+                        onClick={() => nav(`/projectmanagement/${projectId}`)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+                    >
+                        <HiOutlineArrowLeft className="h-4 w-4" />
+                        <span className="hidden sm:inline">Project Semester</span>
+                    </button>
 
-                        <div className="flex items-center gap-2">
-                            {/* semesterData.semester = 1 atau 2, bukan id row */}
-                            <Badge color="orange">
-                                Semester {semesterData?.semester ?? "—"}
-                            </Badge>
+                    <div className="flex items-center gap-2">
+                        <div className="hidden sm:flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-white">
+                            <HiOutlineTableCells className="h-4 w-4" />
+                        </div>
+                        <h1 className="text-sm font-bold text-slate-900">Monthly Projects</h1>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="hidden sm:flex flex-col items-end">
+                            <span className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</span>
+                            <span className="text-[10px] text-slate-400">{isSupervisorUp ? "Supervisor" : "Staff"}</span>
+                        </div>
+                        <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
+                            {initials(employee?.full_name)}
                         </div>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-                {/* Hero */}
-                <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Badge color="orange">Monthly</Badge>
-                            <Badge color="slate">{months.length} Bulan</Badge>
+            <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+                {/* ── Breadcrumb ── */}
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-6 flex-wrap">
+                    {/* Annual title */}
+                    <button onClick={() => nav("/projectmanagement")} className="hover:text-slate-700 transition">Annual</button>
+                    <HiOutlineChevronRight className="h-3 w-3 shrink-0" />
+                    <button
+                        onClick={() => nav("/projectmanagement")}
+                        className="hover:text-slate-700 transition truncate max-w-[100px]"
+                        title={projectData?.title}
+                    >
+                        {projectData?.title ?? "Annual"}
+                    </button>
+
+                    <HiOutlineChevronRight className="h-3 w-3 shrink-0" />
+
+                    {/* Semester title */}
+                    <button
+                        onClick={() => nav(`/projectmanagement/${projectId}`)}
+                        className="hover:text-slate-700 transition truncate max-w-[120px]"
+                        title={semesterData?.title}
+                    >
+                        {semesterData?.title ?? `Semester ${semesterData?.semester ?? "—"}`}
+                    </button>
+
+                    <HiOutlineChevronRight className="h-3 w-3 shrink-0" />
+
+                    {/* Current: Monthly label */}
+                    <span className="text-slate-700 font-semibold">Monthly</span>
+                </div>
+
+                {/* ── Semester Info Banner ── */}
+                {semesterData && (
+                    <div className={`mb-6 rounded-xl border ${semCfg.border} ${semCfg.bg} px-5 py-4`}>
+                        <div className="flex items-start gap-4">
+                            <div className={`h-10 w-10 rounded-lg text-white flex items-center justify-center text-sm font-extrabold shrink-0 bg-gradient-to-br ${semCfg.gradient}`}>
+                                S{semesterData.semester}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <h3 className={`text-sm font-bold truncate ${semCfg.text}`}>{semesterData.title}</h3>
+                                    <span className={`shrink-0 inline-flex items-center rounded-md ${semCfg.bg} border ${semCfg.border} px-2 py-0.5 text-[10px] font-bold ${semCfg.text}`}>
+                                        Sem {semesterData.semester} · {semesterData.semester === 1 ? "Jan–Jun" : "Jul–Des"}
+                                    </span>
+                                </div>
+                                {semesterData.desc && (
+                                    <p className={`text-xs leading-relaxed line-clamp-2 ${semCfg.text} opacity-80`}>{semesterData.desc}</p>
+                                )}
+                                <div className={`flex items-center gap-3 mt-2 text-[10px] ${semCfg.text} opacity-70 flex-wrap`}>
+                                    <span className="flex items-center gap-1"><HiOutlineCalendarDays className="h-3 w-3" /> Dibuat {fmtDate(semesterData.created_at)}</span>
+                                    <span className="flex items-center gap-1"><HiOutlineRectangleStack className="h-3 w-3" /> {months.length} Monthly</span>
+                                </div>
+                            </div>
                         </div>
-                        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-                            Monthly List
-                        </h1>
-                        <p className="text-slate-500 text-sm mt-2">
-                            Klik setiap bulan untuk masuk ke board tasks &amp; progress tracking.
-                        </p>
+                    </div>
+                )}
+
+                {/* ── Page Header ── */}
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Monthly Plans</h2>
+                        <p className="text-xs text-slate-500 mt-1">Klik setiap kartu untuk masuk ke board task & progress tracking.</p>
                     </div>
 
-                    {isHoD ? (
+                    {isSupervisorUp ? (
                         <button
-                            type="button"
                             onClick={() => { setErr(""); setOpen(true); }}
-                            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-700 hover:shadow-xl active:scale-95 transition-all duration-150"
+                            className="shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 active:scale-95 transition-all shadow-sm"
                         >
-                            <span className="text-lg leading-none">＋</span> Create Monthly
+                            <HiOutlinePlus className="h-4 w-4" />
+                            Buat Monthly
                         </button>
                     ) : (
-                        <div className="text-xs text-slate-400 bg-slate-50 ring-1 ring-slate-200 px-4 py-2 rounded-xl">
-                            🔒 Hanya HoD+ (job_level_id ≥ 2).
+                        <div className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-400">
+                            <HiOutlineLockClosed className="h-3.5 w-3.5" />
+                            Hanya Supervisor & BoD yang bisa membuat monthly
                         </div>
                     )}
                 </div>
 
-                {err && (
-                    <div className="mb-6 flex items-start gap-3 rounded-2xl bg-rose-50 ring-1 ring-rose-200 px-4 py-3">
-                        <span className="text-rose-500 text-lg">⚠️</span>
-                        <div className="text-rose-700 text-sm font-medium">{err}</div>
+                {/* ── Filters ── */}
+                <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1">
+                            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Cari monthly..."
+                                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-orange-300 focus:bg-white transition"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <HiOutlineAdjustmentsHorizontal className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <select
+                                value={sortBy}
+                                onChange={e => setSortBy(e.target.value)}
+                                className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-orange-300"
+                            >
+                                <option value="month_asc">Bulan ↑</option>
+                                <option value="month_desc">Bulan ↓</option>
+                                <option value="newest">Terbaru</option>
+                                <option value="az">A → Z</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                            <button
+                                onClick={() => setViewMode("grid")}
+                                className={cn("h-9 px-3 text-xs font-semibold transition", viewMode === "grid" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100")}
+                            >Grid</button>
+                            <button
+                                onClick={() => setViewMode("list")}
+                                className={cn("h-9 px-3 text-xs font-semibold transition border-l border-slate-200", viewMode === "list" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100")}
+                            >List</button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Error ── */}
+                {err && !open && (
+                    <div className="mb-5 flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+                        <HiOutlineExclamationTriangle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
+                        <p className="text-sm text-rose-700 font-medium">{err}</p>
                     </div>
                 )}
 
+                {/* ── Content ── */}
                 {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-44 rounded-2xl bg-slate-100 animate-pulse" />
-                        ))}
+                    <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
+                        {[1, 2, 3, 4].map(i => <div key={i} className="h-48 rounded-xl bg-slate-200 animate-pulse" />)}
                     </div>
-                ) : months.length ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {months.map((m) => {
+                ) : filtered.length ? (
+                    <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
+                        {filtered.map(m => {
                             const id = monthIdOf(m);
+                            const cfg = monthConfig(m.month);
                             return (
-                                <button
-                                    key={id ?? JSON.stringify(m)}
-                                    type="button"
-                                    onClick={() => goBoard(m)}
-                                    className="group text-left"
-                                >
-                                    <Card className="overflow-hidden hover:shadow-xl hover:-translate-y-1 hover:ring-slate-300 cursor-pointer">
-                                        {/* Color bar header */}
-                                        <div className={`h-2 w-full bg-gradient-to-r ${monthColor(m.month)}`} />
-                                        <div className="p-6">
-                                            <div className="flex items-start justify-between gap-3 mb-3">
-                                                <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${monthColor(m.month)} flex items-center justify-center text-white text-sm font-extrabold shadow-md shrink-0`}>
-                                                    {monthName(m.month)}
+                                <button key={id ?? JSON.stringify(m)} type="button" onClick={() => goBoard(m)} className="group text-left w-full">
+                                    {viewMode === "grid" ? (
+                                        <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200">
+                                            <div className={`h-1.5 bg-gradient-to-r ${cfg.gradient}`} />
+                                            <div className="p-5">
+                                                <div className="flex items-start justify-between gap-2 mb-3">
+                                                    <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${cfg.gradient} text-white flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0`}>
+                                                        {monthName(m.month)}
+                                                    </div>
+                                                    <span className={`inline-flex items-center rounded-md ${cfg.light} ${cfg.border} border px-2 py-0.5 text-[10px] font-semibold ${cfg.text}`}>
+                                                        Bulan {m.month}
+                                                    </span>
                                                 </div>
-                                                <Badge color="orange">Bulan {m.month}</Badge>
-                                            </div>
-                                            <div className="text-base font-extrabold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">
-                                                {m.title || "—"}
-                                            </div>
-                                            <div className="mt-2 text-sm text-slate-500 line-clamp-2 leading-relaxed">
-                                                {m.desc || "Tidak ada deskripsi."}
-                                            </div>
-                                            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                                                <div className="text-xs text-slate-400">
-                                                    🗓 {monthName(m.month)} • Semester {semesterData?.semester ?? "—"}
-                                                </div>
-                                                <div className="text-xs font-semibold text-slate-900 group-hover:underline">
-                                                    Buka Board →
+
+                                                <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-orange-600 transition-colors line-clamp-2 mb-1.5">
+                                                    {m.title || "—"}
+                                                </h3>
+
+                                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">
+                                                    {m.desc || <span className="italic text-slate-400">Tidak ada deskripsi.</span>}
+                                                </p>
+
+                                                {/* Creator */}
+                                                {m.requestor_employee_id && (
+                                                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2 mb-3">
+                                                        <div className="h-5 w-5 rounded-md bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                                                            {initials(m.requestor_name || "?")}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="text-[10px] font-semibold text-slate-700 truncate">{m.requestor_name || `Emp #${m.requestor_employee_id}`}</div>
+                                                            <div className="text-[9px] text-slate-400">Creator</div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                                                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                        <HiOutlineCalendarDays className="h-3 w-3" />
+                                                        {monthFull(m.month)}
+                                                    </div>
+                                                    <div className="flex items-center gap-0.5 text-[10px] font-bold text-orange-600 group-hover:gap-1 transition-all">
+                                                        Board <HiOutlineChevronRight className="h-3 w-3" />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </Card>
+                                    ) : (
+                                        // List view
+                                        <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-sm hover:shadow-md hover:border-orange-300 transition-all">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${cfg.gradient} text-white flex items-center justify-center text-xs font-extrabold shrink-0`}>
+                                                    {monthName(m.month)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors truncate">{m.title || "—"}</h3>
+                                                        <span className={`shrink-0 inline-flex items-center rounded-md ${cfg.light} border ${cfg.border} px-2 py-0.5 text-[10px] font-semibold ${cfg.text}`}>
+                                                            {monthFull(m.month)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 truncate">{m.desc || "Tidak ada deskripsi."}</p>
+                                                </div>
+                                                <div className="shrink-0 hidden sm:flex items-center gap-3">
+                                                    {m.requestor_employee_id && (
+                                                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                            <div className="h-5 w-5 rounded-md bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold">
+                                                                {initials(m.requestor_name || "?")}
+                                                            </div>
+                                                            <span className="hidden md:inline">{m.requestor_name || `Emp #${m.requestor_employee_id}`}</span>
+                                                        </div>
+                                                    )}
+                                                    <HiOutlineChevronRight className="h-4 w-4 text-slate-400 group-hover:text-orange-600 transition-colors" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </button>
                             );
                         })}
                     </div>
                 ) : (
-                    <Card className="p-12 text-center">
-                        <div className="text-5xl mb-4">📅</div>
-                        <div className="text-slate-700 font-semibold text-lg">Belum ada monthly</div>
-                        <div className="text-slate-400 text-sm mt-1">HoD bisa membuat monthly project di sini.</div>
-                    </Card>
+                    <div className="rounded-xl bg-white border border-slate-200 p-16 text-center shadow-sm">
+                        <HiOutlineInboxStack className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                        <p className="text-sm font-bold text-slate-700">
+                            {search ? "Tidak ada hasil" : "Belum ada monthly"}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                            {search ? "Coba ubah kata kunci pencarian." : "Supervisor dapat membuat monthly project di sini."}
+                        </p>
+                        {search && (
+                            <button onClick={() => setSearch("")} className="mt-4 h-8 px-4 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200 transition">
+                                Reset
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
 
-            {/* Modal */}
+            {/* ── Modal Create ── */}
             {open && (
                 <div
-                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-                    onClick={() => { if (!submitting) setOpen(false); }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => !submitting && setOpen(false)}
                 >
                     <div
-                        className="w-full max-w-lg rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
+                        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+                        onClick={e => e.stopPropagation()}
                     >
                         <div className="bg-gradient-to-r from-orange-600 to-amber-500 px-6 py-5 flex items-center justify-between">
                             <div>
-                                <div className="text-white font-extrabold text-lg">Create Monthly</div>
-                                <div className="text-orange-100 text-xs mt-0.5">Pilih bulan dan isi detail project</div>
+                                <h3 className="text-base font-bold text-white">Buat Monthly Plan</h3>
+                                <p className="text-xs text-orange-100 mt-0.5">Pilih bulan dan isi detail project</p>
                             </div>
                             <button
-                                type="button"
-                                onClick={() => { if (!submitting) setOpen(false); }}
-                                className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
-                            >✕</button>
+                                onClick={() => !submitting && setOpen(false)}
+                                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+                            >
+                                <HiOutlineXMark className="h-4 w-4" />
+                            </button>
                         </div>
 
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-5">
                             {err && (
-                                <div className="rounded-xl bg-rose-50 ring-1 ring-rose-200 px-3 py-2 text-rose-700 text-sm">{err}</div>
+                                <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+                                    <HiOutlineExclamationTriangle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
+                                    <p className="text-sm text-rose-700">{err}</p>
+                                </div>
                             )}
 
-                            <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Bulan</span>
-                                <select
-                                    className="mt-1.5 h-11 w-full rounded-xl bg-slate-50 px-4 text-sm text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-orange-400 transition"
-                                    value={month}
-                                    onChange={(e) => setMonth(Number(e.target.value))}
-                                    disabled={submitting}
-                                >
-                                    {MONTH_NAMES.map((name, i) => (
-                                        <option key={i + 1} value={i + 1}>{i + 1} — {name}</option>
-                                    ))}
-                                </select>
-                            </label>
+                            <div>
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-2">Bulan</span>
+                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                                    {MONTH_NAMES.map((name, i) => {
+                                        const cfg = monthConfig(i + 1);
+                                        return (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                onClick={() => setMonth(i + 1)}
+                                                disabled={submitting}
+                                                className={cn(
+                                                    "h-9 rounded-lg text-xs font-bold transition-all",
+                                                    month === i + 1
+                                                        ? `bg-gradient-to-br ${cfg.gradient} text-white shadow-sm`
+                                                        : "bg-slate-50 border border-slate-200 text-slate-600 hover:border-slate-300"
+                                                )}
+                                            >
+                                                {name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
                             <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Title <span className="text-rose-500">*</span></span>
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Title <span className="text-rose-500">*</span></span>
                                 <input
-                                    className="mt-1.5 h-11 w-full rounded-xl bg-slate-50 px-4 text-sm text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition"
+                                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition"
                                     value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Finalisasi Lokasi & Persiapan Outlet 1"
+                                    onChange={e => setTitle(e.target.value)}
+                                    placeholder={`Rencana ${monthFull(month)}...`}
                                     disabled={submitting}
+                                    autoFocus
                                 />
                             </label>
 
                             <label className="block">
-                                <span className="text-sm font-semibold text-slate-700">Description</span>
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Description</span>
                                 <textarea
-                                    className="mt-1.5 min-h-[110px] w-full rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition resize-none"
+                                    className="mt-2 min-h-[80px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition resize-none"
                                     value={desc}
-                                    onChange={(e) => setDesc(e.target.value)}
+                                    onChange={e => setDesc(e.target.value)}
+                                    placeholder="Target & fokus bulan ini..."
                                     disabled={submitting}
                                 />
                             </label>
 
-                            <div className="flex justify-end gap-2 pt-2">
+                            {/* Creator preview */}
+                            <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-slate-800 text-white flex items-center justify-center text-xs font-bold">
+                                    {initials(employee?.full_name)}
+                                </div>
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
+                                    <div className="text-[10px] text-slate-400">Creator · {isSupervisorUp ? "Supervisor" : "Staff"}</div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
                                 <button
                                     type="button"
-                                    onClick={() => { if (!submitting) setOpen(false); }}
-                                    className="h-10 px-5 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition"
+                                    onClick={() => !submitting && setOpen(false)}
+                                    className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
                                     disabled={submitting}
                                 >Batal</button>
                                 <button
                                     type="button"
                                     onClick={create}
-                                    className="h-10 px-5 rounded-xl bg-orange-600 text-white text-sm font-bold hover:bg-orange-700 disabled:opacity-50 active:scale-95 transition-all shadow-md"
+                                    className="h-9 px-5 rounded-lg bg-orange-600 text-white text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition"
                                     disabled={submitting}
                                 >
                                     {submitting ? (
                                         <span className="flex items-center gap-2">
-                                            <span className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Creating...
+                                            <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                            Menyimpan...
                                         </span>
-                                    ) : "Create Monthly"}
+                                    ) : "Buat Monthly"}
                                 </button>
                             </div>
                         </div>

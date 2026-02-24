@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
-import { getEmployeeFromLocal, canHoD } from "./role";
+import { getEmployeeFromLocal, canSupervisorUp, canDirektur } from "./role"; // ← update import
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 // ─── Constants ────────────────────────────────────────
@@ -415,8 +415,9 @@ export default function PMBoard() {
   const location      = useLocation();
   const from          = location.state || {};
 
-  const employee = useMemo(() => getEmployeeFromLocal(), []);
-  const isHoD    = useMemo(() => canHoD(employee), [employee]);
+  const employee     = useMemo(() => getEmployeeFromLocal(), []);
+  const isDirektur   = useMemo(() => canDirektur(employee), [employee]);       // level 1
+  const isSupervisor = useMemo(() => canSupervisorUp(employee), [employee]);  // level 1 & 2
 
   const [loading,  setLoading]  = useState(true);
   const [monthly,  setMonthly]  = useState(null);
@@ -502,7 +503,8 @@ export default function PMBoard() {
         enddate:         eEnd || null,
         status:          eStatus,
         priority:        ePriority,
-        pic_employee_id: isHoD ? (ePic ? Number(ePic) : null) : undefined,
+        // ✅ Hanya Direktur & Supervisor yang bisa ganti PIC
+        pic_employee_id: isSupervisor ? (ePic ? Number(ePic) : null) : undefined,
       });
       setEditMode(false);
       await load();
@@ -533,10 +535,14 @@ export default function PMBoard() {
     setTSubmitting(true);
     try {
       await pmApi.createTask(monthlyId, {
-        title: tTitle.trim(), desc: tDesc.trim() || null,
-        startdate: tStart || null, enddate: tEnd || null,
-        status: tStatus, priority: tPriority,
-        pic_employee_id: isHoD ? (tPic ? Number(tPic) : null) : null,
+        title:           tTitle.trim(),
+        desc:            tDesc.trim() || null,
+        startdate:       tStart || null,
+        enddate:         tEnd || null,
+        status:          tStatus,
+        priority:        tPriority,
+        // ✅ Hanya Direktur & Supervisor yang bisa set PIC ke orang lain
+        pic_employee_id: isSupervisor ? (tPic ? Number(tPic) : null) : null,
       });
       setOpenAdd(false);
       setTTitle(""); setTDesc(""); setTStart(""); setTEnd("");
@@ -609,7 +615,12 @@ export default function PMBoard() {
               </div>
               <div className="hidden sm:block text-right">
                 <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
-                <div className="text-[10px] text-slate-400">{isHoD ? "Head of Dept." : "Staff"}</div>
+                {/* ✅ Label role sesuai job_level_id */}
+                <div className="text-[10px] text-slate-400">
+                  {isDirektur   ? "Direktur"   :
+                   isSupervisor ? "Supervisor" :
+                                  "Staff"}
+                </div>
               </div>
             </div>
           </div>
@@ -935,7 +946,8 @@ export default function PMBoard() {
                       </div>
                       <div>
                         <SectionLabel>PIC / Assigned To</SectionLabel>
-                        {editMode && isHoD ? (
+                        {/* ✅ isSupervisor bukan isHoD */}
+                        {editMode && isSupervisor ? (
                           <input
                             className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 transition"
                             value={ePic}
@@ -1114,7 +1126,9 @@ export default function PMBoard() {
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Due Date</span>
                   <input type="date"
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 transition"
+                    className={["h-9 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 transition",
+                      isOverdue(eEnd, eStatus) ? "border-rose-300" : "border-slate-200"
+                    ].join(" ")}
                     value={tEnd} onChange={(e) => setTEnd(e.target.value)} disabled={tSubmitting}
                   />
                 </label>
@@ -1141,7 +1155,7 @@ export default function PMBoard() {
                 </label>
               </div>
 
-              {isHoD && (
+              {isSupervisor && (
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">PIC Employee ID</span>
                   <input

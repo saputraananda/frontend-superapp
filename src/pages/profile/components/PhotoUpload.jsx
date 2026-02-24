@@ -1,21 +1,23 @@
 import { useRef, useState } from "react";
 import { apiUpload, assetUrl } from "../../../lib/api";
+import ConfirmDialog from "../../../components/ConfirmDialog";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function PhotoUpload({ type, currentPath, currentName, onUploaded, onDeleted }) {
-  const inputRef                  = useRef(null);
-  const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting]   = useState(false);
-  const [preview, setPreview]     = useState(null);
-  const [error, setError]         = useState("");
+// PhotoUpload hanya untuk Pas Foto (type="profile")
+// KTP sudah pindah ke tab Dokumen via DocumentUpload
+export default function PhotoUpload({ currentPath, currentName, onUploaded, onDeleted }) {
+  const inputRef                       = useRef(null);
+  const [uploading,   setUploading]   = useState(false);
+  const [deleting,    setDeleting]    = useState(false);
+  const [preview,     setPreview]     = useState(null);
+  const [error,       setError]       = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const isProfile = type === "profile";
-  const label     = isProfile ? "Pas Foto" : "Foto KTP";
-  const apiPath   = isProfile ? "/employees/profile/photo" : "/employees/profile/ktp";
-  const fieldKey  = isProfile ? "profile_photo" : "ktp_photo";
+  const apiPath  = "/employees/profile/photo";
+  const fieldKey = "profile_photo";
 
   const displaySrc = preview || assetUrl(currentPath);
 
@@ -33,8 +35,6 @@ export default function PhotoUpload({ type, currentPath, currentName, onUploaded
     }
 
     setError("");
-
-    // Preview lokal
     const reader = new FileReader();
     reader.onload = (ev) => setPreview(ev.target.result);
     reader.readAsDataURL(file);
@@ -43,14 +43,8 @@ export default function PhotoUpload({ type, currentPath, currentName, onUploaded
     try {
       const form = new FormData();
       form.append(fieldKey, file);
-
-      // ✅ Pakai apiUpload — tidak hardcode fetch lagi
       const data = await apiUpload(apiPath, { method: "POST", body: form });
-
-      onUploaded({
-        path: isProfile ? data.profile_path : data.ktp_path,
-        name: isProfile ? data.profile_name : data.ktp_name,
-      });
+      onUploaded({ path: data.profile_path, name: data.profile_name });
       setPreview(null);
     } catch (err) {
       setError(err.message);
@@ -61,12 +55,15 @@ export default function PhotoUpload({ type, currentPath, currentName, onUploaded
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Hapus ${label}?`)) return;
+  // Klik hapus → buka dialog dulu
+  const handleDeleteClick = () => setConfirmOpen(true);
+
+  // User konfirmasi hapus
+  const handleDeleteConfirm = async () => {
+    setConfirmOpen(false);
     setDeleting(true);
     setError("");
     try {
-      // ✅ Pakai apiUpload — tidak hardcode fetch lagi
       await apiUpload(apiPath, { method: "DELETE" });
       onDeleted();
     } catch (err) {
@@ -77,74 +74,89 @@ export default function PhotoUpload({ type, currentPath, currentName, onUploaded
   };
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div
-        className={cn(
-          "relative overflow-hidden border-2 border-dashed border-purple-200 bg-white/60 transition",
-          isProfile ? "h-32 w-32 rounded-full" : "h-28 w-48 rounded-2xl",
-          "flex items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/40"
-        )}
-        onClick={() => !uploading && inputRef.current?.click()}
-      >
-        {displaySrc ? (
-          <img
-            src={displaySrc}
-            alt={label}
-            className={cn("object-cover w-full h-full", isProfile ? "rounded-full" : "rounded-2xl")}
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-1 text-slate-400 select-none">
-            <span className="text-3xl">{isProfile ? "🧑" : "🪪"}</span>
-            <span className="text-[10px] text-center px-2">
-              {uploading ? "Mengupload..." : `Klik upload ${label}`}
-            </span>
-          </div>
-        )}
+    <>
+      {/* ── Confirm Dialog ── */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Hapus Pas Foto"
+        message="Apakah Anda yakin ingin menghapus pas foto? Foto tidak bisa dikembalikan setelah dihapus."
+        confirmLabel="Ya, Hapus"
+        cancelLabel="Batal"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setConfirmOpen(false)}
+      />
 
-        {uploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-full">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-          </div>
-        )}
-      </div>
-
-      {currentName && !preview && (
-        <p className="max-w-[10rem] truncate text-center text-[10px] text-slate-500" title={currentName}>
-          {currentName}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={uploading || deleting}
-          onClick={() => inputRef.current?.click()}
-          className="rounded-xl bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-200 transition disabled:opacity-50"
+      {/* ── Upload UI ── */}
+      <div className="flex flex-col items-center gap-3">
+        <div
+          className={cn(
+            "relative overflow-hidden border-2 border-dashed border-purple-200 bg-white/60 transition",
+            "h-32 w-32 rounded-full",
+            "flex items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/40"
+          )}
+          onClick={() => !uploading && inputRef.current?.click()}
         >
-          {displaySrc ? "Ganti" : "Upload"}
-        </button>
+          {displaySrc ? (
+            <img
+              src={displaySrc}
+              alt="Pas Foto"
+              className="object-cover w-full h-full rounded-full"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-1 text-slate-400 select-none">
+              <span className="text-3xl">🧑</span>
+              <span className="text-[10px] text-center px-2">
+                {uploading ? "Mengupload..." : "Klik upload foto"}
+              </span>
+            </div>
+          )}
 
-        {(displaySrc || currentPath) && (
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-full">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+            </div>
+          )}
+        </div>
+
+        {currentName && !preview && (
+          <p className="max-w-[10rem] truncate text-center text-[10px] text-slate-500" title={currentName}>
+            {currentName}
+          </p>
+        )}
+
+        <div className="flex gap-2">
           <button
             type="button"
             disabled={uploading || deleting}
-            onClick={handleDelete}
-            className="rounded-xl bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-200 transition disabled:opacity-50"
+            onClick={() => inputRef.current?.click()}
+            className="rounded-xl bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-200 transition disabled:opacity-50"
           >
-            {deleting ? "Menghapus..." : "Hapus"}
+            {displaySrc ? "Ganti" : "Upload"}
           </button>
-        )}
+
+          {(displaySrc || currentPath) && (
+            <button
+              type="button"
+              disabled={uploading || deleting}
+              onClick={handleDeleteClick}
+              className="rounded-xl bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-200 transition disabled:opacity-50"
+            >
+              {deleting ? "Menghapus..." : "Hapus"}
+            </button>
+          )}
+        </div>
+
+        {error && <p className="text-[11px] text-rose-600 text-center">{error}</p>}
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
       </div>
-
-      {error && <p className="text-[11px] text-rose-600 text-center">{error}</p>}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-    </div>
+    </>
   );
 }
