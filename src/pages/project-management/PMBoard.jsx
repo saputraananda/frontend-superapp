@@ -2,8 +2,9 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
-import { getEmployeeFromLocal, canSupervisorUp, canDirektur } from "./role"; // ← update import
+import { getEmployeeFromLocal, canSupervisorUp, canDirektur } from "./role";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { FiEdit2, FiTrash2, FiSave, FiX, FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle } from "react-icons/fi";
 
 // ─── Constants ────────────────────────────────────────
 const STATUS_LIST = [
@@ -24,11 +25,11 @@ const STATUS_WEIGHT = {
 
 const PRIORITY_LIST = [
   { key: "critical", label: "Critical", pill: "bg-rose-600 text-white", dot: "bg-rose-600" },
-  { key: "medium", label: "Medium", pill: "bg-amber-500 text-white", dot: "bg-amber-500" },
-  { key: "low", label: "Low", pill: "bg-emerald-600 text-white", dot: "bg-emerald-600" },
+  { key: "medium",   label: "Medium",   pill: "bg-amber-500 text-white", dot: "bg-amber-500" },
+  { key: "low",      label: "Low",      pill: "bg-emerald-600 text-white", dot: "bg-emerald-600" },
 ];
 
-const statusOf = (key) => STATUS_LIST.find((s) => s.key === key) || STATUS_LIST[0];
+const statusOf   = (key) => STATUS_LIST.find((s) => s.key === key)   || STATUS_LIST[0];
 const priorityOf = (key) => PRIORITY_LIST.find((p) => p.key === key) || PRIORITY_LIST[1];
 
 // ─── Helpers ──────────────────────────────────────────
@@ -41,6 +42,19 @@ function computeProgress(tasks) {
 function fmtDate(str) {
   if (!str) return "—";
   return new Date(str).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// ✅ FIX #6: toDateInput yang aman dari timezone shift
+function toDateInput(val) {
+  if (!val) return "";
+  const s = typeof val === "string" ? val : "";
+  // Sudah format YYYY-MM-DD, langsung pakai
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Ada komponen waktu (ISO string), ambil bagian tanggal saja tanpa konversi timezone
+  if (s.includes("T")) return s.slice(0, 10);
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
 }
 
 function isOverdue(enddate, status) {
@@ -57,7 +71,7 @@ function initials(name) {
 }
 
 function formatBytes(bytes) {
-  if (!bytes) return "";
+  if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -82,6 +96,199 @@ function fileIcon(fileType, fileName) {
   if (fileType?.includes("zip") || fileName?.match(/\.(zip|rar|7z)$/i)) return "ZIP";
   return "FILE";
 }
+
+// ─── Toast Notification System ────────────────────────
+// Global toast state
+let toastListeners = [];
+let toastCounter = 0;
+
+function emitToast(toast) {
+  toastListeners.forEach(fn => fn(toast));
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const handler = (toast) => {
+      setToasts(prev => [...prev, { ...toast, id: ++toastCounter }]);
+    };
+    toastListeners.push(handler);
+    return () => {
+      toastListeners = toastListeners.filter(fn => fn !== handler);
+    };
+  }, []);
+
+  const remove = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  return { toasts, remove };
+}
+
+// Toast helper functions
+const toast = {
+  success: (msg) => emitToast({ type: "success", message: msg }),
+  error: (msg) => emitToast({ type: "error", message: msg }),
+  info: (msg) => emitToast({ type: "info", message: msg }),
+  warning: (msg) => emitToast({ type: "warning", message: msg }),
+};
+
+// Toast Item Component
+const ToastItem = ({ toast: t, onRemove }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => onRemove(t.id), 4000);
+    return () => clearTimeout(timer);
+  }, [t.id, onRemove]);
+
+  const configs = {
+    success: { icon: <FiCheckCircle size={16} />, bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", icon_cls: "text-emerald-600" },
+    error:   { icon: <FiXCircle size={16} />,    bg: "bg-rose-50 border-rose-200",       text: "text-rose-800",    icon_cls: "text-rose-600" },
+    warning: { icon: <FiAlertTriangle size={16} />, bg: "bg-amber-50 border-amber-200",  text: "text-amber-800",   icon_cls: "text-amber-600" },
+    info:    { icon: <FiInfo size={16} />,        bg: "bg-blue-50 border-blue-200",       text: "text-blue-800",    icon_cls: "text-blue-600" },
+  };
+
+  const cfg = configs[t.type] || configs.info;
+
+  return (
+    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm animate-slide-in ${cfg.bg}`}
+      style={{ animation: "slideInRight 0.3s ease-out" }}>
+      <span className={`shrink-0 mt-0.5 ${cfg.icon_cls}`}>{cfg.icon}</span>
+      <p className={`flex-1 text-sm font-medium leading-snug ${cfg.text}`}>{t.message}</p>
+      <button onClick={() => onRemove(t.id)} className={`shrink-0 opacity-50 hover:opacity-100 transition ${cfg.text}`}>
+        <FiX size={14} />
+      </button>
+    </div>
+  );
+};
+
+// Toast Container
+const ToastContainer = () => {
+  const { toasts, remove } = useToast();
+  if (!toasts.length) return null;
+  return ReactDOM.createPortal(
+    <div className="fixed top-4 right-4 z-[99999] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+      <style>{`
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(100%); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+      {toasts.map(t => (
+        <div key={t.id} className="pointer-events-auto">
+          <ToastItem toast={t} onRemove={remove} />
+        </div>
+      ))}
+    </div>,
+    document.body
+  );
+};
+
+// ─── Custom Alert/Confirm Modal ────────────────────────
+// Global modal state
+let modalResolver = null;
+let modalListeners = [];
+
+function showModal(config) {
+  return new Promise((resolve) => {
+    modalResolver = resolve;
+    modalListeners.forEach(fn => fn({ ...config, open: true }));
+  });
+}
+
+// Helper: custom confirm
+function customConfirm(title, message, confirmLabel = "Ya, Lanjutkan", danger = true) {
+  return showModal({ type: "confirm", title, message, confirmLabel, danger });
+}
+
+
+const ModalDialog = () => {
+  const [modal, setModal] = useState({ open: false });
+
+  useEffect(() => {
+    const handler = (m) => setModal(m);
+    modalListeners.push(handler);
+    return () => { modalListeners = modalListeners.filter(fn => fn !== handler); };
+  }, []);
+
+  function resolve(val) {
+    setModal(m => ({ ...m, open: false }));
+    if (modalResolver) { modalResolver(val); modalResolver = null; }
+  }
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape" && modal.open) resolve(false); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modal.open]);
+
+  if (!modal.open) return null;
+
+  const isConfirm = modal.type === "confirm";
+  const alertType = modal.alertType || "info";
+
+  const iconMap = {
+    info:    { icon: <FiInfo size={22} />,          bg: "bg-blue-100",    text: "text-blue-600",    btn: "bg-blue-600 hover:bg-blue-700 text-white" },
+    success: { icon: <FiCheckCircle size={22} />,   bg: "bg-emerald-100", text: "text-emerald-600", btn: "bg-emerald-600 hover:bg-emerald-700 text-white" },
+    warning: { icon: <FiAlertTriangle size={22} />, bg: "bg-amber-100",   text: "text-amber-600",   btn: "bg-amber-500 hover:bg-amber-600 text-white" },
+    danger:  { icon: <FiTrash2 size={22} />,        bg: "bg-rose-100",    text: "text-rose-600",    btn: "bg-rose-600 hover:bg-rose-700 text-white" },
+  };
+
+  const ic = isConfirm && modal.danger
+    ? iconMap.danger
+    : iconMap[alertType] || iconMap.info;
+
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+      onClick={() => resolve(false)}>
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden"
+        style={{ animation: "modalPop 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}
+        onClick={e => e.stopPropagation()}>
+        <style>{`
+          @keyframes modalPop {
+            from { opacity: 0; transform: scale(0.85) translateY(12px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+          }
+        `}</style>
+
+        {/* Header stripe */}
+        <div className={`px-6 pt-6 pb-4 flex flex-col items-center text-center`}>
+          <div className={`h-14 w-14 rounded-2xl ${ic.bg} ${ic.text} flex items-center justify-center mb-4`}>
+            {ic.icon}
+          </div>
+          <div className="text-slate-900 font-bold text-base leading-snug mb-1.5">{modal.title}</div>
+          {modal.message && (
+            <div className="text-slate-500 text-sm leading-relaxed">{modal.message}</div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className={`px-6 pb-6 flex gap-2.5 ${isConfirm ? "" : "justify-center"}`}>
+          {isConfirm ? (
+            <>
+              <button type="button" onClick={() => resolve(false)}
+                className="flex-1 h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-semibold transition-all active:scale-95">
+                Batal
+              </button>
+              <button type="button" onClick={() => resolve(true)}
+                className={`flex-1 h-10 rounded-xl text-sm font-bold transition-all active:scale-95 ${ic.btn}`}>
+                {modal.confirmLabel || "Ya"}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => resolve(true)}
+              className={`h-10 px-8 rounded-xl text-sm font-bold transition-all active:scale-95 ${ic.btn}`}>
+              OK
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 // ─── Micro UI ─────────────────────────────────────────
 const EmployeeChip = ({ id, name, email, label, colorClass = "bg-slate-700" }) => {
@@ -129,51 +336,153 @@ const ProgressBar = ({ value = 0 }) => {
   );
 };
 
-const QuickStatusButton = ({ taskId, currentStatus, onUpdated }) => {
+// ─── Multi-select Assignee Dropdown ───────────────────
+const AssigneeMultiSelect = ({ employees, selected, onChange, disabled, selfId, isStaff }) => {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const lq = q.trim().toLowerCase();
+    return employees.filter(e =>
+      (!lq || e.full_name?.toLowerCase().includes(lq) || e.email?.toLowerCase().includes(lq))
+    );
+  }, [employees, q]);
+
+  function toggle(empId) {
+    if (isStaff && empId === selfId) return;
+    if (selected.includes(empId)) {
+      onChange(selected.filter(id => id !== empId));
+    } else {
+      onChange([...selected, empId]);
+    }
+  }
+
+  const selectedNames = employees.filter(e => selected.includes(e.employee_id));
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => !disabled && setOpen(!open)} disabled={disabled}
+        className="w-full min-h-[36px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition">
+        {selectedNames.length === 0 ? (
+          <span className="text-slate-400">— Pilih Karyawan —</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {selectedNames.map(e => (
+              <span key={e.employee_id} className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                {e.full_name}
+                {!(isStaff && e.employee_id === selfId) && (
+                  <button type="button" onClick={(ev) => { ev.stopPropagation(); toggle(e.employee_id); }}
+                    className="text-blue-400 hover:text-blue-700 font-bold ml-0.5">✕</button>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-xl max-h-56 overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cari nama..."
+              className="w-full h-8 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-300" autoFocus />
+          </div>
+          <div className="overflow-y-auto max-h-44">
+            {filtered.map(e => {
+              const checked = selected.includes(e.employee_id);
+              const isSelf  = e.employee_id === selfId;
+              return (
+                <button key={e.employee_id} type="button" onClick={() => toggle(e.employee_id)}
+                  className={["w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition hover:bg-slate-50",
+                    checked ? "bg-blue-50" : ""
+                  ].join(" ")}
+                  disabled={isStaff && isSelf}
+                >
+                  <div className={["h-4 w-4 rounded border flex items-center justify-center text-[10px] shrink-0",
+                    checked ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 bg-white"
+                  ].join(" ")}>
+                    {checked && "✓"}
+                  </div>
+                  <div className="h-6 w-6 rounded-md bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                    {initials(e.full_name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-slate-800 truncate">{e.full_name}</div>
+                    {e.email && <div className="text-[10px] text-slate-400 truncate">{e.email}</div>}
+                  </div>
+                  {isStaff && isSelf && <span className="text-[10px] text-slate-400 shrink-0">Wajib</span>}
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="px-3 py-4 text-center text-sm text-slate-400">Tidak ditemukan</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── QuickStatusButton ────────────────────────────────
+const QuickStatusButton = ({ task, onUpdated }) => {
+  const [open, setOpen]     = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef(null);
+  const [pos, setPos]       = useState({ top: 0, left: 0 });
+  const btnRef              = useRef(null);
+
+  // ✅ Cleanup portal on unmount
+  useEffect(() => {
+    return () => setOpen(false);
+  }, []);
 
   function openMenu(e) {
     e.stopPropagation();
     if (saving) return;
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-      });
+      setPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
     }
     setOpen((v) => !v);
   }
 
   async function pick(key) {
-    if (key === currentStatus) { setOpen(false); return; }
+    if (key === task.status) { setOpen(false); return; }
     setSaving(true);
     try {
-      await pmApi.updateTask(taskId, { status: key });
+      await pmApi.updateTask(task.id, {
+        title:        task.title,
+        desc:         task.desc         || null,
+        startdate:    task.startdate    ? task.startdate.slice(0, 10) : null,
+        enddate:      task.enddate      ? task.enddate.slice(0, 10)   : null,
+        priority:     task.priority     || "medium",
+        status:       key,
+        assignee_ids: task.assignees?.map(a => a.employee_id) || [],
+        link:         task.link         || null,
+      });
+      toast.success(`Status diubah ke "${statusOf(key).label}"`);
       onUpdated();
+    } catch (err) {
+      console.error("QuickStatus error:", err);
+      toast.error("Gagal mengubah status task");
     } finally {
       setSaving(false);
       setOpen(false);
     }
   }
 
-  const st = statusOf(currentStatus);
+  const st = statusOf(task.status);
 
   return (
     <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={openMenu}
-        disabled={saving}
-        className={[
-          "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition hover:opacity-80",
-          st.pill,
-        ].join(" ")}
-      >
+      <button ref={btnRef} type="button" onClick={openMenu} disabled={saving}
+        className={["inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition hover:opacity-80", st.pill].join(" ")}>
         <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
         {saving ? "Saving..." : st.label}
         <span className="opacity-50 ml-0.5">▾</span>
@@ -181,29 +490,19 @@ const QuickStatusButton = ({ taskId, currentStatus, onUpdated }) => {
 
       {open && typeof document !== "undefined" && ReactDOM.createPortal(
         <>
-          <div
-            className="fixed inset-0"
-            style={{ zIndex: 9998 }}
-            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-          />
-          <div
-            className="absolute w-48 rounded-xl bg-white shadow-xl border border-slate-200 overflow-hidden py-1"
+          <div className="fixed inset-0" style={{ zIndex: 9998 }}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
+          <div className="absolute w-48 rounded-xl bg-white shadow-xl border border-slate-200 overflow-hidden py-1"
             style={{ top: pos.top, left: pos.left, zIndex: 9999 }}
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             {STATUS_LIST.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => pick(s.key)}
-                className={[
-                  "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition hover:bg-slate-50",
-                  s.key === currentStatus ? "bg-slate-50 text-slate-900 font-semibold" : "text-slate-600",
-                ].join(" ")}
-              >
+              <button key={s.key} type="button" onClick={() => pick(s.key)}
+                className={["w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition hover:bg-slate-50",
+                  s.key === task.status ? "bg-slate-50 text-slate-900 font-semibold" : "text-slate-600",
+                ].join(" ")}>
                 <span className={`h-2 w-2 rounded-full ${s.dot} shrink-0`} />
                 {s.label}
-                {s.key === currentStatus && <span className="ml-auto text-emerald-600 font-bold">✓</span>}
+                {s.key === task.status && <span className="ml-auto text-emerald-600 font-bold">✓</span>}
               </button>
             ))}
           </div>
@@ -216,26 +515,28 @@ const QuickStatusButton = ({ taskId, currentStatus, onUpdated }) => {
 
 // ─── Evidence Panel ────────────────────────────────────
 const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
-  const [files, setFiles] = useState(initialFiles);
+  const [files, setFiles]         = useState(initialFiles);
   const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(null);
-  const [err, setErr] = useState("");
-  const [preview, setPreview] = useState(null);
-  const inputRef = useRef(null);
+  const [deleting, setDeleting]   = useState(null);
+  const [preview, setPreview]     = useState(null);
+  const inputRef                  = useRef(null);
 
-  useEffect(() => { setFiles(initialFiles); }, [taskId, initialFiles.length]);
+  // ✅ FIX #3: Gunakan initialFiles langsung (bukan initialFiles.length)
+  // Memoize di parent agar tidak trigger berulang
+  useEffect(() => { setFiles(initialFiles); }, [taskId, initialFiles]);
 
   async function handleUpload(e) {
     const selected = Array.from(e.target.files || []);
     if (!selected.length) return;
-    setErr("");
     setUploading(true);
     try {
       const res = await pmApi.uploadEvidence(taskId, selected);
       setFiles((prev) => [...prev, ...(res.data || [])]);
+      toast.success("File berhasil diupload");
       onChanged?.();
     } catch (ex) {
-      setErr(ex.message || "Upload gagal");
+      console.error("Upload error:", ex);
+      toast.error(ex.message || "Upload gagal");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -243,14 +544,23 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
   }
 
   async function handleDelete(ev) {
-    if (!window.confirm(`Hapus file "${ev.file_name}"?`)) return;
+    const confirmed = await customConfirm(
+      "Hapus Attachment",
+      `File "${ev.file_name}" akan dihapus permanen. Aksi ini tidak dapat dibatalkan.`,
+      "Hapus File",
+      true
+    );
+    if (!confirmed) return;
+
     setDeleting(ev.id);
     try {
       await pmApi.deleteEvidence(taskId, ev.id);
       setFiles((prev) => prev.filter((f) => f.id !== ev.id));
+      toast.success("File berhasil dihapus");
       onChanged?.();
     } catch (ex) {
-      setErr(ex.message || "Hapus gagal");
+      console.error("Delete evidence error:", ex);
+      toast.error(ex.message || "Hapus gagal");
     } finally {
       setDeleting(null);
     }
@@ -259,36 +569,17 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
   return (
     <div>
       <SectionLabel>Attachments ({files.length})</SectionLabel>
-
-      {err && (
-        <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700 text-xs flex items-center gap-2">
-          <span>{err}</span>
-          <button className="ml-auto text-rose-400 hover:text-rose-600 font-bold" onClick={() => setErr("")}>✕</button>
-        </div>
-      )}
-
-      {/* Upload button */}
-      <label className={[
-        "flex items-center gap-2 rounded-lg px-3 py-2.5 border cursor-pointer transition mb-3 text-sm font-medium",
+      <label className={["flex items-center gap-2 rounded-lg px-3 py-2.5 border cursor-pointer transition mb-3 text-sm font-medium",
         uploading
           ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed"
           : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400",
       ].join(" ")}>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={handleUpload}
-          disabled={uploading}
-        />
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={handleUpload} disabled={uploading} />
         {uploading
           ? <><span className="h-3.5 w-3.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /><span>Uploading...</span></>
-          : <><span>Upload Attachment</span><span className="ml-auto text-xs text-slate-400">max 20 MB</span></>
+          : <><span>Upload Attachment</span><span className="ml-auto text-xs text-slate-400">max 10 MB</span></>
         }
       </label>
-
-      {/* File list */}
       {files.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-400 italic text-center">
           Belum ada attachment.
@@ -296,64 +587,37 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
       ) : (
         <div className="space-y-1.5">
           {files.map((ev) => {
-            const img = isImage(ev.file_type, ev.file_name);
+            const img     = isImage(ev.file_type, ev.file_name);
             const baseUrl = import.meta.env.VITE_API_URL || "";
             const fullUrl = `${baseUrl}${ev.file_path}`;
-
             return (
               <div key={ev.id} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                 {img && (
-                  <button
-                    type="button"
-                    className="w-full block"
-                    onClick={() => setPreview({ url: fullUrl, name: ev.file_name, type: ev.file_type })}
-                  >
-                    <img
-                      src={fullUrl}
-                      alt={ev.file_name}
-                      className="w-full max-h-36 object-cover"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
+                  <button type="button" className="w-full block"
+                    onClick={() => setPreview({ url: fullUrl, name: ev.file_name, type: ev.file_type })}>
+                    <img src={fullUrl} alt={ev.file_name} className="w-full max-h-36 object-cover"
+                      onError={(e) => { e.target.style.display = "none"; }} />
                   </button>
                 )}
-
                 <div className="flex items-center gap-2.5 px-3 py-2.5">
-                  {/* File type badge */}
                   <div className="h-8 w-10 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-500 shrink-0">
                     {fileIcon(ev.file_type, ev.file_name)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-slate-800 truncate">{ev.file_name}</div>
-                    {ev.file_size && (
-                      <div className="text-[10px] text-slate-400">{formatBytes(ev.file_size)}</div>
-                    )}
+                    {ev.file_size && <div className="text-[10px] text-slate-400">{formatBytes(ev.file_size)}</div>}
                   </div>
-
                   <div className="flex items-center gap-1 shrink-0">
                     {(img || isPdf(ev.file_type, ev.file_name)) && (
-                      <button
-                        type="button"
-                        title="Preview"
+                      <button type="button" title="Preview"
                         onClick={() => setPreview({ url: fullUrl, name: ev.file_name, type: ev.file_type })}
-                        className="h-7 px-2 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition"
-                      >View</button>
+                        className="h-7 px-2 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition">View</button>
                     )}
-                    <a
-                      href={fullUrl}
-                      download={ev.file_name}
-                      title="Download"
-                      className="h-7 px-2 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition flex items-center"
-                    >Save</a>
-                    <button
-                      type="button"
-                      title="Hapus"
-                      onClick={() => handleDelete(ev)}
-                      disabled={deleting === ev.id}
-                      className="h-7 px-2 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium transition disabled:opacity-40"
-                    >
-                      {deleting === ev.id
-                        ? <span className="h-3 w-3 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin block" />
-                        : "Del"}
+                    <a href={fullUrl} download={ev.file_name}
+                      className="h-7 px-2 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition flex items-center">Save</a>
+                    <button type="button" onClick={() => handleDelete(ev)} disabled={deleting === ev.id}
+                      className="h-7 px-2 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium transition disabled:opacity-40">
+                      {deleting === ev.id ? <span className="h-3 w-3 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin block" /> : "Del"}
                     </button>
                   </div>
                 </div>
@@ -363,26 +627,18 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
         </div>
       )}
 
-      {/* Lightbox */}
       {preview && (
-        <div
-          className="fixed inset-0 bg-black/75 flex items-center justify-center p-4"
-          style={{ zIndex: 99999 }}
-          onClick={() => setPreview(null)}
-        >
-          <div
-            className="relative max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4" style={{ zIndex: 99999 }}
+          onClick={() => setPreview(null)}>
+          <div className="relative max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700">
               <div className="text-white text-sm font-semibold truncate max-w-[calc(100%-8rem)]">{preview.name}</div>
               <div className="flex items-center gap-2 shrink-0">
                 <a href={preview.url} download={preview.name}
-                  className="h-8 px-3 rounded-lg bg-white text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-100 transition"
-                >Download</a>
+                  className="h-8 px-3 rounded-lg bg-white text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-100 transition">Download</a>
                 <button type="button" onClick={() => setPreview(null)}
-                  className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm transition"
-                >✕</button>
+                  className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm transition">✕</button>
               </div>
             </div>
             <div className="overflow-auto max-h-[calc(90vh-56px)] bg-slate-50 flex items-center justify-center">
@@ -396,8 +652,7 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
                   <div className="text-slate-700 font-semibold mb-1">{preview.name}</div>
                   <div className="text-slate-400 text-sm mb-4">Preview tidak tersedia.</div>
                   <a href={preview.url} download={preview.name}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
-                  >Download File</a>
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition">Download File</a>
                 </div>
               )}
             </div>
@@ -408,72 +663,194 @@ const EvidencePanel = ({ taskId, initialFiles = [], onChanged }) => {
   );
 };
 
+// ─── Notification Panel ────────────────────────────────
+const NotifPanel = ({ open, onClose }) => {
+  const [notifs, setNotifs]   = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  async function loadNotifs() {
+    setLoading(true);
+    try {
+      const res = await pmApi.listNotifications();
+      setNotifs(res?.data || []);
+    } catch (err) {
+      console.error("loadNotifs error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function markRead(id) {
+    try {
+      await pmApi.markNotifRead(id);
+      setNotifs(n => n.map(x => x.id === id ? { ...x, is_read: 1 } : x));
+    } catch (err) {
+      console.error("markRead error:", err);
+    }
+  }
+
+  async function markAllRead() {
+    try {
+      await pmApi.markAllNotifRead();
+      setNotifs(n => n.map(x => ({ ...x, is_read: 1 })));
+    } catch (err) {
+      console.error("markAllRead error:", err);
+    }
+  }
+
+  useEffect(() => { if (open) loadNotifs(); }, [open]);
+
+  const unread = notifs.filter(n => !n.is_read).length;
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end p-4 sm:p-8" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden max-h-[80vh] flex flex-col mt-14"
+        onClick={e => e.stopPropagation()}>
+        <div className="bg-slate-900 px-5 py-4 flex items-center justify-between shrink-0">
+          <div>
+            <div className="text-white font-bold text-sm">Notifikasi</div>
+            <div className="text-slate-400 text-xs mt-0.5">{unread} belum dibaca</div>
+          </div>
+          <div className="flex items-center gap-2">
+            {unread > 0 && (
+              <button type="button" onClick={markAllRead}
+                className="h-7 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition">
+                Tandai semua dibaca
+              </button>
+            )}
+            <button type="button" onClick={onClose}
+              className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm transition font-bold">✕</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="p-6 text-center text-sm text-slate-400">Memuat...</div>
+          ) : notifs.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="text-3xl mb-2">🔔</div>
+              <div className="text-sm text-slate-600 font-semibold">Tidak ada notifikasi</div>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {notifs.map(n => (
+                <button key={n.id} type="button" onClick={() => !n.is_read && markRead(n.id)}
+                  className={["w-full text-left px-5 py-3.5 transition hover:bg-slate-50",
+                    n.is_read ? "bg-white" : "bg-blue-50"
+                  ].join(" ")}>
+                  <div className="flex items-start gap-3">
+                    {!n.is_read && <div className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-slate-800 leading-snug">{n.message}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {n.sender_name && <span className="text-[10px] text-slate-500 font-medium">{n.sender_name}</span>}
+                        <span className="text-[10px] text-slate-400">
+                          {n.created_at ? new Date(n.created_at).toLocaleString("id-ID", {
+                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                          }) : "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main Component ────────────────────────────────────
 export default function PMBoard() {
   const { monthlyId } = useParams();
-  const nav = useNavigate();
-  const location = useLocation();
-  const from = location.state || {};
+  const nav           = useNavigate();
+  const location      = useLocation();
+  const from          = location.state || {};
 
-  const employee = useMemo(() => getEmployeeFromLocal(), []);
-  const isDirektur = useMemo(() => canDirektur(employee), [employee]);       // level 1
-  const isSupervisor = useMemo(() => canSupervisorUp(employee), [employee]);  // level 1 & 2
+  const employee     = useMemo(() => getEmployeeFromLocal(), []);
+  const isDirektur   = useMemo(() => canDirektur(employee), [employee]);
+  const isSupervisor = useMemo(() => canSupervisorUp(employee), [employee]);
+  const isStaff      = !isSupervisor;
 
   const [loading, setLoading] = useState(true);
   const [monthly, setMonthly] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [err, setErr] = useState("");
+  const [tasks, setTasks]     = useState([]);
+  const [err, setErr]         = useState("");
 
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter]     = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [query, setQuery] = useState("");
-  const [meOnly, setMeOnly] = useState(false);   // ← tambah state
+  const [query, setQuery]   = useState("");
+  const [meOnly, setMeOnly] = useState(false);
 
   const [selectedId, setSelectedId] = useState(null);
-  const [editMode, setEditMode] = useState(false);
+  const [editMode, setEditMode]     = useState(false);
 
-  const [eTitle, setETitle] = useState("");
-  const [eDesc, setEDesc] = useState("");
-  const [eStart, setEStart] = useState("");
-  const [eEnd, setEEnd] = useState("");
-  const [ePriority, setEPriority] = useState("medium");
-  const [eStatus, setEStatus] = useState("assigned");
-  const [ePic, setEPic] = useState("");
-  const [updating, setUpdating] = useState(false);
+  const [eTitle, setETitle]         = useState("");
+  const [eDesc, setEDesc]           = useState("");
+  const [eStart, setEStart]         = useState("");
+  const [eEnd, setEEnd]             = useState("");
+  const [ePriority, setEPriority]   = useState("medium");
+  const [eStatus, setEStatus]       = useState("assigned");
+  const [eAssignees, setEAssignees] = useState([]);
+  const [eLink, setELink]           = useState("");
+  const [updating, setUpdating]     = useState(false);
 
-  const [comments, setComments] = useState([]);
-  const [commentText, setCommentText] = useState("");
+  const [comments, setComments]             = useState([]);
+  const [commentText, setCommentText]       = useState("");
   const [sendingComment, setSendingComment] = useState(false);
 
-  const [openAdd, setOpenAdd] = useState(false);
-  const [tTitle, setTTitle] = useState("");
-  const [tDesc, setTDesc] = useState("");
-  const [tStart, setTStart] = useState("");
-  const [tEnd, setTEnd] = useState("");
-  const [tPriority, setTPriority] = useState("medium");
-  const [tStatus, setTStatus] = useState("assigned");
-  const [tPic, setTPic] = useState("");
+  const [openAdd, setOpenAdd]       = useState(false);
+  const [tTitle, setTTitle]         = useState("");
+  const [tDesc, setTDesc]           = useState("");
+  const [tStart, setTStart]         = useState("");
+  const [tEnd, setTEnd]             = useState("");
+  const [tPriority, setTPriority]   = useState("medium");
+  const [tStatus, setTStatus]       = useState("assigned");
+  const [tAssignees, setTAssignees] = useState([]);
+  const [tLink, setTLink]           = useState("");
   const [tSubmitting, setTSubmitting] = useState(false);
 
-  const [employees, setEmployees] = useState([]);
+  const [employees, setEmployees]   = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   async function load() {
     setErr("");
     setLoading(true);
     try {
-      const [boardRes, empRes] = await Promise.all([
+      const [monthRes, tasksRes, empRes] = await Promise.all([
         pmApi.getMonthDetail(monthlyId),
+        pmApi.listTasks(monthlyId),
         pmApi.listEmployees(),
       ]);
-      setMonthly(boardRes?.monthly || null);
-      const t = boardRes?.tasks || [];
+      setMonthly(monthRes?.data || null);
+      const t = tasksRes?.data || [];
       setTasks(t);
-      setSelectedId((prev) => prev || t[0]?.id || null);
+
+      // ✅ FIX #4: Race condition — pertahankan selectedId jika task masih ada
+      setSelectedId((prev) => {
+        if (prev && t.find(x => x.id === prev)) return prev;
+        return t[0]?.id || null;
+      });
+
       setEmployees(empRes?.data || []);
     } catch (e) {
+      console.error("load error:", e);
       setErr(e?.message || "Gagal load board");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadNotifCount() {
+    try {
+      const res = await pmApi.listNotifications();
+      setUnreadCount((res?.data || []).filter(n => !n.is_read).length);
+    } catch (err) {
+      console.error("loadNotifCount error:", err);
     }
   }
 
@@ -482,7 +859,10 @@ export default function PMBoard() {
     try {
       const res = await pmApi.listComments(taskId);
       setComments(res?.data || []);
-    } catch { setComments([]); }
+    } catch (err) {
+      console.error("loadComments error:", err);
+      setComments([]);
+    }
   }
 
   const selectTask = useCallback((t) => {
@@ -490,47 +870,81 @@ export default function PMBoard() {
     setEditMode(false);
     setETitle(t.title || "");
     setEDesc(t.desc || "");
-    setEStart(t.startdate ? t.startdate.slice(0, 10) : "");
-    setEEnd(t.enddate ? t.enddate.slice(0, 10) : "");
+    setEStart(toDateInput(t.startdate));
+    setEEnd(toDateInput(t.enddate));
     setEPriority(t.priority || "medium");
     setEStatus(t.status || "assigned");
-    setEPic(t.pic_employee_id || "");
+    setEAssignees(t.assignees?.map(a => a.employee_id) || []);
+    setELink(t.link || "");
   }, []);
 
   async function updateTask() {
     if (!selectedId) return;
     setErr("");
-    if (!eTitle.trim()) return setErr("Title tidak boleh kosong.");
+    if (!eTitle.trim()) {
+      toast.error("Title tidak boleh kosong.");
+      return;
+    }
     setUpdating(true);
     try {
       await pmApi.updateTask(selectedId, {
-        title: eTitle.trim(),
-        desc: eDesc.trim() || null,
-        startdate: eStart || null,
-        enddate: eEnd || null,
-        status: eStatus,
-        priority: ePriority,
-        // ✅ Hanya Direktur & Supervisor yang bisa ganti PIC
-        pic_employee_id: isSupervisor ? (ePic ? Number(ePic) : null) : undefined,
+        title:        eTitle.trim(),
+        desc:         eDesc.trim() || null,
+        startdate:    eStart || null,
+        enddate:      eEnd   || null,
+        status:       eStatus,
+        priority:     ePriority,
+        assignee_ids: eAssignees,
+        link:         eLink.trim() || null,
       });
       setEditMode(false);
+      toast.success("Task berhasil diperbarui");
       await load();
     } catch (e) {
-      setErr(e?.message || "Gagal update task");
+      console.error("updateTask error:", e);
+      toast.error(e?.message || "Gagal update task");
     } finally {
       setUpdating(false);
     }
   }
 
+  async function deleteTaskHandler() {
+    if (!selectedId) return;
+
+    // ✅ FIX: Ganti window.confirm dengan custom modal
+    const confirmed = await customConfirm(
+      "Hapus Task",
+      "Task ini akan dihapus permanen beserta semua data terkait. Aksi ini tidak dapat dibatalkan.",
+      "Hapus Task",
+      true
+    );
+    if (!confirmed) return;
+
+    try {
+      await pmApi.deleteTask(selectedId);
+      // ✅ FIX #8: Reset editMode setelah delete
+      setEditMode(false);
+      setSelectedId(null);
+      toast.success("Task berhasil dihapus");
+      await load();
+    } catch (e) {
+      console.error("deleteTask error:", e);
+      toast.error(e?.message || "Gagal hapus task");
+    }
+  }
+
   async function addComment() {
     if (!selectedId || !commentText.trim()) return;
+    // ✅ FIX #7: Reset error state di awal
+    setErr("");
     setSendingComment(true);
     try {
       await pmApi.addComment(selectedId, { comment: commentText.trim() });
       setCommentText("");
       await loadComments(selectedId);
     } catch (e) {
-      setErr(e?.message || "Gagal kirim comment");
+      console.error("addComment error:", e);
+      toast.error(e?.message || "Gagal kirim comment");
     } finally {
       setSendingComment(false);
     }
@@ -538,46 +952,64 @@ export default function PMBoard() {
 
   async function addTask() {
     setErr("");
-    if (!tTitle.trim()) return setErr("Title task wajib diisi.");
+    if (!tTitle.trim()) {
+      toast.error("Title task wajib diisi.");
+      return;
+    }
     setTSubmitting(true);
     try {
       await pmApi.createTask(monthlyId, {
-        title: tTitle.trim(),
-        desc: tDesc.trim() || null,
-        startdate: tStart || null,
-        enddate: tEnd || null,
-        status: tStatus,
-        priority: tPriority,
-        // ✅ Hanya Direktur & Supervisor yang bisa set PIC ke orang lain
-        pic_employee_id: isSupervisor ? (tPic ? Number(tPic) : null) : null,
+        title:        tTitle.trim(),
+        desc:         tDesc.trim() || null,
+        startdate:    tStart || null,
+        enddate:      tEnd   || null,
+        status:       tStatus,
+        priority:     tPriority,
+        assignee_ids: tAssignees,
+        link:         tLink.trim() || null,
       });
       setOpenAdd(false);
       setTTitle(""); setTDesc(""); setTStart(""); setTEnd("");
-      setTPriority("medium"); setTStatus("assigned"); setTPic("");
+      setTPriority("medium"); setTStatus("assigned"); setTAssignees([]); setTLink("");
+      toast.success("Task berhasil ditambahkan");
       await load();
     } catch (e) {
-      setErr(e?.message || "Gagal tambah task");
+      console.error("addTask error:", e);
+      toast.error(e?.message || "Gagal tambah task");
     } finally {
       setTSubmitting(false);
     }
   }
 
-  useEffect(() => { load(); }, [monthlyId]);
-  useEffect(() => { loadComments(selectedId); }, [selectedId]);
-  useEffect(() => {
-    const t = tasks.find((x) => x.id === selectedId);
-    if (t && !editMode) selectTask(t);
-  }, [tasks]);
+  function handleOpenAdd() {
+    setErr("");
+    if (isStaff && employee?.employee_id) {
+      setTAssignees([employee.employee_id]);
+    } else {
+      setTAssignees([]);
+    }
+    setOpenAdd(true);
+  }
 
-  // ← Move this UP first
+  useEffect(() => { load(); loadNotifCount(); }, [monthlyId]);
+  useEffect(() => { loadComments(selectedId); }, [selectedId]);
+
+  // ✅ FIX #2: Dependency array lengkap
+  useEffect(() => {
+    if (editMode) return; // jangan overwrite saat edit mode aktif
+    const t = tasks.find((x) => x.id === selectedId);
+    if (t) selectTask(t);
+  }, [tasks, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: selectTask sengaja tidak dimasukkan karena wrapped useCallback dan akan
+  // menyebabkan loop. editMode dijaga dengan early return di atas.
+
   const statsTasks = useMemo(() => {
     if (!meOnly) return tasks;
-    return tasks.filter((t) => t.pic_employee_id === employee?.employee_id);
+    return tasks.filter((t) => t.assignees?.some(a => a.employee_id === employee?.employee_id));
   }, [tasks, meOnly, employee]);
 
-  // ← Then these can safely reference statsTasks
-  const progress = useMemo(() => computeProgress(statsTasks), [statsTasks]);
-  const taskStats = useMemo(() => ({
+  const progress   = useMemo(() => computeProgress(statsTasks), [statsTasks]);
+  const taskStats  = useMemo(() => ({
     total:      statsTasks.length,
     done:       statsTasks.filter((t) => t.status === "completed").length,
     inProgress: statsTasks.filter((t) => t.status === "in_progress").length,
@@ -588,10 +1020,10 @@ export default function PMBoard() {
   const filteredTasks = useMemo(() => {
     const q = query.trim().toLowerCase();
     return tasks
-      .filter((t) => statusFilter === "all" || t.status === statusFilter)
+      .filter((t) => statusFilter   === "all" || t.status   === statusFilter)
       .filter((t) => priorityFilter === "all" || t.priority === priorityFilter)
-      .filter((t) => !q || t.title?.toLowerCase().includes(q))
-      .filter((t) => !meOnly || t.pic_employee_id === employee?.employee_id);
+      .filter((t) => !q     || t.title?.toLowerCase().includes(q))
+      .filter((t) => !meOnly || t.assignees?.some(a => a.employee_id === employee?.employee_id));
   }, [tasks, statusFilter, priorityFilter, query, meOnly, employee]);
 
   const selected = useMemo(() => tasks.find((t) => t.id === selectedId) || null, [tasks, selectedId]);
@@ -605,14 +1037,16 @@ export default function PMBoard() {
   // ─── RENDER ───────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Global overlays */}
+      <ToastContainer />
+      <ModalDialog />
 
       {/* Topbar */}
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between gap-4">
             <button type="button" onClick={handleBack}
-              className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors shrink-0"
-            >
+              className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors shrink-0">
               <span className="h-7 w-7 rounded-md border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 text-sm transition">←</span>
               <span className="hidden sm:inline text-slate-600">Monthly</span>
             </button>
@@ -625,16 +1059,22 @@ export default function PMBoard() {
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
+              <button type="button" onClick={() => setShowNotifs(true)}
+                className="relative h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 transition">
+                <span className="text-sm">🔔</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full bg-rose-600 text-[10px] font-bold text-white flex items-center justify-center px-1">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
               <div className="h-7 w-7 rounded-md bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
                 {initials(employee?.full_name || employee?.name)}
               </div>
               <div className="hidden sm:block text-right">
                 <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
-                {/* ✅ Label role sesuai job_level_id */}
                 <div className="text-[10px] text-slate-400">
-                  {isDirektur ? "Direktur" :
-                    isSupervisor ? "Supervisor" :
-                      "Staff"}
+                  {isDirektur ? "Direktur" : isSupervisor ? "Supervisor" : "Staff"}
                 </div>
               </div>
             </div>
@@ -660,7 +1100,7 @@ export default function PMBoard() {
               </h1>
               {monthly?.desc && <p className="text-slate-500 text-sm mt-1">{monthly.desc}</p>}
             </div>
-            <button type="button" onClick={() => setOpenAdd(true)}
+            <button type="button" onClick={handleOpenAdd}
               className="shrink-0 inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 active:scale-95 transition-all border border-slate-800"
             >+ Add Task</button>
           </div>
@@ -668,11 +1108,11 @@ export default function PMBoard() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             {[
-              { label: "Total Tasks", value: taskStats.total, cls: "border-slate-200" },
-              { label: "In Progress", value: taskStats.inProgress, cls: "border-amber-200 bg-amber-50" },
-              { label: "Completed", value: taskStats.done, cls: "border-emerald-200 bg-emerald-50" },
-              { label: "Critical", value: taskStats.critical, cls: "border-rose-200 bg-rose-50" },
-              { label: "Overdue", value: taskStats.overdue, cls: "border-orange-200 bg-orange-50" },
+              { label: "Total Tasks",  value: taskStats.total,      cls: "border-slate-200" },
+              { label: "In Progress",  value: taskStats.inProgress,  cls: "border-amber-200 bg-amber-50" },
+              { label: "Completed",    value: taskStats.done,        cls: "border-emerald-200 bg-emerald-50" },
+              { label: "Critical",     value: taskStats.critical,    cls: "border-rose-200 bg-rose-50" },
+              { label: "Overdue",      value: taskStats.overdue,     cls: "border-orange-200 bg-orange-50" },
             ].map((s) => (
               <div key={s.label} className={`rounded-lg border px-4 py-3 bg-white ${s.cls}`}>
                 <div className="text-xl font-bold text-slate-900">{s.value}</div>
@@ -681,7 +1121,6 @@ export default function PMBoard() {
             ))}
           </div>
 
-          {/* Progress */}
           <div className="flex items-center gap-3">
             <div className="flex-1"><ProgressBar value={progress} /></div>
             <div className="text-sm font-bold text-slate-700 w-12 text-right shrink-0">{progress}%</div>
@@ -697,58 +1136,34 @@ export default function PMBoard() {
           {/* ── LEFT ── */}
           <div className="lg:col-span-5 space-y-3">
             <Card className="p-4">
-              {/* Status filter */}
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <button type="button" onClick={() => setStatusFilter("all")}
                   className={["px-3 py-1 rounded-md text-xs font-semibold border transition",
-                    statusFilter === "all"
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                  ].join(" ")}
-                >All</button>
+                    statusFilter === "all" ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ].join(" ")}>All</button>
                 {STATUS_LIST.map((s) => (
                   <button key={s.key} type="button" onClick={() => setStatusFilter(s.key)}
                     className={["px-3 py-1 rounded-md text-xs font-semibold border transition",
-                      statusFilter === s.key
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                    ].join(" ")}
-                  >{s.label}</button>
+                      statusFilter === s.key ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    ].join(" ")}>{s.label}</button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => setMeOnly((v) => !v)}
+                <button type="button" onClick={() => setMeOnly((v) => !v)}
                   className={["inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold border transition",
-                    meOnly
-                      ? "bg-blue-700 text-white border-blue-700"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                  ].join(" ")}
-                >
+                    meOnly ? "bg-blue-700 text-white border-blue-700" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ].join(" ")}>
                   <span className={["h-4 w-4 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0",
                     meOnly ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
-                  ].join(" ")}>
-                    {initials(employee?.full_name)}
-                  </span>
+                  ].join(" ")}>{initials(employee?.full_name)}</span>
                   Me Only
                   {meOnly && <span className="ml-0.5 opacity-70">✓</span>}
                 </button>
-                {meOnly && (
-                  <span className="text-xs text-slate-400 italic">
-                    Menampilkan task milik kamu saja
-                  </span>
-                )}
-              </div>    
+              </div>
 
-              {/* Search + priority */}
               <div className="flex items-center gap-2">
-                <input value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search task..."
-                  className="flex-1 h-8 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300 transition"
-                />
-                <select
-                  className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none"
-                  value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}
-                >
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search task..."
+                  className="flex-1 h-8 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300 transition" />
+                <select className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none"
+                  value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
                   <option value="all">All Priority</option>
                   {PRIORITY_LIST.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                 </select>
@@ -762,16 +1177,14 @@ export default function PMBoard() {
             ) : filteredTasks.length ? (
               <div className="space-y-2">
                 {filteredTasks.map((t) => {
-                  const pr = priorityOf(t.priority);
+                  const pr   = priorityOf(t.priority);
                   const over = isOverdue(t.enddate, t.status);
                   return (
                     <div key={t.id} role="button" tabIndex={0}
                       onClick={() => selectTask(t)}
                       onKeyDown={(e) => e.key === "Enter" && selectTask(t)}
-                      className="w-full text-left cursor-pointer"
-                    >
-                      <Card className={[
-                        "p-4 hover:shadow-md hover:border-slate-300 transition-all",
+                      className="w-full text-left cursor-pointer">
+                      <Card className={["p-4 hover:shadow-md hover:border-slate-300 transition-all",
                         t.id === selectedId ? "border-slate-900 shadow-md ring-1 ring-slate-900" : "",
                       ].join(" ")}>
                         <div className="flex items-start gap-3">
@@ -781,23 +1194,28 @@ export default function PMBoard() {
                               <div className="font-semibold text-slate-900 text-sm leading-snug">{t.title}</div>
                               <Tag className={`${pr.pill} shrink-0`}>{pr.label}</Tag>
                             </div>
-                            {t.desc && <div className="text-xs text-slate-500 line-clamp-1 mb-2">{t.desc}</div>}
+                            {t.desc && (
+                              <div className="text-xs text-slate-500 line-clamp-1 mb-2">{t.desc}</div>
+                            )}
 
-                            {t.pic_name && (
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <div className="h-5 w-5 rounded-md bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
-                                  {initials(t.pic_name)}
-                                </div>
-                                <span className="text-xs text-slate-500 truncate">{t.pic_name}</span>
+                            {t.assignees?.length > 0 && (
+                              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                {t.assignees.slice(0, 3).map(a => (
+                                  <div key={a.employee_id} className="flex items-center gap-1">
+                                    <div className="h-5 w-5 rounded-md bg-blue-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                                      {initials(a.full_name)}
+                                    </div>
+                                    <span className="text-xs text-slate-500 truncate max-w-[80px]">{a.full_name}</span>
+                                  </div>
+                                ))}
+                                {t.assignees.length > 3 && (
+                                  <span className="text-[10px] text-slate-400 font-medium">+{t.assignees.length - 3}</span>
+                                )}
                               </div>
                             )}
 
                             <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <QuickStatusButton
-                                taskId={t.id}
-                                currentStatus={t.status}
-                                onUpdated={load}
-                              />
+                              <QuickStatusButton task={t} onUpdated={load} />
                               <div className={["text-xs", over ? "text-rose-500 font-medium" : "text-slate-400"].join(" ")}>
                                 {over ? "Overdue · " : ""}{t.enddate ? fmtDate(t.enddate) : "No due date"}
                               </div>
@@ -805,10 +1223,8 @@ export default function PMBoard() {
 
                             <div className="mt-2.5 flex items-center gap-2">
                               <div className="flex-1 h-1 rounded-sm bg-slate-100 border border-slate-200 overflow-hidden">
-                                <div
-                                  className={`h-full ${statusOf(t.status).dot}`}
-                                  style={{ width: `${(STATUS_WEIGHT[t.status] || 0) * 100}%` }}
-                                />
+                                <div className={`h-full ${statusOf(t.status).dot}`}
+                                  style={{ width: `${(STATUS_WEIGHT[t.status] || 0) * 100}%` }} />
                               </div>
                               <span className="text-[10px] text-slate-400 font-semibold w-7 text-right">
                                 {Math.round((STATUS_WEIGHT[t.status] || 0) * 100)}%
@@ -847,8 +1263,7 @@ export default function PMBoard() {
                         {editMode ? (
                           <input
                             className="w-full bg-white/20 text-white font-bold text-sm placeholder-white/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-white/40 border border-white/20"
-                            value={eTitle} onChange={(e) => setETitle(e.target.value)}
-                          />
+                            value={eTitle} onChange={(e) => setETitle(e.target.value)} />
                         ) : (
                           <div className="text-white font-bold text-sm leading-snug">{selected.title}</div>
                         )}
@@ -868,23 +1283,33 @@ export default function PMBoard() {
                       <div className="flex gap-1.5 shrink-0">
                         {editMode ? (
                           <>
-                            <button type="button" onClick={() => { setEditMode(false); selectTask(selected); }}
-                              className="h-8 px-3 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
+                            <button type="button"
+                              onClick={() => { setEditMode(false); selectTask(selected); }}
                               disabled={updating}
-                            >Batal</button>
-                            <button type="button" onClick={updateTask}
-                              className="h-8 px-4 rounded-lg bg-white text-blue-700 text-xs font-bold hover:bg-blue-50 transition disabled:opacity-50 flex items-center gap-1.5"
-                              disabled={updating}
-                            >
+                              className="h-8 px-3 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition flex items-center gap-1.5">
+                              <FiX size={13} />
+                              Batal
+                            </button>
+                            <button type="button" onClick={updateTask} disabled={updating}
+                              className="h-8 px-4 rounded-lg bg-white text-blue-700 text-xs font-bold hover:bg-blue-50 transition disabled:opacity-50 flex items-center gap-1.5">
                               {updating
-                                ? <><span className="h-3 w-3 border-2 border-blue-300 border-t-blue-700 rounded-full animate-spin" />Saving...</>
-                                : "Save"}
+                                ? <><span className="h-3.5 w-3.5 border-2 border-blue-200 border-t-blue-700 rounded-full animate-spin" /><span>Saving...</span></>
+                                : <><FiSave size={13} />Save</>}
                             </button>
                           </>
                         ) : (
-                          <button type="button" onClick={() => setEditMode(true)}
-                            className="h-8 px-4 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition"
-                          >Edit</button>
+                          <>
+                            <button type="button" onClick={() => setEditMode(true)}
+                              className="h-8 px-4 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition flex items-center gap-1.5">
+                              <FiEdit2 size={13} />
+                              Update Task
+                            </button>
+                            <button type="button" onClick={deleteTaskHandler}
+                              className="h-8 px-3 rounded-lg border border-rose-400/50 bg-rose-500/20 hover:bg-rose-500/40 text-white text-xs font-medium transition flex items-center gap-1.5"
+                              title="Hapus Task">
+                              <FiTrash2 size={13} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -898,16 +1323,14 @@ export default function PMBoard() {
                         <label className="block">
                           <SectionLabel>Status</SectionLabel>
                           <select className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
-                            value={eStatus} onChange={(e) => setEStatus(e.target.value)} disabled={updating}
-                          >
+                            value={eStatus} onChange={(e) => setEStatus(e.target.value)} disabled={updating}>
                             {STATUS_LIST.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                           </select>
                         </label>
                         <label className="block">
                           <SectionLabel>Priority</SectionLabel>
                           <select className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
-                            value={ePriority} onChange={(e) => setEPriority(e.target.value)} disabled={updating}
-                          >
+                            value={ePriority} onChange={(e) => setEPriority(e.target.value)} disabled={updating}>
                             {PRIORITY_LIST.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                           </select>
                         </label>
@@ -920,11 +1343,34 @@ export default function PMBoard() {
                       {editMode ? (
                         <textarea
                           className="min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition resize-none"
-                          value={eDesc} onChange={(e) => setEDesc(e.target.value)} disabled={updating}
-                        />
+                          value={eDesc} onChange={(e) => setEDesc(e.target.value)} disabled={updating} />
                       ) : (
                         <div className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-3 border border-slate-200 leading-relaxed min-h-[44px]">
-                          {selected.desc || <span className="text-slate-400 italic">Tidak ada deskripsi.</span>}
+                          {selected.desc
+                            ? selected.desc
+                            : <span className="text-slate-400 italic">Tidak ada deskripsi.</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Link */}
+                    <div>
+                      <SectionLabel>Link</SectionLabel>
+                      {editMode ? (
+                        <input type="url"
+                          className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
+                          value={eLink} onChange={(e) => setELink(e.target.value)} disabled={updating}
+                          placeholder="https://..." />
+                      ) : (
+                        <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-200 min-h-[36px]">
+                          {selected.link ? (
+                            <a href={selected.link} target="_blank" rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 underline break-all">
+                              {selected.link}
+                            </a>
+                          ) : (
+                            <span className="text-sm text-slate-400 italic">Tidak ada link.</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -936,8 +1382,7 @@ export default function PMBoard() {
                         {editMode ? (
                           <input type="date"
                             className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 transition"
-                            value={eStart} onChange={(e) => setEStart(e.target.value)} disabled={updating}
-                          />
+                            value={eStart} onChange={(e) => setEStart(e.target.value)} disabled={updating} />
                         ) : (
                           <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-200">
                             <div className="text-sm font-medium text-slate-800">{fmtDate(selected.startdate)}</div>
@@ -951,8 +1396,7 @@ export default function PMBoard() {
                             className={["h-9 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 transition",
                               isOverdue(eEnd, eStatus) ? "border-rose-300" : "border-slate-200"
                             ].join(" ")}
-                            value={eEnd} onChange={(e) => setEEnd(e.target.value)} disabled={updating}
-                          />
+                            value={eEnd} onChange={(e) => setEEnd(e.target.value)} disabled={updating} />
                         ) : (
                           <div className={["rounded-lg px-3 py-2.5 border",
                             isOverdue(selected.enddate, selected.status) ? "bg-rose-50 border-rose-200" : "bg-slate-50 border-slate-200"
@@ -970,43 +1414,43 @@ export default function PMBoard() {
                       </div>
                     </div>
 
-                    {/* Owner & PIC */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <SectionLabel>Owner</SectionLabel>
-                        <EmployeeChip
-                          id={selected.owner_employee_id}
-                          name={selected.owner_name}
-                          email={selected.owner_email}
-                          label="owner"
-                          colorClass="bg-slate-700"
-                        />
-                      </div>
-                      <div>
-                        <SectionLabel>PIC / Assigned To</SectionLabel>
-                        {editMode && isSupervisor ? (
-                          <select
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
-                            value={ePic}
-                            onChange={(e) => setEPic(e.target.value)}
-                            disabled={updating}
-                          >
-                            <option value="">— Pilih Karyawan —</option>
-                            {employees.map((emp) => (
-                              <option key={emp.employee_id} value={emp.employee_id}>
-                                {emp.full_name} {emp.email ? `(${emp.email})` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
+                    {/* Owner & Assignees */}
+                    <div>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <SectionLabel>Owner (Creator)</SectionLabel>
                           <EmployeeChip
-                            id={selected.pic_employee_id}
-                            name={selected.pic_name}
-                            email={selected.pic_email}
-                            label="PIC"
-                            colorClass="bg-blue-700"
+                            id={selected.owner_employee_id}
+                            name={selected.owner_name}
+                            email={selected.owner_email}
+                            label="owner"
+                            colorClass="bg-slate-700"
                           />
-                        )}
+                        </div>
+                        <div>
+                          <SectionLabel>PIC / Assigned To ({selected.assignees?.length || 0})</SectionLabel>
+                          {editMode ? (
+                            <AssigneeMultiSelect
+                              employees={employees}
+                              selected={eAssignees}
+                              onChange={setEAssignees}
+                              disabled={updating}
+                              selfId={employee?.employee_id}
+                              isStaff={isStaff}
+                            />
+                          ) : selected.assignees?.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {selected.assignees.map(a => (
+                                <EmployeeChip key={a.employee_id} id={a.employee_id} name={a.full_name} email={a.email}
+                                  label="PIC" colorClass="bg-blue-700" />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-400 italic">
+                              Belum ada PIC.
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1022,24 +1466,26 @@ export default function PMBoard() {
                         </div>
                         <div className="flex items-center gap-0.5 flex-wrap">
                           {STATUS_LIST.map((s, i) => {
-                            const cur = editMode ? eStatus : selected.status;
+                            const cur    = editMode ? eStatus : selected.status;
                             const curIdx = STATUS_LIST.findIndex((x) => x.key === cur);
-                            const past = i < curIdx;
+                            const past   = i < curIdx;
                             const active = s.key === cur;
                             return (
-                              <React.Fragment key={s.key}>
-                                <div className={["text-[9px] px-2 py-0.5 rounded font-semibold transition",
-                                  active ? "bg-slate-900 text-white" :
-                                    past ? "bg-slate-300 text-slate-600" : "bg-slate-100 text-slate-400"
-                                ].join(" ")}>
-                                  {s.label}
-                                </div>
+                              <div key={s.key} className="flex items-center gap-0.5">
+                                <div className={["h-2 w-2 rounded-full transition-all",
+                                  active ? s.dot : past ? "bg-emerald-400" : "bg-slate-200"
+                                ].join(" ")} />
                                 {i < STATUS_LIST.length - 1 && (
-                                  <div className={["h-px w-2", past || active ? "bg-slate-400" : "bg-slate-200"].join(" ")} />
+                                  <div className={["h-0.5 w-4 rounded transition-all",
+                                    past ? "bg-emerald-300" : "bg-slate-200"
+                                  ].join(" ")} />
                                 )}
-                              </React.Fragment>
+                              </div>
                             );
                           })}
+                          <span className="ml-2 text-[10px] text-slate-500 font-medium">
+                            {statusOf(editMode ? eStatus : selected.status).label}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1072,10 +1518,10 @@ export default function PMBoard() {
                             <div className="flex items-center justify-between mb-1.5">
                               <div className="flex items-center gap-2">
                                 <div className="h-6 w-6 rounded-md bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                                  {initials(c.employee_name)}
+                                  {initials(c.full_name)}
                                 </div>
                                 <div className="text-xs font-semibold text-slate-900">
-                                  {c.employee_name || `Emp #${c.employee_id || "?"}`}
+                                  {c.full_name || `Emp #${c.employee_id || "?"}`}
                                 </div>
                               </div>
                               <div className="text-[10px] text-slate-400">
@@ -1099,12 +1545,12 @@ export default function PMBoard() {
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }}
-                          disabled={sendingComment}
-                        />
+                          disabled={sendingComment} />
                         <button type="button" onClick={addComment}
                           disabled={sendingComment || !commentText.trim()}
-                          className="h-7 px-3 rounded-md bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 disabled:opacity-40 transition"
-                        >{sendingComment ? "..." : "Send"}</button>
+                          className="h-7 px-3 rounded-md bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 disabled:opacity-40 transition">
+                          {sendingComment ? "..." : "Send"}
+                        </button>
                       </div>
                     </div>
 
@@ -1119,119 +1565,94 @@ export default function PMBoard() {
       {/* Modal Add Task */}
       {openAdd && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => { if (!tSubmitting) setOpenAdd(false); }}
-        >
+          onClick={() => { if (!tSubmitting) setOpenAdd(false); }}>
           <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             <div className="bg-slate-900 px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-800">
               <div>
                 <div className="text-white font-bold">Add Task</div>
                 <div className="text-slate-400 text-xs mt-0.5">Tambah task ke monthly board ini</div>
               </div>
               <button type="button" onClick={() => { if (!tSubmitting) setOpenAdd(false); }}
-                className="h-8 w-8 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm transition font-bold"
-              >✕</button>
+                className="h-8 w-8 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm transition font-bold">✕</button>
             </div>
 
             <div className="p-6 space-y-4 overflow-y-auto">
-              {err && (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700 text-sm">{err}</div>
-              )}
-
               <label className="block">
                 <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Title <span className="text-rose-500">*</span></span>
-                <input
-                  className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
-                  value={tTitle} onChange={(e) => setTTitle(e.target.value)}
-                  placeholder="Nama task..."
-                  disabled={tSubmitting}
-                />
+                <input className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
+                  value={tTitle} onChange={(e) => setTTitle(e.target.value)} placeholder="Nama task..." disabled={tSubmitting} />
               </label>
 
               <label className="block">
                 <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Description</span>
-                <textarea
-                  className="mt-1.5 min-h-[72px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition resize-none"
-                  value={tDesc} onChange={(e) => setTDesc(e.target.value)}
-                  disabled={tSubmitting}
-                />
+                <textarea className="mt-1.5 min-h-[72px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition resize-none"
+                  value={tDesc} onChange={(e) => setTDesc(e.target.value)} disabled={tSubmitting} />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Link (opsional)</span>
+                <input type="url" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
+                  value={tLink} onChange={(e) => setTLink(e.target.value)} placeholder="https://..." disabled={tSubmitting} />
               </label>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Start Date</span>
-                  <input type="date"
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 transition"
-                    value={tStart} onChange={(e) => setTStart(e.target.value)} disabled={tSubmitting}
-                  />
+                  <input type="date" className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 transition"
+                    value={tStart} onChange={(e) => setTStart(e.target.value)} disabled={tSubmitting} />
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Due Date</span>
-                  <input type="date"
-                    className={["h-9 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 transition",
-                      isOverdue(eEnd, eStatus) ? "border-rose-300" : "border-slate-200"
-                    ].join(" ")}
-                    value={tEnd} onChange={(e) => setTEnd(e.target.value)} disabled={tSubmitting}
-                  />
+                  <input type="date" className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 transition"
+                    value={tEnd} onChange={(e) => setTEnd(e.target.value)} disabled={tSubmitting} />
                 </label>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Priority</span>
-                  <select
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
-                    value={tPriority} onChange={(e) => setTPriority(e.target.value)} disabled={tSubmitting}
-                  >
+                  <select className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
+                    value={tPriority} onChange={(e) => setTPriority(e.target.value)} disabled={tSubmitting}>
                     {PRIORITY_LIST.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                   </select>
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Status</span>
-                  <select
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
-                    value={tStatus} onChange={(e) => setTStatus(e.target.value)} disabled={tSubmitting}
-                  >
+                  <select className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
+                    value={tStatus} onChange={(e) => setTStatus(e.target.value)} disabled={tSubmitting}>
                     {STATUS_LIST.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                   </select>
                 </label>
               </div>
 
-              {isSupervisor && (
-                <label className="block">
-                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">PIC / Assigned To</span>
-                  <select
-                    className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
-                    value={tPic}
-                    onChange={(e) => setTPic(e.target.value)}
-                    disabled={tSubmitting}
-                  >
-                    <option value="">— Pilih Karyawan —</option>
-                    {employees.map((emp) => (
-                      <option key={emp.employee_id} value={emp.employee_id}>
-                        {emp.full_name} {emp.email ? `(${emp.email})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <div>
+                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">
+                  PIC / Assigned To
+                  {isStaff && <span className="text-slate-400 font-normal ml-1">(kamu otomatis termasuk)</span>}
+                </span>
+                <AssigneeMultiSelect
+                  employees={employees}
+                  selected={tAssignees}
+                  onChange={setTAssignees}
+                  disabled={tSubmitting}
+                  selfId={employee?.employee_id}
+                  isStaff={isStaff}
+                />
+              </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button type="button"
-                  onClick={() => { if (!tSubmitting) setOpenAdd(false); }}
+                <button type="button" onClick={() => { if (!tSubmitting) setOpenAdd(false); }}
                   className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition"
-                  disabled={tSubmitting}
-                >Batal</button>
+                  disabled={tSubmitting}>Batal</button>
                 <button type="button" onClick={addTask}
                   className="h-9 px-5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 transition border border-slate-800"
-                  disabled={tSubmitting}
-                >
+                  disabled={tSubmitting}>
                   {tSubmitting
                     ? <span className="flex items-center gap-2">
-                      <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      Creating...
-                    </span>
+                        <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Creating...
+                      </span>
                     : "Add Task"}
                 </button>
               </div>
@@ -1239,6 +1660,9 @@ export default function PMBoard() {
           </div>
         </div>
       )}
+
+      {/* Notification Panel */}
+      <NotifPanel open={showNotifs} onClose={() => { setShowNotifs(false); loadNotifCount(); }} />
     </div>
   );
 }

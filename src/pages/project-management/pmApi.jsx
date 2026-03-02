@@ -10,78 +10,63 @@ async function http(path, { method = "GET", body } = {}) {
     credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
-
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data?.message || `Request failed (${res.status})`);
-  }
+  if (!res.ok) throw new Error(data.message || "Request gagal");
   return data;
 }
 
 export const pmApi = {
-  // Annual
-  listProjects: () => http("/projects"),
-  createProject: (payload) => http("/projects", { method: "POST", body: payload }),
-  getProjectDetail: (projectId) => http(`/projects/${projectId}`),
+  // ── Projects ──────────────────────────────────────────────────────────────
+  listProjects:     ()                    => http("/projects"),
+  createProject:    (p)                   => http("/projects",            { method: "POST",   body: p }),
+  getProjectDetail: (projectId)           => http(`/projects/${projectId}`),
+  updateProject:    (projectId, p)        => http(`/projects/${projectId}`, { method: "PUT",    body: p }),
+  deleteProject:    (projectId)           => http(`/projects/${projectId}`, { method: "DELETE" }),
 
-  // Semester
-  listSemesters: (projectId) => http(`/projects/${projectId}/semesters`),
-  createSemester: (projectId, payload) =>
-    http(`/projects/${projectId}/semesters`, { method: "POST", body: payload }),
-  getSemesterDetail: (semesterId) => http(`/semesters/${semesterId}`), // ← pakai http() bukan fetchJson
+  // ── Semesters ─────────────────────────────────────────────────────────────
+  listSemesters:    (projectId)           => http(`/projects/${projectId}/semesters`),
+  createSemester:   (projectId, p)        => http(`/projects/${projectId}/semesters`, { method: "POST", body: p }),
+  getSemesterDetail:(semesterId)          => http(`/semesters/${semesterId}`),
+  updateSemester:   (semesterId, p)       => http(`/semesters/${semesterId}`, { method: "PUT",    body: p }),
+  deleteSemester:   (semesterId)          => http(`/semesters/${semesterId}`, { method: "DELETE" }),
 
-  // Monthly
-  listMonths: (semesterId) => http(`/semesters/${semesterId}/monthlies`),
-  createMonth: (semesterId, payload) =>
-    http(`/semesters/${semesterId}/monthlies`, { method: "POST", body: payload }),
-  getMonthDetail: (monthlyId) => http(`/monthlies/${monthlyId}`),
+  // ── Monthly ───────────────────────────────────────────────────────────────
+  listMonths:       (semesterId)          => http(`/semesters/${semesterId}/monthlies`),
+  createMonth:      (semesterId, p)       => http(`/semesters/${semesterId}/monthlies`, { method: "POST", body: p }),
+  getMonthDetail:   (monthlyId)           => http(`/monthlies/${monthlyId}`),
+  updateMonth:      (monthlyId, p)        => http(`/monthlies/${monthlyId}`, { method: "PUT",    body: p }),
+  deleteMonth:      (monthlyId)           => http(`/monthlies/${monthlyId}`, { method: "DELETE" }),
 
-  // Tasks
-  createTask: (monthlyId, payload) =>
-    http(`/monthlies/${monthlyId}/tasks`, { method: "POST", body: payload }),
-  updateTask: (taskId, payload) =>
-    http(`/tasks/${taskId}`, { method: "PUT", body: payload }),
+  // ── Tasks ─────────────────────────────────────────────────────────────────
+  listTasks:        (monthlyId)           => http(`/monthlies/${monthlyId}/tasks`),
+  createTask:       (monthlyId, p)        => http(`/monthlies/${monthlyId}/tasks`, { method: "POST", body: p }),
+  updateTask:       (taskId, p)           => http(`/tasks/${taskId}`,              { method: "PUT",  body: p }),
+  deleteTask:       (taskId)              => http(`/tasks/${taskId}`,              { method: "DELETE" }),
 
-  // Comments
-  listComments: (taskId) => http(`/tasks/${taskId}/comments`),
-  addComment: (taskId, payload) =>
-    http(`/tasks/${taskId}/comments`, { method: "POST", body: payload }),
+  // ── Comments ──────────────────────────────────────────────────────────────
+  listComments:     (taskId)              => http(`/tasks/${taskId}/comments`),
+  addComment:       (taskId, p)           => http(`/tasks/${taskId}/comments`, { method: "POST", body: p }),
 
-  // Evidence
-  uploadEvidence(taskId, files) {
+  // ── Evidence / Attachments ────────────────────────────────────────────────
+  uploadEvidence: async (taskId, files) => {
     const fd = new FormData();
-    for (const file of files) fd.append("files", file);
-    return fetch(`${BASE}/tasks/${taskId}/evidence`, {
-      method:      "POST",
+    for (const f of files) fd.append("files", f);
+    const res = await fetch(`${BASE}/tasks/${taskId}/evidence`, {
+      method: "POST",
       credentials: "include",
-      body:        fd,
-    }).then(async (r) => {
-      const json = await r.json();
-      if (!r.ok) throw new Error(json.message || "Upload failed");
-      return json;
+      body: fd,
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "Upload gagal");
+    return data;
   },
+  deleteEvidence: (taskId, evidenceId) => http(`/evidence/${evidenceId}`, { method: "DELETE" }),
 
-  listEvidence(taskId) {
-    return fetch(`${BASE}/tasks/${taskId}/evidence`, { credentials: "include" })
-      .then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) throw new Error(json.message || "Fetch failed");
-        return json;
-      });
-  },
+  // ── Employees ─────────────────────────────────────────────────────────────
+  listEmployees:    ()                    => http("/employees"),
 
-  deleteEvidence(taskId, evidenceId) {
-    return fetch(`${BASE}/tasks/${taskId}/evidence/${evidenceId}`, {
-      method:      "DELETE",
-      credentials: "include",
-    }).then(async (r) => {
-      const json = await r.json();
-      if (!r.ok) throw new Error(json.message || "Delete failed");
-      return json;
-    });
-  },
-
-  // Employees
-  listEmployees: () => http("/employees"),
+  // ── Notifikasi ────────────────────────────────────────────────────────────
+  listNotifications:  ()                  => http("/notifications"),
+  markNotifRead:      (notifId)           => http(`/notifications/${notifId}/read`, { method: "PATCH" }),
+  markAllNotifRead:   ()                  => http("/notifications/read-all",        { method: "PATCH" }),
 };

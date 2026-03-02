@@ -41,12 +41,12 @@ function calcCompleteness(emp) {
 function CompletenessBar({ pct }) {
     const color =
         pct >= 80 ? "bg-emerald-500" :
-        pct >= 50 ? "bg-amber-400"   :
-                    "bg-rose-500";
+            pct >= 50 ? "bg-amber-400" :
+                "bg-rose-500";
     const textColor =
         pct >= 80 ? "text-emerald-700" :
-        pct >= 50 ? "text-amber-700"   :
-                    "text-rose-600";
+            pct >= 50 ? "text-amber-700" :
+                "text-rose-600";
     return (
         <div className="flex items-center gap-2 min-w-[120px]">
             <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -65,11 +65,11 @@ function CompletenessBar({ pct }) {
 /* ─── Stat Card ─── */
 function StatCard({ icon: Icon, label, value, sub, accent }) {
     const a = {
-        blue:    { bg: "bg-blue-500",    light: "bg-blue-50",    text: "text-blue-600",    num: "text-blue-700",    border: "border-blue-100" },
+        blue: { bg: "bg-blue-500", light: "bg-blue-50", text: "text-blue-600", num: "text-blue-700", border: "border-blue-100" },
         emerald: { bg: "bg-emerald-500", light: "bg-emerald-50", text: "text-emerald-600", num: "text-emerald-700", border: "border-emerald-100" },
-        rose:    { bg: "bg-rose-500",    light: "bg-rose-50",    text: "text-rose-600",    num: "text-rose-700",    border: "border-rose-100" },
-        amber:   { bg: "bg-amber-400",   light: "bg-amber-50",   text: "text-amber-600",   num: "text-amber-700",   border: "border-amber-100" },
-        violet:  { bg: "bg-violet-500",  light: "bg-violet-50",  text: "text-violet-600",  num: "text-violet-700",  border: "border-violet-100" },
+        rose: { bg: "bg-rose-500", light: "bg-rose-50", text: "text-rose-600", num: "text-rose-700", border: "border-rose-100" },
+        amber: { bg: "bg-amber-400", light: "bg-amber-50", text: "text-amber-600", num: "text-amber-700", border: "border-amber-100" },
+        violet: { bg: "bg-violet-500", light: "bg-violet-50", text: "text-violet-600", num: "text-violet-700", border: "border-violet-100" },
     }[accent] ?? { bg: "bg-slate-400", light: "bg-slate-50", text: "text-slate-600", num: "text-slate-700", border: "border-slate-100" };
 
     return (
@@ -261,7 +261,7 @@ export default function MasterKaryawan() {
                         </div>
                         <div className="flex items-center gap-2.5">
                             <select value={filterCompany} onChange={handleFilterChange(setFilterCompany)} className={selectCls}>
-                                <option value="">Semua Cabang</option>
+                                <option value="">Semua Perusahaan</option>
                                 {companies.map((c) => (
                                     <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
                                 ))}
@@ -298,11 +298,11 @@ export default function MasterKaryawan() {
                 {view === "dashboard" && summary && (
                     <>
                         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                            <StatCard icon={HiOutlineUsers}                 label="Total"         value={summary.total}              accent="blue"    sub={filterCompany ? "di cabang ini" : "dari semua cabang"} />
-                            <StatCard icon={HiOutlineBriefcase}             label="Aktif"         value={summary.active}             accent="emerald" sub="karyawan aktif bekerja" />
-                            <StatCard icon={HiOutlineUserMinus}             label="Keluar"        value={summary.resigned}           accent="rose"    sub="resign atau PHK" />
-                            <StatCard icon={HiOutlineExclamationTriangle}   label="Kontrak Habis" value={summary.contract_ending}    accent="amber"   sub="dalam 30 hari ke depan" />
-                            <StatCard icon={HiOutlineClipboardDocumentList} label="Tak Lengkap"   value={summary.incomplete_profile} accent="violet"  sub="profil belum diisi" />
+                            <StatCard icon={HiOutlineUsers} label="Total" value={summary.total} accent="blue" sub={filterCompany ? "di perusahaan ini" : "dari semua perusahaan"} />
+                            <StatCard icon={HiOutlineBriefcase} label="Aktif" value={summary.active} accent="emerald" sub="karyawan aktif bekerja" />
+                            <StatCard icon={HiOutlineUserMinus} label="Keluar" value={summary.resigned} accent="rose" sub="resign atau PHK" />
+                            <StatCard icon={HiOutlineExclamationTriangle} label="Kontrak Habis" value={summary.contract_ending} accent="amber" sub="dalam 30 hari ke depan" />
+                            <StatCard icon={HiOutlineClipboardDocumentList} label="Tak Lengkap" value={summary.incomplete_profile} accent="violet" sub="profil belum diisi" />
                         </div>
 
                         {!filterCompany && summary.byCompany?.length > 0 && (
@@ -344,8 +344,8 @@ export default function MasterKaryawan() {
                         )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            <BarList icon={HiOutlineUsers}           title="Departemen"         items={summary.byDepartment} total={summary.total} />
-                            <BarList icon={HiOutlineArrowTrendingUp} title="Status Kepegawaian" items={summary.byStatus}     total={summary.total} />
+                            <BarList icon={HiOutlineUsers} title="Departemen" items={summary.byDepartment} total={summary.total} />
+                            <BarList icon={HiOutlineArrowTrendingUp} title="Status Kepegawaian" items={summary.byStatus} total={summary.total} />
                         </div>
 
                         {summary.recentJoins?.length > 0 && (
@@ -451,7 +451,7 @@ export default function MasterKaryawan() {
                                         <thead>
                                             <tr className="bg-slate-50 border-b border-slate-100">
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</th>
-                                                <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Cabang</th>
+                                                <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Perusahaan</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Departemen</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Jabatan</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden xl:table-cell">Bergabung</th>
@@ -472,7 +472,7 @@ export default function MasterKaryawan() {
                                                                     <p className="font-semibold text-slate-800 truncate text-sm">{emp.full_name}</p>
                                                                     <p className="text-xs text-slate-400 truncate mt-0.5">{emp.email}</p>
                                                                     {emp.employee_code && (
-                                                                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">{emp.employee_code}</p>
+                                                                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{emp.employee_code}</p>
                                                                     )}
                                                                 </div>
                                                             </div>
