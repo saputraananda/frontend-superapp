@@ -424,7 +424,7 @@ export default function PMSemester() {
         {/* ── Stats ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[
-            { label: "Total Semester", value: semesters.length, border: "border-slate-200", bg: "bg-white" },
+            { label: "Total Proyek", value: semesters.length, border: "border-slate-200", bg: "bg-white" },
             { label: "Semester 1", value: sem1.length, border: "border-emerald-200", bg: "bg-emerald-50" },
             { label: "Semester 2", value: sem2.length, border: "border-violet-200", bg: "bg-violet-50" },
             { label: "Update Terakhir", value: semesters.length ? fmtDate(semesters[0]?.updated_at) : "—", border: "border-slate-200", bg: "bg-white", small: true },

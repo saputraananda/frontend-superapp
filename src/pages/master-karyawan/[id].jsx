@@ -17,17 +17,18 @@ function cn(...c) { return c.filter(Boolean).join(" "); }
 
 // ── PhotoCard — support gambar & PDF ──────────────────────────────────────
 function PhotoCard({ label, filePath, fileName }) {
-  const url     = assetUrl(filePath);
-  const isPdf   = fileName?.toLowerCase().endsWith(".pdf") || filePath?.toLowerCase().endsWith(".pdf");
+  const url = assetUrl(filePath);
+  const isPdf = fileName?.toLowerCase().endsWith(".pdf") || filePath?.toLowerCase().endsWith(".pdf");
   const [imgError, setImgError] = useState(false);
 
   const handleDownload = async () => {
     if (!url) return;
     try {
-      const res  = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
-      const a    = document.createElement("a");
-      a.href     = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
       a.download = fileName || url.split("/").pop();
       document.body.appendChild(a);
       a.click();
@@ -121,25 +122,25 @@ function PhotoCard({ label, filePath, fileName }) {
 
 // ── Daftar dokumen untuk tab Docs ─────────────────────────────────────────
 const EMPLOYEE_DOCS = [
-  { key: "profile", label: "Pas Foto",                   pathKey: "profile_path",     nameKey: "profile_name"     },
-  { key: "ktp",     label: "KTP",                        pathKey: "ktp_path",         nameKey: "ktp_name"         },
-  { key: "kk",      label: "Kartu Keluarga",             pathKey: "kk_path",          nameKey: "kk_name"          },
-  { key: "npwp",    label: "NPWP",                       pathKey: "npwp_path",        nameKey: "npwp_name"        },
-  { key: "bpjs",    label: "BPJS Kesehatan",             pathKey: "bpjs_path",        nameKey: "bpjs_name"        },
-  { key: "bpjs_tk", label: "BPJS Ketenagakerjaan",       pathKey: "bpjs_tk_path",     nameKey: "bpjs_tk_name"     },
-  { key: "ijazah",  label: "Ijazah",                     pathKey: "ijazah_path",      nameKey: "ijazah_name"      },
-  { key: "sert",    label: "Sertifikat",                 pathKey: "sertifikat_path",  nameKey: "sertifikat_name"  },
-  { key: "rekom",   label: "Surat Rekomendasi Kerja",    pathKey: "rekomkerja_path",  nameKey: "rekomkerja_name"  },
+  { key: "profile", label: "Pas Foto", pathKey: "profile_path", nameKey: "profile_name" },
+  { key: "ktp", label: "KTP", pathKey: "ktp_path", nameKey: "ktp_name" },
+  { key: "kk", label: "Kartu Keluarga", pathKey: "kk_path", nameKey: "kk_name" },
+  { key: "npwp", label: "NPWP", pathKey: "npwp_path", nameKey: "npwp_name" },
+  { key: "bpjs", label: "BPJS Kesehatan", pathKey: "bpjs_path", nameKey: "bpjs_name" },
+  { key: "bpjs_tk", label: "BPJS Ketenagakerjaan", pathKey: "bpjs_tk_path", nameKey: "bpjs_tk_name" },
+  { key: "ijazah", label: "Ijazah", pathKey: "ijazah_path", nameKey: "ijazah_name" },
+  { key: "sert", label: "Sertifikat", pathKey: "sertifikat_path", nameKey: "sertifikat_name" },
+  { key: "rekom", label: "Surat Rekomendasi Kerja", pathKey: "rekomkerja_path", nameKey: "rekomkerja_name" },
 ];
 
 // ── Konstanta & helper ────────────────────────────────────────────────────
 const TABS = [
-  { id: "personal",   label: "Data Pribadi",   Icon: HiOutlineUser          },
-  { id: "employment", label: "Data Pekerjaan", Icon: HiOutlineBriefcase     },
-  { id: "financial",  label: "Data Keuangan",  Icon: HiOutlineBanknotes     },
-  { id: "emergency",  label: "Kontak Darurat", Icon: HiOutlinePhone         },
-  { id: "docs",       label: "Dokumen",        Icon: HiOutlineDocumentText  },
-  { id: "notes",      label: "Catatan",        Icon: HiOutlineDocumentText  },
+  { id: "personal", label: "Data Pribadi", Icon: HiOutlineUser },
+  { id: "employment", label: "Data Pekerjaan", Icon: HiOutlineBriefcase },
+  { id: "financial", label: "Data Keuangan", Icon: HiOutlineBanknotes },
+  { id: "emergency", label: "Kontak Darurat", Icon: HiOutlinePhone },
+  { id: "docs", label: "Dokumen", Icon: HiOutlineDocumentText },
+  { id: "notes", label: "Catatan", Icon: HiOutlineDocumentText },
 ];
 
 const inputCls = (err) => cn(
@@ -161,7 +162,7 @@ function Field({ label, required, hint, error, children }) {
         {label}{required && <span className="ml-1 text-rose-500">*</span>}
       </label>
       {children}
-      {hint  && !error && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
+      {hint && !error && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
       {error && (
         <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1">
           <HiOutlineExclamationCircle className="w-3 h-3" />{error}
@@ -186,24 +187,24 @@ function Panel({ title, children }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function EmployeeDetail() {
-  const { id }    = useParams();
-  const navigate  = useNavigate();
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  const [employee,    setEmployee]    = useState(null);
-  const [formData,    setFormData]    = useState({});
+  const [employee, setEmployee] = useState(null);
+  const [formData, setFormData] = useState({});
   const [initialData, setInitialData] = useState({});
-  const [masterData,  setMasterData]  = useState({});
-  const [loading,     setLoading]     = useState(true);
-  const [saving,      setSaving]      = useState(false);
-  const [success,     setSuccess]     = useState("");
-  const [error,       setError]       = useState("");
+  const [masterData, setMasterData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
-  const [activeTab,   setActiveTab]   = useState("personal");
+  const [activeTab, setActiveTab] = useState("personal");
 
   const [showResignModal, setShowResignModal] = useState(false);
-  const [resignDate,      setResignDate]      = useState("");
-  const [resignReason,    setResignReason]    = useState("");
-  const [resignSaving,    setResignSaving]    = useState(false);
+  const [resignDate, setResignDate] = useState("");
+  const [resignReason, setResignReason] = useState("");
+  const [resignSaving, setResignSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -213,7 +214,7 @@ export default function EmployeeDetail() {
           api("/employees/master-data"),
         ]);
         const emp = { ...(empRes.employee || {}) };
-        ["birth_date","join_date","contract_end_date","exit_date"].forEach((f) => {
+        ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach((f) => {
           if (emp[f]) emp[f] = emp[f].split("T")[0];
         });
         setEmployee(empRes.employee);
@@ -276,7 +277,7 @@ export default function EmployeeDetail() {
         body: JSON.stringify({ exit_date: resignDate, exit_reason: resignReason }),
       });
       setSuccess("Status karyawan berhasil diperbarui.");
-      setFormData((p)    => ({ ...p, exit_date: resignDate, exit_reason: resignReason }));
+      setFormData((p) => ({ ...p, exit_date: resignDate, exit_reason: resignReason }));
       setInitialData((p) => ({ ...p, exit_date: resignDate, exit_reason: resignReason }));
       setShowResignModal(false);
       setTimeout(() => setSuccess(""), 3000);
@@ -471,9 +472,9 @@ export default function EmployeeDetail() {
                 <p className="font-bold text-slate-500 uppercase tracking-wider">Info</p>
                 <div className="space-y-1.5 text-slate-600">
                   {[
-                    ["Cabang",    employee?.company_name],
-                    ["Dept.",     employee?.department_name],
-                    ["Jabatan",   employee?.position_name],
+                    ["Cabang", employee?.company_name],
+                    ["Dept.", employee?.department_name],
+                    ["Jabatan", employee?.position_name],
                     ["Bergabung", formData.join_date],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-2">
@@ -621,8 +622,8 @@ export default function EmployeeDetail() {
                               );
                               const filteredDepts = selectedCompany
                                 ? masterData.departments?.filter(
-                                    (d) => d.company_code === selectedCompany.company_code
-                                  )
+                                  (d) => d.company_code === selectedCompany.company_code
+                                )
                                 : masterData.departments;
                               return (
                                 <select
@@ -669,8 +670,8 @@ export default function EmployeeDetail() {
                               );
                               const filteredLevels = selectedPosition
                                 ? masterData.jobLevels?.filter(
-                                    (j) => j.position_code === selectedPosition.position_code
-                                  )
+                                  (j) => j.position_code === selectedPosition.position_code
+                                )
                                 : masterData.jobLevels;
                               return (
                                 <select

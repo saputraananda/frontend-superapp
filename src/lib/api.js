@@ -1,9 +1,10 @@
 const API = import.meta.env.VITE_API_URL;
 
-export const BASE_URL = API;
+// rapikan: hilangkan trailing slash supaya konsisten
+export const BASE_URL = (API || "").replace(/\/$/, "");
 
 export async function api(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     credentials: "include",
     headers: {
@@ -24,7 +25,7 @@ export async function api(path, options = {}) {
  * Fetch tanpa Content-Type — untuk FormData/upload file
  */
 export async function apiUpload(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     credentials: "include",
     // Jangan set Content-Type agar browser otomatis isi boundary FormData
@@ -39,12 +40,26 @@ export async function apiUpload(path, options = {}) {
 }
 
 /**
- * Build URL lengkap untuk aset statis (foto profil, KTP, dll)
- * Adaptif: dev → http://localhost:3001/assets/...
- *          prod → https://api.waschenalora.com/assets/...
+ * Build URL lengkap untuk aset statis
+ *
+ * Bisa menerima:
+ * - full url: "https://...."
+ * - absolute path: "/assets/avatars/x.jpg"
+ * - relative path: "assets/avatars/x.jpg" atau "avatars/x.jpg"
  */
-export function assetUrl(path) {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  return `${BASE_URL}${path}`;
+export function assetUrl(p) {
+  if (!p) return null;
+
+  // kalau sudah full url
+  if (/^https?:\/\//i.test(p)) return p;
+
+  // normalize: hilangkan leading slash supaya gampang digabung
+  let clean = String(p).replace(/^\/+/, "");
+
+  // kalau backend cuma ngirim "avatars/xxx.jpg" → anggap itu di bawah /assets
+  if (!clean.startsWith("assets/")) {
+    clean = `assets/${clean}`;
+  }
+
+  return `${BASE_URL}/${clean}`;
 }
