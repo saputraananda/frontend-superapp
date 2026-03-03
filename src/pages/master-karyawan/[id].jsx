@@ -529,6 +529,27 @@ export default function EmployeeDetail() {
                           <Field label="Email">
                             <input type="email" value={formData.email || ""} className={cn(inputCls(false), "bg-slate-50 text-slate-400 cursor-not-allowed")} disabled />
                           </Field>
+
+                          {/* ← Tambah field username */}
+                          <Field
+                            label="Username"
+                            hint="Digunakan untuk login karyawan."
+                            error={fieldErrors.username}
+                          >
+                            <div className="relative">
+                              <input
+                                type="text"
+                                name="username"
+                                value={formData.username || ""}
+                                onChange={handleChange}
+                                className={cn(inputCls(fieldErrors.username))}
+                                placeholder="username_karyawan"
+                                autoComplete="off"
+                                spellCheck={false}
+                              />
+                            </div>
+                          </Field>
+
                           <Field label="Jenis Kelamin">
                             <select name="gender" value={formData.gender || ""} onChange={handleChange} className={selectCls()}>
                               <option value="">— Pilih —</option>

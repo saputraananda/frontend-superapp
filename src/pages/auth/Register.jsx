@@ -4,6 +4,7 @@ import AlertSuccess from "../../components/AlertSuccess";
 
 export default function Register({ onRegister }) {
     const [name, setName] = useState("");
+    const [username, setUsername] = useState(""); // ← tambah
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [err, setErr] = useState("");
@@ -21,7 +22,7 @@ export default function Register({ onRegister }) {
         try {
             const res = await api("/auth/register", {
                 method: "POST",
-                body: JSON.stringify({ name, email, password }),
+                body: JSON.stringify({ name, username, email, password }), // ← tambah username
             });
             setSuccess("Registrasi berhasil! Silakan login.");
             if (onRegister) onRegister(res);
@@ -111,6 +112,22 @@ export default function Register({ onRegister }) {
                                             required
                                         />
                                     </div>
+
+                                    {/* Username - tambah setelah Name */}
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-700">
+                                            Username <span className="text-slate-400">(opsional)</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            className="mt-1 w-full rounded-2xl border border-white/50 bg-white/45 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm outline-none backdrop-blur-md transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/50"
+                                            placeholder="username unik kamu"
+                                            autoComplete="username"
+                                        />
+                                    </div>
+
                                     {/* Email */}
                                     <div>
                                         <label className="text-xs font-medium text-slate-700">

@@ -208,7 +208,7 @@ export default function Profile() {
 
   const validate = () => {
     const errs = {};
-    if (!formData.full_name?.trim())    errs.full_name    = "Nama lengkap wajib diisi.";
+    if (!formData.full_name?.trim())     errs.full_name     = "Nama lengkap wajib diisi.";
     if (!formData.employee_code?.trim()) errs.employee_code = "Nomor Induk Karyawan wajib diisi.";
     if (formData.phone_number && !/^[0-9+()\-\s]{6,}$/.test(formData.phone_number))
       errs.phone_number = "Format nomor telepon tidak valid.";
@@ -216,6 +216,9 @@ export default function Profile() {
       errs.ktp_number = "No. KTP terlalu pendek.";
     if (formData.npwp_number && formData.npwp_number.length < 10)
       errs.npwp_number = "No. NPWP terlalu pendek.";
+    // ← Validasi username
+    if (formData.username && !/^[a-zA-Z0-9._]{3,30}$/.test(formData.username))
+      errs.username = "Username 3-30 karakter, hanya huruf, angka, titik, dan underscore.";
     return errs;
   };
 
@@ -552,10 +555,33 @@ export default function Profile() {
                             <input type="text" name="full_name" value={formData.full_name || ""} onChange={handleChange}
                               className={inputCls(fieldErrors.full_name)} placeholder="Masukkan nama lengkap" />
                           </Field>
+
+                          {/* Email - readonly */}
                           <Field label="Email">
                             <input type="email" value={formData.email || ""}
                               className={cn(inputCls(false), "bg-slate-50 text-slate-400 cursor-not-allowed")} disabled />
                           </Field>
+
+                          {/* ← Username - bisa diubah */}
+                          <Field
+                            label="Username"
+                            hint="Digunakan untuk login. Huruf, angka, titik, underscore."
+                            error={fieldErrors.username}
+                          >
+                            <div className="relative">
+                              <input
+                                type="text"
+                                name="username"
+                                value={formData.username || ""}
+                                onChange={handleChange}
+                                className={cn(inputCls(fieldErrors.username))}
+                                placeholder="username_kamu"
+                                autoComplete="off"
+                                spellCheck={false}
+                              />
+                            </div>
+                          </Field>
+
                           <Field label="Jenis Kelamin">
                             <select name="gender" value={formData.gender || ""} onChange={handleChange} className={selectCls(false)}>
                               <option value="">— Pilih —</option>

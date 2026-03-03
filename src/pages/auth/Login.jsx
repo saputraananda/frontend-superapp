@@ -3,7 +3,7 @@ import { api } from "../../lib/api";
 import AlertSuccess from "../../components/AlertSuccess";
 
 export default function Login({ onLogin }) {
-    const [email, setEmail] = useState("");
+    const [identifier, setIdentifier] = useState(""); // ← ganti email → identifier
     const [password, setPassword] = useState("");
     const [remember, setRemember] = useState(false);
     const [err, setErr] = useState("");
@@ -22,7 +22,7 @@ export default function Login({ onLogin }) {
         try {
             const data = await api("/auth/login", {
                 method: "POST",
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ identifier, password }), // ← pakai identifier
             });
 
             // Simpan user ke localStorage dengan struktur yang konsisten
@@ -110,17 +110,17 @@ export default function Login({ onLogin }) {
                                 </div>
 
                                 <form onSubmit={submit} className="mt-6 space-y-4">
-                                    {/* Email */}
+                                    {/* Ganti field Email → Email / Username */}
                                     <div>
                                         <label className="text-xs font-medium text-slate-700">
-                                            Email
+                                            Email atau Username
                                         </label>
                                         <input
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
+                                            type="text"
+                                            value={identifier}
+                                            onChange={(e) => setIdentifier(e.target.value)}
                                             className="mt-1 w-full rounded-2xl border border-white/50 bg-white/45 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm outline-none backdrop-blur-md transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/50"
-                                            placeholder="nama@email.com"
+                                            placeholder="Silahkan masukkan email atau username"
                                             autoComplete="username"
                                             required
                                         />

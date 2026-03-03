@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { assetUrl } from "../lib/api"; // ✅ tambah import
+import { assetUrl } from "../lib/api";
 
 export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   const [showDropdown, setShowDropdown]     = useState(false);
@@ -7,9 +7,7 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
 
   const fallbackSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=a855f7&color=ffffff&bold=true`;
 
-  // ✅ Pakai assetUrl — tidak hardcode localhost lagi
   const buildAvatarSrc = () => {
-    // ✅ Cek profile_path dari employee object dulu
     if (user?.employee?.profile_path) return assetUrl(user.employee.profile_path);
     if (user?.avatar)                 return assetUrl(user.avatar);
     return fallbackSrc;
@@ -20,7 +18,7 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100">
       <header className="sticky top-0 z-20 border-b border-white/50 bg-white/40 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
 
           {/* Desktop */}
           <div className="hidden md:flex items-center justify-between py-4">
@@ -47,7 +45,7 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
                     src={avatarSrc}
                     alt="Avatar"
                     className="h-full w-full rounded-full object-cover"
-                    onError={(e) => { e.currentTarget.src = fallbackSrc; }} // ✅ pakai variabel
+                    onError={(e) => { e.currentTarget.src = fallbackSrc; }}
                   />
                 </button>
 
@@ -87,7 +85,7 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
                   src={avatarSrc}
                   className="h-full w-full rounded-full object-cover"
                   alt="Avatar"
-                  onError={(e) => { e.currentTarget.src = fallbackSrc; }} // ✅ pakai variabel
+                  onError={(e) => { e.currentTarget.src = fallbackSrc; }}
                 />
               </button>
 
@@ -116,7 +114,7 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10">
+      <main className="py-6 sm:py-10">
         {children}
       </main>
     </div>

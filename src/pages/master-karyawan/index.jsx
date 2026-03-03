@@ -28,6 +28,7 @@ const COMPLETENESS_FIELDS = [
     "contract_end_date", "education_level_id", "school_name", "bank_id",
     "bank_account_number", "bpjs_health_number", "bpjs_employment_number",
     "npwp_number", "emergency_contact", "notes", "profile_path", "ktp_path",
+    "username", // ← tambah
 ];
 
 function calcCompleteness(emp) {
