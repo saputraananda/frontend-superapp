@@ -2,22 +2,25 @@ import { useState } from "react";
 import { assetUrl } from "../lib/api";
 
 export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
-  const [showDropdown, setShowDropdown]     = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const fallbackSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=a855f7&color=ffffff&bold=true`;
 
   const buildAvatarSrc = () => {
     if (user?.employee?.profile_path) return assetUrl(user.employee.profile_path);
-    if (user?.avatar)                 return assetUrl(user.avatar);
+    if (user?.avatar) return assetUrl(user.avatar);
     return fallbackSrc;
   };
 
   const avatarSrc = buildAvatarSrc();
 
+  const capitalizeEachWord = (text) =>
+    text.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-sky-100">
-      <header className="sticky top-0 z-20 border-b border-white/50 bg-white/40 backdrop-blur-xl">
+    <div className="min-h-screen bg-indigo-50">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
 
           {/* Desktop */}
@@ -32,8 +35,8 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
 
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm font-semibold text-slate-700">Halo, {user?.name || "User"}</p>
-                <p className="text-xs text-slate-500">{jobTitle}</p>
+                <p className="text-sm font-semibold text-slate-700">Halo, {capitalizeEachWord(user?.name || "User")}</p>
+                <p className="text-xs text-slate-500">{capitalizeEachWord(jobTitle)}</p>
               </div>
 
               <div className="relative">

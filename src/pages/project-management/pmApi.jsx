@@ -4,14 +4,18 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const BASE = `${API_URL}/api/pm`;
 
 async function http(path, { method = "GET", body } = {}) {
-  const res = await fetch(`${BASE}${path}`, {
+  const opts = {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
     credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+    headers: {},
+  };
+  if (body !== undefined) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const res  = await fetch(`${BASE}${path}`, opts);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Request gagal");
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;
 }
 
@@ -48,19 +52,27 @@ export const pmApi = {
   addComment:       (taskId, p)           => http(`/tasks/${taskId}/comments`, { method: "POST", body: p }),
 
   // ── Evidence / Attachments ────────────────────────────────────────────────
+  listEvidence: (taskId) => http(`/tasks/${taskId}/evidence`), // ← tambah ini
+
   uploadEvidence: async (taskId, files) => {
     const fd = new FormData();
-    for (const f of files) fd.append("files", f);
-    const res = await fetch(`${BASE}/tasks/${taskId}/evidence`, {
+    for (const f of Array.from(files)) {
+      fd.append("files", f);
+    }
+    const res = await fetch(`${API_URL}/api/pm/tasks/${taskId}/evidence`, {
       method: "POST",
       credentials: "include",
+      // ← JANGAN set Content-Type
       body: fd,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || "Upload gagal");
     return data;
   },
-  deleteEvidence: (taskId, evidenceId) => http(`/evidence/${evidenceId}`, { method: "DELETE" }),
+
+  // ← fix: hanya butuh evidenceId, tidak butuh taskId
+  deleteEvidence: (evidenceId) =>
+    http(`/evidence/${evidenceId}`, { method: "DELETE" }),
 
   // ── Employees ─────────────────────────────────────────────────────────────
   listEmployees:    ()                    => http("/employees"),

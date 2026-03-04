@@ -27,27 +27,30 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+const capitalizeEachWord = (text) =>
+  text.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+
 // ── Tab "photos" → label "Pas Foto", tab baru "documents" → "Unggah Dokumen"
 const TABS = [
-  { id: "personal",   label: "Data Pribadi",    Icon: HiOutlineUser },
-  { id: "employment", label: "Data Pekerjaan",  Icon: HiOutlineBriefcase },
-  { id: "financial",  label: "Data Keuangan",   Icon: HiOutlineBanknotes },
-  { id: "emergency",  label: "Kontak Darurat",  Icon: HiOutlinePhone },
-  { id: "photos",     label: "Pas Foto",        Icon: HiOutlinePhoto },
-  { id: "documents",  label: "Unggah Dokumen",  Icon: HiOutlineDocumentText },
-  { id: "notes",      label: "Catatan",         Icon: HiOutlineDocumentText },
+  { id: "personal", label: "Data Pribadi", Icon: HiOutlineUser },
+  { id: "employment", label: "Data Pekerjaan", Icon: HiOutlineBriefcase },
+  { id: "financial", label: "Data Keuangan", Icon: HiOutlineBanknotes },
+  { id: "emergency", label: "Kontak Darurat", Icon: HiOutlinePhone },
+  { id: "photos", label: "Pas Foto", Icon: HiOutlinePhoto },
+  { id: "documents", label: "Unggah Dokumen", Icon: HiOutlineDocumentText },
+  { id: "notes", label: "Catatan", Icon: HiOutlineDocumentText },
 ];
 
 // Daftar dokumen (KTP masuk sini, bukan di photos lagi)
 const EXTRA_DOCUMENTS = [
-  { docType: "ktp",        label: "KTP",                      hint: "Foto/scan KTP yang masih berlaku." },
-  { docType: "kk",         label: "Kartu Keluarga",           hint: "Foto/scan KK yang masih berlaku." },
-  { docType: "npwp",       label: "NPWP",                     hint: "Kartu NPWP atau dokumen perpajakan." },
-  { docType: "bpjs",       label: "BPJS Kesehatan",           hint: "Kartu/surat kepesertaan BPJS Kesehatan." },
-  { docType: "bpjs_tk",    label: "BPJS Ketenagakerjaan",     hint: "Kartu/surat kepesertaan BPJS Ketenagakerjaan." },
-  { docType: "ijazah",     label: "Ijazah",                   hint: "Ijazah pendidikan terakhir." },
-  { docType: "sertifikat", label: "Sertifikat",               hint: "Sertifikat kompetensi/pelatihan (jika ada)." },
-  { docType: "rekomkerja", label: "Surat Rekomendasi Kerja",  hint: "Surat referensi dari perusahaan sebelumnya (jika ada)." },
+  { docType: "ktp", label: "KTP", hint: "Foto/scan KTP yang masih berlaku." },
+  { docType: "kk", label: "Kartu Keluarga", hint: "Foto/scan KK yang masih berlaku." },
+  { docType: "npwp", label: "NPWP", hint: "Kartu NPWP atau dokumen perpajakan." },
+  { docType: "bpjs", label: "BPJS Kesehatan", hint: "Kartu/surat kepesertaan BPJS Kesehatan." },
+  { docType: "bpjs_tk", label: "BPJS Ketenagakerjaan", hint: "Kartu/surat kepesertaan BPJS Ketenagakerjaan." },
+  { docType: "ijazah", label: "Ijazah", hint: "Ijazah pendidikan terakhir." },
+  { docType: "sertifikat", label: "Sertifikat", hint: "Sertifikat kompetensi/pelatihan (jika ada)." },
+  { docType: "rekomkerja", label: "Surat Rekomendasi Kerja", hint: "Surat referensi dari perusahaan sebelumnya (jika ada)." },
 ];
 
 function Field({ label, required, hint, error, children, colSpan }) {
@@ -118,29 +121,29 @@ function Badge({ filled }) {
 }
 
 export default function Profile() {
-  const [masterData,   setMasterData]   = useState({});
-  const [formData,     setFormData]     = useState({});
-  const [initialData,  setInitialData]  = useState({});
-  const [loading,      setLoading]      = useState(true);
-  const [dataReady,    setDataReady]    = useState(false);
-  const [saving,       setSaving]       = useState(false);
-  const [success,      setSuccess]      = useState("");
-  const [error,        setError]        = useState("");
-  const [fieldErrors,  setFieldErrors]  = useState({});
-  const [activeTab,    setActiveTab]    = useState("personal");
-  const [sidebarOpen,  setSidebarOpen]  = useState(false);
+  const [masterData, setMasterData] = useState({});
+  const [formData, setFormData] = useState({});
+  const [initialData, setInitialData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [activeTab, setActiveTab] = useState("personal");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Pas foto (hanya gambar)
   const [profilePhoto, setProfilePhoto] = useState({ path: null, name: null });
 
   // Semua dokumen (gambar + PDF) — KTP masuk sini
   const [docs, setDocs] = useState({
-    ktp:        { path: null, name: null },
-    kk:         { path: null, name: null },
-    npwp:       { path: null, name: null },
-    bpjs:       { path: null, name: null },
-    bpjs_tk:    { path: null, name: null },
-    ijazah:     { path: null, name: null },
+    ktp: { path: null, name: null },
+    kk: { path: null, name: null },
+    npwp: { path: null, name: null },
+    bpjs: { path: null, name: null },
+    bpjs_tk: { path: null, name: null },
+    ijazah: { path: null, name: null },
     sertifikat: { path: null, name: null },
     rekomkerja: { path: null, name: null },
   });
@@ -167,12 +170,12 @@ export default function Profile() {
 
         // Load semua dokumen sekaligus
         setDocs({
-          ktp:        { path: employee.ktp_path        || null, name: employee.ktp_name        || null },
-          kk:         { path: employee.kk_path         || null, name: employee.kk_name         || null },
-          npwp:       { path: employee.npwp_path       || null, name: employee.npwp_name       || null },
-          bpjs:       { path: employee.bpjs_path       || null, name: employee.bpjs_name       || null },
-          bpjs_tk:    { path: employee.bpjs_tk_path    || null, name: employee.bpjs_tk_name    || null },
-          ijazah:     { path: employee.ijazah_path     || null, name: employee.ijazah_name     || null },
+          ktp: { path: employee.ktp_path || null, name: employee.ktp_name || null },
+          kk: { path: employee.kk_path || null, name: employee.kk_name || null },
+          npwp: { path: employee.npwp_path || null, name: employee.npwp_name || null },
+          bpjs: { path: employee.bpjs_path || null, name: employee.bpjs_name || null },
+          bpjs_tk: { path: employee.bpjs_tk_path || null, name: employee.bpjs_tk_name || null },
+          ijazah: { path: employee.ijazah_path || null, name: employee.ijazah_name || null },
           sertifikat: { path: employee.sertifikat_path || null, name: employee.sertifikat_name || null },
           rekomkerja: { path: employee.rekomkerja_path || null, name: employee.rekomkerja_name || null },
         });
@@ -208,7 +211,7 @@ export default function Profile() {
 
   const validate = () => {
     const errs = {};
-    if (!formData.full_name?.trim())     errs.full_name     = "Nama lengkap wajib diisi.";
+    if (!formData.full_name?.trim()) errs.full_name = "Nama lengkap wajib diisi.";
     if (!formData.employee_code?.trim()) errs.employee_code = "Nomor Induk Karyawan wajib diisi.";
     if (formData.phone_number && !/^[0-9+()\-\s]{6,}$/.test(formData.phone_number))
       errs.phone_number = "Format nomor telepon tidak valid.";
@@ -263,13 +266,13 @@ export default function Profile() {
   const completion = useMemo(() => {
     const combined = {
       ...formData,
-      profile_path:    profilePhoto.path,
-      ktp_path:        docs.ktp.path,
-      kk_path:         docs.kk.path,
-      npwp_path:       docs.npwp.path,
-      bpjs_path:       docs.bpjs.path,
-      bpjs_tk_path:    docs.bpjs_tk.path,
-      ijazah_path:     docs.ijazah.path,
+      profile_path: profilePhoto.path,
+      ktp_path: docs.ktp.path,
+      kk_path: docs.kk.path,
+      npwp_path: docs.npwp.path,
+      bpjs_path: docs.bpjs.path,
+      bpjs_tk_path: docs.bpjs_tk.path,
+      ijazah_path: docs.ijazah.path,
       sertifikat_path: docs.sertifikat.path,
       rekomkerja_path: docs.rekomkerja.path,
     };
@@ -280,27 +283,27 @@ export default function Profile() {
   const tabCompletion = useMemo(() => {
     const combined = {
       ...formData,
-      profile_path:    profilePhoto.path,
-      ktp_path:        docs.ktp.path,
-      kk_path:         docs.kk.path,
-      npwp_path:       docs.npwp.path,
-      bpjs_path:       docs.bpjs.path,
-      bpjs_tk_path:    docs.bpjs_tk.path,
-      ijazah_path:     docs.ijazah.path,
+      profile_path: profilePhoto.path,
+      ktp_path: docs.ktp.path,
+      kk_path: docs.kk.path,
+      npwp_path: docs.npwp.path,
+      bpjs_path: docs.bpjs.path,
+      bpjs_tk_path: docs.bpjs_tk.path,
+      ijazah_path: docs.ijazah.path,
       sertifikat_path: docs.sertifikat.path,
       rekomkerja_path: docs.rekomkerja.path,
     };
     const check = (keys) => keys.every((k) => String(combined[k] ?? "").trim() !== "");
     return {
-      personal:   check(["full_name", "gender", "birth_date", "phone_number", "address", "ktp_number"]),
+      personal: check(["full_name", "gender", "birth_date", "phone_number", "address", "ktp_number"]),
       employment: check(["company_id", "department_id", "position_id", "join_date", "employee_code"]),
-      financial:  check(["bank_id", "bank_account_number"]),
-      emergency:  check(["emergency_contact"]),
+      financial: check(["bank_id", "bank_account_number"]),
+      emergency: check(["emergency_contact"]),
       // photos: hanya pas foto
-      photos:     check(["profile_path"]),
+      photos: check(["profile_path"]),
       // documents: semua 8 dokumen (termasuk KTP)
-      documents:  check(["ktp_path", "kk_path", "npwp_path", "bpjs_path", "bpjs_tk_path", "ijazah_path", "sertifikat_path", "rekomkerja_path"]),
-      notes:      check(["notes"]),
+      documents: check(["ktp_path", "kk_path", "npwp_path", "bpjs_path", "bpjs_tk_path", "ijazah_path", "sertifikat_path", "rekomkerja_path"]),
+      notes: check(["notes"]),
     };
   }, [formData, profilePhoto, docs]);
 
@@ -343,7 +346,7 @@ export default function Profile() {
                 </div>
                 <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">Data Karyawan</h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {formData.full_name || "—"}
+                  {capitalizeEachWord(formData.full_name || "—")}
                   <span className="mx-1.5 text-slate-300">·</span>
                   <span className="text-slate-400">{formData.email}</span>
                 </p>
@@ -478,13 +481,13 @@ export default function Profile() {
                     <div className="min-w-0">
                       <h2 className="text-base font-bold text-slate-800 truncate">{activeTabObj?.label}</h2>
                       <p className="text-xs text-slate-400 mt-0.5 truncate">
-                        {activeTab === "photos"     && "Upload pas foto Anda."}
-                        {activeTab === "documents"  && "Upload KTP, KK, NPWP, BPJS, Ijazah, dan dokumen lainnya."}
-                        {activeTab === "personal"   && "Informasi identitas dan kontak."}
+                        {activeTab === "photos" && "Upload pas foto Anda."}
+                        {activeTab === "documents" && "Upload KTP, KK, NPWP, BPJS, Ijazah, dan dokumen lainnya."}
+                        {activeTab === "personal" && "Informasi identitas dan kontak."}
                         {activeTab === "employment" && "Data posisi, jabatan, dan masa kerja."}
-                        {activeTab === "financial"  && "Rekening bank, BPJS, dan NPWP."}
-                        {activeTab === "emergency"  && "Kontak yang bisa dihubungi saat darurat."}
-                        {activeTab === "notes"      && "Catatan pengalaman kerja sebelumnya."}
+                        {activeTab === "financial" && "Rekening bank, BPJS, dan NPWP."}
+                        {activeTab === "emergency" && "Kontak yang bisa dihubungi saat darurat."}
+                        {activeTab === "notes" && "Catatan pengalaman kerja sebelumnya."}
                       </p>
                     </div>
                   </div>
@@ -695,8 +698,8 @@ export default function Profile() {
                               );
                               const filteredDepts = selectedCompany
                                 ? masterData.departments?.filter(
-                                    (d) => d.company_code === selectedCompany.company_code
-                                  )
+                                  (d) => d.company_code === selectedCompany.company_code
+                                )
                                 : masterData.departments;
                               return (
                                 <select
@@ -724,8 +727,8 @@ export default function Profile() {
                               );
                               const filteredPositions = selectedCompany
                                 ? masterData.positions?.filter(
-                                    (p) => p.company_code === selectedCompany.company_code
-                                  )
+                                  (p) => p.company_code === selectedCompany.company_code
+                                )
                                 : masterData.positions;
                               return (
                                 <select
@@ -756,8 +759,8 @@ export default function Profile() {
                               );
                               const filteredJobLevels = selectedCompany
                                 ? masterData.jobLevels?.filter(
-                                    (j) => j.company_code === selectedCompany.company_code
-                                  )
+                                  (j) => j.company_code === selectedCompany.company_code
+                                )
                                 : masterData.jobLevels;
                               return (
                                 <select
