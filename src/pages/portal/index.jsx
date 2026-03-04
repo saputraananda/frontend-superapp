@@ -9,7 +9,7 @@ import PersonalTasksCard from "./components/PersonalTasksCard";
 import OperationalTasksCard from "./components/OperationalTasksCard";
 import StatsCards from "./components/StatsCards";
 import WeatherWidget from "./components/WeatherWidget";
-import YouTubeSlider from "./components/YouTubeSlider";
+import YouTubeSlider from "./components/YoutubeSlider";
 import PerformanceRating from "./components/PerformanceRating";
 
 export default function Portal({ user, onLogout }) {
