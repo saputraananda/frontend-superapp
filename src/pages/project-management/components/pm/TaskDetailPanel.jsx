@@ -5,7 +5,7 @@ import { Tag } from "../ui/Tag";
 import { EmployeeChip } from "../ui/EmployeeChip";
 import { AssigneeMultiSelect } from "./AssigneeMultiSelect";
 import { STATUS_LIST, PRIORITY_LIST, statusOf, priorityOf } from "../../constants/pmConstants";
-import { fmtDate, isOverdue, initials } from "../../utils/pmUtils";
+import { fmtDate, fmtDateTime, isOverdue, initials } from "../../utils/pmUtils"; // ← tambah fmtDateTime
 
 /* ─── Tab definitions ───────────────────────────────────────────── */
 const TABS = [
@@ -294,6 +294,13 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
             ) : (
               board.comments.map((c) => {
                 const isMe = c.employee_id === board.employee?.employee_id;
+                // ← CapitalEachWord untuk nama karyawan
+                const displayName = (c.full_name || c.author || "")
+                  .toLowerCase()
+                  .split(" ")
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ");
+
                 return (
                   <div key={c.id} className={["flex gap-2.5", isMe ? "flex-row-reverse" : ""].join(" ")}>
                     <div className={[
@@ -302,13 +309,16 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
                     ].join(" ")}>
                       {initials(c.full_name || c.author)}
                     </div>
-                    <div className={["max-w-[75%]", isMe ? "items-end" : "items-start"].join(" ")}>
+                    <div className={["max-w-[75%] flex flex-col", isMe ? "items-end" : "items-start"].join(" ")}>
+                      {/* Nama pengirim */}
                       <div className={[
                         "text-[10px] font-semibold mb-1 text-slate-500",
                         isMe ? "text-right" : "",
                       ].join(" ")}>
-                        {isMe ? "Kamu" : (c.full_name || c.author)}
+                        {isMe ? "Kamu" : displayName} {/* ← pakai displayName */}
                       </div>
+
+                      {/* Bubble komentar */}
                       <div className={[
                         "rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
                         isMe
@@ -317,8 +327,14 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
                       ].join(" ")}>
                         {c.comment || c.text}
                       </div>
-                      <div className={["text-[10px] text-slate-400 mt-1", isMe ? "text-right" : ""].join(" ")}>
-                        {c.created_at ? fmtDate(c.created_at) : ""}
+
+                      {/* ← Timestamp pakai fmtDateTime + tooltip tanggal lengkap */}
+                      <div
+                        className={["text-[10px] text-slate-400 mt-1 flex items-center gap-1", isMe ? "flex-row-reverse" : ""].join(" ")}
+                        title={c.created_at ? new Date(c.created_at).toLocaleString("id-ID") : ""}
+                      >
+                        <span>🕐</span>
+                        <span>{c.created_at ? fmtDateTime(c.created_at) : "—"}</span>
                       </div>
                     </div>
                   </div>
