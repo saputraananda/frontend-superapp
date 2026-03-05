@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Card }         from "../ui/Card";
+import { Card } from "../ui/Card";
 import { SectionLabel } from "../ui/SectionLabel";
-import { Tag }          from "../ui/Tag";
+import { Tag } from "../ui/Tag";
 import { EmployeeChip } from "../ui/EmployeeChip";
 import { AssigneeMultiSelect } from "./AssigneeMultiSelect";
 import { STATUS_LIST, PRIORITY_LIST, statusOf, priorityOf } from "../../constants/pmConstants";
@@ -9,7 +9,7 @@ import { fmtDate, isOverdue, initials } from "../../utils/pmUtils";
 
 /* ─── Tab definitions ───────────────────────────────────────────── */
 const TABS = [
-  { key: "detail",   label: "Detail"   },
+  { key: "detail", label: "Detail" },
   { key: "evidence", label: "Evidence" },
   { key: "comments", label: "Komentar" },
 ];
@@ -35,16 +35,16 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
     </div>
   );
 
-  const statusInfo   = statusOf(selected.status);
+  const statusInfo = statusOf(selected.status);
   const priorityInfo = priorityOf(selected.priority);
-  const over         = isOverdue(selected.enddate, selected.status);
+  const over = isOverdue(selected.enddate, selected.status);
 
   const isAssignedToMe = selected.assignees?.some(
     (a) => a.employee_id === board.employee?.employee_id
   );
 
   // Staff yang di-assign ke task = punya akses penuh seperti supervisor
-  const canEdit   = !board.isStaff || isAssignedToMe;
+  const canEdit = !board.isStaff || isAssignedToMe;
   const canDelete = !board.isStaff || isAssignedToMe; // ← sama seperti canEdit
 
   return (
@@ -223,6 +223,22 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
               </div>
             </div>
           )}
+
+          {/* ── Owner Task ── */}
+          <div>
+            <SectionLabel>Owner Task</SectionLabel>
+            {selected.owner_name ? (
+              <EmployeeChip
+                id={selected.owner_employee_id}
+                name={selected.owner_name}
+                email={selected.owner_email}
+                colorClass="bg-slate-700"
+                badge="Owner"
+              />
+            ) : (
+              <span className="text-xs text-slate-400 italic">Tidak ada owner</span>
+            )}
+          </div>
 
           {/* Assignees */}
           <div>

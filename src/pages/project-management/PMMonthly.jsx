@@ -256,6 +256,11 @@ export default function PMMonthly() {
             setSemesterData(sem);
             setMonths(monthRes?.data || []);
 
+            // ← Set title setelah data semester berhasil dimuat
+            document.title = sem?.title
+                ? `${sem.title} - Monthly | Project Management Alora`
+                : "Monthly Plans | Project Management Alora";
+
             if (sem?.id_project) {
                 try {
                     const projRes = await pmApi.getProjectDetail(sem.id_project);
@@ -267,6 +272,7 @@ export default function PMMonthly() {
         } catch (e) {
             console.error("load monthly error:", e);
             setErr(e?.message || "Gagal memuat monthly");
+            document.title = "Monthly Plans | Project Management Alora";
         } finally {
             setLoading(false);
         }

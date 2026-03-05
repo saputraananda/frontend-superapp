@@ -228,9 +228,14 @@ export default function PMSemester() {
       const res = await pmApi.getProjectDetail(projectId);
       setProject(res.project);
       setSemesters(res.semesters || []);
+      // ← Set title setelah data project berhasil dimuat
+      document.title = res.project?.title
+        ? `${res.project.title} - Semester | Project Management Alora`
+        : "Semester Plans | Project Management Alora";
     } catch (e) {
       console.error("load error:", e);
       setErr(e?.message || "Gagal memuat data");
+      document.title = "Semester Plans | Project Management Alora";
     } finally {
       setLoading(false);
     }

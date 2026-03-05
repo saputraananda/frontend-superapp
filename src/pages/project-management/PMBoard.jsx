@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import { usePMBoard }      from "./hooks/usePMBoard";
@@ -22,6 +22,15 @@ export default function PMBoard() {
   const [showNotifs, setShowNotifs] = useState(false);
 
   const board = usePMBoard(monthlyId);
+
+  // ← Set title saat data monthly berhasil dimuat
+  useEffect(() => {
+    if (board.monthly?.title) {
+      document.title = `${board.monthly.title} — Task Board | Project Management Alora`;
+    } else {
+      document.title = "Task Board | Project Management Alora";
+    }
+  }, [board.monthly?.title]);
 
   const handleBack = () => {
     if (from?.projectId && from?.semesterId)

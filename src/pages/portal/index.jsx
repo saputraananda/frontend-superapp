@@ -6,11 +6,12 @@ import HeaderLayout from "../../layouts/HeaderLayout";
 // Import komponen
 import ApplicationsSection from "./components/ApplicationsSection";
 import PersonalTasksCard from "./components/PersonalTasksCard";
-import OperationalTasksCard from "./components/OperationalTasksCard";
+import DailyTasksCard from "./components/DailyTasksCard";
 import StatsCards from "./components/StatsCards";
 import WeatherWidget from "./components/WeatherWidget";
 import YouTubeSlider from "./components/YoutubeSlider";
 import PerformanceRating from "./components/PerformanceRating";
+import BroadcastBanner from "./components/BroadcastBanner"; 
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -79,11 +80,6 @@ export default function Portal({ user, onLogout }) {
       : jobLevel || position || "Employee";
   };
 
-  const operationalTasks = [
-    { id: 1, title: "Penambahan Mesin Cuci Citra Gran", date: "26 Apr 235", progress: 60, status: "On Progress" },
-    { id: 2, title: "Perbaikan Motor Raffles", date: "26 Apr 235", progress: 80, status: "Menunggu" }
-  ];
-
   if (loading) {
     return <LoadingScreen />;
   }
@@ -94,20 +90,24 @@ export default function Portal({ user, onLogout }) {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Content */}
           <div className="flex-1 space-y-6">
-            {/* Stats Cards - Pindah ke atas */}
+
+            {/* ← Broadcast — taruh setelah StatsCards */}
+            <BroadcastBanner />
+            
+            {/* Stats Cards */}
             <StatsCards />
 
             {/* Applications Section */}
-            <ApplicationsSection 
-              apps={apps} 
-              searchQuery={searchQuery} 
-              setSearchQuery={setSearchQuery} 
+            <ApplicationsSection
+              apps={apps}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
             />
 
             {/* Tasks Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PersonalTasksCard />
-              <OperationalTasksCard tasks={operationalTasks} />
+              <DailyTasksCard />  {/* ← ganti komponen, hapus props operationalTasks */}
             </div>
           </div>
 

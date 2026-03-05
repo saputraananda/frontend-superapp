@@ -88,23 +88,11 @@ export function usePMBoard(monthlyId) {
     setEStatus(task?.status ?? "assigned");
     setEPriority(task?.priority ?? "medium");
     setELink(task?.link ?? "");
-
-    // ✅ LOG: cek nilai mentah dari server
-    console.log("=== selectTask DEBUG ===");
-    console.log("task.startdate raw    :", task?.startdate);
-    console.log("task.enddate raw      :", task?.enddate);
-    console.log("typeof startdate      :", typeof task?.startdate);
-    console.log("startdate slice(0,10) :", task?.startdate ? String(task.startdate).slice(0, 10) : "");
-    console.log("enddate slice(0,10)   :", task?.enddate   ? String(task.enddate).slice(0, 10)   : "");
-    console.log("new Date(startdate)   :", task?.startdate ? new Date(task.startdate).toISOString() : "");
-    console.log("========================");
-
     setEStart(task?.startdate ? String(task.startdate).slice(0, 10) : "");
     setEEnd(task?.enddate     ? String(task.enddate).slice(0, 10)   : "");
-
     setEAssignees(task?.assignees?.map((a) => a.employee_id) ?? []);
-    setComments([]);
-    setCommentText("");
+    // ✅ HAPUS: setComments([]) dan setCommentText("") dari sini
+    // Biarkan useEffect [selectedId] yang handle reset komentar
   }
 
   async function updateTask() {
@@ -191,7 +179,16 @@ export function usePMBoard(monthlyId) {
   useEffect(() => {
     if (editMode) return;
     const t = tasks.find((x) => x.id === selectedId);
-    if (t) selectTask(t);
+    if (!t) return;
+    // sync field edit saja, tanpa ganggu comments
+    setETitle(t.title ?? "");
+    setEDesc(t.desc ?? "");
+    setEStatus(t.status ?? "assigned");
+    setEPriority(t.priority ?? "medium");
+    setELink(t.link ?? "");
+    setEStart(t.startdate ? String(t.startdate).slice(0, 10) : "");
+    setEEnd(t.enddate     ? String(t.enddate).slice(0, 10)   : "");
+    setEAssignees(t.assignees?.map((a) => a.employee_id) ?? []);
   }, [tasks, selectedId]); // eslint-disable-line
 
   const statsTasks = useMemo(() => {

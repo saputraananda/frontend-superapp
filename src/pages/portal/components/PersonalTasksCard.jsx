@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { api } from "../../../lib/api";
 
+const PER_PAGE = 3; // ← jumlah task per halaman
+
 export default function PersonalTasksCard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("upcoming"); // upcoming, overdue, today
   const [employeeId, setEmployeeId] = useState(null);
+  const [page, setPage] = useState(1); // ← tambah state page
 
   useEffect(() => {
     // Get employee ID from localStorage
@@ -167,7 +170,14 @@ export default function PersonalTasksCard() {
     return badges[priority] || badges.medium;
   };
 
-  const filteredTasks = getFilteredTasks();
+  const handleFilterChange = (f) => {
+    setFilter(f);
+    setPage(1);
+  };
+
+  const filteredTasks = getFilteredTasks(); // semua hasil filter (tidak di-slice)
+  const totalPages    = Math.max(1, Math.ceil(filteredTasks.length / PER_PAGE));
+  const pagedTasks    = filteredTasks.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   if (loading) {
     return (
@@ -202,10 +212,10 @@ export default function PersonalTasksCard() {
           </span>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs — ganti setFilter → handleFilterChange */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setFilter("upcoming")}
+            onClick={() => handleFilterChange("upcoming")}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
               filter === "upcoming"
                 ? "bg-white text-blue-600 border border-blue-200 shadow-sm"
@@ -220,7 +230,7 @@ export default function PersonalTasksCard() {
             </span>
           </button>
           <button
-            onClick={() => setFilter("today")}
+            onClick={() => handleFilterChange("today")}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
               filter === "today"
                 ? "bg-white text-rose-600 border border-rose-200 shadow-sm"
@@ -235,7 +245,7 @@ export default function PersonalTasksCard() {
             </span>
           </button>
           <button
-            onClick={() => setFilter("overdue")}
+            onClick={() => handleFilterChange("overdue")}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
               filter === "overdue"
                 ? "bg-white text-red-600 border border-red-200 shadow-sm"
@@ -252,9 +262,9 @@ export default function PersonalTasksCard() {
         </div>
       </div>
 
-      {/* Task List */}
-      <div className="p-4 space-y-2 max-h-96 overflow-y-auto">
-        {filteredTasks.length === 0 ? (
+      {/* Task List — ganti filteredTasks → pagedTasks */}
+      <div className="p-4 space-y-2">
+        {pagedTasks.length === 0 ? (
           <div className="text-center py-8">
             <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 mb-3">
               <svg className="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,7 +275,7 @@ export default function PersonalTasksCard() {
             <p className="text-xs text-slate-400 mt-1">Semua task sudah selesai 🎉</p>
           </div>
         ) : (
-          filteredTasks.map((task) => {
+          pagedTasks.map((task) => {
             const typeInfo = getTaskTypeInfo(task);
             const priorityBadge = getPriorityBadge(task.priority);
             const myRole = task.assignees.find(a => a.employee_id === employeeId)?.role || "assignee";
@@ -337,14 +347,59 @@ export default function PersonalTasksCard() {
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer — ganti dengan pagination */}
       {filteredTasks.length > 0 && (
-        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 flex items-center justify-between">
+          {/* Info */}
+          <p className="text-[10px] text-slate-400">
+            {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filteredTasks.length)} dari {filteredTasks.length} task
+          </p>
+
+          <div className="flex items-center gap-1">
+            {/* Prev */}
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="h-6 w-6 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Page numbers */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`h-6 w-6 flex items-center justify-center rounded border text-[10px] font-semibold transition ${
+                  p === page
+                    ? "bg-purple-600 border-purple-600 text-white"
+                    : "border-slate-200 text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+
+            {/* Next */}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="h-6 w-6 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Link ke PM */}
           <a
             href="/project-management"
-            className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center justify-center gap-1 transition"
+            className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1 transition"
           >
-            <span>Lihat semua task</span>
+            Lihat semua
             <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>

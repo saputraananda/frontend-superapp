@@ -271,7 +271,10 @@ export default function PMAnnual() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    document.title = "Annual Projects | Project Management Alora";
+    load();
+  }, []);
 
   function openEdit(e, p) {
     e.stopPropagation();
