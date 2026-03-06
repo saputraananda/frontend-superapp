@@ -9,7 +9,7 @@ import PersonalTasksCard from "./components/PersonalTasksCard";
 import DailyTasksCard from "./components/DailyTasksCard";
 import StatsCards from "./components/StatsCards";
 import WeatherWidget from "./components/WeatherWidget";
-import YouTubeSlider from "./components/YoutubeSlider";
+import YouTubeSlider from "./components/YouTubeSlider";
 import PerformanceRating from "./components/PerformanceRating";
 import BroadcastBanner from "./components/BroadcastBanner"; 
 

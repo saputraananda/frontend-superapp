@@ -36,7 +36,7 @@ const toCapitalEachWord = (str = "") =>
 
 /** Ganti nama karyawan UPPERCASE di teks notifikasi */
 const formatMessage = (msg = "") =>
-  msg.replace(/\b([A-Z][A-Z\s]{2,})\b/g, (match) => toCapitalEachWord(match.trim()));
+  msg.replace(/\b[A-Z]{2,}(?:\s+[A-Z]{2,})*\b/g, (match) => toCapitalEachWord(match));
 
 export const NotifPanel = ({ open, onClose }) => {
   const [notifs, setNotifs]         = useState([]);
@@ -252,7 +252,7 @@ export const NotifPanel = ({ open, onClose }) => {
         )}
 
         {/* ── List ── */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
           {loading ? (
             <div className="space-y-2 px-1">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -280,7 +280,7 @@ export const NotifPanel = ({ open, onClose }) => {
                   key={n.id}
                   onClick={() => !n.is_read && markRead(n.id)}
                   className={[
-                    "notif-item relative flex gap-3 rounded-xl border px-3.5 py-3 group",
+                    "notif-item relative flex gap-3.5 rounded-xl border px-3.5 py-3.5 group",
                     style.bg, style.border,
                     !n.is_read
                       ? "shadow-sm cursor-pointer hover:shadow-md hover:brightness-[0.97]"
@@ -321,7 +321,7 @@ export const NotifPanel = ({ open, onClose }) => {
                     {/* Title */}
                     {n.title && (
                       <div className={[
-                        "text-xs leading-snug mb-0.5",
+                        "text-xs leading-snug mb-1",
                         !n.is_read ? "font-semibold text-slate-900" : "font-medium text-slate-600",
                       ].join(" ")}>
                         {formatMessage(n.title)}
@@ -336,7 +336,7 @@ export const NotifPanel = ({ open, onClose }) => {
                     )}
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-1.5">
+                    <div className="flex items-center justify-between mt-2">  {/* ← dari mt-1.5 */}
                       <span
                         className="text-[10px] text-slate-400 font-medium"
                         title={n.created_at ? new Date(n.created_at).toLocaleString("id-ID") : ""}

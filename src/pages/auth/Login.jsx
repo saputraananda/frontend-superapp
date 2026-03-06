@@ -1,4 +1,4 @@
-import { useEffect , useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import AlertSuccess from "../../components/AlertSuccess";
 
@@ -31,7 +31,7 @@ export default function Login({ onLogin }) {
                 ...data.user,
                 employee: data.user.employee || data.employee || null
             };
-            
+
             localStorage.setItem("user", JSON.stringify(userToStore));
 
             // Panggil callback onLogin
@@ -182,13 +182,25 @@ export default function Login({ onLogin }) {
                                     </button>
 
                                     {/* Register hint */}
-                                    <div className="rounded-2xl border border-white/40 bg-white/30 p-4 text-xs text-slate-600 text-center backdrop-blur-md">
+                                    {/* <div className="rounded-2xl border border-white/40 bg-white/30 p-4 text-xs text-slate-600 text-center backdrop-blur-md">
                                         Belum punya akun?{" "}
                                         <a
                                             href="/register"
                                             className="font-semibold text-indigo-700 hover:text-indigo-800"
                                         >
                                             Register
+                                        </a>
+                                    </div> */}
+
+                                    <div className="rounded-2xl border border-white/40 bg-white/30 p-4 text-xs text-slate-600 text-center backdrop-blur-md">
+                                        Belum punya akun?{" "}
+                                        <a
+                                            href="https://wa.me/6287770597000"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-semibold text-indigo-700 hover:text-indigo-800"
+                                        >
+                                            Hubungi Admin
                                         </a>
                                     </div>
                                 </form>
