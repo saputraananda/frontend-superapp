@@ -10,8 +10,8 @@ export default function StatsCards() {
     const salesGrowth = 9.5;
 
     // Data Total Customer
-    const targetCustomer = 50000;
-    const currentCustomer = 3000;
+    const targetCustomer = 7700;
+    const currentCustomer = 3974;
     const customerPercentage = Math.round((currentCustomer / targetCustomer) * 100);
     const customerGrowth = 12.5;
 

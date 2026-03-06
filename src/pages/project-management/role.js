@@ -22,12 +22,16 @@ export function canDirektur(emp) {
 
 /** Direktur & Supervisor (job_level_id = 1 atau 2) */
 export function canSupervisorUp(emp) {
-  return Number(emp?.job_level_id) <= 2;
+  const level = emp?.job_level_id;
+  if (level == null) return false;
+  return Number(level) <= 2;
 }
 
 /** Semua level termasuk Staff (job_level_id = 1, 2, atau 3) */
 export function canStaffUp(emp) {
-  return Number(emp?.job_level_id) <= 3;
+  const level = emp?.job_level_id;
+  if (level == null) return false;
+  return Number(level) <= 3;
 }
 
 // ── Alias agar tidak perlu ubah semua tempat yang sudah pakai canBoD/canHoD ──
