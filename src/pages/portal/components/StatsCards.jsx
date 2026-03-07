@@ -38,7 +38,7 @@ export default function StatsCards() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Karyawan</p>
-                                <p className="text-[10px] text-slate-500">Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</p>
+                                <p className="text-[10px] text-slate-500">Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} - Dummy Data</p>
                             </div>
                         </div>
                         {/* Growth badge */}
@@ -99,7 +99,7 @@ export default function StatsCards() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Sales</p>
-                                <p className="text-[10px] text-slate-500">Target Bulan Ini</p>
+                                <p className="text-[10px] text-slate-500">Target Bulan Ini - Dummy Data</p>
                             </div>
                         </div>
                         <div className="text-right">
@@ -172,7 +172,7 @@ export default function StatsCards() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Customer</p>
-                                <p className="text-[10px] text-slate-500">Target 2026 9,4% Market Share</p>
+                                <p className="text-[10px] text-slate-500">Target 2026 - Dummy Data</p>
                             </div>
                         </div>
                         <div className="text-right">
