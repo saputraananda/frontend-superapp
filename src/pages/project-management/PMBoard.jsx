@@ -1,27 +1,53 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { HiOutlineArrowLeft } from "react-icons/hi2";
+import { api } from "../../lib/api";
 
-import { usePMBoard }      from "./hooks/usePMBoard";
-import { ToastContainer }  from "./components/ui/ToastContainer";
-import { ModalDialog }     from "./components/ui/ModalDialog";
-import { ProgressBar }     from "./components/ui/ProgressBar";
-import { TaskListPanel }   from "./components/pm/TaskListPanel";
+import { usePMBoard } from "./hooks/usePMBoard";
+import { ToastContainer } from "./components/ui/ToastContainer";
+import { ModalDialog } from "./components/ui/ModalDialog";
+import { ProgressBar } from "./components/ui/ProgressBar";
+import { TaskListPanel } from "./components/pm/TaskListPanel";
 import { TaskDetailPanel } from "./components/pm/TaskDetailPanel";
-import { AddTaskModal }    from "./components/pm/AddTaskModal";
-import { NotifPanel }      from "./components/pm/NotifPanel";
-import { EvidencePanel }   from "./components/pm/EvidencePanel";
-import { initials }        from "./utils/pmUtils";
+import { AddTaskModal } from "./components/pm/AddTaskModal";
+import { NotifPanel } from "./components/pm/NotifPanel";
+import { EvidencePanel } from "./components/pm/EvidencePanel";
+import { initials } from "./utils/pmUtils";
 
 export default function PMBoard() {
   const { monthlyId } = useParams();
-  const nav           = useNavigate();
-  const location      = useLocation();
-  const from          = location.state || {};
+  const nav = useNavigate();
+  const location = useLocation();
+  const from = location.state || {};
 
-  const [openAdd, setOpenAdd]     = useState(false);
+  const [openAdd, setOpenAdd] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
 
   const board = usePMBoard(monthlyId);
+
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  async function handleLogout() {
+    try { await api("/auth/logout", { method: "POST" }); } catch { /* ignore */ }
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  }
+
+  function capitalizeEachWord(text) {
+    if (!text) return "";
+    return text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 
   // ← Set title saat data monthly berhasil dimuat
   useEffect(() => {
@@ -44,43 +70,72 @@ export default function PMBoard() {
       <ModalDialog />
 
       {/* Topbar */}
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 items-center justify-between gap-4">
-            <button type="button" onClick={handleBack}
-              className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors shrink-0">
-              <span className="h-7 w-7 rounded-md border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 text-sm transition">←</span>
-              <span className="hidden sm:inline text-slate-600">Monthly</span>
-            </button>
-            <div className="flex-1 min-w-0 text-center">
-              <div className="text-sm font-bold text-slate-900 truncate">{board.monthly?.title || "Task Board"}</div>
-              <div className="text-xs text-slate-400 mt-0.5 hidden sm:block">
-                {board.taskStats.done}/{board.taskStats.total} selesai · {board.progress}% progress
-              </div>
+      {/* Topbar */}
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex h-16 sm:h-18 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
+          <button type="button" onClick={handleBack}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition shrink-0">
+            <HiOutlineArrowLeft className="h-5 w-5" />
+            <span className="hidden sm:inline">Monthly</span>
+          </button>
+
+          <div className="flex-1 min-w-0 text-center">
+            <div className="text-sm font-bold text-slate-900 truncate">{board.monthly?.title || "Task Board"}</div>
+            <div className="text-xs text-slate-400 mt-0.5 hidden sm:block">
+              {board.taskStats.done}/{board.taskStats.total} selesai · {board.progress}% progress
             </div>
-            <div className="flex items-center gap-2.5 shrink-0">
-              <button type="button" onClick={() => setShowNotifs(true)}
-                className="relative h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 transition">
-                <span className="text-sm">🔔</span>
-                {board.unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full bg-rose-600 text-[10px] font-bold text-white flex items-center justify-center px-1">
-                    {board.unreadCount > 9 ? "9+" : board.unreadCount}
-                  </span>
-                )}
-              </button>
-              <div className="h-7 w-7 rounded-md bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
-                {initials(board.employee?.full_name)}
-              </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button type="button" onClick={() => setShowNotifs(true)}
+              className="relative h-9 w-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 transition">
+              <span className="text-sm">🔔</span>
+              {board.unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full bg-rose-600 text-[10px] font-bold text-white flex items-center justify-center px-1">
+                  {board.unreadCount > 9 ? "9+" : board.unreadCount}
+                </span>
+              )}
+            </button>
+            <div className="relative flex items-center gap-2" ref={dropdownRef}>
               <div className="hidden sm:block text-right">
-                <div className="text-xs font-semibold text-slate-800">{board.employee?.full_name || "User"}</div>
-                <div className="text-[10px] text-slate-400">
+                <div className="text-sm font-semibold text-slate-800">
+                  {capitalizeEachWord(board.employee?.full_name || "User")}
+                </div>
+                <div className="text-xs text-slate-400">
                   {board.isDirektur ? "Direktur" : board.isSupervisor ? "Supervisor" : "Staff"}
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowDropdown(v => !v)}
+                className="h-9 w-9 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-white text-xs font-bold shadow-sm transition"
+              >
+                {initials(board.employee?.full_name)}
+              </button>
+
+              {showDropdown && (
+                <div className="absolute right-0 top-11 z-50 w-48 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                  <a
+                    href="/profile"
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    👤 Lihat Profil
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
         {board.err && (
@@ -107,11 +162,11 @@ export default function PMBoard() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             {[
-              { label: "Total Tasks", value: board.taskStats.total,      cls: "border-slate-200" },
-              { label: "In Progress", value: board.taskStats.inProgress,  cls: "border-amber-200 bg-amber-50" },
-              { label: "Completed",   value: board.taskStats.done,        cls: "border-emerald-200 bg-emerald-50" },
-              { label: "Critical",    value: board.taskStats.critical,    cls: "border-rose-200 bg-rose-50" },
-              { label: "Overdue",     value: board.taskStats.overdue,     cls: "border-orange-200 bg-orange-50" },
+              { label: "Total Tasks", value: board.taskStats.total, cls: "border-slate-200" },
+              { label: "In Progress", value: board.taskStats.inProgress, cls: "border-amber-200 bg-amber-50" },
+              { label: "Completed", value: board.taskStats.done, cls: "border-emerald-200 bg-emerald-50" },
+              { label: "Critical", value: board.taskStats.critical, cls: "border-rose-200 bg-rose-50" },
+              { label: "Overdue", value: board.taskStats.overdue, cls: "border-orange-200 bg-orange-50" },
             ].map((s) => (
               <div key={s.label} className={`rounded-lg border px-4 py-3 bg-white ${s.cls}`}>
                 <div className="text-xl font-bold text-slate-900">{s.value}</div>
@@ -134,10 +189,10 @@ export default function PMBoard() {
             selectedId={board.selectedId}
             onSelect={board.selectTask}
             load={board.load}
-            statusFilter={board.statusFilter}   setStatusFilter={board.setStatusFilter}
+            statusFilter={board.statusFilter} setStatusFilter={board.setStatusFilter}
             priorityFilter={board.priorityFilter} setPriorityFilter={board.setPriorityFilter}
-            query={board.query}                 setQuery={board.setQuery}
-            meOnly={board.meOnly}               setMeOnly={board.setMeOnly}
+            query={board.query} setQuery={board.setQuery}
+            meOnly={board.meOnly} setMeOnly={board.setMeOnly}
             employee={board.employee}
             loading={board.loading}
           />

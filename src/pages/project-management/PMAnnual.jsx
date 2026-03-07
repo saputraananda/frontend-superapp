@@ -1,7 +1,8 @@
 // src/pages/project-management/PMAnnual.jsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
+import { api } from "../../lib/api";
 import { getEmployeeFromLocal, canDirektur, canSupervisorUp } from "./role";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiTrash2, FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX } from "react-icons/fi";
@@ -49,6 +50,11 @@ function fmtDate(str) {
 function getYear(str) {
   if (!str) return null;
   return new Date(str).getFullYear();
+}
+
+function capitalizeEachWord(text) {
+  if (!text) return "";
+  return text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ─── Toast System ──────────────────────────────────────
@@ -234,6 +240,25 @@ export default function PMAnnual() {
   const [editDesc, setEditDesc] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  async function handleLogout() {
+    try { await api("/auth/logout", { method: "POST" }); } catch { /* ignore */ }
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  }
+
   async function load() {
     setErr("");
     setLoading(true);
@@ -393,16 +418,39 @@ export default function PMAnnual() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:block text-right">
               <div className="text-sm font-semibold text-slate-900">
-                {employee?.full_name || "User"}
+                {capitalizeEachWord(employee?.full_name || "User")}
               </div>
               <div className="text-xs text-slate-500">
                 {isDirektur ? "Direktur" : isSupervisorUp ? "Supervisor" : "Staff"}
               </div>
             </div>
 
-            <div className="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+            <button
+              type="button"
+              onClick={() => setShowDropdown(v => !v)}
+              className="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-white text-sm font-bold shadow-sm hover:bg-slate-700 transition"
+            >
               {initials(employee?.full_name)}
-            </div>
+            </button>
+
+            {showDropdown && (
+              <div className="absolute right-0 top-11 z-50 w-48 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                <a
+                  href="/profile"
+                  className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition"
+                  onClick={() => setShowDropdown(false)}
+                >
+                  👤 Lihat Profil
+                </a>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
