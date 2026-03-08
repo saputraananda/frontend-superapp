@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -10,6 +10,7 @@ import {
   HiOutlineArrowLeft, HiOutlineExclamationTriangle,
   HiOutlineXMark, HiOutlineCheckCircle, HiOutlineExclamationCircle,
   HiOutlineArrowTopRightOnSquare, HiOutlineArrowDownTray,
+  HiOutlineBars3,
 } from "react-icons/hi2";
 import { FiSave } from "react-icons/fi";
 
@@ -206,6 +207,9 @@ export default function EmployeeDetail() {
   const [resignReason, setResignReason] = useState("");
   const [resignSaving, setResignSaving] = useState(false);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const topRef = useRef(null);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -297,12 +301,18 @@ export default function EmployeeDetail() {
   const activeTabIdx = TABS.findIndex((t) => t.id === activeTab);
   const activeTabObj = TABS.find((t) => t.id === activeTab);
 
+  const handleTabChange = (id) => {
+    setActiveTab(id);
+    setSidebarOpen(false);
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   if (loading) return <LoadingScreen />;
 
   const isResigned = !!formData.exit_date;
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9]">
+    <div className="min-h-screen bg-[#f4f6f9]" ref={topRef}>
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
       {/* ── Resign Modal ── */}
@@ -345,6 +355,13 @@ export default function EmployeeDetail() {
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden flex items-center justify-center h-9 w-9 rounded-lg bg-slate-100 hover:bg-slate-200 transition border border-slate-200 shrink-0"
+              >
+                <HiOutlineBars3 className="h-5 w-5 text-slate-600" />
+              </button>
               <button onClick={() => navigate("/master-karyawan")}
                 className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 transition shrink-0">
                 <HiOutlineArrowLeft className="w-4 h-4 text-slate-600" />
@@ -397,6 +414,78 @@ export default function EmployeeDetail() {
             </div>
           )}
 
+          {dirty && (
+            <div className="sm:hidden mb-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              Ada perubahan yang belum disimpan
+            </div>
+          )}
+
+          {sidebarOpen && (
+            <div className="lg:hidden fixed inset-0 z-40 flex">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+              <div className="relative z-50 w-64 bg-white h-full shadow-2xl flex flex-col p-4 gap-1">
+                <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+                  <h2 className="text-sm font-bold text-slate-700">Menu</h2>
+                  <button type="button" onClick={() => setSidebarOpen(false)}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition">
+                    <HiOutlineXMark className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Mini profile */}
+                <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+                  {employee?.profile_path ? (
+                    <img src={assetUrl(employee.profile_path)} alt={employee.full_name}
+                      className="h-10 w-10 rounded-full object-cover border border-slate-200 shrink-0" />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                      <HiOutlineUser className="w-5 h-5 text-slate-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{employee?.full_name ?? "—"}</p>
+                    <p className="text-xs text-slate-400 truncate">{employee?.position_name ?? "—"}</p>
+                  </div>
+                </div>
+
+                {/* Tab list */}
+                {TABS.map(({ id: tid, label, Icon }) => (
+                  <button key={tid} type="button" onClick={() => handleTabChange(tid)}
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
+                      activeTab === tid ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                    )}>
+                    <span className="flex items-center gap-2.5"><Icon className="w-4 h-4 shrink-0" />{label}</span>
+                    {tid === "docs" && (
+                      <span className={cn(
+                        "text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0",
+                        activeTab === "docs" ? "bg-white/20 text-white"
+                          : uploadedDocCount === EMPLOYEE_DOCS.length ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                      )}>
+                        {uploadedDocCount}/{EMPLOYEE_DOCS.length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+
+                <div className="mt-auto pt-4 border-t border-slate-100 space-y-2">
+                  <button type="submit" disabled={saving || !dirty}
+                    className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                      dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
+                    <FiSave className="w-4 h-4" />
+                    {saving ? "Menyimpan..." : "Simpan"}
+                  </button>
+                  <button type="button" onClick={() => navigate("/master-karyawan")}
+                    className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
+                    <HiOutlineArrowLeft className="w-4 h-4" />Kembali
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-5">
             {/* ── Sidebar ── */}
             <aside className="hidden lg:flex flex-col w-56 xl:w-60 shrink-0 gap-3 self-start sticky top-6">
@@ -425,7 +514,7 @@ export default function EmployeeDetail() {
               {/* Tab list */}
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-1">
                 {TABS.map(({ id: tid, label, Icon }) => (
-                  <button key={tid} type="button" onClick={() => setActiveTab(tid)}
+                  <button key={tid} type="button" onClick={() => handleTabChange(tid)}
                     className={cn(
                       "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-left w-full transition-all",
                       activeTab === tid
@@ -842,13 +931,13 @@ export default function EmployeeDetail() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex gap-2">
                       {activeTabIdx > 0 && (
-                        <button type="button" onClick={() => setActiveTab(TABS[activeTabIdx - 1].id)}
+                        <button type="button" onClick={() => handleTabChange(TABS[activeTabIdx - 1].id)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
                           <HiOutlineChevronLeft className="w-4 h-4" /> Sebelumnya
                         </button>
                       )}
                       {activeTabIdx < TABS.length - 1 && (
-                        <button type="button" onClick={() => setActiveTab(TABS[activeTabIdx + 1].id)}
+                        <button type="button" onClick={() => handleTabChange(TABS[activeTabIdx + 1].id)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 transition">
                           Berikutnya <HiOutlineChevronRight className="w-4 h-4" />
                         </button>

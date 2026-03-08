@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 import { api } from "../../lib/api";
 
@@ -18,6 +18,7 @@ export default function PMBoard() {
   const { monthlyId } = useParams();
   const nav = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = location.state || {};
 
   const [openAdd, setOpenAdd] = useState(false);
@@ -63,6 +64,16 @@ export default function PMBoard() {
       return nav(`/projectmanagement/${from.projectId}/semester/${from.semesterId}`);
     nav("/projectmanagement");
   };
+
+  // Setelah board selesai load, auto-select task dari URL:
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (taskId && board.tasks.length > 0) {
+      const numId = Number(taskId);
+      const found = board.tasks.find(t => t.id === numId);
+      if (found) board.selectTask(found);
+    }
+  }, [board.tasks, searchParams]);
 
   return (
     <div className="min-h-screen bg-slate-50">

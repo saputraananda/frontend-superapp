@@ -67,6 +67,9 @@ export default function PersonalTasksCard() {
                       task.project_title = project.title;
                       task.semester_title = semester.title;
                       task.monthly_title = monthly.title;
+                      task.monthly_id = monthly.id;       
+                      task.project_id = project.id;       
+                      task.semester_id = semester.id;     
                     });
 
                     allMyTasks = [...allMyTasks, ...myTasks];
@@ -281,9 +284,10 @@ export default function PersonalTasksCard() {
             const myRole = task.assignees.find(a => a.employee_id === employeeId)?.role || "assignee";
 
             return (
-              <div
+              <a
                 key={task.id}
-                className="group flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-gradient-to-r from-white to-slate-50/50 hover:border-slate-300 hover:shadow-sm transition-all"
+                href={`/projectmanagement/month/${task.monthly_id}?task=${task.id}`}
+                className="group flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-gradient-to-r from-white to-slate-50/50 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 {/* Icon */}
                 <div
@@ -341,7 +345,7 @@ export default function PersonalTasksCard() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </a>
             );
           })
         )}
@@ -393,17 +397,6 @@ export default function PersonalTasksCard() {
               </svg>
             </button>
           </div>
-
-          {/* Link ke PM */}
-          <a
-            href="/project-management"
-            className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1 transition"
-          >
-            Lihat semua
-            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
         </div>
       )}
     </div>

@@ -2,25 +2,26 @@ import { useState, useEffect, useCallback } from "react";
 import { pmApi } from "../../pmApi";
 import { toast } from "../../hooks/useToast";
 import { fmtDateTime } from "../../utils/pmUtils"; // ← ganti import
+import { useNavigate } from "react-router-dom";
 
 const NOTIF_ICONS = {
-  task_assigned:       { icon: "📋", bg: "bg-blue-50",    border: "border-blue-200",    dot: "bg-blue-500",    badge: "bg-blue-100 text-blue-700"    },
-  status_changed:      { icon: "🔄", bg: "bg-amber-50",   border: "border-amber-200",   dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-700"   },
-  comment_added:       { icon: "💬", bg: "bg-slate-50",   border: "border-slate-200",   dot: "bg-slate-400",   badge: "bg-slate-100 text-slate-600"   },
-  task_overdue:        { icon: "⚠️", bg: "bg-rose-50",    border: "border-rose-200",    dot: "bg-rose-500",    badge: "bg-rose-100 text-rose-700"     },
-  evidence_uploaded:   { icon: "📎", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700"},
-  task_completed:      { icon: "✅", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700"},
-  revision_required:   { icon: "✏️", bg: "bg-rose-50",    border: "border-rose-200",    dot: "bg-rose-500",    badge: "bg-rose-100 text-rose-700"     },
-  default:             { icon: "🔔", bg: "bg-slate-50",   border: "border-slate-200",   dot: "bg-slate-400",   badge: "bg-slate-100 text-slate-600"   },
+  task_assigned: { icon: "📋", bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500", badge: "bg-blue-100 text-blue-700" },
+  status_changed: { icon: "🔄", bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-500", badge: "bg-amber-100 text-amber-700" },
+  comment_added: { icon: "💬", bg: "bg-slate-50", border: "border-slate-200", dot: "bg-slate-400", badge: "bg-slate-100 text-slate-600" },
+  task_overdue: { icon: "⚠️", bg: "bg-rose-50", border: "border-rose-200", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
+  evidence_uploaded: { icon: "📎", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
+  task_completed: { icon: "✅", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
+  revision_required: { icon: "✏️", bg: "bg-rose-50", border: "border-rose-200", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
+  default: { icon: "🔔", bg: "bg-slate-50", border: "border-slate-200", dot: "bg-slate-400", badge: "bg-slate-100 text-slate-600" },
 };
 
 const TYPE_LABELS = {
-  task_assigned:     "Ditugaskan",
-  status_changed:    "Status Berubah",
-  comment_added:     "Komentar",
-  task_overdue:      "Terlambat",
+  task_assigned: "Ditugaskan",
+  status_changed: "Status Berubah",
+  comment_added: "Komentar",
+  task_overdue: "Terlambat",
   evidence_uploaded: "Bukti Diunggah",
-  task_completed:    "Selesai",
+  task_completed: "Selesai",
   revision_required: "Revisi",
 };
 
@@ -39,13 +40,22 @@ const formatMessage = (msg = "") =>
   msg.replace(/\b[A-Z]{2,}(?:\s+[A-Z]{2,})*\b/g, (match) => toCapitalEachWord(match));
 
 export const NotifPanel = ({ open, onClose }) => {
-  const [notifs, setNotifs]         = useState([]);
-  const [loading, setLoading]       = useState(false);
-  const [marking, setMarking]       = useState(false);
-  const [deleting, setDeleting]     = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [marking, setMarking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const [filter, setFilter]         = useState("all"); // "all" | "unread"
+  const [filter, setFilter] = useState("all"); // "all" | "unread"
   const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const nav = useNavigate();
+
+  async function handleNotifClick(n) {
+    if (!n.is_read) await markRead(n.id);
+    if (n.task_id && n.monthly_id) {
+      onClose();
+      nav(`/projectmanagement/month/${n.monthly_id}?task=${n.task_id}`);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,7 +135,7 @@ export const NotifPanel = ({ open, onClose }) => {
     : notifs;
 
   const unreadCount = notifs.filter((n) => !n.is_read).length;
-  const readCount   = notifs.filter((n) =>  n.is_read).length;
+  const readCount = notifs.filter((n) => n.is_read).length;
 
   if (!open) return null;
 
@@ -162,7 +172,7 @@ export const NotifPanel = ({ open, onClose }) => {
             <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
               <span>{notifs.length} total</span>
               {unreadCount > 0 && <span className="text-amber-400">· {unreadCount} belum dibaca</span>}
-              {readCount   > 0 && <span className="text-slate-500">· {readCount} sudah dibaca</span>}
+              {readCount > 0 && <span className="text-slate-500">· {readCount} sudah dibaca</span>}
             </div>
           </div>
           <button
@@ -273,16 +283,16 @@ export const NotifPanel = ({ open, onClose }) => {
             </div>
           ) : (
             displayed.map((n) => {
-              const style  = notifStyle(n.type);
+              const style = notifStyle(n.type);
               const isDeleting = deletingId === n.id;
               return (
                 <div
                   key={n.id}
-                  onClick={() => !n.is_read && markRead(n.id)}
+                  onClick={() => handleNotifClick(n)}
                   className={[
                     "notif-item relative flex gap-3.5 rounded-xl border px-3.5 py-3.5 group",
                     style.bg, style.border,
-                    !n.is_read
+                    (n.task_id && n.monthly_id) || !n.is_read
                       ? "shadow-sm cursor-pointer hover:shadow-md hover:brightness-[0.97]"
                       : "opacity-75 hover:opacity-90 cursor-default",
                     isDeleting ? "opacity-40 pointer-events-none" : "",
@@ -343,9 +353,11 @@ export const NotifPanel = ({ open, onClose }) => {
                       >
                         🕐 {n.created_at ? fmtDateTime(n.created_at) : "—"} {/* ← ganti fmtDate → fmtDateTime */}
                       </span>
-                      {!n.is_read && (
+                      {(n.task_id && n.monthly_id) ? (
+                        <span className="text-[10px] text-purple-500 font-semibold">🔗 Lihat task</span>
+                      ) : !n.is_read ? (
                         <span className="text-[10px] text-blue-500 font-semibold">Klik untuk baca</span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
