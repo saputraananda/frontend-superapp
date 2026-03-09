@@ -13,6 +13,7 @@ import {
   HiOutlineArrowLeft,
 } from "react-icons/hi2";
 import { FiSend } from "react-icons/fi";
+import UnderDevelopmentDialog from "../../components/UnderDevelopmentDialog";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -136,6 +137,7 @@ function LikertScale({ value, onChange, name }) {
 }
 
 export default function EmployeeSatisfaction() {
+  const [showDevDialog, setShowDevDialog] = useState(true);
   const [masterData, setMasterData] = useState({});
   const [surveyStatus, setSurveyStatus] = useState({ hasSubmitted: false, surveyKey: "" });
   const [loading, setLoading] = useState(true);
@@ -186,7 +188,11 @@ export default function EmployeeSatisfaction() {
         let userData = null;
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-          try { userData = JSON.parse(storedUser); } catch (e) { /* ignore parse error */ }
+          try {
+            userData = JSON.parse(storedUser);
+          } catch (e) {
+            console.warn('Invalid storedUser JSON:', e);
+          }
         }
         setUserDataLoaded(true);
 
@@ -349,6 +355,10 @@ export default function EmployeeSatisfaction() {
 
   return (
     <div className="min-h-screen bg-[#f4f6f9]">
+      <UnderDevelopmentDialog
+        open={showDevDialog}
+        onClose={() => setShowDevDialog(false)}
+      />
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
       {/* Top Banner */}

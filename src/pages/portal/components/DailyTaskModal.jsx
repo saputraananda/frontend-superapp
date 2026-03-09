@@ -149,10 +149,10 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50 rounded-t-2xl">
           <div>
             <h2 className="text-base font-bold text-slate-800">
-              {mode === "create" ? "Tambah Task Baru" : "Edit Task"}
+              {mode === "create" ? "Tambah Report" : "Edit Report"}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Task harian, rutin, atau dadakan yang perlu dicatat
+              Report harian, rutin, atau dadakan yang perlu dicatat
             </p>
           </div>
           <button

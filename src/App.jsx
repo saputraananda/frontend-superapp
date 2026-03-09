@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./lib/api";
+import AddUser from "./pages/add-user";
+import AddMenu from "./pages/add-menu";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
@@ -12,6 +14,7 @@ import MasterKaryawan from "./pages/master-karyawan/index";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
+import MaintenancePage from "./pages/maintenance";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -82,14 +85,39 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* ── Add User ── */}
+        <Route
+          path="/add-user"
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/add-user"]}>
+              <AddUser user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Add Menu ── */}
+        <Route
+          path="/add-menu"
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/add-menu"]}>
+              <AddMenu user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Login ── */}
         <Route
           path="/login"
           element={user ? <Navigate to="/portal" /> : <Login onLogin={handleLogin} />}
         />
+
+        {/* ── Register ── */}
         <Route
           path="/register"
           element={user ? <Navigate to="/portal" /> : <Register />}
         />
+
+        {/* ── Halaman Utama ── */}
         <Route
           path="/portal/*"
           element={
@@ -98,6 +126,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ── Profile ── */}
         <Route
           path="/profile/*"
           element={
@@ -106,6 +136,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ── Sales Dashboard ── */}
         <Route
           path="/dashboard/*"
           element={
@@ -114,6 +146,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ── Project Management ── */}
         <Route
           path="/projectmanagement/*"
           element={
@@ -122,6 +156,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ── Employee Satisfaction ── */}
         <Route
           path="/employeesatisfaction/*"
           element={
@@ -140,11 +176,22 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        
         <Route
           path="/master-karyawan/:id"
           element={
             <ProtectedRoute user={user} allowedRoles={appRoles["/master-karyawan"]}>
               <EmployeeDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Maintenance ── */}
+        <Route
+          path="/maintenance"
+          element={
+            <ProtectedRoute user={user}>
+              <MaintenancePage user={user} onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

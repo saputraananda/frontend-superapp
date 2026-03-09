@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,6 +14,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import UnderDevelopmentDialog from "../../components/UnderDevelopmentDialog";
 
 /**
  * Dashboard UI — improved to match the reference template:
@@ -141,6 +143,8 @@ const TooltipCard = ({ active, payload, label }) => {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const [showDevDialog, setShowDevDialog] = useState(true);
   // Filters (static for UI)
   const [period, setPeriod] = useState("May 2024");
   const [outlet, setOutlet] = useState("All Outlets");
@@ -237,47 +241,53 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_10%_10%,rgba(236,72,153,0.18),transparent_55%),radial-gradient(900px_500px_at_85%_15%,rgba(168,85,247,0.18),transparent_55%),radial-gradient(900px_500px_at_70%_90%,rgba(14,165,233,0.14),transparent_55%),linear-gradient(135deg,#f8fafc,rgba(249,168,212,0.22),rgba(167,139,250,0.18),rgba(186,230,253,0.22))]">
-      {/* Top bar */}
-      <div className="sticky top-0 z-30 border-b border-white/60 bg-white/40 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="flex items-center justify-between py-4">
+    <div className="min-h-screen bg-[#f4f6f9]">
+      <UnderDevelopmentDialog
+        open={showDevDialog}
+        onClose={() => setShowDevDialog(false)}
+      />
+
+      {/* ── Top Banner (sama seperti halaman lain) ── */}
+      <div className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-500 shadow-[0_12px_26px_rgba(168,85,247,0.25)]" />
-              <div className="leading-tight">
-                <p className="text-sm font-bold text-slate-800">
+              {/* Back Button */}
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-700 transition shrink-0"
+                title="Kembali"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+
+              {/* Breadcrumb + Title */}
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-0.5">
+                  <a href="/portal" className="hover:text-blue-600 transition">Portal</a>
+                  <span>/</span>
+                  <span className="text-slate-600 font-medium">Sales Dashboard</span>
+                </div>
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight">
                   Dashboard Analytics
+                </h1>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Alora Group Indonesia
                 </p>
-                <p className="text-xs text-slate-500">Alora Group Indonesia</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button className="relative grid h-10 w-10 place-items-center rounded-full bg-white/70 shadow-sm ring-1 ring-white/70 transition hover:scale-[1.03]">
-                <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-rose-500 text-[11px] font-bold text-white shadow">
-                  2
-                </span>
-                🔔
-              </button>
-              <button className="relative grid h-10 w-10 place-items-center rounded-full bg-white/70 shadow-sm ring-1 ring-white/70 transition hover:scale-[1.03]">
-                <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-rose-500 text-[11px] font-bold text-white shadow">
-                  3
-                </span>
-                💬
-              </button>
-              <button className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-white shadow-md transition hover:scale-[1.03]">
-                <img
-                  src="https://ui-avatars.com/api/?name=User&background=ffffff"
-                  alt="avatar"
-                  className="h-full w-full object-cover"
-                />
-              </button>
-            </div>
-          </div>
-
-          {/* Filter row (like template) */}
-          <div className="pb-4">
-            <div className="flex flex-wrap items-center gap-3">
+            {/* Filter row */}
+            <div className="flex flex-wrap items-center gap-2">
               <PillSelect
                 value={period}
                 onChange={setPeriod}
@@ -303,9 +313,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="mx-auto max-w-7xl px-4 pb-14 pt-6 sm:px-6">
-        <div className="grid grid-cols-12 gap-6">
+      {/* ── Content ── */}
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-5 pb-14">
+        <div className="grid grid-cols-12 gap-5">
+
           {/* Sales Overview */}
           <Card className="col-span-12 lg:col-span-8">
             <div className="p-6">
@@ -503,7 +514,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Mini cards row */}
-          <div className="col-span-12 grid grid-cols-12 gap-6">
+          <div className="col-span-12 grid grid-cols-12 gap-5">
             <div className="col-span-12 sm:col-span-6 lg:col-span-3 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-400 p-6 text-white shadow-[0_20px_50px_rgba(236,72,153,0.28)]">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">Sales Performance</p>
@@ -901,7 +912,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Footer spacing */}
+        {/* Footer */}
         <div className="mt-8 text-center text-xs font-semibold text-slate-400">
           © {new Date().getFullYear()} — Dashboard Analytics
         </div>
