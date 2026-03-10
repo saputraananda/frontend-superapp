@@ -27,15 +27,15 @@ const inputCls = cn(
 const ALL_ROLES = ["bod", "spv_hr", "spv_bdsm", "spv_finance", "finance", "hr", "bdsm", "admin", "employee", "unauthorized"];
 
 const ROLE_BADGE = {
-  bod:          "bg-violet-100 text-violet-700 border-violet-200",
-  finance:      "bg-emerald-100 text-emerald-700 border-emerald-200",
-  spv_hr:       "bg-blue-100 text-blue-700 border-blue-200",
-  hr:           "bg-cyan-100 text-cyan-700 border-cyan-200",
-  spv_bdsm:     "bg-indigo-100 text-indigo-700 border-indigo-200",
-  spv_finance:  "bg-green-100 text-green-700 border-green-200",
-  bdsm:         "bg-purple-100 text-purple-700 border-purple-200",
-  admin:        "bg-rose-100 text-rose-700 border-rose-200",
-  employee:     "bg-slate-100 text-slate-600 border-slate-200",
+  bod: "bg-violet-100 text-violet-700 border-violet-200",
+  finance: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  spv_hr: "bg-blue-100 text-blue-700 border-blue-200",
+  hr: "bg-cyan-100 text-cyan-700 border-cyan-200",
+  spv_bdsm: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  spv_finance: "bg-green-100 text-green-700 border-green-200",
+  bdsm: "bg-purple-100 text-purple-700 border-purple-200",
+  admin: "bg-rose-100 text-rose-700 border-rose-200",
+  employee: "bg-slate-100 text-slate-600 border-slate-200",
   unauthorized: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
@@ -65,23 +65,23 @@ const EMPTY_FORM = {
 };
 
 export default function AddMenu() {
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
 
-  const [apps, setApps]             = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState("");
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState(""); // "active" | "inactive" | ""
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef(null);
 
-  const [modalOpen, setModalOpen]   = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const [form, setForm]             = useState(EMPTY_FORM);
-  const [errors, setErrors]         = useState({});
-  const [saving, setSaving]         = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
-  const [toast, setToast]           = useState(null);
-  const [confirmOpen, setConfirmOpen]   = useState(false);
+  const [toast, setToast] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   // ── Click outside dropdown ─────────────────────────────────────────────
@@ -92,6 +92,10 @@ export default function AddMenu() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    document.title = "Manajemen User | Alora Group Indonesia";
   }, []);
 
   // ── Fetch ──────────────────────────────────────────────────────────────
@@ -126,12 +130,12 @@ export default function AddMenu() {
   const openEdit = (app) => {
     setEditTarget(app);
     setForm({
-      name:          app.name,
-      description:   app.description || "",
-      href:          app.href,
+      name: app.name,
+      description: app.description || "",
+      href: app.href,
       authorization: Array.isArray(app.authorization) ? app.authorization : [],
-      is_active:     Boolean(app.is_active),
-      sort_order:    app.sort_order,
+      is_active: Boolean(app.is_active),
+      sort_order: app.sort_order,
     });
     setErrors({});
     setModalOpen(true);
@@ -152,8 +156,8 @@ export default function AddMenu() {
   // ── Validate ───────────────────────────────────────────────────────────
   const validate = () => {
     const e = {};
-    if (!form.name.trim())        e.name = "Nama wajib diisi";
-    if (!form.href.trim())        e.href = "Path wajib diisi";
+    if (!form.name.trim()) e.name = "Nama wajib diisi";
+    if (!form.href.trim()) e.href = "Path wajib diisi";
     else if (!form.href.startsWith("/")) e.href = "Path harus diawali dengan /";
     if (form.authorization.length === 0) e.authorization = "Pilih minimal 1 role";
     setErrors(e);
@@ -189,7 +193,7 @@ export default function AddMenu() {
   };
 
   // ── Delete ─────────────────────────────────────────────────────────────
-  const handleDeleteClick  = (app) => { setDeleteTarget(app); setConfirmOpen(true); };
+  const handleDeleteClick = (app) => { setDeleteTarget(app); setConfirmOpen(true); };
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
@@ -209,8 +213,8 @@ export default function AddMenu() {
     const matchSearch = [a.name, a.description, a.href]
       .join(" ").toLowerCase().includes(search.toLowerCase());
     const matchStatus =
-      filterStatus === "active"   ? a.is_active === 1 :
-      filterStatus === "inactive" ? a.is_active === 0 : true;
+      filterStatus === "active" ? a.is_active === 1 :
+        filterStatus === "inactive" ? a.is_active === 0 : true;
     return matchSearch && matchStatus;
   });
 
@@ -297,15 +301,15 @@ export default function AddMenu() {
               onClick={() => setStatusDropdownOpen((p) => !p)}
               className={cn(
                 "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition shadow-sm",
-                filterStatus === "active"   && "bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-offset-1 ring-emerald-400/30",
+                filterStatus === "active" && "bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-offset-1 ring-emerald-400/30",
                 filterStatus === "inactive" && "bg-rose-50 border-rose-200 text-rose-700 ring-2 ring-offset-1 ring-rose-400/30",
-                !filterStatus               && "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                !filterStatus && "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               )}
             >
               <HiOutlineFunnel className="h-4 w-4 shrink-0" />
               <span>
-                {filterStatus === "active"   ? "Aktif" :
-                 filterStatus === "inactive" ? "Nonaktif" : "Filter Status"}
+                {filterStatus === "active" ? "Aktif" :
+                  filterStatus === "inactive" ? "Nonaktif" : "Filter Status"}
               </span>
               {filterStatus && (
                 <span
@@ -327,8 +331,8 @@ export default function AddMenu() {
             {statusDropdownOpen && (
               <div className="absolute left-0 top-full mt-2 z-50 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                 {[
-                  { value: "",         label: "Semua",    dot: "bg-slate-300" },
-                  { value: "active",   label: "Aktif",    dot: "bg-emerald-400" },
+                  { value: "", label: "Semua", dot: "bg-slate-300" },
+                  { value: "active", label: "Aktif", dot: "bg-emerald-400" },
                   { value: "inactive", label: "Nonaktif", dot: "bg-rose-400" },
                 ].map((opt) => (
                   <button

@@ -1,34 +1,79 @@
+import { useState, useEffect } from "react";
+import { api } from "../../../lib/api";
+
 export default function StatsCards() {
-    // Data Total Karyawan
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+    const [loading, setLoading] = useState(true);
+    const [salesData, setSalesData] = useState({
+        actual_sales: 0,
+        target_bulanan: 0,
+        percentage: 0,
+        sales_growth: 0,
+    });
+
+    // Data lain (masih dummy untuk sekarang)
     const currentEmployee = 34;
-    const employeeGrowth = 3.9;
+    const thisTime = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 
-    // Data Total Sales (dalam juta rupiah)
-    const targetSales = 535_000_000; // 500 juta
-    const currentSales = 95_592_110; // 
-    const salesPercentage = Math.round((currentSales / targetSales) * 100);
-    const salesGrowth = 9.5;
-
-    // Data Total Customer
     const targetCustomer = 7700;
     const currentCustomer = 3974;
     const customerPercentage = Math.round((currentCustomer / targetCustomer) * 100);
     const customerGrowth = 12.5;
 
-    // Data Total Karyawan — monitoring only
-    const employeeGrowthMonitoring = 3.9; // % growth dari bulan lalu
+    const employeeGrowthMonitoring = 3.9;
     const breakdown = [
         { label: "Alora Group", count: 34, color: "bg-emerald-500" },
         { label: "IKM", count: 70, color: "bg-teal-400" },
         { label: "Waschen", count: 50, color: "bg-cyan-300" },
     ];
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FETCH SALES DATA
+    // ═══════════════════════════════════════════════════════════════════════════
+    useEffect(() => {
+        const fetchSalesData = async () => {
+            try {
+                setLoading(true);
+                const res = await api("/apps/smartlink/sales-stats");
+                if (res.success && res.data) {
+                    setSalesData({
+                        actual_sales: res.data.actual_sales || 0,
+                        target_bulanan: res.data.target_bulanan || 0,
+                        percentage: res.data.percentage || 0,
+                        sales_growth: res.data.sales_growth || 0,
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching sales data:", error);
+                // Fallback ke dummy data jika error
+                setSalesData({
+                    actual_sales: 95592110,
+                    target_bulanan: 535000000,
+                    percentage: 18,
+                    sales_growth: 9.5,
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSalesData();
+    }, []);
+
+    // Format angka ke juta (untuk display)
+    const formatRupiah = (value) => {
+        return value.toLocaleString('id-ID');
+    };
+
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Total Karyawan */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
+            {/* Total Karyawan (masih dummy) */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 shadow-sm p-5">
                 <div className="space-y-3">
-                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
@@ -38,19 +83,13 @@ export default function StatsCards() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Karyawan</p>
-                                <p className="text-[10px] text-slate-500">Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} - Dummy Data</p>
+                                <p className="text-[10px] text-slate-500">
+                                    Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} - Dummy Data
+                                </p>
                             </div>
                         </div>
-                        {/* Growth badge */}
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 border border-emerald-200">
-                            <svg className="h-3 w-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-[10px] font-bold text-emerald-700">+{employeeGrowth}%</span>
-                        </span>
                     </div>
 
-                    {/* Angka utama */}
                     <div className="flex items-baseline gap-1.5">
                         <span className="text-3xl font-bold text-slate-800">
                             {currentEmployee.toLocaleString("id-ID")}
@@ -58,9 +97,7 @@ export default function StatsCards() {
                         <span className="text-sm text-slate-500 font-medium">karyawan aktif</span>
                     </div>
 
-                    {/* Breakdown bar — stacked */}
                     <div className="space-y-1.5">
-                        {/* Legend */}
                         <div className="flex items-center gap-3">
                             {breakdown.map((b) => (
                                 <div key={b.label} className="flex items-center gap-1">
@@ -74,21 +111,20 @@ export default function StatsCards() {
                         </div>
                     </div>
 
-                    {/* Footer info */}
                     <div className="flex items-center justify-between pt-1 border-t border-emerald-100">
                         <p className="text-[10px] text-slate-500">
                             Naik <span className="font-semibold text-emerald-600">+{Math.round(currentEmployee * employeeGrowthMonitoring / 100)} orang</span> dari bulan lalu
                         </p>
                         <span className="text-[10px] text-slate-400">👥 SDM</span>
                     </div>
-
                 </div>
             </div>
 
-            {/* Total Sales */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
+            {/* Total Sales — DINAMIS dari Smartlink */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200 shadow-sm p-5">
                 <div className="space-y-3">
-                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center shadow-sm">
@@ -99,70 +135,85 @@ export default function StatsCards() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Sales</p>
-                                <p className="text-[10px] text-slate-500">Target Bulan Ini - Dummy Data</p>
+                                <p className="text-[10px] text-slate-500">
+                                    {loading ? "Loading..." : `Total Saat Ini - ${thisTime}`}
+                                </p>
                             </div>
                         </div>
                         <div className="text-right">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 border border-emerald-200">
-                                <svg className="h-3 w-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border ${salesData.sales_growth >= 0
+                                    ? "bg-emerald-100 border-emerald-200"
+                                    : "bg-rose-100 border-rose-200"
+                                }`}>
+                                <svg className={`h-3 w-3 ${salesData.sales_growth >= 0 ? "text-emerald-600" : "text-rose-600"
+                                    }`} fill="currentColor" viewBox="0 0 20 20">
+                                    {salesData.sales_growth >= 0 ? (
+                                        // Icon panah atas (hijau untuk positif)
+                                        <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+                                    ) : (
+                                        // Icon panah bawah (merah untuk negatif)
+                                        <path fillRule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586l-4.293-4.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clipRule="evenodd" />
+                                    )}
                                 </svg>
-                                <span className="text-[10px] font-bold text-emerald-700">+{salesGrowth}%</span>
+                                <span className={`text-[10px] font-bold ${salesData.sales_growth >= 0 ? "text-emerald-700" : "text-rose-700"
+                                    }`}>
+                                    {salesData.sales_growth >= 0 ? '+' : ''}{salesData.sales_growth}%
+                                </span>
                             </span>
                         </div>
                     </div>
 
-                    {/* Numbers */}
-                    <div className="space-y-1">
-                        <div className="flex items-baseline justify-between">
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-xs text-slate-500 font-medium">Rp</span>
-                                <span className="text-2xl font-bold text-slate-800">
-                                    {currentSales.toLocaleString('id-ID')}
-                                </span>
-                                <span className="text-xs text-slate-500 font-medium">juta</span>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-lg font-bold text-blue-600">{salesPercentage}%</span>
-                            </div>
+                    {loading ? (
+                        <div className="animate-pulse space-y-2">
+                            <div className="h-8 bg-slate-200 rounded w-3/4"></div>
+                            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
                         </div>
-                        <p className="text-[10px] text-slate-500">
-                            Target: <span className="font-semibold text-slate-700">Rp {targetSales.toLocaleString('id-ID')}</span> juta
-                        </p>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="space-y-1">
+                                <div className="flex items-baseline justify-between">
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-xs text-slate-500 font-medium">Rp</span>
+                                        <span className="text-2xl font-bold text-slate-800">
+                                            {formatRupiah(salesData.actual_sales)}
+                                        </span>
+                                        <span className="text-xs text-slate-500 font-medium">juta</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-lg font-bold text-blue-600">{salesData.percentage}%</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-slate-500">
+                                    Target: <span className="font-semibold text-slate-700">Rp {formatRupiah(salesData.target_bulanan)}</span> juta
+                                </p>
+                            </div>
 
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5">
-                        <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
-                            <div
-                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 via-cyan-400 to-cyan-500 rounded-full shadow-sm transition-all duration-1000 ease-out"
-                                style={{ width: `${salesPercentage}%` }}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-                            </div>
-                        </div>
+                            <div className="space-y-1.5">
+                                <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
+                                    <div
+                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 via-cyan-400 to-cyan-500 rounded-full shadow-sm transition-all duration-1000 ease-out"
+                                        style={{ width: `${Math.min(salesData.percentage, 100)}%` }}
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                                    </div>
+                                </div>
 
-                        {/* Motivational Message */}
-                        <div className="flex items-center justify-between">
-                            <p className="text-[10px] text-slate-600">
-                                Sisa <span className="font-bold text-blue-600">Rp {(targetSales - currentSales).toLocaleString('id-ID', { minimumFractionDigits: 0 })}</span> lagi! 💰
-                            </p>
-                            {/* <span className="text-[10px] text-blue-600 font-semibold">
-                                {salesPercentage < 25 ? "Gas terus!" : 
-                                 salesPercentage < 50 ? "Keep selling! 💪" : 
-                                 salesPercentage < 75 ? "Luar biasa! 🔥" : 
-                                 salesPercentage < 90 ? "Hampir target! 🚀" : 
-                                 "Top performer! 🎉"}
-                            </span> */}
-                        </div>
-                    </div>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] text-slate-600">
+                                        Sisa <span className="font-bold text-blue-600">Rp {formatRupiah(salesData.target_bulanan - salesData.actual_sales)}</span> lagi! 💰
+                                    </p>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
-            {/* Total Customer */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
+            {/* Total Customer (masih dummy) */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 shadow-sm p-5">
                 <div className="space-y-3">
-                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
@@ -185,7 +236,6 @@ export default function StatsCards() {
                         </div>
                     </div>
 
-                    {/* Numbers */}
                     <div className="space-y-1">
                         <div className="flex items-baseline justify-between">
                             <div className="flex items-baseline gap-1">
@@ -203,7 +253,6 @@ export default function StatsCards() {
                         </p>
                     </div>
 
-                    {/* Progress Bar */}
                     <div className="space-y-1.5">
                         <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
                             <div
@@ -214,32 +263,23 @@ export default function StatsCards() {
                             </div>
                         </div>
 
-                        {/* Motivational Message */}
                         <div className="flex items-center justify-between">
                             <p className="text-[10px] text-slate-600">
                                 Sisa <span className="font-bold text-orange-600">{(targetCustomer - currentCustomer).toLocaleString('id-ID')}</span> lagi! 🎯
                             </p>
-                            {/* <span className="text-[10px] text-amber-600 font-semibold">
-                                {customerPercentage < 25 ? "Ayo mulai!" : 
-                                 customerPercentage < 50 ? "Terus semangat! 💪" : 
-                                 customerPercentage < 75 ? "Hampir setengah! 🔥" : 
-                                 customerPercentage < 90 ? "Tinggal sedikit lagi! 🚀" : 
-                                 "Hampir sampai! 🎉"}
-                            </span> */}
                         </div>
                     </div>
                 </div>
 
-                {/* Shimmer animation */}
                 <style jsx>{`
-                    @keyframes shimmer {
-                        0% { transform: translateX(-100%); }
-                        100% { transform: translateX(100%); }
-                    }
-                    .animate-shimmer {
-                        animation: shimmer 2s infinite;
-                    }
-                `}</style>
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s infinite;
+          }
+        `}</style>
             </div>
         </div>
     );

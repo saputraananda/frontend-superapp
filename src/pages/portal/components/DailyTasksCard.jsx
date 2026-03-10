@@ -170,7 +170,7 @@ export default function DailyTasksCard() {
         </div>
 
         {/* Body — hapus max-h & overflow-y, biar tidak scroll */}
-        <div className="p-4 space-y-2">
+        <div className="p-4 space-y-2 flex-1">
           {loadingTasks ? (
             <div className="flex flex-col gap-2">
               {[1, 2, 3].map((i) => (

@@ -31,11 +31,11 @@ export default function PersonalTasksCard() {
     const fetchMyTasks = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch all projects to get monthlies
         const projectsRes = await api("/api/pm/projects");
         const projects = projectsRes.data || [];
-        
+
         let allMyTasks = [];
 
         // Loop through projects to get all tasks
@@ -58,7 +58,7 @@ export default function PersonalTasksCard() {
                     const tasks = tasksRes.data || [];
 
                     // Filter tasks where I'm assigned
-                    const myTasks = tasks.filter(task => 
+                    const myTasks = tasks.filter(task =>
                       task.assignees.some(assignee => assignee.employee_id === employeeId)
                     );
 
@@ -67,9 +67,9 @@ export default function PersonalTasksCard() {
                       task.project_title = project.title;
                       task.semester_title = semester.title;
                       task.monthly_title = monthly.title;
-                      task.monthly_id = monthly.id;       
-                      task.project_id = project.id;       
-                      task.semester_id = semester.id;     
+                      task.monthly_id = monthly.id;
+                      task.project_id = project.id;
+                      task.semester_id = semester.id;
                     });
 
                     allMyTasks = [...allMyTasks, ...myTasks];
@@ -149,7 +149,7 @@ export default function PersonalTasksCard() {
 
   const getTaskTypeInfo = (task) => {
     if (!task.enddate) return { type: "upcoming", color: "blue" };
-    
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endDate = new Date(task.enddate);
@@ -179,8 +179,8 @@ export default function PersonalTasksCard() {
   };
 
   const filteredTasks = getFilteredTasks(); // semua hasil filter (tidak di-slice)
-  const totalPages    = Math.max(1, Math.ceil(filteredTasks.length / PER_PAGE));
-  const pagedTasks    = filteredTasks.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / PER_PAGE));
+  const pagedTasks = filteredTasks.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   if (loading) {
     return (
@@ -198,7 +198,7 @@ export default function PersonalTasksCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
       {/* Header */}
       <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-100/50 px-5 py-4">
         <div className="flex items-center justify-between mb-3">
@@ -219,11 +219,10 @@ export default function PersonalTasksCard() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleFilterChange("upcoming")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
-              filter === "upcoming"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${filter === "upcoming"
                 ? "bg-white text-blue-600 border border-blue-200 shadow-sm"
                 : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-            }`}
+              }`}
           >
             <span className="flex items-center gap-1">
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -234,11 +233,10 @@ export default function PersonalTasksCard() {
           </button>
           <button
             onClick={() => handleFilterChange("today")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
-              filter === "today"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${filter === "today"
                 ? "bg-white text-rose-600 border border-rose-200 shadow-sm"
                 : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-            }`}
+              }`}
           >
             <span className="flex items-center gap-1">
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -249,11 +247,10 @@ export default function PersonalTasksCard() {
           </button>
           <button
             onClick={() => handleFilterChange("overdue")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
-              filter === "overdue"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${filter === "overdue"
                 ? "bg-white text-red-600 border border-red-200 shadow-sm"
                 : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-            }`}
+              }`}
           >
             <span className="flex items-center gap-1">
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -266,7 +263,7 @@ export default function PersonalTasksCard() {
       </div>
 
       {/* Task List — ganti filteredTasks → pagedTasks */}
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2 flex-1">
         {pagedTasks.length === 0 ? (
           <div className="text-center py-8">
             <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 mb-3">
@@ -291,13 +288,12 @@ export default function PersonalTasksCard() {
               >
                 {/* Icon */}
                 <div
-                  className={`flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center ${
-                    typeInfo.color === "rose"
+                  className={`flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center ${typeInfo.color === "rose"
                       ? "bg-rose-100 text-rose-600 border border-rose-200"
                       : typeInfo.color === "red"
-                      ? "bg-red-100 text-red-600 border border-red-200"
-                      : "bg-blue-100 text-blue-600 border border-blue-200"
-                  }`}
+                        ? "bg-red-100 text-red-600 border border-red-200"
+                        : "bg-blue-100 text-blue-600 border border-blue-200"
+                    }`}
                 >
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
@@ -321,9 +317,8 @@ export default function PersonalTasksCard() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs">
-                      <span className={`flex items-center gap-1 ${
-                        typeInfo.type === "overdue" ? "text-red-600 font-semibold" : "text-slate-600"
-                      }`}>
+                      <span className={`flex items-center gap-1 ${typeInfo.type === "overdue" ? "text-red-600 font-semibold" : "text-slate-600"
+                        }`}>
                         <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -336,11 +331,10 @@ export default function PersonalTasksCard() {
                       )}
                     </div>
 
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                      myRole === "pic" 
-                        ? "bg-purple-100 text-purple-700 border border-purple-200" 
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${myRole === "pic"
+                        ? "bg-purple-100 text-purple-700 border border-purple-200"
                         : "bg-slate-100 text-slate-600 border border-slate-200"
-                    }`}>
+                      }`}>
                       {myRole === "pic" ? "PIC" : "CO-PIC"}
                     </span>
                   </div>
@@ -376,11 +370,10 @@ export default function PersonalTasksCard() {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`h-6 w-6 flex items-center justify-center rounded border text-[10px] font-semibold transition ${
-                  p === page
+                className={`h-6 w-6 flex items-center justify-center rounded border text-[10px] font-semibold transition ${p === page
                     ? "bg-purple-600 border-purple-600 text-white"
                     : "border-slate-200 text-slate-500 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 {p}
               </button>

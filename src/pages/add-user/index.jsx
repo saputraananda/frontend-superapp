@@ -60,9 +60,9 @@ const EMPTY_FORM = { name: "", email: "", username: "", password: "", role: "emp
 export default function AddUser() {
   const navigate = useNavigate();
 
-  const [users, setUsers]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState("");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null); // null = tambah, obj = edit
@@ -90,6 +90,10 @@ export default function AddUser() {
   };
 
   useEffect(() => { fetchUsers(); }, []);
+
+  useEffect(() => {
+    document.title = "Manajemen Menu | Alora Group Indonesia";
+  }, []);
 
   // ── Toast ──────────────────────────────────────────────────────────────
   const showToast = (type, msg) => {
