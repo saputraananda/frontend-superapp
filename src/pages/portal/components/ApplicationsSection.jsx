@@ -59,6 +59,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 10a1 1 0 10-2 0v3a1 1 0 102 0v-3zm2-3a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zm4-1a1 1 0 10-2 0v7a1 1 0 102 0V8z" clipRule="evenodd" />
         </svg>
       );
+    if (name.includes("aset") || name.includes("asset"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6zm1 2a1 1 0 000 2h4a1 1 0 100-2H7zm0 4a1 1 0 000 2h4a1 1 0 100-2H7zm0 4a1 1 0 000 2h2a1 1 0 100-2H7z" clipRule="evenodd" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -68,13 +74,14 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
 
   const getAppIconBg = (appName) => {
     const name = appName.toLowerCase();
-    if (name.includes("project"))  return "bg-blue-600";
-    if (name.includes("sales"))    return "bg-indigo-500";
+    if (name.includes("project")) return "bg-blue-600";
+    if (name.includes("sales")) return "bg-indigo-500";
     if (name.includes("master") || name.includes("karyawan")) return "bg-cyan-500";
     if (name.includes("satisfaction")) return "bg-rose-400";
     if (name.includes("add-user") || name.includes("add user") || name.includes("user employee")) return "bg-violet-500";
     if (name.includes("add-menu") || name.includes("add menu") || name.includes("menu app")) return "bg-teal-500";
     if (name.includes("weekly") || name.includes("leader") || name.includes("report")) return "bg-indigo-500";
+    if (name.includes("aset") || name.includes("asset")) return "bg-amber-500";
     return "bg-blue-600";
   };
 

@@ -159,26 +159,31 @@ export const NotifPanel = ({ open, onClose }) => {
         `}</style>
 
         {/* ── Header ── */}
-        <div className="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 flex items-center justify-between shrink-0">
-          <div>
-            <div className="text-base font-bold text-white flex items-center gap-2">
-              🔔 Notifikasi
-              {unreadCount > 0 && (
-                <span className="h-5 min-w-[20px] rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center px-1.5 shadow">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
+        <div className="px-5 py-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-base">
+              🔔
             </div>
-            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
-              <span>{notifs.length} total</span>
-              {unreadCount > 0 && <span className="text-amber-400">· {unreadCount} belum dibaca</span>}
-              {readCount > 0 && <span className="text-slate-500">· {readCount} sudah dibaca</span>}
+            <div>
+              <div className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
+                Notifikasi
+                {unreadCount > 0 && (
+                  <span className="h-5 min-w-[20px] rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center px-1.5">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                <span>{notifs.length} total</span>
+                {unreadCount > 0 && <><span>·</span><span className="text-amber-500 font-medium">{unreadCount} belum dibaca</span></>}
+                {readCount > 0 && <><span>·</span><span className="text-slate-400">{readCount} dibaca</span></>}
+              </div>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="h-8 w-8 rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 hover:text-white text-sm font-bold transition"
+            className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 text-sm font-bold transition"
           >
             ✕
           </button>

@@ -15,6 +15,7 @@ import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
 import MaintenancePage from "./pages/maintenance";
+import AsetManagement from "./pages/aset-management";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -192,6 +193,16 @@ export default function App() {
           element={
             <ProtectedRoute user={user}>
               <MaintenancePage user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Aset Management ── */}
+        <Route
+          path="/aset-management"
+          element={
+            <ProtectedRoute user={user}>
+              <AsetManagement user={user} onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

@@ -88,21 +88,8 @@ export const AssigneeMultiSelect = ({ employees, selected, onChange, disabled, s
 
       {/* Dropdown list */}
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
-          {/* Search input */}
-          <div className="p-2 border-b border-slate-100">
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              placeholder="Cari karyawan..."
-              className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-            />
-          </div>
-
-          {/* Employee list */}
+        <div className="absolute z-50 bottom-full mb-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+          {/* Employee list — di atas */}
           <div className="max-h-44 overflow-y-auto">
             {filteredEmployees.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-400">
@@ -136,6 +123,19 @@ export const AssigneeMultiSelect = ({ employees, selected, onChange, disabled, s
                 );
               })
             )}
+          </div>
+
+          {/* Search input — di bawah, dekat trigger */}
+          <div className="p-2 border-t border-slate-100">
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="Cari karyawan..."
+              className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            />
           </div>
         </div>
       )}
