@@ -475,7 +475,7 @@ export default function PMAnnual() {
               <p className="text-sm text-slate-500 mt-1.5 max-w-lg">Rencana Tahunan Alora Group Indonesia</p>
             </div>
 
-            {isDirektur ? (
+            {isSupervisorUp ? (
               <button
                 onClick={() => { setErr(""); setOpen(true); }}
                 className="shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 active:scale-95 transition-all shadow-sm"
@@ -486,7 +486,7 @@ export default function PMAnnual() {
             ) : (
               <div className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-400">
                 <HiOutlineLockClosed className="h-3.5 w-3.5" />
-                Hanya Direktur yang bisa membuat project
+                Hanya Direktur & Supervisor yang bisa membuat project
               </div>
             )}
           </div>
@@ -603,7 +603,7 @@ export default function PMAnnual() {
           <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1")}>
             {filtered.map(p => {
               const id = projectIdOf(p);
-              const canEdit = isDirektur || p.created_by === employee?.employee_id || p.requestor_employee_id === employee?.employee_id;
+              const canEdit = isSupervisorUp || p.created_by === employee?.employee_id || p.requestor_employee_id === employee?.employee_id;
               return (
                 <div key={id} className="group relative">
                   <button type="button" onClick={() => id && nav(`${id}`)} className="w-full text-left">
@@ -723,7 +723,7 @@ export default function PMAnnual() {
             <p className="text-xs text-slate-400 mt-1">
               {search || yearFilter !== "all"
                 ? "Coba ubah filter atau keyword pencarian."
-                : "Direktur dapat membuat project tahunan pertama."}
+                : "Direktur & Supervisor dapat membuat project tahunan pertama."}
             </p>
             {(search || yearFilter !== "all") && (
               <button
@@ -789,7 +789,9 @@ export default function PMAnnual() {
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "Direktur"}</div>
-                  <div className="text-[10px] text-slate-400">Creator · Direktur</div>
+                  <div className="text-[10px] text-slate-400">
+                    Creator · {isDirektur ? "Direktur" : "Supervisor"}
+                  </div>
                 </div>
               </div>
 
