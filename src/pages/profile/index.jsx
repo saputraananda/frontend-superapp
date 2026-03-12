@@ -619,7 +619,7 @@ export default function Profile() {
                           </Field>
                           <Field label="No. Telepon" error={fieldErrors.phone_number}>
                             <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange}
-                              className={inputCls(fieldErrors.phone_number)} placeholder="+62 812-3456-7890" />
+                              className={inputCls(fieldErrors.phone_number)} placeholder="Contoh +6281234567890 (Format Indonesia)" />
                           </Field>
                         </div>
                       </Panel>
