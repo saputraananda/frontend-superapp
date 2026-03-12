@@ -708,7 +708,14 @@ export default function AsetManagement() {
                             )}
 
                             {detailTab === "mutasi" && (
-                                <MutasiTab asetId={detailAset.id} employees={employees} companies={companies} showToast={showToast} />
+                                <MutasiTab
+                                    asetId={detailAset.id}
+                                    aset={detailAset}
+                                    employees={employees}
+                                    companies={companies}
+                                    showToast={showToast}
+                                    onRefresh={refreshDetail}
+                                />
                             )}
 
                             {detailTab === "maintenance" && (

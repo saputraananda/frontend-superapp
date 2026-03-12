@@ -5,13 +5,14 @@ import { inputCls, toTitleCase } from "./constants";
 import { Field } from "./UIComponents";
 import { HiOutlinePlus, HiOutlineArrowsRightLeft } from "react-icons/hi2";
 
-export default function MutasiTab({ asetId, aset, employees, showToast }) {
+export default function MutasiTab({ asetId, aset, employees, showToast, onRefresh }) {
     const [data, setData] = useState([]);
     const [formOpen, setFormOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({
         tipe: "pindah_lokasi", lokasi_lama: "", lokasi_baru: "",
-        pic_lama_id: "", pic_baru_id: "", alasan: "", tanggal_mutasi: new Date().toISOString().split("T")[0],
+        pic_lama_id: "", pic_baru_id: "", alasan: "",
+        tanggal_mutasi: new Date().toISOString().split("T")[0],
     });
 
     const load = async () => {
@@ -23,22 +24,47 @@ export default function MutasiTab({ asetId, aset, employees, showToast }) {
 
     useEffect(() => { load(); }, [asetId]);
 
+    useEffect(() => {
+        if (formOpen && aset) {
+            setForm(prev => ({
+                ...prev,
+                lokasi_lama: aset.lokasi_nama || "",
+                pic_lama_id: aset.pic_employee_id ? String(aset.pic_employee_id) : "",
+            }));
+        }
+    }, [formOpen, aset]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSaving(true);
         try {
+            const isPindahLokasi = form.tipe === "pindah_lokasi" || form.tipe === "pindah_lokasi_pic";
+            const isGantiPic = form.tipe === "ganti_pic" || form.tipe === "pindah_lokasi_pic";
+
             await api(`/aset/${asetId}/mutasi`, {
                 method: "POST",
                 body: JSON.stringify({
-                    ...form,
-                    lokasi_lama: form.lokasi_lama || aset?.lokasi_nama || null,
-                    pic_lama_id: form.pic_lama_id || aset?.pic_employee_id || null,
+                    tipe: form.tipe,
+                    alasan: form.alasan,
+                    tanggal_mutasi: form.tanggal_mutasi,
+                    lokasi_lama: isPindahLokasi ? (form.lokasi_lama || aset?.lokasi_nama || null) : null,
+                    lokasi_baru: isPindahLokasi ? form.lokasi_baru || null : null,
+                    pic_lama_id: isGantiPic ? (form.pic_lama_id || aset?.pic_employee_id || null) : null,
+                    pic_baru_id: isGantiPic ? form.pic_baru_id || null : null,
                 }),
             });
             showToast("success", "Mutasi berhasil dicatat");
             setFormOpen(false);
-            setForm({ tipe: "pindah_lokasi", lokasi_lama: "", lokasi_baru: "", pic_lama_id: "", pic_baru_id: "", alasan: "", tanggal_mutasi: new Date().toISOString().split("T")[0] });
+            setForm({
+                tipe: "pindah_lokasi",
+                lokasi_lama: aset?.lokasi_nama || "",     
+                lokasi_baru: "",
+                pic_lama_id: aset?.pic_employee_id ? String(aset.pic_employee_id) : "", 
+                pic_baru_id: "", alasan: "",
+                tanggal_mutasi: new Date().toISOString().split("T")[0],
+            });
             load();
+            onRefresh?.(); 
         } catch (err) {
             showToast("error", err.message);
         } finally { setSaving(false); }
@@ -72,7 +98,9 @@ export default function MutasiTab({ asetId, aset, employees, showToast }) {
                     {(form.tipe === "pindah_lokasi" || form.tipe === "pindah_lokasi_pic") && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <Field label="Lokasi Lama">
-                                <input className={inputCls} value={form.lokasi_lama || aset?.lokasi_nama || ""} onChange={(e) => setForm(p => ({ ...p, lokasi_lama: e.target.value }))} placeholder="Auto dari data aset" />
+                                <input className={inputCls} value={form.lokasi_lama}
+                                    onChange={(e) => setForm(p => ({ ...p, lokasi_lama: e.target.value }))}
+                                    placeholder="Auto dari data aset" />
                             </Field>
                             <Field label="Lokasi Baru" required>
                                 <input className={inputCls} value={form.lokasi_baru} onChange={(e) => setForm(p => ({ ...p, lokasi_baru: e.target.value }))} placeholder="Lokasi tujuan" />
@@ -82,7 +110,8 @@ export default function MutasiTab({ asetId, aset, employees, showToast }) {
                     {(form.tipe === "ganti_pic" || form.tipe === "pindah_lokasi_pic") && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <Field label="PIC Lama">
-                                <select className={inputCls} value={form.pic_lama_id || aset?.pic_employee_id || ""} onChange={(e) => setForm(p => ({ ...p, pic_lama_id: e.target.value }))}>
+                                <select className={inputCls} value={form.pic_lama_id}
+                                    onChange={(e) => setForm(p => ({ ...p, pic_lama_id: e.target.value }))}>
                                     <option value="">— PIC Lama —</option>
                                     {employees.map(e => <option key={e.employee_id} value={e.employee_id}>{toTitleCase(e.full_name)}</option>)}
                                 </select>
@@ -117,8 +146,12 @@ export default function MutasiTab({ asetId, aset, employees, showToast }) {
                                 </span>
                                 <span className="text-[10px] text-slate-400">{new Date(m.tanggal_mutasi).toLocaleDateString("id-ID")}</span>
                             </div>
-                            {m.lokasi_lama && <p className="text-[11px] text-slate-500">Lokasi: {m.lokasi_lama} → {m.lokasi_baru}</p>}
-                            {m.pic_lama_name && <p className="text-[11px] text-slate-500">PIC: {toTitleCase(m.pic_lama_name)} → {toTitleCase(m.pic_baru_name)}</p>}
+                            {m.lokasi_lama && (m.tipe === "pindah_lokasi" || m.tipe === "pindah_lokasi_pic") && (
+                                <p className="text-[11px] text-slate-500">Lokasi: {m.lokasi_lama} → {m.lokasi_baru}</p>
+                            )}
+                            {m.pic_lama_name && (m.tipe === "ganti_pic" || m.tipe === "pindah_lokasi_pic") && (
+                                <p className="text-[11px] text-slate-500">PIC: {toTitleCase(m.pic_lama_name)} → {toTitleCase(m.pic_baru_name)}</p>
+                            )}
                             {m.alasan && <p className="text-[11px] text-slate-400 mt-1">{m.alasan}</p>}
                             <p className="text-[10px] text-slate-400 mt-1">Oleh: {toTitleCase(m.created_by_name)}</p>
                         </div>

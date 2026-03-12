@@ -15,6 +15,7 @@ export default function ApprovalSection({ aset, employee, onRefresh, showToast }
     const [loading, setLoading] = useState(false);
 
     const jobLevel = Number(employee?.job_level_id);
+    const isStaff = jobLevel >= 3;          // ← tambah ini
     const isSupervisorUp = jobLevel <= 2;
     const isDirector = jobLevel === 1;
     const status = aset?.approval_status;
@@ -79,7 +80,7 @@ export default function ApprovalSection({ aset, employee, onRefresh, showToast }
             )}
 
             {/* Action Buttons */}
-            {(status === "draft" || status === "rejected" || 
+            {(((status === "draft" || status === "rejected") && isStaff) ||
               (status === "pending_spv" && isSupervisorUp) ||
               (status === "pending_bod" && isDirector)) && (
                 <div className="space-y-2 pt-2 border-t border-slate-200">
