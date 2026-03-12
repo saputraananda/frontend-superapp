@@ -14,7 +14,7 @@ export default function StatsCards() {
     });
 
     // Data lain (masih dummy untuk sekarang)
-    const currentEmployee = 34;
+    const currentEmployee = 156;
     const thisTime = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 
     const targetCustomer = 7700;
@@ -24,9 +24,9 @@ export default function StatsCards() {
 
     const employeeGrowthMonitoring = 3.9;
     const breakdown = [
-        { label: "Alora Group", count: 34, color: "bg-emerald-500" },
-        { label: "IKM", count: 70, color: "bg-teal-400" },
-        { label: "Waschen", count: 50, color: "bg-cyan-300" },
+        { label: "Alora Group", count: 20, color: "bg-emerald-500" },
+        { label: "IKM", count: 90, color: "bg-teal-400" },
+        { label: "Waschen", count: 46, color: "bg-cyan-300" },
     ];
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -70,7 +70,7 @@ export default function StatsCards() {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* ═══════════════════════════════════════════════════════════════════ */}
-            {/* Total Karyawan (masih dummy) */}
+            {/* Total Karyawan (Data Sementara) */}
             {/* ═══════════════════════════════════════════════════════════════════ */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 shadow-sm p-5">
                 <div className="space-y-3">
@@ -84,7 +84,7 @@ export default function StatsCards() {
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Karyawan</p>
                                 <p className="text-[10px] text-slate-500">
-                                    Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} - Dummy Data
+                                    Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} - Data Sementara
                                 </p>
                             </div>
                         </div>
@@ -223,7 +223,7 @@ export default function StatsCards() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Customer</p>
-                                <p className="text-[10px] text-slate-500">Target 2026 - Dummy Data</p>
+                                <p className="text-[10px] text-slate-500">Target 2026 - Data Sementara</p>
                             </div>
                         </div>
                         <div className="text-right">
