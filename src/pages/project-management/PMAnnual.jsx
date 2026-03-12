@@ -222,6 +222,7 @@ export default function PMAnnual() {
 
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -233,6 +234,8 @@ export default function PMAnnual() {
   const [yearFilter, setYearFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [viewMode, setViewMode] = useState("grid");
+  const [companyFilter, setCompanyFilter] = useState("all");
+  const [createCompanyId, setCreateCompanyId] = useState("");
 
   // Edit
   const [editProject, setEditProject] = useState(null);
@@ -263,11 +266,14 @@ export default function PMAnnual() {
     setErr("");
     setLoading(true);
     try {
-      const res = await pmApi.listProjects();
-      setProjects(res?.data || []);
+      const [resProjects, resCompanies] = await Promise.all([
+        pmApi.listProjects(),
+        pmApi.listCompanies(),
+      ]);
+      setProjects(resProjects?.data || []);
+      setCompanies(resCompanies?.data || []);
     } catch (e) {
-      console.error("load projects error:", e);
-      setErr(e?.message || "Gagal memuat annual projects");
+      setErr(e?.message || "Gagal memuat data");
     } finally {
       setLoading(false);
     }
@@ -282,7 +288,8 @@ export default function PMAnnual() {
     }
     setSubmitting(true);
     try {
-      await pmApi.createProject({ title: t, desc: desc.trim() });
+      await pmApi.createProject({ title: t, desc: desc.trim(), company_id: createCompanyId || null });
+      setCreateCompanyId("");
       setOpen(false);
       setTitle("");
       setDesc("");
@@ -359,6 +366,18 @@ export default function PMAnnual() {
     return years.sort((a, b) => b - a);
   }, [projects]);
 
+  const availableCompanies = useMemo(() => {
+    const map = new Map();
+    projects.forEach(p => {
+      if (p.company_id && p.company_name) {
+        map.set(p.company_id, p.company_name);
+      }
+    });
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [projects]);
+
   const filtered = useMemo(() => {
     let list = [...projects];
     if (search.trim()) {
@@ -371,12 +390,15 @@ export default function PMAnnual() {
     if (yearFilter !== "all") {
       list = list.filter(p => getYear(p.created_at) === Number(yearFilter));
     }
+    if (companyFilter !== "all") {
+      list = list.filter(p => String(p.company_id) === String(companyFilter));
+    }
     if (sortBy === "newest") list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sortBy === "oldest") list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     if (sortBy === "az") list.sort((a, b) => a.title?.localeCompare(b.title));
     if (sortBy === "za") list.sort((a, b) => b.title?.localeCompare(a.title));
     return list;
-  }, [projects, search, yearFilter, sortBy]);
+  }, [projects, search, yearFilter, companyFilter, sortBy]);
 
   const stats = useMemo(() => ({
     total: projects.length,
@@ -534,6 +556,23 @@ export default function PMAnnual() {
               </select>
             </div>
 
+            {/* Company filter */}
+            {availableCompanies.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <HiOutlineBriefcase className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={companyFilter}
+                  onChange={e => setCompanyFilter(e.target.value)}
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
+                >
+                  <option value="all">Semua Perusahaan</option>
+                  {availableCompanies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Sort */}
             <div className="flex items-center gap-1.5">
               <HiOutlineAdjustmentsHorizontal className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -563,7 +602,7 @@ export default function PMAnnual() {
           </div>
 
           {/* Active filter chips */}
-          {(search || yearFilter !== "all") && (
+          {(search || yearFilter !== "all" || companyFilter !== "all") && (
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
               <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Filter aktif:</span>
               {search && (
@@ -576,6 +615,12 @@ export default function PMAnnual() {
                 <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
                   Tahun {yearFilter}
                   <button onClick={() => setYearFilter("all")} className="ml-0.5 hover:text-blue-900">✕</button>
+                </span>
+              )}
+              {companyFilter !== "all" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                  {availableCompanies.find(c => String(c.id) === String(companyFilter))?.name || companyFilter}
+                  <button onClick={() => setCompanyFilter("all")} className="ml-0.5 hover:text-blue-900">✕</button>
                 </span>
               )}
               <span className="text-[10px] text-slate-400 ml-auto">{filtered.length} hasil</span>
@@ -718,16 +763,16 @@ export default function PMAnnual() {
           <div className="rounded-xl bg-white border border-slate-200 p-16 text-center shadow-sm">
             <HiOutlineInboxStack className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <p className="text-sm font-bold text-slate-700">
-              {search || yearFilter !== "all" ? "Tidak ada hasil" : "Belum ada annual project"}
+              {search || yearFilter !== "all" || companyFilter !== "all" ? "Tidak ada hasil" : "Belum ada annual project"}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              {search || yearFilter !== "all"
+              {search || yearFilter !== "all" || companyFilter !== "all"
                 ? "Coba ubah filter atau keyword pencarian."
                 : "Direktur & Supervisor dapat membuat project tahunan pertama."}
             </p>
-            {(search || yearFilter !== "all") && (
+            {(search || yearFilter !== "all" || companyFilter !== "all") && (
               <button
-                onClick={() => { setSearch(""); setYearFilter("all"); }}
+                onClick={() => { setSearch(""); setYearFilter("all"); setCompanyFilter("all"); }}
                 className="mt-4 h-8 px-4 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200 transition"
               >Reset Filter</button>
             )}
@@ -760,6 +805,23 @@ export default function PMAnnual() {
 
             <div className="p-6 space-y-4">
               <label className="block">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                  Perusahaan <span className="text-rose-500">*</span>
+                </span>
+                <select
+                  className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
+                  value={createCompanyId}
+                  onChange={e => setCreateCompanyId(e.target.value)}
+                  disabled={submitting}
+                >
+                  <option value="">-- Pilih Perusahaan --</option>
+                  {companies.map(c => (
+                    <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Title <span className="text-rose-500">*</span></span>
                 <input
                   className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 transition"
@@ -788,10 +850,8 @@ export default function PMAnnual() {
                   {initials(employee?.full_name)}
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "Direktur"}</div>
-                  <div className="text-[10px] text-slate-400">
-                    Creator · {isDirektur ? "Direktur" : "Supervisor"}
-                  </div>
+                  <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
+                  <div className="text-[10px] text-slate-400">Creator · {isSupervisorUp ? "Supervisor" : "Staff"}</div>
                 </div>
               </div>
 

@@ -440,7 +440,12 @@ export default function PMSemester() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-sm font-bold text-blue-900 truncate">{project.title}</h3>
-                  <span className="shrink-0 inline-flex items-center rounded-md bg-blue-100 border border-blue-300 px-2 py-0.5 text-[10px] font-bold text-blue-700">Annual Project</span>
+                  {project.company_name && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-blue-100 border border-blue-200 px-2 py-0.5 text-[10px] font-semibold text-blue-700 mt-1">
+                      <HiOutlineBriefcase className="h-3 w-3" />
+                      {project.company_name}
+                    </span>
+                  )}
                 </div>
                 {project.desc && <p className="text-xs text-blue-700 leading-relaxed line-clamp-2">{project.desc}</p>}
                 <div className="flex items-center gap-3 mt-2 text-[10px] text-blue-500">

@@ -83,4 +83,5 @@ export const pmApi = {
   markAllNotifRead:   ()                  => http("/notifications/read-all",        { method: "PATCH" }),
   deleteNotif:        (notifId)           => http(`/notifications/${notifId}`,      { method: "DELETE" }),
   deleteAllNotif:     ()                  => http("/notifications",                 { method: "DELETE" }),
+  listCompanies: () => http("/companies"),
 };
