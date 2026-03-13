@@ -12,6 +12,7 @@ const NOTIF_ICONS = {
   evidence_uploaded: { icon: "📎", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
   task_completed: { icon: "✅", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
   revision_required: { icon: "✏️", bg: "bg-rose-50", border: "border-rose-200", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
+  mentioned: { icon: "🏷️", bg: "bg-purple-50", border: "border-purple-200", dot: "bg-purple-500", badge: "bg-purple-100 text-purple-700" },
   default: { icon: "🔔", bg: "bg-slate-50", border: "border-slate-200", dot: "bg-slate-400", badge: "bg-slate-100 text-slate-600" },
 };
 
@@ -23,6 +24,7 @@ const TYPE_LABELS = {
   evidence_uploaded: "Bukti Diunggah",
   task_completed: "Selesai",
   revision_required: "Revisi",
+  mentioned: "Disebut",
 };
 
 const notifStyle = (type) => NOTIF_ICONS[type] || NOTIF_ICONS.default;
@@ -45,12 +47,12 @@ export const NotifPanel = ({ open, onClose }) => {
   const [marking, setMarking] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const [filter, setFilter] = useState("all"); // "all" | "unread"
+  const [filter, setFilter] = useState("all"); 
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const nav = useNavigate();
 
-  async function handleNotifClick(n) {
-    if (!n.is_read) await markRead(n.id);
+  function handleNotifClick(n) {
+    if (!n.is_read) markRead(n.id); 
     if (n.task_id && n.monthly_id) {
       onClose();
       nav(`/projectmanagement/month/${n.monthly_id}?task=${n.task_id}`);

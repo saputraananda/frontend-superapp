@@ -32,7 +32,6 @@ export function usePMBoard(monthlyId) {
   const [ePriority, setEPriority]   = useState("medium");
   const [eStatus, setEStatus]       = useState("assigned");
   const [eAssignees, setEAssignees] = useState([]);
-  const [eLink, setELink]           = useState("");
   const [updating, setUpdating]     = useState(false);
 
   const [comments, setComments]               = useState([]);
@@ -87,7 +86,6 @@ export function usePMBoard(monthlyId) {
     setEDesc(task?.desc ?? "");
     setEStatus(task?.status ?? "assigned");
     setEPriority(task?.priority ?? "medium");
-    setELink(task?.link ?? "");
     setEStart(task?.startdate ? String(task.startdate).slice(0, 10) : "");
     setEEnd(task?.enddate     ? String(task.enddate).slice(0, 10)   : "");
     setEAssignees(task?.assignees?.map((a) => a.employee_id) ?? []);
@@ -112,13 +110,12 @@ export function usePMBoard(monthlyId) {
     // Staff assigned = akses penuh seperti supervisor
     const payload = {
       title: eTitle.trim(),
-      desc: eDesc.trim() || null,
+      desc: eDesc.replace(/<[^>]*>/g, "").trim() ? eDesc : null,
       startdate: eStart || null,
       enddate: eEnd || null,
       status: eStatus,
       priority: ePriority,
       assignee_ids: eAssignees,
-      link: eLink.trim() || null,
     };
 
     setUpdating(true);
@@ -162,11 +159,14 @@ export function usePMBoard(monthlyId) {
     }
   }
 
-  async function addComment() {
+  async function addComment(mentionedIds = []) {
     if (!selectedId || !commentText.trim()) return;
     setSendingComment(true);
     try {
-      await pmApi.addComment(selectedId, { comment: commentText.trim() });
+      await pmApi.addComment(selectedId, {
+        comment: commentText.trim(),
+        mentioned_ids: mentionedIds,  // ← tambah ini
+      });
       setCommentText("");
       await loadComments(selectedId);
     } catch (e) {
@@ -185,7 +185,6 @@ export function usePMBoard(monthlyId) {
     setEDesc(t.desc ?? "");
     setEStatus(t.status ?? "assigned");
     setEPriority(t.priority ?? "medium");
-    setELink(t.link ?? "");
     setEStart(t.startdate ? String(t.startdate).slice(0, 10) : "");
     setEEnd(t.enddate     ? String(t.enddate).slice(0, 10)   : "");
     setEAssignees(t.assignees?.map((a) => a.employee_id) ?? []);
@@ -227,7 +226,7 @@ export function usePMBoard(monthlyId) {
     eTitle, setETitle, eDesc, setEDesc,
     eStart, setEStart, eEnd, setEEnd,
     ePriority, setEPriority, eStatus, setEStatus,
-    eAssignees, setEAssignees, eLink, setELink,
+    eAssignees, setEAssignees,
     updating, comments, commentText, setCommentText, sendingComment,
     unreadCount, progress, taskStats, filteredTasks,
     // methods

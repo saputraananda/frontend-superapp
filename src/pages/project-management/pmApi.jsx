@@ -52,7 +52,10 @@ export const pmApi = {
   addComment:       (taskId, p)           => http(`/tasks/${taskId}/comments`, { method: "POST", body: p }),
 
   // ── Evidence / Attachments ────────────────────────────────────────────────
-  listEvidence: (taskId) => http(`/tasks/${taskId}/evidence`), // ← tambah ini
+  listEvidence: (taskId) => http(`/tasks/${taskId}/evidence`),
+
+  addEvidenceLink: (taskId, { url, label }) =>
+    http(`/tasks/${taskId}/evidence/link`, { method: "POST", body: { url, label } }),
 
   uploadEvidence: async (taskId, files) => {
     const fd = new FormData();

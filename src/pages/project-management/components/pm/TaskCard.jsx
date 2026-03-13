@@ -1,12 +1,12 @@
 import { Card } from "../ui/Card";
-import { Tag }  from "../ui/Tag";
+import { Tag } from "../ui/Tag";
 import { QuickStatusButton } from "./QuickStatusButton";
 import { statusOf, priorityOf } from "../../constants/pmConstants";
 import { isOverdue, fmtDate, initials } from "../../utils/pmUtils";
 import { STATUS_WEIGHT } from "../../constants/pmConstants";
 
 export const TaskCard = ({ task, selected, onSelect, onUpdated }) => {
-  const pr   = priorityOf(task.priority);
+  const pr = priorityOf(task.priority);
   const over = isOverdue(task.enddate, task.status);
 
   return (
@@ -24,7 +24,11 @@ export const TaskCard = ({ task, selected, onSelect, onUpdated }) => {
               <div className="font-semibold text-slate-900 text-sm leading-snug">{task.title}</div>
               <Tag className={`${pr.pill} shrink-0`}>{pr.label}</Tag>
             </div>
-            {task.desc && <div className="text-xs text-slate-500 line-clamp-1 mb-2">{task.desc}</div>}
+            {task.desc && (
+              <div className="text-xs text-slate-500 line-clamp-1 mb-2">
+                {task.desc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+              </div>
+            )}
             {task.assignees?.length > 0 && (
               <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                 {task.assignees.slice(0, 3).map((a) => (

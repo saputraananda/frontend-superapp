@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "../ui/Card";
 import { SectionLabel } from "../ui/SectionLabel";
 import { Tag } from "../ui/Tag";
 import { EmployeeChip } from "../ui/EmployeeChip";
 import { AssigneeMultiSelect } from "./AssigneeMultiSelect";
 import { STATUS_LIST, PRIORITY_LIST, statusOf, priorityOf } from "../../constants/pmConstants";
-import { fmtDate, fmtDateTime, isOverdue, initials } from "../../utils/pmUtils"; // ← tambah fmtDateTime
+import { fmtDate, fmtDateTime, isOverdue, initials } from "../../utils/pmUtils";
+import RichTextEditor from "../../../../components/RichTextEditor";
 
 /* ─── Tab definitions ───────────────────────────────────────────── */
 const TABS = [
@@ -16,9 +17,17 @@ const TABS = [
 
 /* ─── Main Component ─────────────────────────────────────────────── */
 export const TaskDetailPanel = ({ board, EvidencePanel }) => {
+  // ── SEMUA hooks harus di sini, sebelum return apapun ──
   const [tab, setTab] = useState("detail");
+  const [mentionedIds, setMentionedIds] = useState([]);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionOpen, setMentionOpen]   = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const textareaRef = useRef(null);
+
   const { selected, loading } = board;
 
+  // ← Early returns SETELAH semua hooks
   if (loading) return (
     <div className="lg:col-span-7 space-y-3">
       {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />)}
@@ -46,6 +55,73 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
   // Staff yang di-assign ke task = punya akses penuh seperti supervisor
   const canEdit = !board.isStaff || isAssignedToMe;
   const canDelete = !board.isStaff || isAssignedToMe; // ← sama seperti canEdit
+
+  /** Render teks komentar, highlight @Nama */
+  function renderCommentText(text = "") {
+    return text.split(/(@[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)/g).map((part, i) =>
+      part.startsWith("@")
+        ? <span key={i} className="text-blue-400 font-semibold">{part}</span>
+        : <span key={i}>{part}</span>
+    );
+  }
+
+  function onCommentChange(e) {
+    const val = e.target.value;
+    board.setCommentText(val);
+    const caret = e.target.selectionStart;
+    const textBefore = val.slice(0, caret);
+    const match = textBefore.match(/@(\S*)$/);
+    if (match) {
+      setMentionQuery(match[1]);
+      setMentionOpen(true);
+      setMentionIndex(0);
+    } else {
+      setMentionOpen(false);
+      setMentionQuery("");
+    }
+  }
+
+  function selectMention(emp) {
+    const caret = textareaRef.current?.selectionStart ?? board.commentText.length;
+    const val = board.commentText;
+    const textBefore = val.slice(0, caret);
+    const match = textBefore.match(/@(\S*)$/);
+    const before = match ? val.slice(0, caret - match[0].length) : val.slice(0, caret);
+    const after = val.slice(caret);
+    const displayName = toDisplayName(emp.full_name);
+    board.setCommentText(before + `@${displayName} ` + after);
+    setMentionedIds((prev) => [...new Set([...prev, emp.employee_id])]);
+    setMentionOpen(false);
+    setMentionQuery("");
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  function onCommentKeyDown(e) {
+    if (mentionOpen && mentionList.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => (i + 1) % mentionList.length); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setMentionIndex((i) => (i - 1 + mentionList.length) % mentionList.length); return; }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); selectMention(mentionList[mentionIndex]); return; }
+      if (e.key === "Escape")    { setMentionOpen(false); return; }
+    }
+    if (e.key === "Enter" && !e.shiftKey && !mentionOpen) {
+      e.preventDefault();
+      handleSendComment();
+    }
+  }
+
+  function handleSendComment() {
+    board.addComment(mentionedIds);
+    setMentionedIds([]);
+  }
+
+  const toDisplayName = (str = "") =>
+    str.toLowerCase().split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+  const mentionList = mentionQuery.length > 0
+    ? (board.employees || [])
+        .filter((e) => toDisplayName(e.full_name).toLowerCase().includes(mentionQuery.toLowerCase()))
+        .slice(0, 6)
+    : [];
 
   return (
     <div className="lg:col-span-7 space-y-4">
@@ -116,12 +192,6 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
           <Tag className={statusInfo.pill}>{statusInfo.label}</Tag>
           <Tag className={priorityInfo.pill}>{priorityInfo.label}</Tag>
           {over && <Tag className="bg-rose-600 text-white">⚠ Overdue</Tag>}
-          {selected.link && (
-            <a href={selected.link} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
-              🔗 Link
-            </a>
-          )}
         </div>
       </Card>
 
@@ -151,33 +221,36 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
           <div>
             <SectionLabel>Deskripsi</SectionLabel>
             {board.editMode ? (
-              <textarea
+              <RichTextEditor
                 value={board.eDesc}
-                onChange={(e) => board.setEDesc(e.target.value)}
-                rows={3}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-300 resize-none transition"
+                onChange={board.setEDesc}
                 placeholder="Tambahkan deskripsi..."
               />
+            ) : selected.desc ? (
+              <div
+                className="
+                  text-sm text-slate-600 leading-relaxed
+                  [&_strong]:font-bold [&_b]:font-bold
+                  [&_em]:italic [&_i]:italic
+                  [&_u]:underline
+                  [&_s]:line-through
+                  [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-slate-800 [&_h2]:mt-3 [&_h2]:mb-1
+                  [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-2 [&_h3]:mb-1
+                  [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
+                  [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
+                  [&_li]:my-0.5
+                  [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 [&_blockquote]:text-slate-500 [&_blockquote]:italic [&_blockquote]:my-2
+                  [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:my-2 [&_pre]:text-xs [&_pre]:overflow-x-auto
+                  [&_hr]:border-slate-300 [&_hr]:my-3
+                  [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer
+                  [&_p]:mb-1
+                "
+                dangerouslySetInnerHTML={{ __html: selected.desc }}
+              />
             ) : (
-              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                {selected.desc || <span className="text-slate-400 italic">Tidak ada deskripsi.</span>}
-              </p>
+              <span className="text-sm text-slate-400 italic">Tidak ada deskripsi.</span>
             )}
           </div>
-
-          {/* Link */}
-          {board.editMode && (
-            <div>
-              <SectionLabel>Link</SectionLabel>
-              <input
-                type="url"
-                value={board.eLink}
-                onChange={(e) => board.setELink(e.target.value)}
-                className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300 transition"
-                placeholder="https://..."
-              />
-            </div>
-          )}
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
@@ -276,6 +349,20 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
               <div className="text-xs text-slate-400 italic">Belum ada assignee.</div>
             )}
           </div>
+
+          {/* ── Attachments (saat edit mode) ── */}
+          {board.editMode && (
+            <div>
+              <SectionLabel>Lampiran / Evidence</SectionLabel>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <EvidencePanel
+                  taskId={selected.id}
+                  canDelete={canDelete}
+                  onChanged={() => board.load()}
+                />
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -334,7 +421,7 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
                           ? "bg-slate-900 text-white rounded-tr-sm"
                           : "bg-slate-100 text-slate-800 rounded-tl-sm",
                       ].join(" ")}>
-                        {c.comment || c.text}
+                        {renderCommentText(c.comment || c.text || "")}
                       </div>
 
                       {/* ← Timestamp pakai fmtDateTime + tooltip tanggal lengkap */}
@@ -358,23 +445,52 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
               {initials(board.employee?.full_name)}
             </div>
             <div className="flex-1 flex gap-2">
-              <textarea
-                value={board.commentText}
-                onChange={(e) => board.setCommentText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    board.addComment();
-                  }
-                }}
-                placeholder="Tulis komentar... (Enter untuk kirim)"
-                rows={2}
-                disabled={board.sendingComment}
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-300 resize-none transition disabled:opacity-50"
-              />
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  value={board.commentText}
+                  onChange={onCommentChange}
+                  onKeyDown={onCommentKeyDown}
+                  placeholder="Tulis komentar... ketik @ untuk mention"
+                  rows={2}
+                  disabled={board.sendingComment}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-300 resize-none transition disabled:opacity-50"
+                />
+
+                {/* Mention dropdown */}
+                {mentionOpen && mentionList.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 w-64 bg-white rounded-xl border border-slate-200 shadow-lg z-50 overflow-hidden">
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 border-b border-slate-100 uppercase tracking-wide">
+                      Tag Karyawan
+                    </div>
+                    {mentionList.map((emp, idx) => (
+                      <button
+                        key={emp.employee_id}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); selectMention(emp); }}
+                        className={[
+                          "w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-blue-50 transition",
+                          idx === mentionIndex ? "bg-blue-50" : "",
+                        ].join(" ")}
+                      >
+                        <div className="h-6 w-6 rounded-md bg-blue-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                          {initials(emp.full_name)}
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-800">{toDisplayName(emp.full_name)}</div>
+                          {emp.job_level_name && <div className="text-[10px] text-slate-400">{emp.job_level_name}</div>}
+                        </div>
+                      </button>
+                    ))}
+                    <div className="px-3 py-1 text-[10px] text-slate-400 border-t border-slate-100">
+                      ↑↓ navigasi · Enter pilih · Esc tutup
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
-                onClick={board.addComment}
+                onClick={handleSendComment}
                 disabled={board.sendingComment || !board.commentText.trim()}
                 className="h-9 px-4 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 disabled:opacity-40 transition self-end flex items-center gap-1.5"
               >

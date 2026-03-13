@@ -166,7 +166,7 @@ export default function PersonalTasksCard() {
 
   const getPriorityBadge = (priority) => {
     const badges = {
-      high: { color: "bg-red-100 text-red-700 border-red-200", label: "High" },
+      critical: { color: "bg-red-100 text-red-700 border-red-200", label: "Critical" },
       medium: { color: "bg-amber-100 text-amber-700 border-amber-200", label: "Medium" },
       low: { color: "bg-green-100 text-green-700 border-green-200", label: "Low" }
     };
