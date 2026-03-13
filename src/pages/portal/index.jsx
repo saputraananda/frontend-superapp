@@ -23,11 +23,12 @@ export default function Portal({ user, onLogout }) {
 
   const youtubeVideos = useMemo(
     () => [
-      { id: "Wt6sXPLsLNI", title: "Video 1" },
-      { id: "G1cOjb_-tKg", title: "Video 2" },
-      { id: "fkuYp1gxW14", title: "Video 3" },
-      { id: "M89sWlGYSdo", title: "Video 4" },
-      { id: "fkuYp1gxW14", title: "Video 5" },
+      { id: "XvjL7a6iLKc", title: "Video 1" },
+      { id: "Wt6sXPLsLNI", title: "Video 2" },
+      { id: "G1cOjb_-tKg", title: "Video 3" },
+      { id: "fkuYp1gxW14", title: "Video 4" },
+      { id: "M89sWlGYSdo", title: "Video 5" },
+      { id: "fkuYp1gxW14", title: "Video 6" },
     ],
     [] 
   );

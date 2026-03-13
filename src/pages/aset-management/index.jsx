@@ -26,6 +26,7 @@ import {
     HiOutlineExclamationTriangle,
     HiOutlineCheckCircle,
     HiOutlineEye,
+    HiOutlineArrowDownTray
 } from "react-icons/hi2";
 
 import { cn, toTitleCase, SUB_KATEGORI, SATUAN, KONDISI, KONDISI_COLOR, SUBKAT_COLOR, APPROVAL_STATUS, inputCls, EMPTY_FORM } from "./components/constants";
@@ -76,6 +77,10 @@ export default function AsetManagement() {
     // Photo upload
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const photoInputRef = useRef(null);
+
+    // Photo preview
+    const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
+    const [photoPreviewIndex, setPhotoPreviewIndex] = useState(0);
 
     // QR Scanner
     const [scannerOpen, setScannerOpen] = useState(false);
@@ -309,6 +314,16 @@ export default function AsetManagement() {
         }
     };
 
+    const downloadPhoto = (photo) => {
+        const url = assetUrl(photo.photo_path);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = photo.photo_path.split("/").pop();
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.click();
+    };
+
     // ── QR Scanner ──
     const startScanner = async () => {
         setScannerOpen(true);
@@ -511,8 +526,7 @@ export default function AsetManagement() {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {asets.map((aset) => (
-                                <div key={aset.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group">
-                                    {/* Photo */}
+                                <div key={aset.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onClick={() => openDetail(aset.id)}>                                    {/* Photo */}
                                     <div className="relative h-36 bg-slate-100 overflow-hidden">
                                         {aset.photos?.[0] ? (
                                             <img src={assetUrl(aset.photos[0].photo_path)} alt={aset.nama_aset} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -551,7 +565,7 @@ export default function AsetManagement() {
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1">
+                                    <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1" onClick={(e) => e.stopPropagation()}>
                                         <button onClick={() => openDetail(aset.id)} className="flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1.5 text-[11px] font-medium text-blue-600 hover:bg-blue-100 transition">
                                             <HiOutlineEye className="h-3.5 w-3.5" /> Detail
                                         </button>
@@ -641,13 +655,14 @@ export default function AsetManagement() {
                                         </div>
                                         {detailAset.photos?.length > 0 ? (
                                             <div className="grid grid-cols-3 gap-2">
-                                                {detailAset.photos.map(p => (
-                                                    <div key={p.id} className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200">
-                                                        <img src={assetUrl(p.photo_path)} alt="" className="h-full w-full object-cover" />
-                                                        <button onClick={() => handlePhotoDelete(p.id)}
-                                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                                                            <HiOutlineTrash className="h-5 w-5 text-white" />
-                                                        </button>
+                                                {detailAset.photos.map((p, idx) => (
+                                                    <div key={p.id}
+                                                        className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200 cursor-pointer"
+                                                        onClick={() => { setPhotoPreviewIndex(idx); setPhotoPreviewOpen(true); }}>
+                                                        <img src={assetUrl(p.photo_path)} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                                                            <HiOutlineEye className="h-5 w-5 text-white" />
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -929,6 +944,82 @@ export default function AsetManagement() {
                     </div>
                 </div>
             )}
+
+            {/* ════════════════════════════════════════════════════════════════════ */}
+            {/* PHOTO PREVIEW LIGHTBOX */}
+            {/* ════════════════════════════════════════════════════════════════════ */}
+            {photoPreviewOpen && detailAset?.photos?.length > 0 && (() => {
+                const photos = detailAset.photos;
+                const current = photos[photoPreviewIndex];
+                return (
+                    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center"
+                        style={{ backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
+                        onClick={() => setPhotoPreviewOpen(false)}>
+                        {/* Close */}
+                        <button
+                            onClick={() => setPhotoPreviewOpen(false)}
+                            className="absolute top-4 right-4 rounded-full bg-white/10 hover:bg-white/20 p-2.5 text-white transition z-10">
+                            <HiOutlineXMark className="h-5 w-5" />
+                        </button>
+
+                        {/* Counter */}
+                        <p className="absolute top-5 left-1/2 -translate-x-1/2 text-white/70 text-xs font-medium tracking-wide">
+                            {photoPreviewIndex + 1} / {photos.length}
+                        </p>
+
+                        {/* Prev */}
+                        {photos.length > 1 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setPhotoPreviewIndex(i => (i - 1 + photos.length) % photos.length); }}
+                                className="absolute left-4 rounded-full bg-white/10 hover:bg-white/20 p-3 text-white transition z-10">
+                                <HiOutlineChevronLeft className="h-5 w-5" />
+                            </button>
+                        )}
+
+                        {/* Image */}
+                        <div className="flex items-center justify-center w-full h-full px-16 py-20" onClick={(e) => e.stopPropagation()}>
+                            <img
+                                key={current.id}
+                                src={assetUrl(current.photo_path)}
+                                alt=""
+                                className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
+                                style={{ maxHeight: "calc(100vh - 160px)" }}
+                            />
+                        </div>
+
+                        {/* Next */}
+                        {photos.length > 1 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setPhotoPreviewIndex(i => (i + 1) % photos.length); }}
+                                className="absolute right-4 rounded-full bg-white/10 hover:bg-white/20 p-3 text-white transition z-10">
+                                <HiOutlineChevronRight className="h-5 w-5" />
+                            </button>
+                        )}
+
+                        {/* Action bar */}
+                        <div className="absolute bottom-6 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                onClick={() => downloadPhoto(current)}
+                                className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2.5 text-sm font-medium text-white transition">
+                                <HiOutlineArrowDownTray className="h-4 w-4 rotate-[-90deg]" /> Download
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await handlePhotoDelete(current.id);
+                                    const remaining = photos.length - 1;
+                                    if (remaining === 0) {
+                                        setPhotoPreviewOpen(false);
+                                    } else {
+                                        setPhotoPreviewIndex(i => Math.min(i, remaining - 1));
+                                    }
+                                }}
+                                className="flex items-center gap-2 rounded-xl bg-rose-500/80 hover:bg-rose-600 border border-rose-400/30 px-4 py-2.5 text-sm font-medium text-white transition">
+                                <HiOutlineTrash className="h-4 w-4" /> Hapus Foto
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
