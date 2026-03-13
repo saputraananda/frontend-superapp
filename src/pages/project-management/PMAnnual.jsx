@@ -241,6 +241,7 @@ export default function PMAnnual() {
   const [editProject, setEditProject] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editCompanyId, setEditCompanyId] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [showDropdown, setShowDropdown] = useState(false);
@@ -313,6 +314,7 @@ export default function PMAnnual() {
     setEditProject(p);
     setEditTitle(p.title || "");
     setEditDesc(p.desc || "");
+    setEditCompanyId(p.company_id || "");
     setErr("");
   }
 
@@ -325,7 +327,7 @@ export default function PMAnnual() {
     }
     setEditSubmitting(true);
     try {
-      await pmApi.updateProject(id, { title: editTitle.trim(), desc: editDesc.trim() });
+      await pmApi.updateProject(id, { title: editTitle.trim(), desc: editDesc.trim(), company_id: editCompanyId || null });
       setEditProject(null);
       toast.success("Project berhasil diperbarui");
       await load();
@@ -905,6 +907,23 @@ export default function PMAnnual() {
             </div>
 
             <div className="p-6 space-y-4">
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                  Perusahaan <span className="text-rose-500">*</span>
+                </span>
+                <select
+                  className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
+                  value={editCompanyId}
+                  onChange={e => setEditCompanyId(e.target.value)}
+                  disabled={editSubmitting}
+                >
+                  <option value="">-- Pilih Perusahaan --</option>
+                  {companies.map(c => (
+                    <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
+                  ))}
+                </select>
+              </label>
+
               <label className="block">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Title <span className="text-rose-500">*</span></span>
                 <input
