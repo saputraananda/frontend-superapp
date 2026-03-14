@@ -4,10 +4,12 @@ import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
 import { api } from "../../lib/api";
 import { getEmployeeFromLocal, canDirektur, canSupervisorUp } from "./role";
+import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiTrash2, FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX } from "react-icons/fi";
 import {
   HiOutlineFolder,
+  HiOutlineHome,
   HiOutlinePlus,
   HiOutlineChevronRight,
   HiOutlineCalendarDays,
@@ -247,6 +249,9 @@ export default function PMAnnual() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
     function handleOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -408,6 +413,19 @@ export default function PMAnnual() {
     lastYear: projects.filter(p => getYear(p.created_at) === new Date().getFullYear() - 1).length,
   }), [projects]);
 
+  async function loadNotifCount() {
+    try {
+      const res = await pmApi.listNotifications();
+      setUnreadCount((res?.data || []).filter(n => !n.is_read).length);
+    } catch { /* silent */ }
+  }
+
+  useEffect(() => {
+    document.title = "Annual Projects | Project Management Alora";
+    load();
+    loadNotifCount();
+  }, []);
+
   // ─── RENDER ──────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50">
@@ -420,13 +438,16 @@ export default function PMAnnual() {
         <div className="mx-auto flex h-16 sm:h-18 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
 
           {/* Back Button */}
-          <button
-            onClick={() => nav("/apps")}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-          >
-            <HiOutlineArrowLeft className="h-5 w-5" />
-            <span className="hidden sm:inline">Kembali Ke Portal Alora</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => nav("/apps")}
+              title="Kembali ke Portal Alora"
+              className="flex items-center gap-2 h-9 px-3 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+            >
+              <HiOutlineHome className="h-5 w-5" />
+              <span className="text-sm font-medium">Portal Alora</span>
+            </button>
+          </div>
 
           {/* Title Section */}
           <div className="flex items-center gap-3 min-w-0">
@@ -440,6 +461,16 @@ export default function PMAnnual() {
 
           {/* User Info */}
           <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setShowNotifs(true)}
+              className="relative h-9 w-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 transition">
+              <span className="text-sm">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full bg-rose-600 text-[10px] font-bold text-white flex items-center justify-center px-1">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
             <div className="hidden sm:block text-right">
               <div className="text-sm font-semibold text-slate-900">
                 {capitalizeEachWord(employee?.full_name || "User")}
@@ -970,6 +1001,7 @@ export default function PMAnnual() {
           </div>
         </div>
       )}
+      <NotifPanel open={showNotifs} onClose={() => { setShowNotifs(false); loadNotifCount(); }} />
     </div>
   );
 }

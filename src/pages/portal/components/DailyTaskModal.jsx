@@ -4,8 +4,6 @@ import RichTextEditor from "../../../components/RichTextEditor";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
-const RECUR_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-
 const fileIcon = (type = "") => {
   if (type.startsWith("image/")) return "🖼️";
   if (type === "application/pdf") return "📄";
@@ -26,23 +24,25 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
   const [error, setError] = useState("");
 
   // Form state
-  const [title, setTitle]               = useState(task?.title || "");
-  const [description, setDescription]   = useState(task?.description || "");
+  const [title, setTitle]             = useState(task?.title || "");
+  const [description, setDescription] = useState(task?.description || "");
   const [departmentId, setDepartmentId] = useState(task?.department_id || "");
-  const [linkUrl, setLinkUrl]           = useState(task?.link_url || "");
-  const [isRecurring, setIsRecurring]   = useState(task?.is_recurring ? true : false);
-  const [recurType, setRecurType]       = useState(task?.recur_type || "weekly");
-  const [recurDay, setRecurDay]         = useState(task?.recur_day ?? 6);
+  const [isPublic, setIsPublic]       = useState(task?.is_public !== 0); // default: public
+
+  // Multiple links state
+  const initLinks = () =>
+    task?.links?.length > 0
+      ? task.links.map((l) => ({ url: l.url, label: l.label || "" }))
+      : [{ url: "", label: "" }];
+  const [links, setLinks] = useState(initLinks);
 
   // Evidence state
   const [existingEvidences, setExistingEvidences] = useState(task?.evidences || []);
   const [deletedEvidenceIds, setDeletedEvidenceIds] = useState([]);
-  const [newFiles, setNewFiles]         = useState([]); // File objects
-  const [newFilePreviews, setNewFilePreviews] = useState([]); // { name, size, type, url }
+  const [newFiles, setNewFiles]           = useState([]);
+  const [newFilePreviews, setNewFilePreviews] = useState([]);
 
   const fileInputRef = useRef(null);
-
-  // Confirm delete modal
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -57,18 +57,24 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
     loadDepts();
   }, []);
 
-  // Handle new file pick
+  // ─── Links helpers ───────────────────────────────────────────────────────
+  const addLink = () => setLinks((prev) => [...prev, { url: "", label: "" }]);
+
+  const removeLink = (idx) => setLinks((prev) => prev.filter((_, i) => i !== idx));
+
+  const updateLink = (idx, field, value) =>
+    setLinks((prev) => prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l)));
+
+  // ─── File helpers ─────────────────────────────────────────────────────────
   const handleFilePick = useCallback((e) => {
     const picked = Array.from(e.target.files || []);
     if (picked.length === 0) return;
-
     const previews = picked.map((f) => ({
       name: f.name,
       size: f.size,
       type: f.type,
       url: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
     }));
-
     setNewFiles((prev) => [...prev, ...picked]);
     setNewFilePreviews((prev) => [...prev, ...previews]);
     e.target.value = "";
@@ -89,24 +95,23 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
     setExistingEvidences((prev) => prev.filter((e) => e.id !== evId));
   }, []);
 
-  // Submit
+  // ─── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!title.trim()) { setError("Title wajib diisi."); return; }
+    if (!title.trim()) { setError("Judul wajib diisi."); return; }
     setLoading(true);
 
     try {
       const formData = new FormData();
-      formData.append("title",        title.trim());
-      formData.append("description",  description || "");
-      formData.append("department_id",departmentId || "");
-      formData.append("link_url",     linkUrl.trim() || "");
-      formData.append("is_recurring", isRecurring ? "1" : "0");
-      if (isRecurring) {
-        formData.append("recur_type", recurType);
-        if (recurType === "weekly") formData.append("recur_day", String(recurDay));
-      }
+      formData.append("title", title.trim());
+      formData.append("description", description || "");
+      formData.append("department_id", departmentId || "");
+      formData.append("is_public", isPublic ? "1" : "0");
+
+      const validLinks = links.filter((l) => l.url.trim());
+      formData.append("links", JSON.stringify(validLinks));
+
       if (deletedEvidenceIds.length > 0) {
         formData.append("deleted_evidence_ids", JSON.stringify(deletedEvidenceIds));
       }
@@ -114,7 +119,6 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
 
       let result;
       if (mode === "create") {
-        // ← Pakai apiUpload bukan api (FormData tidak boleh set Content-Type)
         result = await apiUpload("/daily-tasks", { method: "POST", body: formData });
       } else {
         result = await apiUpload(`/daily-tasks/${task.id}`, { method: "PUT", body: formData });
@@ -129,7 +133,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
     }
   };
 
-  // Delete task
+  // ─── Delete ───────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     setLoading(true);
     try {
@@ -149,10 +153,10 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50 rounded-t-2xl">
           <div>
             <h2 className="text-base font-bold text-slate-800">
-              {mode === "create" ? "Tambah Report" : "Edit Report"}
+              {mode === "create" ? "Tambah Notulensi" : "Edit Notulensi"}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Report harian, rutin, atau dadakan yang perlu dicatat
+              Catat hasil rapat, laporan harian, atau agenda penting
             </p>
           </div>
           <button
@@ -167,47 +171,84 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
 
         <form onSubmit={handleSubmit}>
           <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+
             {/* ─── Kolom Kiri ─── */}
             <div className="space-y-5">
-              {/* Title */}
+              {/* Judul */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Judul Task <span className="text-red-500">*</span>
+                  Judul <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Contoh: Meeting Mingguan Tim Ops"
+                  placeholder="Contoh: Notulensi Rapat Mingguan Tim Ops"
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </div>
 
-              {/* Description - Rich Text */}
+              {/* Deskripsi / Notulensi */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Deskripsi / Notulensi
+                  Notulensi / Catatan
                 </label>
                 <RichTextEditor
                   value={description}
                   onChange={setDescription}
-                  placeholder="Tulis deskripsi, notulensi meeting, atau catatan penting..."
+                  placeholder="Tulis notulensi rapat, poin-poin penting, atau catatan harian..."
                 />
               </div>
 
-              {/* Link */}
+              {/* Multiple Links */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Link (opsional)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="url"
-                    value={linkUrl}
-                    onChange={(e) => setLinkUrl(e.target.value)}
-                    placeholder="https://docs.google.com/spreadsheets/..."
-                    className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Link <span className="text-slate-400">(opsional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addLink}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5 transition"
+                  >
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Tambah Link
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {links.map((link, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className="flex-1 space-y-1">
+                        <input
+                          type="url"
+                          value={link.url}
+                          onChange={(e) => updateLink(idx, "url", e.target.value)}
+                          placeholder="https://docs.google.com/..."
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={link.label}
+                          onChange={(e) => updateLink(idx, "label", e.target.value)}
+                          placeholder="Label (opsional, misal: Notulensi Google Docs)"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-slate-50"
+                        />
+                      </div>
+                      {links.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLink(idx)}
+                          className="mt-1.5 text-red-400 hover:text-red-600 p-1 rounded flex-shrink-0 transition"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -216,8 +257,6 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Evidence / Lampiran
                 </label>
-
-                {/* Drop zone */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -229,26 +268,15 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Maks. 20 MB per file, bisa lebih dari 1</p>
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFilePick}
-                />
+                <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePick} />
 
-                {/* Existing evidences (edit mode) */}
                 {existingEvidences.length > 0 && (
                   <div className="mt-3 space-y-2">
                     <p className="text-[10px] text-slate-500 font-medium">File saat ini:</p>
                     {existingEvidences.map((ev) => (
                       <div key={ev.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
                         {ev.file_type?.startsWith("image/") ? (
-                          <img
-                            src={`${BASE_URL}/assets/${ev.file_path}`}
-                            alt={ev.file_name}
-                            className="h-8 w-8 object-cover rounded"
-                          />
+                          <img src={`${BASE_URL}/assets/${ev.file_path}`} alt={ev.file_name} className="h-8 w-8 object-cover rounded" />
                         ) : (
                           <span className="text-lg">{fileIcon(ev.file_type)}</span>
                         )}
@@ -256,19 +284,12 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                           <p className="text-xs font-medium text-slate-700 truncate">{ev.file_name}</p>
                           <p className="text-[10px] text-slate-400">{formatBytes(ev.file_size)}</p>
                         </div>
-                        <a
-                          href={`${BASE_URL}/assets/${ev.file_path}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700 text-[10px]"
-                        >
+                        <a href={`${BASE_URL}/assets/${ev.file_path}`} target="_blank" rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-700 text-[10px]">
                           Lihat
                         </a>
-                        <button
-                          type="button"
-                          onClick={() => removeExistingEvidence(ev.id)}
-                          className="text-red-400 hover:text-red-600 p-1 rounded"
-                        >
+                        <button type="button" onClick={() => removeExistingEvidence(ev.id)}
+                          className="text-red-400 hover:text-red-600 p-1 rounded">
                           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -278,7 +299,6 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                   </div>
                 )}
 
-                {/* New file previews */}
                 {newFilePreviews.length > 0 && (
                   <div className="mt-3 space-y-2">
                     <p className="text-[10px] text-slate-500 font-medium">File baru:</p>
@@ -293,11 +313,8 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                           <p className="text-xs font-medium text-slate-700 truncate">{f.name}</p>
                           <p className="text-[10px] text-slate-400">{formatBytes(f.size)}</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeNewFile(idx)}
-                          className="text-red-400 hover:text-red-600 p-1 rounded"
-                        >
+                        <button type="button" onClick={() => removeNewFile(idx)}
+                          className="text-red-400 hover:text-red-600 p-1 rounded">
                           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -311,7 +328,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
 
             {/* ─── Kolom Kanan ─── */}
             <div className="space-y-5">
-              {/* Department */}
+              {/* Departemen */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Departemen <span className="text-slate-400">(opsional)</span>
@@ -330,74 +347,62 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                 </select>
               </div>
 
-              {/* Recurring */}
+              {/* Visibilitas (Private / Public) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Jenis Task
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Visibilitas
                 </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsRecurring(false)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition
-                      ${!isRecurring
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-slate-600 border-slate-300 hover:border-blue-400"
-                      }`}
+                <div className="space-y-2">
+                  {/* Public */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                      isPublic
+                        ? "border-blue-400 bg-blue-50"
+                        : "border-slate-200 hover:border-blue-300"
+                    }`}
                   >
-                    Sekali / Dadakan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsRecurring(true)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition
-                      ${isRecurring
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-slate-600 border-slate-300 hover:border-blue-400"
-                      }`}
-                  >
-                    🔁 Berulang
-                  </button>
-                </div>
-
-                {isRecurring && (
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100 space-y-3">
+                    <input
+                      type="radio"
+                      name="visibility"
+                      value="public"
+                      checked={isPublic}
+                      onChange={() => setIsPublic(true)}
+                      className="mt-0.5 accent-blue-600"
+                    />
                     <div>
-                      <label className="block text-[10px] font-semibold text-blue-700 mb-1">Frekuensi</label>
-                      <select
-                        value={recurType}
-                        onChange={(e) => setRecurType(e.target.value)}
-                        className="w-full px-2.5 py-2 border border-blue-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                        <option value="daily">Setiap Hari</option>
-                        <option value="weekly">Setiap Minggu</option>
-                        <option value="monthly">Setiap Bulan</option>
-                      </select>
+                      <p className="text-xs font-semibold text-slate-700">🌐 Public</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                        Notulensi ini dapat dilihat oleh semua karyawan.
+                        Cocok untuk agenda tim, pengumuman, atau laporan bersama.
+                      </p>
                     </div>
+                  </label>
 
-                    {recurType === "weekly" && (
-                      <div>
-                        <label className="block text-[10px] font-semibold text-blue-700 mb-1">Hari</label>
-                        <div className="grid grid-cols-4 gap-1">
-                          {RECUR_DAYS.map((day, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setRecurDay(idx)}
-                              className={`py-1.5 rounded text-[10px] font-medium border transition
-                                ${recurDay === idx
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "bg-white text-slate-600 border-slate-200 hover:border-blue-400"
-                                }`}
-                            >
-                              {day}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {/* Private */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                      !isPublic
+                        ? "border-violet-400 bg-violet-50"
+                        : "border-slate-200 hover:border-violet-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="visibility"
+                      value="private"
+                      checked={!isPublic}
+                      onChange={() => setIsPublic(false)}
+                      className="mt-0.5 accent-violet-600"
+                    />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-700">🔒 Private</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                        Hanya Anda yang dapat melihat notulensi ini.
+                        Cocok untuk catatan pribadi atau draft yang belum selesai.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Info creator - read only jika edit */}
@@ -414,14 +419,14 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                 </div>
               )}
 
-              {/* Panduan */}
+              {/* Tips */}
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
                 <p className="text-[10px] font-semibold text-amber-700 mb-1">💡 Tips</p>
                 <ul className="text-[10px] text-amber-700 space-y-0.5 list-disc list-inside">
-                  <li>Isi deskripsi dengan detail untuk notulensi meeting</li>
+                  <li>Isi deskripsi dengan detail untuk notulensi rapat</li>
                   <li>Lampirkan foto, PDF, atau dokumen pendukung</li>
-                  <li>Tandai sebagai Berulang jika agenda rutin</li>
-                  <li>Tempel link spreadsheet atau dokumen Google</li>
+                  <li>Tempel beberapa link dokumen sekaligus</li>
+                  <li>Pilih Private jika catatan bersifat personal</li>
                 </ul>
               </div>
             </div>
@@ -444,7 +449,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                   disabled={loading}
                   className="px-4 py-2 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition disabled:opacity-50"
                 >
-                  Hapus Task
+                  Hapus
                 </button>
               )}
             </div>
@@ -468,7 +473,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
                 )}
-                {mode === "create" ? "Simpan Task" : "Update Task"}
+                {mode === "create" ? "Simpan" : "Update"}
               </button>
             </div>
           </div>
@@ -479,9 +484,9 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
           <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
             <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm mx-4 text-center">
               <div className="text-4xl mb-3">🗑️</div>
-              <h3 className="text-sm font-bold text-slate-800 mb-1">Hapus Task?</h3>
+              <h3 className="text-sm font-bold text-slate-800 mb-1">Hapus Notulensi?</h3>
               <p className="text-xs text-slate-500 mb-4">
-                Task <strong>"{task?.title}"</strong> akan dihapus secara permanen.
+                <strong>"{task?.title}"</strong> akan dihapus secara permanen.
               </p>
               <div className="flex gap-3 justify-center">
                 <button

@@ -4,10 +4,12 @@ import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
 import { api } from "../../lib/api";
 import { getEmployeeFromLocal, canSupervisorUp } from "./role";
+import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX, FiTrash2 } from "react-icons/fi";
 import {
   HiOutlineArrowLeft,
+  HiOutlineHome,
   HiOutlinePlus,
   HiOutlineChevronRight,
   HiOutlineCalendarDays,
@@ -230,6 +232,9 @@ export default function PMSemester() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
     function handleOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -244,6 +249,13 @@ export default function PMSemester() {
     try { await api("/auth/logout", { method: "POST" }); } catch { /* ignore */ }
     localStorage.removeItem("user");
     window.location.href = "/login";
+  }
+
+  async function loadNotifCount() {
+    try {
+      const res = await pmApi.listNotifications();
+      setUnreadCount((res?.data || []).filter(n => !n.is_read).length);
+    } catch { /* silent */ }
   }
 
   const load = useCallback(async () => {
@@ -287,7 +299,7 @@ export default function PMSemester() {
     }
   }
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadNotifCount(); }, [load]);
 
   function openEditSem(e, s) {
     e.stopPropagation();
@@ -357,13 +369,23 @@ export default function PMSemester() {
         <div className="mx-auto flex h-16 sm:h-18 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
 
           {/* Back Button */}
-          <button
-            onClick={() => nav("/projectmanagement")}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-          >
-            <HiOutlineArrowLeft className="h-5 w-5" />
-            <span className="hidden sm:inline">Annual Projects</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => nav("/apps")}
+              title="Kembali ke Portal Alora"
+              className="flex items-center justify-center h-9 w-9 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+            >
+              <HiOutlineHome className="h-5 w-5" />
+            </button>
+
+            <button
+              onClick={() => nav("/projectmanagement")}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+            >
+              <HiOutlineArrowLeft className="h-5 w-5" />
+              <span className="hidden sm:inline">Annual Projects</span>
+            </button>
+          </div>
 
           {/* Title Section */}
           <div className="flex items-center gap-3 min-w-0">
@@ -377,8 +399,16 @@ export default function PMSemester() {
           </div>
 
           {/* User Info */}
-          {/* User Info */}
           <div className="relative flex items-center gap-3" ref={dropdownRef}>
+            <button type="button" onClick={() => setShowNotifs(true)}
+              className="relative h-9 w-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 transition">
+              <span className="text-sm">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full bg-rose-600 text-[10px] font-bold text-white flex items-center justify-center px-1">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
             <div className="hidden sm:block text-right">
               <div className="text-sm font-semibold text-slate-900">
                 {capitalizeEachWord(employee?.full_name || "User")}
@@ -740,6 +770,7 @@ export default function PMSemester() {
           </div>
         </div>
       )}
+      <NotifPanel open={showNotifs} onClose={() => { setShowNotifs(false); loadNotifCount(); }} />
     </div>
   );
 }
