@@ -92,19 +92,20 @@ function TaskItem({ task, onClick }) {
 }
 
 export default function DailyTasksCard() {
-  const [tasks, setTasks]               = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [showModal, setShowModal]       = useState(false);
-  const [modalMode, setModalMode]       = useState("create");
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState("create");
   const [selectedTask, setSelectedTask] = useState(null);
-  const [page, setPage]                 = useState(1);
+  const [page, setPage] = useState(1);
 
   // ─── Filter state ─────────────────────────────────────────────────────────
-  const [search, setSearch]             = useState("");
-  const [filterMonth, setFilterMonth]   = useState(""); // "YYYY-MM"
-  const [filterDept, setFilterDept]     = useState(""); // department_id as string
-  const [filterVis, setFilterVis]       = useState("all"); // "all" | "public" | "private"
-  const [showFilters, setShowFilters]   = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterYear, setFilterYear] = useState(""); // "YYYY"
+  const [filterMonthNum, setFilterMonthNum] = useState(""); // "1"-"12"
+  const [filterDept, setFilterDept] = useState(""); // department_id as string
+  const [filterVis, setFilterVis] = useState("all"); // "all" | "public" | "private"
+  const [showFilters, setShowFilters] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -132,32 +133,43 @@ export default function DailyTasksCard() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [tasks]);
 
+  const availableYears = useMemo(() => {
+    const yrs = [...new Set(tasks.map(t => new Date(t.created_at).getFullYear()))];
+    return yrs.sort((a, b) => b - a);
+  }, [tasks]);
+
   // ─── Filtered tasks ───────────────────────────────────────────────────────
   const filteredTasks = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tasks.filter((t) => {
       if (q && !t.title.toLowerCase().includes(q) && !t.creator_name?.toLowerCase().includes(q))
         return false;
-      if (filterMonth) {
+      if (filterYear) {
         const d = new Date(t.created_at);
-        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (ym !== filterMonth) return false;
+        const y = d.getFullYear();
+        if (y !== parseInt(filterYear, 10)) return false;
+      }
+      if (filterMonthNum) {
+        const d = new Date(t.created_at);
+        const m = d.getMonth() + 1;
+        if (m !== parseInt(filterMonthNum, 10)) return false;
       }
       if (filterDept && String(t.department_id) !== filterDept) return false;
-      if (filterVis === "public"  && !t.is_public)  return false;
-      if (filterVis === "private" &&  t.is_public)  return false;
+      if (filterVis === "public" && !t.is_public) return false;
+      if (filterVis === "private" && t.is_public) return false;
       return true;
     });
-  }, [tasks, search, filterMonth, filterDept, filterVis]);
+  }, [tasks, search, filterYear, filterMonthNum, filterDept, filterVis]);
 
   // Reset to page 1 whenever filters change
-  useEffect(() => { setPage(1); }, [search, filterMonth, filterDept, filterVis]);
+  useEffect(() => { setPage(1); }, [search, filterYear, filterMonthNum, filterDept, filterVis]);
 
-  const isFiltered = search || filterMonth || filterDept || filterVis !== "all";
+  const isFiltered = search || filterYear || filterMonthNum || filterDept || filterVis !== "all";
 
   const clearFilters = () => {
     setSearch("");
-    setFilterMonth("");
+    setFilterYear("");
+    setFilterMonthNum("");
     setFilterDept("");
     setFilterVis("all");
   };
@@ -207,11 +219,10 @@ export default function DailyTasksCard() {
             {/* Filter toggle */}
             <button
               onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
-                showFilters || isFiltered
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${showFilters || isFiltered
                   ? "bg-blue-50 border-blue-300 text-blue-700"
                   : "bg-white border-slate-300 text-slate-600 hover:border-blue-300"
-              }`}
+                }`}
             >
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -220,7 +231,7 @@ export default function DailyTasksCard() {
               Filter
               {isFiltered && (
                 <span className="h-4 w-4 flex items-center justify-center bg-blue-600 text-white rounded-full text-[9px] font-bold">
-                  {[search, filterMonth, filterDept, filterVis !== "all"].filter(Boolean).length}
+                  {[search, filterYear, filterMonthNum, filterDept, filterVis !== "all"].filter(Boolean).length}
                 </span>
               )}
             </button>
@@ -269,16 +280,33 @@ export default function DailyTasksCard() {
               )}
             </div>
 
-            {/* Row 2: Month + Dept */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Row 2: Tahun + Bulan + Dept */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-1">Tahun</label>
+                <select
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none bg-white"
+                >
+                  <option value="">Semua Tahun</option>
+                  {availableYears.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-[10px] font-semibold text-slate-500 mb-1">Bulan</label>
-                <input
-                  type="month"
-                  value={filterMonth}
-                  onChange={(e) => setFilterMonth(e.target.value)}
+                <select
+                  value={filterMonthNum}
+                  onChange={(e) => setFilterMonthNum(e.target.value)}
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none bg-white"
-                />
+                >
+                  <option value="">Semua Bulan</option>
+                  {["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"].map((m, i) => (
+                    <option key={i + 1} value={i + 1}>{m}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-semibold text-slate-500 mb-1">Departemen</label>
@@ -300,18 +328,17 @@ export default function DailyTasksCard() {
               <div className="flex items-center gap-1">
                 <span className="text-[10px] font-semibold text-slate-500 mr-1">Visibilitas:</span>
                 {[
-                  { val: "all",     label: "Semua" },
-                  { val: "public",  label: "🌐 Public" },
+                  { val: "all", label: "Semua" },
+                  { val: "public", label: "🌐 Public" },
                   { val: "private", label: "🔒 Private" },
                 ].map(({ val, label }) => (
                   <button
                     key={val}
                     onClick={() => setFilterVis(val)}
-                    className={`px-2 py-1 rounded text-[10px] font-semibold border transition ${
-                      filterVis === val
+                    className={`px-2 py-1 rounded text-[10px] font-semibold border transition ${filterVis === val
                         ? "bg-blue-600 border-blue-600 text-white"
                         : "bg-white border-slate-200 text-slate-500 hover:border-blue-300"
-                    }`}
+                      }`}
                   >
                     {label}
                   </button>
@@ -391,11 +418,10 @@ export default function DailyTasksCard() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`h-6 w-6 flex items-center justify-center rounded border text-[10px] font-semibold transition ${
-                    p === page
+                  className={`h-6 w-6 flex items-center justify-center rounded border text-[10px] font-semibold transition ${p === page
                       ? "bg-blue-600 border-blue-600 text-white"
                       : "border-slate-200 text-slate-500 hover:bg-slate-100"
-                  }`}
+                    }`}
                 >
                   {p}
                 </button>

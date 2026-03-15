@@ -7,6 +7,7 @@ import { getEmployeeFromLocal, canDirektur, canSupervisorUp } from "./role";
 import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiTrash2, FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX } from "react-icons/fi";
+import { MdBusiness, MdLocalHospital, MdCleaningServices, MdSmartToy, MdLocalLaundryService } from "react-icons/md";
 import {
   HiOutlineFolder,
   HiOutlineHome,
@@ -57,6 +58,19 @@ function getYear(str) {
 function capitalizeEachWord(text) {
   if (!text) return "";
   return text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ─── Company Meta (icon & color per company_id) ───────
+function getCompanyMeta(companyId) {
+  const id = Number(companyId);
+  const map = {
+    1: { logo: "/alora2.png", hoverBorder: "hover:border-[#f93e11]", badgeBg: "#f93e1115", badgeBorder: "#f93e1155", badgeText: "#f93e11" },
+    2: { logo: "/ikm.png", hoverBorder: "hover:border-[#5ae7ee]", badgeBg: "#5ae7ee22", badgeBorder: "#5ae7ee70", badgeText: "#0a8a8f" },
+    3: { logo: "/cleanox.png", hoverBorder: "hover:border-[#73be2b]", badgeBg: "#73be2b18", badgeBorder: "#73be2b55", badgeText: "#4a7c1c" },
+    4: { logo: "/labs.png", hoverBorder: "hover:border-[#b50000]", badgeBg: "#b5000015", badgeBorder: "#b5000055", badgeText: "#b50000" },
+    5: { logo: "/waschen.webp", hoverBorder: "hover:border-[#5b005f]", badgeBg: "#5b005f15", badgeBorder: "#5b005f55", badgeText: "#5b005f" },
+  };
+  return map[id] ?? { logo: null, hoverBorder: "hover:border-slate-300", badgeBg: "#f1f5f9", badgeBorder: "#cbd5e1", badgeText: "#64748b" };
 }
 
 // ─── Toast System ──────────────────────────────────────
@@ -682,17 +696,21 @@ export default function PMAnnual() {
             {filtered.map(p => {
               const id = projectIdOf(p);
               const canEdit = isSupervisorUp || p.created_by === employee?.employee_id || p.requestor_employee_id === employee?.employee_id;
+              const meta = getCompanyMeta(p.company_id);
               return (
                 <div key={id} className="group relative">
                   <button type="button" onClick={() => id && nav(`${id}`)} className="w-full text-left">
                     {viewMode === "grid" ? (
                       // ── Grid Card ──
-                      <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300 transition-all duration-200">
+                      <div className={`rounded-xl bg-white border border-slate-200 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 ${meta.hoverBorder} transition-all duration-200`}>
                         <div className="flex items-start justify-between gap-3 mb-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shrink-0">
-                            <HiOutlineBriefcase className="h-5 w-5" />
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-slate-200 shadow-sm shrink-0 overflow-hidden">
+                            {meta.logo
+                              ? <img src={meta.logo} alt="" className="h-8 w-8 object-contain" />
+                              : <HiOutlineBriefcase className="h-5 w-5 text-slate-400" />
+                            }
                           </div>
-                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          <div className="flex items-centefr gap-1.5 flex-wrap justify-end">
                             {canEdit && (
                               <>
                                 <button type="button" onClick={(e) => openEdit(e, p)} title="Edit"
@@ -704,6 +722,14 @@ export default function PMAnnual() {
                                   <HiOutlineTrash className="h-3.5 w-3.5" />
                                 </button>
                               </>
+                            )}
+                            {p.company_name && (
+                              <span
+                                className="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold"
+                                style={{ background: meta.badgeBg, borderColor: meta.badgeBorder, color: meta.badgeText }}
+                              >
+                                {p.company_name}
+                              </span>
                             )}
                             <span className="inline-flex items-center rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
                               {getYear(p.created_at) || "—"}
@@ -746,17 +772,29 @@ export default function PMAnnual() {
                       </div>
                     ) : (
                       // ── List Row ──
-                      <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200">
+                      <div className={`rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-sm hover:shadow-md ${meta.hoverBorder} transition-all duration-200`}>
                         <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-                            <HiOutlineBriefcase className="h-5 w-5" />
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-slate-200 shadow-sm shrink-0 overflow-hidden">
+                            {meta.logo
+                              ? <img src={meta.logo} alt="" className="h-8 w-8 object-contain" />
+                              : <HiOutlineBriefcase className="h-5 w-5 text-slate-400" />
+                            }
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">{p?.title || "—"}</h3>
                               <span className="shrink-0 inline-flex items-center rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
                                 {getYear(p.created_at)}
                               </span>
+                              {/* tambahkan ini */}
+                              {p.company_name && (
+                                <span
+                                  className="shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold"
+                                  style={{ background: meta.badgeBg, borderColor: meta.badgeBorder, color: meta.badgeText }}
+                                >
+                                  {p.company_name}
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-slate-500 truncate">{p?.desc || "Tidak ada deskripsi."}</p>
                           </div>

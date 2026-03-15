@@ -89,29 +89,19 @@ export default function Portal({ user, onLogout }) {
 
   return (
     <HeaderLayout user={user} jobTitle={getJobTitle()} onLogout={onLogout}>
-      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-6">
+
+        {/* Top section: Main Content + Sidebar */}
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Content */}
           <div className="flex-1 space-y-6">
-
-            {/* ← Broadcast — taruh setelah StatsCards */}
             <BroadcastBanner />
-            
-            {/* Stats Cards */}
             <StatsCards />
-
-            {/* Applications Section */}
             <ApplicationsSection
               apps={apps}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
             />
-
-            {/* Tasks Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PersonalTasksCard />
-              <DailyTasksCard />  {/* ← ganti komponen, hapus props operationalTasks */}
-            </div>
           </div>
 
           {/* Sidebar */}
@@ -121,6 +111,13 @@ export default function Portal({ user, onLogout }) {
             <PerformanceRating user={user} jobTitle={getJobTitle()} />
           </div>
         </div>
+
+        {/* Tasks Section — full width, dibagi 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <PersonalTasksCard />
+          <DailyTasksCard />
+        </div>
+
       </div>
     </HeaderLayout>
   );
