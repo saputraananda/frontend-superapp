@@ -13,14 +13,16 @@ export default function StatsCards() {
         sales_growth: 0,
     });
 
+    const [customerData, setCustomerData] = useState({
+        actual_customer: 0,
+        target_customer: 0,
+        percentage: 0,
+    });
+    const [customerLoading, setCustomerLoading] = useState(true);
+
     // Data lain (masih dummy untuk sekarang)
     const currentEmployee = 156;
     const thisTime = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-
-    const targetCustomer = 7700;
-    const currentCustomer = 3974;
-    const customerPercentage = Math.round((currentCustomer / targetCustomer) * 100);
-    const customerGrowth = 12.5;
 
     const employeeGrowthMonitoring = 3.9;
     const breakdown = [
@@ -66,6 +68,28 @@ export default function StatsCards() {
     const formatRupiah = (value) => {
         return value.toLocaleString('id-ID');
     };
+
+    // Fetch customer data
+    useEffect(() => {
+        const fetchCustomerData = async () => {
+            try {
+                setCustomerLoading(true);
+                const res = await api("/apps/smartlink/customer-targets");
+                if (res.success && res.data) {
+                    setCustomerData({
+                        actual_customer: res.data.actual_customer || 0,
+                        target_customer: res.data.target_customer || 0,
+                        percentage: res.data.percentage || 0,
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching customer data:", error);
+            } finally {
+                setCustomerLoading(false);
+            }
+        };
+        fetchCustomerData();
+    }, []);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -142,8 +166,8 @@ export default function StatsCards() {
                         </div>
                         <div className="text-right">
                             <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border ${salesData.sales_growth >= 0
-                                    ? "bg-emerald-100 border-emerald-200"
-                                    : "bg-rose-100 border-rose-200"
+                                ? "bg-emerald-100 border-emerald-200"
+                                : "bg-rose-100 border-rose-200"
                                 }`}>
                                 <svg className={`h-3 w-3 ${salesData.sales_growth >= 0 ? "text-emerald-600" : "text-rose-600"
                                     }`} fill="currentColor" viewBox="0 0 20 20">
@@ -184,7 +208,7 @@ export default function StatsCards() {
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
-                                    Target: <span className="font-semibold text-slate-700">Rp {formatRupiah(salesData.target_bulanan)}</span> juta
+                                    Target {thisTime}: <span className="font-semibold text-slate-700">Rp {formatRupiah(salesData.target_bulanan)}</span> juta
                                 </p>
                             </div>
 
@@ -210,7 +234,7 @@ export default function StatsCards() {
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════════ */}
-            {/* Total Customer (masih dummy) */}
+            {/* Total Customer — DINAMIS dari Smartlink */}
             {/* ═══════════════════════════════════════════════════════════════════ */}
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 shadow-sm p-5">
                 <div className="space-y-3">
@@ -222,64 +246,67 @@ export default function StatsCards() {
                                 </svg>
                             </div>
                             <div>
-                                <p className="text-xs text-slate-600 font-semibold">Total Customer</p>
-                                <p className="text-[10px] text-slate-500">Target 2026 - Data Sementara</p>
+                                <p className="text-xs text-slate-600 font-semibold">Total Customer Baru</p>
+                                <p className="text-[10px] text-slate-500">
+                                    {customerLoading ? "Loading..." : `Total Saat Ini-  ${thisTime}`}
+                                </p>
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 border border-emerald-200">
-                                <svg className="h-3 w-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                                </svg>
-                                <span className="text-[10px] font-bold text-emerald-700">+{customerGrowth}%</span>
-                            </span>
                         </div>
                     </div>
 
-                    <div className="space-y-1">
-                        <div className="flex items-baseline justify-between">
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-bold text-slate-800">
-                                    {currentCustomer.toLocaleString('id-ID')}
-                                </span>
-                                <span className="text-xs text-slate-500 font-medium">pelanggan</span>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-lg font-bold text-amber-600">{customerPercentage}%</span>
-                            </div>
+                    {customerLoading ? (
+                        <div className="animate-pulse space-y-2">
+                            <div className="h-8 bg-slate-200 rounded w-3/4"></div>
+                            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
                         </div>
-                        <p className="text-[10px] text-slate-500">
-                            Target: <span className="font-semibold text-slate-700">{targetCustomer.toLocaleString('id-ID')}</span> pelanggan
-                        </p>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="space-y-1">
+                                <div className="flex items-baseline justify-between">
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-2xl font-bold text-slate-800">
+                                            {customerData.actual_customer.toLocaleString('id-ID')}
+                                        </span>
+                                        <span className="text-xs text-slate-500 font-medium">pelanggan aktif</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-lg font-bold text-amber-600">{customerData.percentage}%</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-slate-500">
+                                    Target 2026: <span className="font-semibold text-slate-700">{customerData.target_customer.toLocaleString('id-ID')}</span> pelanggan
+                                </p>
+                            </div>
 
-                    <div className="space-y-1.5">
-                        <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
-                            <div
-                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 rounded-full shadow-sm transition-all duration-1000 ease-out"
-                                style={{ width: `${customerPercentage}%` }}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-                            </div>
-                        </div>
+                            <div className="space-y-1.5">
+                                <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
+                                    <div
+                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 rounded-full shadow-sm transition-all duration-1000 ease-out"
+                                        style={{ width: `${Math.min(customerData.percentage, 100)}%` }}
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                                    </div>
+                                </div>
 
-                        <div className="flex items-center justify-between">
-                            <p className="text-[10px] text-slate-600">
-                                Sisa <span className="font-bold text-orange-600">{(targetCustomer - currentCustomer).toLocaleString('id-ID')}</span> lagi! 🎯
-                            </p>
-                        </div>
-                    </div>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] text-slate-600">
+                                        Sisa <span className="font-bold text-orange-600">{(customerData.target_customer - customerData.actual_customer).toLocaleString('id-ID')}</span> lagi! 🎯
+                                    </p>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <style jsx>{`
-          @keyframes shimmer {
+        @keyframes shimmer {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
-          }
-          .animate-shimmer {
+        }
+        .animate-shimmer {
             animation: shimmer 2s infinite;
-          }
-        `}</style>
+        }
+    `}</style>
             </div>
         </div>
     );
