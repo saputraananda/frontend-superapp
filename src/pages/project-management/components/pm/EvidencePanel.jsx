@@ -10,15 +10,15 @@ const ACCEPTED = ".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.zip,.ra
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
-  const [files, setFiles]         = useState([]);
-  const [loading, setLoading]     = useState(false);
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview]     = useState(null);
-  const inputRef                  = useRef(null);
+  const [preview, setPreview] = useState(null);
+  const inputRef = useRef(null);
 
   // ── Link input state ──
-  const [linkUrl, setLinkUrl]       = useState("");
-  const [linkLabel, setLinkLabel]   = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkLabel, setLinkLabel] = useState("");
   const [addingLink, setAddingLink] = useState(false);
 
   const load = useCallback(async () => {
@@ -122,11 +122,11 @@ export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
 
   const iconColorMap = {
     LINK: "bg-blue-100 text-blue-700",
-    IMG:  "bg-blue-100 text-blue-700",
-    PDF:  "bg-rose-100 text-rose-700",
-    XLS:  "bg-emerald-100 text-emerald-700",
-    DOC:  "bg-indigo-100 text-indigo-700",
-    ZIP:  "bg-amber-100 text-amber-700",
+    IMG: "bg-blue-100 text-blue-700",
+    PDF: "bg-rose-100 text-rose-700",
+    XLS: "bg-emerald-100 text-emerald-700",
+    DOC: "bg-indigo-100 text-indigo-700",
+    ZIP: "bg-amber-100 text-amber-700",
     FILE: "bg-slate-100 text-slate-600",
   };
 
@@ -141,49 +141,37 @@ export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
       <div className="space-y-2">
         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Link Referensi</div>
 
-        {/* Existing links */}
-        {linkItems.length > 0 && (
-          <div className="space-y-1.5">
-            {linkItems.map((link) => (
-              <div
-                key={link.id}
-                className="flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2.5 hover:bg-blue-50 transition group"
-              >
-                <div className="h-8 w-8 rounded-md flex items-center justify-center text-sm shrink-0 bg-blue-100 text-blue-700">
-                  🔗
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-blue-700 truncate">{link.file_name}</div>
-                  {link.file_name !== link.file_path && (
-                    <div className="text-[10px] text-slate-400 truncate">{link.file_path}</div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <a
-                    href={/^https?:\/\//i.test(link.file_path) ? link.file_path : `https://${link.file_path}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-7 w-7 rounded-md border border-blue-200 bg-white hover:bg-blue-50 flex items-center justify-center text-blue-600 text-xs transition"
-                    title="Buka di tab baru"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    ↗
-                  </a>
-                  {canDelete && (
-                    <button
-                      type="button"
-                      title="Hapus"
-                      onClick={() => handleDelete(link.id, link.file_name, true)}
-                      className="h-7 w-7 rounded-md border border-rose-200 bg-white hover:bg-rose-50 flex items-center justify-center text-rose-500 text-xs transition"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
+        {linkItems.map((link) => (
+          <a
+            key={link.id}
+            href={/^https?:\/\//i.test(link.file_path) ? link.file_path : `https://${link.file_path}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2.5 hover:bg-blue-50 hover:border-blue-300 transition group cursor-pointer"
+          >
+            <div className="h-8 w-8 rounded-md flex items-center justify-center text-sm shrink-0 bg-blue-100 text-blue-700">
+              🔗
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-blue-700 truncate">{link.file_name}</div>
+              {link.file_name !== link.file_path && (
+                <div className="text-[10px] text-slate-400 truncate">{link.file_path}</div>
+              )}
+            </div>
+            {canDelete && (
+              <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
+                <button
+                  type="button"
+                  title="Hapus"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(link.id, link.file_name, true); }}
+                  className="h-7 w-7 rounded-md border border-rose-200 bg-white hover:bg-rose-50 flex items-center justify-center text-rose-500 text-xs transition"
+                >
+                  ✕
+                </button>
               </div>
-            ))}
-          </div>
-        )}
+            )}
+          </a>
+        ))}
 
         {/* Add link input */}
         <div className="flex gap-2 items-end">
@@ -282,11 +270,11 @@ export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
         ) : (
           <div className="space-y-1.5">
             {fileItems.map((file) => {
-              const name  = file.file_name || file.filename || file.name || "File";
+              const name = file.file_name || file.filename || file.name || "File";
               const ftype = file.file_type || "";
-              const icon  = fileIcon(ftype, name);
+              const icon = fileIcon(ftype, name);
               const color = iconColorMap[icon] || iconColorMap.FILE;
-              const size  = file.file_size || file.size;
+              const size = file.file_size || file.size;
 
               return (
                 <div

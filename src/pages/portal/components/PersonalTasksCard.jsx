@@ -532,7 +532,7 @@ export default function PersonalTasksCard() {
                           : days === null ? "—"
                             : days < 0 ? `Lewat ${Math.abs(days)}h`
                               : days === 0 ? "🔥 Hari ini!"
-                                : days <= 7 ? `⚠️ ${days}h lagi`
+                                : days <= 7 ? `⚠️ ${days} hari lagi`
                                   : `${days} hari lagi`}
                       </span>
                     </div>

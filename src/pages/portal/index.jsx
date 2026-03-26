@@ -11,6 +11,7 @@ import StatsCards from "./components/StatsCards";
 import WeatherWidget from "./components/WeatherWidget";
 import YouTubeSlider from "./components/YouTubeSlider";
 import BroadcastBanner from "./components/BroadcastBanner"; 
+import AloraChatBot from "./components/AloraChatBot";
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -120,6 +121,7 @@ export default function Portal({ user, onLogout }) {
         </div>
 
       </div>
+      <AloraChatBot />
     </HeaderLayout>
   );
 }
