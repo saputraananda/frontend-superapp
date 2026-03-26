@@ -57,7 +57,15 @@ export default function YouTubeSlider({ videos }) {
                 <div className="flex items-center justify-between gap-3">
                     <p className="text-xs text-slate-500">
                         Tonton update terbaru dari{" "}
-                        <span className="text-blue-600 font-medium">Aurora Labs</span> di YouTube!
+                        <a
+                            href="https://www.youtube.com/@Cocokids_WorldFun"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 font-medium hover:underline"
+                        >
+                            Aurora Labs
+                        </a>{" "}
+                        di YouTube!
                     </p>
 
                     <div className="flex items-center gap-1.5 shrink-0">

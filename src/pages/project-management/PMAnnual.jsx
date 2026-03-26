@@ -67,7 +67,7 @@ function getCompanyMeta(companyId) {
     1: { logo: "/alora2.png", hoverBorder: "hover:border-[#f93e11]", badgeBg: "#f93e1115", badgeBorder: "#f93e1155", badgeText: "#f93e11" },
     2: { logo: "/ikm.png", hoverBorder: "hover:border-[#5ae7ee]", badgeBg: "#5ae7ee22", badgeBorder: "#5ae7ee70", badgeText: "#0a8a8f" },
     3: { logo: "/cleanox.png", hoverBorder: "hover:border-[#73be2b]", badgeBg: "#73be2b18", badgeBorder: "#73be2b55", badgeText: "#4a7c1c" },
-    4: { logo: "/labs.png", hoverBorder: "hover:border-[#b50000]", badgeBg: "#b5000015", badgeBorder: "#b5000055", badgeText: "#b50000" },
+    4: { logo: "/aurora.png", hoverBorder: "hover:border-[#b50000]", badgeBg: "#b5000015", badgeBorder: "#b5000055", badgeText: "#b50000" },
     5: { logo: "/waschen.webp", hoverBorder: "hover:border-[#5b005f]", badgeBg: "#5b005f15", badgeBorder: "#5b005f55", badgeText: "#5b005f" },
   };
   return map[id] ?? { logo: null, hoverBorder: "hover:border-slate-300", badgeBg: "#f1f5f9", badgeBorder: "#cbd5e1", badgeText: "#64748b" };

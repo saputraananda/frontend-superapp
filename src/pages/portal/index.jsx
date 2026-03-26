@@ -10,7 +10,6 @@ import DailyTasksCard from "./components/DailyTasksCard";
 import StatsCards from "./components/StatsCards";
 import WeatherWidget from "./components/WeatherWidget";
 import YouTubeSlider from "./components/YouTubeSlider";
-import PerformanceRating from "./components/PerformanceRating";
 import BroadcastBanner from "./components/BroadcastBanner"; 
 
 export default function Portal({ user, onLogout }) {
@@ -23,12 +22,15 @@ export default function Portal({ user, onLogout }) {
 
   const youtubeVideos = useMemo(
     () => [
-      { id: "XvjL7a6iLKc", title: "Video 1" },
-      { id: "Wt6sXPLsLNI", title: "Video 2" },
-      { id: "G1cOjb_-tKg", title: "Video 3" },
-      { id: "fkuYp1gxW14", title: "Video 4" },
-      { id: "M89sWlGYSdo", title: "Video 5" },
-      { id: "fkuYp1gxW14", title: "Video 6" },
+      { id: "Go_vhpddMDw", title: "Video 1" },
+      { id: "R1wmG6NeuoY", title: "Video 2" },
+      { id: "J8Vv--ioTa4", title: "Video 3" },
+      { id: "XvjL7a6iLKc", title: "Video 4" },
+      { id: "Wt6sXPLsLNI", title: "Video 5" },
+      { id: "G1cOjb_-tKg", title: "Video 6" },
+      { id: "fkuYp1gxW14", title: "Video 7" },
+      { id: "M89sWlGYSdo", title: "Video 8" },
+      { id: "fkuYp1gxW14", title: "Video 9" },
     ],
     [] 
   );
@@ -95,7 +97,7 @@ export default function Portal({ user, onLogout }) {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Content */}
           <div className="flex-1 space-y-6">
-            <BroadcastBanner />
+            {/* <BroadcastBanner /> */}
             <StatsCards />
             <ApplicationsSection
               apps={apps}
@@ -108,7 +110,6 @@ export default function Portal({ user, onLogout }) {
           <div className="w-full lg:w-80 space-y-6">
             <WeatherWidget />
             <YouTubeSlider videos={youtubeVideos} />
-            <PerformanceRating user={user} jobTitle={getJobTitle()} />
           </div>
         </div>
 
