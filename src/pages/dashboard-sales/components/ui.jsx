@@ -1,5 +1,5 @@
 import React from "react";
-import { cn } from "../utils/utils"; // import, bukan re-export
+import { cn } from "../utils/utils";
 
 export const Card = ({ className, children }) => (
   <div
@@ -33,9 +33,9 @@ export const PillSelect = ({ value, onChange, options }) => (
 
 export const IconBadge = ({ children, tone = "pink" }) => {
   const toneMap = {
-    pink: "bg-fuchsia-100 text-fuchsia-600",
+    pink:   "bg-fuchsia-100 text-fuchsia-600",
     purple: "bg-violet-100 text-violet-600",
-    blue: "bg-sky-100 text-sky-600",
+    blue:   "bg-sky-100 text-sky-600",
     orange: "bg-amber-100 text-amber-700",
   };
   return (
@@ -59,8 +59,11 @@ export const StatRow = ({ icon, tone, label, value }) => (
   </div>
 );
 
-export const SoftButton = ({ children }) => (
-  <button className="rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.25)] transition hover:translate-y-[-1px] hover:shadow-[0_20px_40px_rgba(236,72,153,0.28)] active:translate-y-[0px]">
+export const SoftButton = ({ children, onClick }) => (
+  <button
+    onClick={onClick}
+    className="rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.25)] transition hover:translate-y-[-1px] hover:shadow-[0_20px_40px_rgba(236,72,153,0.28)] active:translate-y-[0px]"
+  >
     {children}
   </button>
 );
@@ -85,16 +88,13 @@ export const Tab = ({ active, children, onClick }) => (
 export const TooltipCard = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-white/60 bg-white/90 px-3 py-2 shadow-lg backdrop-blur">
-      <p className="text-xs font-semibold text-slate-700">{label}</p>
-      <div className="mt-1 space-y-1">
-        {payload.map((p) => (
-          <div key={p.dataKey} className="flex items-center justify-between gap-4">
-            <span className="text-xs text-slate-500">{p.name ?? p.dataKey}</span>
-            <span className="text-xs font-semibold text-slate-800">{p.value}</span>
-          </div>
-        ))}
-      </div>
+    <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-xl backdrop-blur">
+      <p className="mb-2 text-xs font-bold text-slate-500">{label}</p>
+      {payload.map((p) => (
+        <p key={p.name} className="text-sm font-semibold" style={{ color: p.color }}>
+          {p.name}: {p.value}
+        </p>
+      ))}
     </div>
   );
 };

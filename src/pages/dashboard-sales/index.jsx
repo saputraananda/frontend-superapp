@@ -1,95 +1,203 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import UnderDevelopmentDialog from "../../components/UnderDevelopmentDialog";
-import DashboardHeader from "./components/DashboardHeader";
-import SalesOverviewCard from "./components/SalesOverviewCard";
-import TrafficCard from "./components/TrafficCard";
-import MiniStatsCards from "./components/MiniStatsCards";
-import CustomerAnalyticsCard from "./components/CustomerAnalyticsCard";
-import ComplainSystemCard from "./components/ComplainSystemCard";
-import CACRecommendationCard from "./components/CACRecommendationCard";
+import Sidebar from "./components/Sidebar";
+import FilterBar from "./components/FilterBar";
+import PenjualanSection from "./sections/PenjualanSection";
+import PiutangSection from "./sections/PiutangSection";
+import KomplainSection from "./sections/KomplainSection";
+import MembershipSection from "./sections/MembershipSection";
+import CustomerSection from "./sections/CustomerSection";
+import { getEmployeeFromLocal, canSupervisorUp } from "../project-management/role";
+import { api } from "../../lib/api";
+
+const SECTIONS = {
+  penjualan: PenjualanSection,
+  piutang: PiutangSection,
+  komplain: KomplainSection,
+  membership: MembershipSection,
+  customer: CustomerSection,
+};
+
+function initials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  return parts.length >= 2
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : parts[0].slice(0, 2).toUpperCase();
+}
+
+function capitalizeEachWord(text) {
+  if (!text) return "";
+  return text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const SECTION_LABELS = {
+  penjualan: "Dashboard Penjualan",
+  piutang: "Dashboard Piutang",
+  komplain: "Dashboard Komplain",
+  membership: "Dashboard Membership",
+  customer: "Dashboard Customer",
+};
 
 export default function Dashboard() {
-  const [showDevDialog, setShowDevDialog] = useState(true);
-  const [period, setPeriod] = useState("May 2024");
-  const [outlet, setOutlet] = useState("All Outlets");
-  const [channel, setChannel] = useState("All Channels");
-  const [shift, setShift] = useState("All Shifts");
-  const [rangeTab, setRangeTab] = useState("MONTHLY");
+  const [showDevDialog, setShowDevDialog] = useState(false);
+  const [activeSection, setActiveSection] = useState("penjualan");
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
-  const salesData = useMemo(() => [
-    { x: "May", sales: 120, orders: 90 },
-    { x: "May", sales: 240, orders: 180 },
-    { x: "May", sales: 200, orders: 210 },
-    { x: "May", sales: 260, orders: 190 },
-    { x: "May", sales: 230, orders: 240 },
-    { x: "May", sales: 320, orders: 280 },
-    { x: "May", sales: 270, orders: 340 },
-    { x: "May", sales: 360, orders: 210 },
-    { x: "May", sales: 210, orders: 90 },
-  ], []);
+  useEffect(() => {
+    document.title = `${SECTION_LABELS[activeSection] ?? "Sales Dashboard"} | Alora Group Indonesia`;
+  }, [activeSection]);
 
-  const trafficBreakdown = useMemo(() => [
-    { name: "Inbound", value: 33, color: "#A855F7" },
-    { name: "Existing", value: 55, color: "#EC4899" },
-    { name: "Vs. Yesterday", value: 12, color: "#F59E0B" },
-  ], []);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
-  const trafficDonut = useMemo(() => [
-    { name: "Achieved", value: 88, color: "#EC4899" },
-    { name: "Remaining", value: 12, color: "#A855F7" },
-  ], []);
+  const [outlet, setOutlet] = useState("all");
+  const [filterType, setFilterType] = useState("month");
+  const [month, setMonth] = useState("2026-03");
+  const [year, setYear] = useState("2026");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
-  const customerData = useMemo(() => [
-    { name: "Loyal", value: 31, color: "#EC4899" },
-    { name: "Regular", value: 24, color: "#60A5FA" },
-    { name: "One Time", value: 24, color: "#F59E0B" },
-    { name: "Other", value: 21, color: "#A855F7" },
-  ], []);
+  const employee = useMemo(() => getEmployeeFromLocal(), []);
+  const isSupervisorUp = useMemo(() => canSupervisorUp(employee), [employee]);
+  const isDirektur = useMemo(
+    () => canSupervisorUp(employee) && employee?.job_level_id == 1,
+    [employee]
+  );
 
-  const analyticsTimeData = useMemo(() => [
-    { t: 1, v: 78 }, { t: 2, v: 84 }, { t: 3, v: 81 },
-    { t: 4, v: 87 }, { t: 5, v: 92 }, { t: 6, v: 95 },
-  ], []);
+  // Handle resize for mobile detection
+  useEffect(() => {
+    function handleResize() {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-  const pageViewData = useMemo(() => [
-    { t: 1, v: 380 }, { t: 2, v: 400 }, { t: 3, v: 390 },
-    { t: 4, v: 410 }, { t: 5, v: 420 }, { t: 6, v: 400 },
-  ], []);
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
 
-  const oxennData = useMemo(() => [
-    { t: 1, v: 410 }, { t: 2, v: 420 }, { t: 3, v: 450 },
-    { t: 4, v: 430 }, { t: 5, v: 470 }, { t: 6, v: 445 },
-  ], []);
+  async function handleLogout() {
+    try { await api("/auth/logout", { method: "POST" }); } catch { /* ignore */ }
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  }
 
-  const cacDonut = useMemo(() => [
-    { name: "Salaries", value: 32, color: "#EC4899" },
-    { name: "Operational", value: 39, color: "#60A5FA" },
-    { name: "Marketing", value: 32, color: "#F59E0B" },
-  ], []);
+  const ActiveSection = SECTIONS[activeSection];
+  const filters = { outlet, filterType, month, year, startDate, endDate };
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9]">
+    <div className="flex min-h-screen bg-[#f4f6f9]">
       <UnderDevelopmentDialog open={showDevDialog} onClose={() => setShowDevDialog(false)} />
 
-      <DashboardHeader
-        period={period} setPeriod={setPeriod}
-        outlet={outlet} setOutlet={setOutlet}
-        channel={channel} setChannel={setChannel}
-        shift={shift} setShift={setShift}
-      />
+      {/* Mobile backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-5 pb-14">
-        <div className="grid grid-cols-12 gap-5">
-          <SalesOverviewCard salesData={salesData} rangeTab={rangeTab} setRangeTab={setRangeTab} />
-          <TrafficCard trafficDonut={trafficDonut} trafficBreakdown={trafficBreakdown} period={period} />
-          <MiniStatsCards pageViewData={pageViewData} oxennData={oxennData} />
-          <CustomerAnalyticsCard customerData={customerData} analyticsTimeData={analyticsTimeData} period={period} />
-          <ComplainSystemCard />
-          <CACRecommendationCard cacDonut={cacDonut} />
+      <Sidebar
+        active={activeSection}
+        onSelect={setActiveSection}
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        isMobile={isMobile}
+        onClose={() => setSidebarOpen(false)}
+      />
+      <div
+        className="flex-1 flex flex-col min-h-screen transition-all duration-300"
+        style={{ marginLeft: isMobile ? 0 : sidebarOpen ? 240 : 64 }}
+      >
+        {/* Top bar */}
+        <div className="bg-white border-b border-slate-200 shadow-sm px-6 py-4 flex items-center gap-4 sticky top-0 z-20">
+          {/* Hamburger */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 transition shrink-0"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+
+          {/* Title */}
+          <div className="flex-1">
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">{SECTION_LABELS[activeSection] ?? "Sales Dashboard"}</h1>
+            <p className="text-xs text-slate-400">Waschen Alora Indonesia</p>
+          </div>
+
+          {/* User Info */}
+          <div className="flex items-center gap-3" ref={dropdownRef}>
+            <div className="hidden sm:block text-right">
+              <div className="text-sm font-semibold text-slate-900">
+                {capitalizeEachWord(employee?.full_name || "User")}
+              </div>
+              <div className="text-xs text-slate-500">
+                {isDirektur ? "Direktur" : isSupervisorUp ? "Supervisor" : "Staff"}
+              </div>
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowDropdown((v) => !v)}
+                className="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-white text-sm font-bold shadow-sm hover:bg-slate-700 transition"
+              >
+                {initials(employee?.full_name)}
+              </button>
+
+              {showDropdown && (
+                <div className="absolute right-0 top-11 z-50 w-48 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                  <a
+                    href="/profile"
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    👤 Lihat Profil
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="mt-8 text-center text-xs font-semibold text-slate-400">
-          © {new Date().getFullYear()} — Dashboard Analytics
+        {/* Shared Filter Bar */}
+        <FilterBar
+          outlet={outlet} setOutlet={setOutlet}
+          filterType={filterType} setFilterType={setFilterType}
+          month={month} setMonth={setMonth}
+          year={year} setYear={setYear}
+          startDate={startDate} setStartDate={setStartDate}
+          endDate={endDate} setEndDate={setEndDate}
+        />
+
+        {/* Section content */}
+        <div className="flex-1 px-3 sm:px-6 py-4 sm:py-5 pb-14 overflow-x-hidden min-w-0">
+          <ActiveSection filters={filters} />
+        </div>
+
+        <div className="text-center text-xs font-semibold text-slate-400 py-4">
+          © {new Date().getFullYear()} — Waschen Alora Indonesia
         </div>
       </div>
     </div>
