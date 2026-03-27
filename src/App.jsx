@@ -16,6 +16,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
 import MaintenancePage from "./pages/maintenance";
 import AsetManagement from "./pages/aset-management";
+import TargetWaschen from "./pages/target-waschen";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -177,7 +178,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/master-karyawan/:id"
           element={
@@ -203,6 +204,16 @@ export default function App() {
           element={
             <ProtectedRoute user={user}>
               <AsetManagement user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Target Waschen ── */}
+        <Route
+          path="/target-waschen"
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/target-waschen"]}>
+              <TargetWaschen user={user} onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

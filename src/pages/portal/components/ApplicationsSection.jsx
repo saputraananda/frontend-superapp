@@ -1,4 +1,4 @@
-import {HiOutlineSquares2X2 } from "react-icons/hi2";
+import { HiOutlineSquares2X2 } from "react-icons/hi2";
 
 export default function ApplicationsSection({ apps, searchQuery, setSearchQuery }) {
 
@@ -63,6 +63,13 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6zm1 2a1 1 0 000 2h4a1 1 0 100-2H7zm0 4a1 1 0 000 2h4a1 1 0 100-2H7zm0 4a1 1 0 000 2h2a1 1 0 100-2H7z" clipRule="evenodd" />
         </svg>
       );
+    if (name.includes("target"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M11 2h2v3h-2zM11 19h2v3h-2zM2 11h3v2H2zM19 11h3v2h-3z" />
+          <path d="M12 4a8 8 0 100 16 8 8 0 000-16zm0 3.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zm0 2.5a2 2 0 100 4 2 2 0 000-4z" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -80,6 +87,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("add-menu") || name.includes("add menu") || name.includes("menu app")) return "bg-teal-500";
     if (name.includes("weekly") || name.includes("leader") || name.includes("report")) return "bg-indigo-500";
     if (name.includes("aset") || name.includes("asset")) return "bg-amber-500";
+    if (name.includes("target")) return "bg-orange-500";
     return "bg-blue-600";
   };
 
