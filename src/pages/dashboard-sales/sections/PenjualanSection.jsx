@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect } from "react";
+import React, { useReducer, useEffect, useState } from "react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";
@@ -39,6 +39,7 @@ export default function PenjualanSection({ filters }) {
     fetchReducer,
     { data: null, loading: true, error: null }
   );
+  const [includeCleanox, setIncludeCleanox] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,11 +69,19 @@ export default function PenjualanSection({ filters }) {
     </div>
   );
 
-  const outlets = data?.outlets ?? [];
-  const trend   = data?.trend   ?? [];
-  const meta    = data?.meta    ?? {};
+  const outlets      = data?.outlets      ?? [];
+  const trend        = data?.trend        ?? [];
+  const trendWaschen = data?.trendWaschen ?? [];
+  const meta         = data?.meta         ?? {};
 
-  const totalCapaian        = outlets.reduce((a, o) => a + Number(o.actual_sales), 0);
+  const chartTrend = includeCleanox ? trend : trendWaschen;
+
+  const getAdjustedSales = (o) =>
+    includeCleanox
+      ? Number(o.actual_sales)
+      : Number(o.actual_sales) - Number(o.cleanox_sales || 0);
+
+  const totalCapaian        = outlets.reduce((a, o) => a + getAdjustedSales(o), 0);
   const totalTarget         = outlets.reduce((a, o) => a + Number(o.target_bulanan), 0);
   const totalTargetKumulatif = outlets.reduce((a, o) => a + Number(o.target_kumulatif_sales), 0);
   const totalGap            = totalCapaian - totalTargetKumulatif;
@@ -80,6 +89,22 @@ export default function PenjualanSection({ filters }) {
 
   return (
     <div className="space-y-5">
+      {/* Cleanox Toggle */}
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-xs text-slate-500 font-medium">Termasuk Cleanox</span>
+        <button
+          type="button"
+          onClick={() => setIncludeCleanox((v) => !v)}
+          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+            includeCleanox ? "bg-violet-500" : "bg-slate-300"
+          }`}
+          aria-pressed={includeCleanox}
+        >
+          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+            includeCleanox ? "translate-x-[18px]" : "translate-x-0.5"
+          }`} />
+        </button>
+      </div>
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
@@ -117,7 +142,7 @@ export default function PenjualanSection({ filters }) {
         </p>
         <div className="h-56 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trend}>
+            <AreaChart data={chartTrend}>
               <defs>
                 <linearGradient id="gSales2" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3} />
@@ -143,7 +168,8 @@ export default function PenjualanSection({ filters }) {
         {/* Mobile */}
         <div className="flex flex-col gap-3 md:hidden">
           {outlets.map((row) => {
-            const gap    = Number(row.gap_nominal);
+            const adjustedActual = getAdjustedSales(row);
+            const gap    = adjustedActual - Number(row.target_kumulatif_sales);
             const isOver = gap >= 0;
             return (
               <div key={row.outlet} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-3">
@@ -166,7 +192,7 @@ export default function PenjualanSection({ filters }) {
                   </div>
                   <div>
                     <p className="text-slate-400 font-medium">Capaian s.d H-1</p>
-                    <p className="text-slate-800 font-bold">Rp {fmtIDR(Number(row.actual_sales))}</p>
+                    <p className="text-slate-800 font-bold">Rp {fmtIDR(adjustedActual)}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 font-medium">Gap</p>
@@ -195,7 +221,8 @@ export default function PenjualanSection({ filters }) {
             </thead>
             <tbody>
               {outlets.map((row) => {
-                const gap    = Number(row.gap_nominal);
+                const adjustedActual = getAdjustedSales(row);
+                const gap    = adjustedActual - Number(row.target_kumulatif_sales);
                 const isOver = gap >= 0;
                 return (
                   <tr key={row.outlet} className="border-b border-slate-50 hover:bg-slate-50/40 transition">
@@ -205,7 +232,7 @@ export default function PenjualanSection({ filters }) {
                       Rp {fmtIDR(Math.round(Number(row.target_kumulatif_sales)))}
                       <span className="ml-1 text-xs text-slate-400">({Number(row.persen_target_kumulatif).toFixed(1)}%)</span>
                     </td>
-                    <td className="py-3 pr-4 font-semibold text-slate-800">Rp {fmtIDR(Number(row.actual_sales))}</td>
+                    <td className="py-3 pr-4 font-semibold text-slate-800">Rp {fmtIDR(adjustedActual)}</td>
                     <td className={`py-3 pr-4 font-semibold ${isOver ? "text-emerald-600" : "text-rose-500"}`}>
                       {isOver ? "+" : ""}Rp {fmtIDR(Math.round(gap))}
                     </td>

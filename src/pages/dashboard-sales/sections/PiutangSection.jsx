@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect } from "react";
+import React, { useReducer, useEffect, useMemo } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Card } from "../components/ui";
 import { fmtIDR } from "../utils/utils";
@@ -22,12 +22,15 @@ function buildParams({ outlet, filterType, month, year, startDate, endDate }) {
   return p.toString();
 }
 
-function fetchReducer(state, action) {
+function reducer(state, action) {
   switch (action.type) {
-    case "loading": return { data: null, loading: true,  error: null };
-    case "success": return { data: action.payload, loading: false, error: null };
-    case "error":   return { data: null, loading: false, error: action.payload };
-    default:        return state;
+    case "loading":    return { ...state, data: null, loading: true, error: null, page: 1, search: "", statusFilter: "all" };
+    case "success":    return { ...state, data: action.payload, loading: false, error: null };
+    case "error":      return { ...state, data: null, loading: false, error: action.payload };
+    case "set_page":   return { ...state, page: action.payload };
+    case "set_search": return { ...state, search: action.payload, page: 1 };
+    case "set_status": return { ...state, statusFilter: action.payload, page: 1 };
+    default:           return state;
   }
 }
 
@@ -38,10 +41,27 @@ const STATUS_COLOR = {
 };
 
 export default function PiutangSection({ filters }) {
-  const [{ data, loading, error }, dispatch] = useReducer(
-    fetchReducer,
-    { data: null, loading: true, error: null }
-  );
+  const [state, dispatch] = useReducer(reducer, {
+    data: null, loading: true, error: null,
+    page: 1, search: "", statusFilter: "all",
+  });
+  const { data, loading, error, page, search, statusFilter } = state;
+  const PAGE_SIZE = 10;
+
+  const filteredPiutang = useMemo(() => {
+    const raw = data?.piutang ?? [];
+    const q = search.trim().toLowerCase();
+    return raw.filter(r => {
+      const matchStatus = statusFilter === "all" || r.status === statusFilter;
+      const matchSearch = !q || r.customer_nama?.toLowerCase().includes(q)
+                              || r.no_nota?.toLowerCase().includes(q)
+                              || r.outlet?.toLowerCase().includes(q);
+      return matchStatus && matchSearch;
+    });
+  }, [data, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPiutang.length / PAGE_SIZE));
+  const pagedRows  = filteredPiutang.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +71,7 @@ export default function PiutangSection({ filters }) {
       .then(res => { if (!cancelled) dispatch({ type: "success", payload: res }); })
       .catch(err => { if (!cancelled) dispatch({ type: "error",   payload: err.message }); });
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters?.outlet, filters?.filterType, filters?.month,
     filters?.year, filters?.startDate, filters?.endDate,
@@ -58,8 +79,8 @@ export default function PiutangSection({ filters }) {
 
   if (loading) return (
     <div className="space-y-5 animate-pulse">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-slate-200" />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {[1,2,3,4].map(i => <div key={i} className="h-24 rounded-2xl bg-slate-200" />)}
       </div>
       <div className="h-56 rounded-2xl bg-slate-200" />
       <div className="h-48 rounded-2xl bg-slate-200" />
@@ -73,7 +94,6 @@ export default function PiutangSection({ filters }) {
     </div>
   );
 
-  const piutang   = data?.piutang    ?? [];
   const summary   = data?.summary    ?? { total: 0, jatuh_tempo: 0, terlambat: 0 };
   const perOutlet = data?.per_outlet ?? [];
   const meta      = data?.meta       ?? {};
@@ -86,11 +106,12 @@ export default function PiutangSection({ filters }) {
   return (
     <div className="space-y-5">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: "Total Piutang", value: `Rp ${fmtIDR(summary.total)}`,       icon: "💳", tone: "from-fuchsia-500 to-pink-500"  },
-          { label: "Jatuh Tempo",   value: `Rp ${fmtIDR(summary.jatuh_tempo)}`, icon: "⏰", tone: "from-amber-400 to-orange-500"  },
-          { label: "Terlambat",     value: `Rp ${fmtIDR(summary.terlambat)}`,   icon: "🔴", tone: "from-rose-400 to-red-500"      },
+          { label: "Total Piutang",       value: `Rp ${fmtIDR(summary.total)}`,                                   icon: "💳", tone: "from-fuchsia-500 to-pink-500"   },
+          { label: "Belum Jatuh Tempo",   value: `Rp ${fmtIDR(summary.total - summary.jatuh_tempo - summary.terlambat)}`, icon: "🕐", tone: "from-sky-400 to-blue-500"      },
+          { label: "Jatuh Tempo",         value: `Rp ${fmtIDR(summary.jatuh_tempo)}`,                             icon: "⏰", tone: "from-amber-400 to-orange-500"  },
+          { label: "Terlambat",           value: `Rp ${fmtIDR(summary.terlambat)}`,                               icon: "🔴", tone: "from-rose-400 to-red-500"      },
         ].map(k => (
           <Card key={k.label} className="p-4 sm:p-5 flex items-center gap-4">
             <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${k.tone} flex items-center justify-center shadow text-xl shrink-0`}>
@@ -175,21 +196,48 @@ export default function PiutangSection({ filters }) {
 
       {/* Daftar Customer Piutang */}
       <Card className="p-4 sm:p-6">
-        <p className="text-sm font-bold text-slate-700 mb-4">Daftar Customer Piutang</p>
+        {/* Header + controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <p className="text-sm font-bold text-slate-700 shrink-0">
+            Daftar Customer Piutang
+            <span className="ml-2 text-xs font-normal text-slate-400">
+              ({filteredPiutang.length} data)
+            </span>
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <input
+              type="text"
+              placeholder="Cari customer / nota / outlet…"
+              value={search}
+              onChange={e => dispatch({ type: "set_search", payload: e.target.value })}
+              className="w-full sm:w-52 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+            />
+            <select
+              value={statusFilter}
+              onChange={e => dispatch({ type: "set_status", payload: e.target.value })}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+            >
+              <option value="all">Semua Status</option>
+              <option value="Belum Jatuh Tempo">Belum Jatuh Tempo</option>
+              <option value="Jatuh Tempo">Jatuh Tempo</option>
+              <option value="Terlambat">Terlambat</option>
+            </select>
+          </div>
+        </div>
 
         {/* Mobile */}
         <div className="flex flex-col gap-3 md:hidden">
-          {piutang.length === 0 ? (
+          {pagedRows.length === 0 ? (
             <p className="text-slate-400 text-sm text-center py-6">Tidak ada data</p>
-          ) : piutang.map((row, i) => (
+          ) : pagedRows.map((row, i) => (
             <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 text-sm">{row.customer_nama}</span>
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${STATUS_COLOR[row.status] ?? ""}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-slate-800 text-sm truncate">{row.customer_nama}</span>
+                <span className={`shrink-0 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_COLOR[row.status] ?? ""}`}>
                   {row.status}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">{row.outlet} · {row.no_nota}</p>
+              <p className="text-xs text-slate-500">{row.outlet} · <span className="font-mono">{row.no_nota}</span></p>
               <div className="grid grid-cols-2 gap-1 text-xs">
                 <div>
                   <p className="text-slate-400">Jumlah Utang</p>
@@ -214,23 +262,25 @@ export default function PiutangSection({ filters }) {
                 <th className="pb-3 pr-4">Outlet</th>
                 <th className="pb-3 pr-4">No Nota</th>
                 <th className="pb-3 pr-4">Jatuh Tempo</th>
-                <th className="pb-3 pr-4">Jumlah</th>
+                <th className="pb-3 pr-4 text-right">Jumlah</th>
                 <th className="pb-3">Status</th>
               </tr>
             </thead>
             <tbody>
-              {piutang.length === 0 ? (
+              {pagedRows.length === 0 ? (
                 <tr><td colSpan={7} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
-              ) : piutang.map((row, i) => (
-                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/40 transition">
-                  <td className="py-3 pr-4 text-slate-400 font-semibold">{i + 1}</td>
-                  <td className="py-3 pr-4 font-semibold text-slate-800">{row.customer_nama}</td>
-                  <td className="py-3 pr-4 text-slate-600">{row.outlet}</td>
+              ) : pagedRows.map((row, i) => (
+                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/60 transition">
+                  <td className="py-3 pr-4 text-slate-400 text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                  <td className="py-3 pr-4 font-semibold text-slate-800 max-w-[160px] truncate">{row.customer_nama}</td>
+                  <td className="py-3 pr-4 text-slate-500 text-xs">{row.outlet}</td>
                   <td className="py-3 pr-4 text-slate-500 font-mono text-xs">{row.no_nota}</td>
-                  <td className="py-3 pr-4 text-slate-600">{row.tgl_selesai}</td>
-                  <td className="py-3 pr-4 font-semibold text-slate-800">Rp {fmtIDR(Number(row.piutang))}</td>
+                  <td className="py-3 pr-4 text-slate-600 text-xs whitespace-nowrap">{row.tgl_selesai}</td>
+                  <td className="py-3 pr-4 font-semibold text-slate-800 text-right whitespace-nowrap">
+                    Rp {fmtIDR(Number(row.piutang))}
+                  </td>
                   <td className="py-3">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${STATUS_COLOR[row.status] ?? ""}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_COLOR[row.status] ?? ""}`}>
                       {row.status}
                     </span>
                   </td>
@@ -239,6 +289,59 @@ export default function PiutangSection({ filters }) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
+            <p className="text-xs text-slate-400">
+              Halaman {page} dari {totalPages} &nbsp;·&nbsp; {filteredPiutang.length} data
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => dispatch({ type: "set_page", payload: 1 })}
+                disabled={page === 1}
+                className="px-2 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              >«</button>
+              <button
+                onClick={() => dispatch({ type: "set_page", payload: Math.max(1, page - 1) })}
+                disabled={page === 1}
+                className="px-2.5 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              >‹</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                .reduce((acc, n, idx, arr) => {
+                  if (idx > 0 && n - arr[idx - 1] > 1) acc.push("…");
+                  acc.push(n);
+                  return acc;
+                }, [])
+                .map((n, idx) =>
+                  n === "…" ? (
+                    <span key={`e${idx}`} className="px-1 text-xs text-slate-400">…</span>
+                  ) : (
+                    <button
+                      key={n}
+                      onClick={() => dispatch({ type: "set_page", payload: n })}
+                      className={`min-w-[28px] px-2 py-1 rounded text-xs font-medium transition ${
+                        n === page
+                          ? "bg-violet-500 text-white shadow-sm"
+                          : "text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >{n}</button>
+                  )
+                )}
+              <button
+                onClick={() => dispatch({ type: "set_page", payload: Math.min(totalPages, page + 1) })}
+                disabled={page === totalPages}
+                className="px-2.5 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              >›</button>
+              <button
+                onClick={() => dispatch({ type: "set_page", payload: totalPages })}
+                disabled={page === totalPages}
+                className="px-2 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              >»</button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
