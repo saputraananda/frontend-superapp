@@ -7,7 +7,7 @@ import PiutangSection from "./sections/PiutangSection";
 import KomplainSection from "./sections/KomplainSection";
 import MembershipSection from "./sections/MembershipSection";
 import CustomerSection from "./sections/CustomerSection";
-import CleanoxByWaschenSection from "./sections/cleanoxByWaschenSection";
+import CleanoxByWaschenSection from "./sections/CleanoxByWaschenSection";
 import { getEmployeeFromLocal, canSupervisorUp } from "../project-management/role";
 import { api } from "../../lib/api";
 
