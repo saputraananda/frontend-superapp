@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "../utils/utils";
 
 const NAV_ITEMS = [
-  { key: "penjualan",  label: "Penjualan",  icon: "📊", desc: "Overview & target" },
-  { key: "piutang",    label: "Piutang",    icon: "💳", desc: "Receivables" },
-  { key: "komplain",   label: "Komplain",   icon: "⚠️", desc: "Customer complaints" },
-  { key: "membership", label: "Membership", icon: "⭐", desc: "Member analytics" },
-  { key: "customer",   label: "Customer",   icon: "👥", desc: "Segmentation" },
+  { key: "penjualan",          label: "Penjualan",      icon: "📊", desc: "Overview & target" },
+  { key: "cleanox_by_waschen", label: "Cleanox By Waschen",        icon: "🧺", desc: "Bagi hasil cleanox" },
+  { key: "piutang",            label: "Piutang",        icon: "💳", desc: "Receivables" },
+  { key: "komplain",           label: "Komplain",       icon: "⚠️", desc: "Customer complaints" },
+  { key: "membership",         label: "Membership",     icon: "⭐", desc: "Member analytics" },
+  { key: "customer",           label: "Customer",       icon: "👥", desc: "Segmentation" },
 ];
 
 export default function Sidebar({ active, onSelect, open, isMobile, onClose }) {

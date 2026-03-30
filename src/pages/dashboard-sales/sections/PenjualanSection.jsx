@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useState } from "react";
+import React, { useReducer, useEffect } from "react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";
@@ -39,7 +39,7 @@ export default function PenjualanSection({ filters }) {
     fetchReducer,
     { data: null, loading: true, error: null }
   );
-  const [includeCleanox, setIncludeCleanox] = useState(true);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -74,12 +74,18 @@ export default function PenjualanSection({ filters }) {
   const trendWaschen = data?.trendWaschen ?? [];
   const meta         = data?.meta         ?? {};
 
-  const chartTrend = includeCleanox ? trend : trendWaschen;
+  // Tampilan: Full Waschen + 30% bagi hasil Cleanox
+  const getAdjustedSales = (o) => {
+    const actual  = Number(o.actual_sales);
+    const cleanox = Number(o.cleanox_sales || 0);
+    return (actual - cleanox) + 0.30 * cleanox;
+  };
 
-  const getAdjustedSales = (o) =>
-    includeCleanox
-      ? Number(o.actual_sales)
-      : Number(o.actual_sales) - Number(o.cleanox_sales || 0);
+  const waschenMap = Object.fromEntries(trendWaschen.map(d => [d.date, d.sales]));
+  const chartTrend = trend.map(d => ({
+    ...d,
+    sales: Math.round((waschenMap[d.date] || 0) + 0.30 * (d.sales - (waschenMap[d.date] || 0))),
+  }));
 
   const totalCapaian        = outlets.reduce((a, o) => a + getAdjustedSales(o), 0);
   const totalTarget         = outlets.reduce((a, o) => a + Number(o.target_bulanan), 0);
@@ -89,21 +95,11 @@ export default function PenjualanSection({ filters }) {
 
   return (
     <div className="space-y-5">
-      {/* Cleanox Toggle */}
-      <div className="flex items-center justify-end gap-3">
-        <span className="text-xs text-slate-500 font-medium">Termasuk Cleanox</span>
-        <button
-          type="button"
-          onClick={() => setIncludeCleanox((v) => !v)}
-          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-            includeCleanox ? "bg-violet-500" : "bg-slate-300"
-          }`}
-          aria-pressed={includeCleanox}
-        >
-          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-            includeCleanox ? "translate-x-[18px]" : "translate-x-0.5"
-          }`} />
-        </button>
+      {/* Mode info */}
+      <div className="flex items-center justify-end">
+        <span className="text-[11px] text-slate-400 bg-slate-100 rounded-lg px-3 py-1.5 font-medium">
+          💡 Sudah mencakup <span className="text-violet-600 font-semibold">30% Cleanox</span> (bagi hasil)
+        </span>
       </div>
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

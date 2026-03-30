@@ -11,7 +11,7 @@ import { api } from "../../../lib/api";
 // ─── palette ─────────────────────────────────────────────────────────────────
 const SEG = [
   { key: "loyal",    label: "Loyal (>4x)",      icon: "⭐", fill: "#EC4899", tone: "from-pink-400 to-rose-500"    },
-  { key: "regular",  label: "Regular (2–4x)",    icon: "🔁", fill: "#60A5FA", tone: "from-sky-400 to-blue-500"    },
+  { key: "regular",  label: "Regular (2–3x)",    icon: "🔁", fill: "#60A5FA", tone: "from-sky-400 to-blue-500"    },
   { key: "one_time", label: "One Time (1x)",     icon: "1️⃣", fill: "#F59E0B", tone: "from-amber-400 to-orange-500" },
   { key: "inactive", label: "Belum Transaksi",   icon: "💤", fill: "#94A3B8", tone: "from-slate-400 to-slate-500"  },
 ];
@@ -21,11 +21,11 @@ const GENDER_PALETTE = ["#818CF8", "#FB7185", "#94A3B8", "#34D399"];
 // ─── reducer ─────────────────────────────────────────────────────────────────
 function fetchReducer(state, action) {
   switch (action.type) {
-    case "loading": return { data: null, loading: true,  error: null, topPage: 1 };
-    case "success": return { ...state, data: action.payload, loading: false, error: null };
-    case "error":   return { ...state, loading: false, error: action.payload };
+    case "loading":  return { data: null, loading: true,  error: null, topPage: 1 };
+    case "success":  return { ...state, data: action.payload, loading: false, error: null };
+    case "error":    return { ...state, loading: false, error: action.payload };
     case "set_page": return { ...state, topPage: action.payload };
-    default:        return state;
+    default:         return state;
   }
 }
 
@@ -57,8 +57,7 @@ function Skeleton() {
       </div>
       <div className="grid grid-cols-12 gap-5">
         <div className="col-span-12 sm:col-span-6 lg:col-span-4 h-60 rounded-2xl bg-slate-200" />
-        <div className="col-span-12 sm:col-span-6 lg:col-span-5 h-60 rounded-2xl bg-slate-200" />
-        <div className="col-span-12 lg:col-span-3 h-60 rounded-2xl bg-slate-200" />
+        <div className="col-span-12 sm:col-span-6 lg:col-span-8 h-60 rounded-2xl bg-slate-200" />
       </div>
       <div className="h-64 rounded-2xl bg-slate-200" />
       <div className="h-80 rounded-2xl bg-slate-200" />
@@ -112,7 +111,6 @@ export default function CustomerSection({ filters }) {
   const topTotalPages = Math.ceil(topCustomers.length / TOP_PAGE_SIZE);
   const topPaged = topCustomers.slice((topPage - 1) * TOP_PAGE_SIZE, topPage * TOP_PAGE_SIZE);
 
-  // Derived chart datasets
   const segData = SEG.map(s => ({
     name: s.label, value: kpi[s.key] || 0, fill: s.fill,
   }));
@@ -141,25 +139,25 @@ export default function CustomerSection({ filters }) {
   return (
     <div className="space-y-5">
 
-      {/* ─── KPI Cards ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      {/* ─── KPI Cards — 1 col mobile, 2 sm, 5 lg ──────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {[
           { label: "Total Customer", value: kpi.total || 0, icon: "👥", tone: "from-fuchsia-500 to-violet-600" },
           ...SEG.map(s => ({ label: s.label, value: kpi[s.key] || 0, icon: s.icon, tone: s.tone })),
         ].map(k => (
-          <Card key={k.label} className="p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br ${k.tone} flex items-center justify-center shadow text-base sm:text-xl shrink-0`}>
+          <Card key={k.label} className="p-4 sm:p-5 flex items-center gap-4">
+            <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${k.tone} flex items-center justify-center shadow text-xl shrink-0`}>
               {k.icon}
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] sm:text-xs text-slate-500 leading-tight">{k.label}</p>
-              <p className="text-lg sm:text-2xl font-extrabold text-slate-800">{(k.value).toLocaleString("id-ID")}</p>
+            <div>
+              <p className="text-xs text-slate-500 leading-tight">{k.label}</p>
+              <p className="text-2xl font-extrabold text-slate-800">{(k.value).toLocaleString("id-ID")}</p>
             </div>
           </Card>
         ))}
       </div>
 
-      {/* ─── Summary Stats Row ──────────────────────────────────────────────── */}
+      {/* ─── Summary Stats Row — 1 col mobile, 2 sm, 4 lg ──────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           {
@@ -255,7 +253,6 @@ export default function CustomerSection({ filters }) {
 
       {/* ─── Gender + Daily Registration Trend ──────────────────────────────── */}
       <div className="grid grid-cols-12 gap-5">
-        {/* Gender */}
         <Card className="col-span-12 sm:col-span-5 lg:col-span-4 p-4 sm:p-6">
           <p className="text-sm font-bold text-slate-700 mb-4">Distribusi Gender</p>
           <div className="flex flex-col sm:flex-row lg:flex-col items-center gap-4">
@@ -282,7 +279,6 @@ export default function CustomerSection({ filters }) {
           </div>
         </Card>
 
-        {/* Daily Registration Trend */}
         <Card className="col-span-12 sm:col-span-7 lg:col-span-8 p-4 sm:p-6">
           <p className="text-sm font-bold text-slate-700 mb-1">Trend Harian Penambahan Customer</p>
           <p className="text-xs text-slate-400 mb-4">
@@ -298,24 +294,11 @@ export default function CustomerSection({ filters }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.3)" />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fontSize: 9 }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval="preserveStartEnd"
-                />
+                <XAxis dataKey="day" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="Registrasi"
-                  stroke="#6366F1"
-                  strokeWidth={2}
-                  fill="url(#dailyGrad)"
-                  dot={dailyTrendData.length <= 31 ? { r: 3, fill: "#6366F1" } : false}
-                  activeDot={{ r: 5 }}
-                />
+                <Area type="monotone" dataKey="Registrasi" stroke="#6366F1" strokeWidth={2} fill="url(#dailyGrad)"
+                  dot={dailyTrendData.length <= 31 ? { r: 3, fill: "#6366F1" } : false} activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -402,17 +385,16 @@ export default function CustomerSection({ filters }) {
       {/* ─── Top Customers ──────────────────────────────────────────────────── */}
       {topCustomers.length > 0 && (
         <Card className="p-4 sm:p-6">
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-4">
+          {/* Header — stacked on mobile, side-by-side on sm+ */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <p className="text-sm font-bold text-slate-700">Top Customer Berdasarkan Omzet</p>
               <p className="text-xs text-slate-400 mt-0.5">
-                {topCustomers.length} customer ditemukan &nbsp;·&nbsp;
-                Halaman {topPage} dari {topTotalPages}
+                {topCustomers.length} customer &nbsp;·&nbsp; Hal. {topPage} dari {topTotalPages}
               </p>
             </div>
-            {/* Pagination controls */}
-            <div className="flex items-center gap-1.5">
+            {/* Pagination — wrappable on mobile */}
+            <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => dispatch({ type: "set_page", payload: 1 })}
                 disabled={topPage === 1}
@@ -539,7 +521,7 @@ export default function CustomerSection({ filters }) {
           {/* Bottom pagination info */}
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
             <span>
-              Menampilkan {Math.min((topPage - 1) * TOP_PAGE_SIZE + 1, topCustomers.length)}–{Math.min(topPage * TOP_PAGE_SIZE, topCustomers.length)} dari {topCustomers.length} customer
+              {Math.min((topPage - 1) * TOP_PAGE_SIZE + 1, topCustomers.length)}–{Math.min(topPage * TOP_PAGE_SIZE, topCustomers.length)} dari {topCustomers.length}
             </span>
             <span>10 per halaman</span>
           </div>

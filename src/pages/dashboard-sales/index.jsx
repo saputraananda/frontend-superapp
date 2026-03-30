@@ -7,15 +7,17 @@ import PiutangSection from "./sections/PiutangSection";
 import KomplainSection from "./sections/KomplainSection";
 import MembershipSection from "./sections/MembershipSection";
 import CustomerSection from "./sections/CustomerSection";
+import CleanoxByWaschenSection from "./sections/cleanoxByWaschenSection";
 import { getEmployeeFromLocal, canSupervisorUp } from "../project-management/role";
 import { api } from "../../lib/api";
 
 const SECTIONS = {
-  penjualan: PenjualanSection,
-  piutang: PiutangSection,
-  komplain: KomplainSection,
-  membership: MembershipSection,
-  customer: CustomerSection,
+  penjualan:          PenjualanSection,
+  cleanox_by_waschen: CleanoxByWaschenSection,
+  piutang:            PiutangSection,
+  komplain:           KomplainSection,
+  membership:         MembershipSection,
+  customer:           CustomerSection,
 };
 
 function initials(name) {
@@ -32,11 +34,12 @@ function capitalizeEachWord(text) {
 }
 
 const SECTION_LABELS = {
-  penjualan: "Dashboard Penjualan",
-  piutang: "Dashboard Piutang",
-  komplain: "Dashboard Komplain",
-  membership: "Dashboard Membership",
-  customer: "Dashboard Customer",
+  penjualan:          "Dashboard Penjualan",
+  cleanox_by_waschen: "Dashboard Cleanox By Waschen",
+  piutang:            "Dashboard Piutang",
+  komplain:           "Dashboard Komplain",
+  membership:         "Dashboard Membership",
+  customer:           "Dashboard Customer",
 };
 
 export default function Dashboard() {
