@@ -29,13 +29,13 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
 
   // ← Early returns SETELAH semua hooks
   if (loading) return (
-    <div className="lg:col-span-7 space-y-3">
+    <div className="lg:col-span-7 space-y-3 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
       {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />)}
     </div>
   );
 
   if (!selected) return (
-    <div className="lg:col-span-7">
+    <div className="lg:col-span-7 lg:sticky lg:top-24 lg:self-start">
       <Card className="flex flex-col items-center justify-center py-24 text-center">
         <span className="text-5xl mb-4">📋</span>
         <div className="text-slate-700 font-semibold text-base">Pilih task untuk melihat detail</div>
@@ -124,7 +124,7 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
     : [];
 
   return (
-    <div className="lg:col-span-7 space-y-4">
+    <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
       {/* Header Card */}
       <Card className="px-5 py-4">
         <div className="flex items-start justify-between gap-3 mb-3">
