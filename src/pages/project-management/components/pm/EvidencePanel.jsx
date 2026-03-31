@@ -120,6 +120,23 @@ export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
     });
   }
 
+  async function forceDownload(url, filename) {
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error("Gagal mendownload file");
+    }
+  }
+
   const iconColorMap = {
     LINK: "bg-blue-100 text-blue-700",
     IMG: "bg-blue-100 text-blue-700",
@@ -328,15 +345,13 @@ export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
               <span className="text-sm font-semibold text-slate-700 truncate max-w-[80%]">{preview.name}</span>
               <div className="flex items-center gap-2">
-                <a
-                  href={preview.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={preview.name}
+                <button
+                  type="button"
+                  onClick={() => forceDownload(preview.url, preview.name)}
                   className="h-7 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-600 flex items-center gap-1 transition"
                 >
                   ⬇ Download
-                </a>
+                </button>
                 <button
                   type="button"
                   onClick={() => setPreview(null)}
@@ -355,10 +370,10 @@ export const EvidencePanel = ({ taskId, canDelete = false, onChanged }) => {
                 <div className="text-center py-16">
                   <div className="text-5xl mb-4">📎</div>
                   <p className="text-slate-600 font-medium mb-3">Preview tidak tersedia untuk file ini.</p>
-                  <a href={preview.url} download={preview.name} target="_blank" rel="noreferrer"
+                  <button type="button" onClick={() => forceDownload(preview.url, preview.name)}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition">
                     ⬇ Download File
-                  </a>
+                  </button>
                 </div>
               )}
             </div>

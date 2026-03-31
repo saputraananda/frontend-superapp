@@ -93,7 +93,7 @@ export default function PMBoard() {
             <button type="button" onClick={handleBack}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
               <HiOutlineArrowLeft className="h-5 w-5" />
-              <span className="hidden sm:inline">Monthly</span>
+              <span className="hidden sm:inline">Sub Division</span>
             </button>
           </div>
 
@@ -209,6 +209,7 @@ export default function PMBoard() {
             load={board.load}
             statusFilter={board.statusFilter} setStatusFilter={board.setStatusFilter}
             priorityFilter={board.priorityFilter} setPriorityFilter={board.setPriorityFilter}
+            monthFilter={board.monthFilter} setMonthFilter={board.setMonthFilter}
             query={board.query} setQuery={board.setQuery}
             meOnly={board.meOnly} setMeOnly={board.setMeOnly}
             employee={board.employee}

@@ -81,11 +81,31 @@ export default function PenjualanSection({ filters }) {
     return (actual - cleanox) + 0.30 * cleanox;
   };
 
+  const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
   const waschenMap = Object.fromEntries(trendWaschen.map(d => [d.date, d.sales]));
-  const chartTrend = trend.map(d => ({
+  const chartTrendDaily = trend.map(d => ({
     ...d,
     sales: Math.round((waschenMap[d.date] || 0) + 0.30 * (d.sales - (waschenMap[d.date] || 0))),
   }));
+
+  // Aggregate into monthly when year filter is active
+  const isYearFilter = filters?.filterType === "year";
+  const chartTrend = isYearFilter
+    ? Object.values(
+        chartTrendDaily.reduce((acc, d) => {
+          const m = d.date.slice(0, 7); // "2026-03"
+          if (!acc[m]) acc[m] = { month: m, sales: 0 };
+          acc[m].sales += d.sales;
+          return acc;
+        }, {})
+      )
+        .sort((a, b) => a.month.localeCompare(b.month))
+        .map(d => ({
+          label: MONTH_NAMES[parseInt(d.month.slice(5, 7)) - 1],
+          sales: d.sales,
+        }))
+    : chartTrendDaily;
 
   const totalCapaian        = outlets.reduce((a, o) => a + getAdjustedSales(o), 0);
   const totalTarget         = outlets.reduce((a, o) => a + Number(o.target_bulanan), 0);
@@ -129,7 +149,7 @@ export default function PenjualanSection({ filters }) {
       {/* Sales Trend Chart */}
       <Card className="p-4 sm:p-6">
         <p className="text-sm font-bold text-slate-700 mb-4">
-          Tren Penjualan Harian
+          {isYearFilter ? "Tren Penjualan Bulanan" : "Tren Penjualan Harian"}
           {meta.dateStart && (
             <span className="ml-2 text-xs font-normal text-slate-400">
               ({meta.dateStart} s.d {meta.asOfDate})
@@ -146,8 +166,8 @@ export default function PenjualanSection({ filters }) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.3)" />
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
-                label={{ value: "Tanggal", position: "insideBottom", offset: -2, fontSize: 10 }} />
+              <XAxis dataKey={isYearFilter ? "label" : "day"} tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                label={{ value: isYearFilter ? "Bulan" : "Tanggal", position: "insideBottom", offset: -2, fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={45}
                 tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
               <Tooltip formatter={(v) => [`Rp ${fmtIDR(v)}`, "Penjualan"]} />

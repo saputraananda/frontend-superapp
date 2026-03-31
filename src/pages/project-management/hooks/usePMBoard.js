@@ -19,6 +19,7 @@ export function usePMBoard(monthlyId) {
 
   const [statusFilter, setStatusFilter]     = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [monthFilter, setMonthFilter]       = useState("all");
   const [query, setQuery]   = useState("");
   const [meOnly, setMeOnly] = useState(false);
 
@@ -209,9 +210,16 @@ export function usePMBoard(monthlyId) {
     return tasks
       .filter((t) => statusFilter   === "all" || t.status   === statusFilter)
       .filter((t) => priorityFilter === "all" || t.priority === priorityFilter)
+      .filter((t) => {
+        if (monthFilter === "all") return true;
+        const d = t.startdate || t.enddate;
+        if (!d) return false;
+        const m = new Date(d).getMonth() + 1; // 1-12
+        return m === Number(monthFilter);
+      })
       .filter((t) => !q     || t.title?.toLowerCase().includes(q))
       .filter((t) => !meOnly || t.assignees?.some((a) => a.employee_id === employee?.employee_id));
-  }, [tasks, statusFilter, priorityFilter, query, meOnly, employee]);
+  }, [tasks, statusFilter, priorityFilter, monthFilter, query, meOnly, employee]);
 
   const selected = useMemo(() => tasks.find((t) => t.id === selectedId) || null, [tasks, selectedId]);
 
@@ -220,6 +228,7 @@ export function usePMBoard(monthlyId) {
     loading, monthly, tasks, employees, err, setErr,
     statusFilter, setStatusFilter,
     priorityFilter, setPriorityFilter,
+    monthFilter, setMonthFilter,
     query, setQuery, meOnly, setMeOnly,
     selectedId, selected, selectTask,
     editMode, setEditMode,

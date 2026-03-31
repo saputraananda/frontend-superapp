@@ -339,7 +339,7 @@ export default function PMSemester() {
 
     const confirmed = await customConfirm(
       "Hapus Semester",
-      `Semester "${s.title}" dan semua monthly di dalamnya akan dihapus permanen. Aksi ini tidak dapat dibatalkan.`,
+      `Semester "${s.title}" dan semua sub division di dalamnya akan dihapus permanen. Aksi ini tidak dapat dibatalkan.`,
       "Hapus Semester",
       true
     );
@@ -839,7 +839,7 @@ function SemesterCard({ s, onClick, canEdit, onEdit, onDelete }) {
               {fmtDate(s.updated_at)}
             </div>
             <div className="flex items-center gap-0.5 text-[10px] font-bold text-violet-600 group-hover:gap-1 transition-all">
-              Monthly
+              Sub Division
               <HiOutlineChevronRight className="h-3 w-3" />
             </div>
           </div>

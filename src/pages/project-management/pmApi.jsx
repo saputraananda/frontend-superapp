@@ -34,7 +34,7 @@ export const pmApi = {
   updateSemester:   (semesterId, p)       => http(`/semesters/${semesterId}`, { method: "PUT",    body: p }),
   deleteSemester:   (semesterId)          => http(`/semesters/${semesterId}`, { method: "DELETE" }),
 
-  // ── Monthly ───────────────────────────────────────────────────────────────
+  // ── Sub Division (formerly Monthly) ────────────────────────────────────────
   listMonths:       (semesterId)          => http(`/semesters/${semesterId}/monthlies`),
   createMonth:      (semesterId, p)       => http(`/semesters/${semesterId}/monthlies`, { method: "POST", body: p }),
   getMonthDetail:   (monthlyId)           => http(`/monthlies/${monthlyId}`),
@@ -87,4 +87,5 @@ export const pmApi = {
   deleteNotif:        (notifId)           => http(`/notifications/${notifId}`,      { method: "DELETE" }),
   deleteAllNotif:     ()                  => http("/notifications",                 { method: "DELETE" }),
   listCompanies: () => http("/companies"),
+  listDepartments: () => http("/departments"),
 };

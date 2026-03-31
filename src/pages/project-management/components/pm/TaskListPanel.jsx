@@ -1,12 +1,20 @@
-import { Card }     from "../ui/Card";
+import { Card } from "../ui/Card";
 import { TaskCard } from "./TaskCard";
 import { STATUS_LIST, PRIORITY_LIST } from "../../constants/pmConstants";
 import { initials } from "../../utils/pmUtils";
+
+const MONTH_OPTIONS = [
+  { value: "1", label: "Jan" }, { value: "2", label: "Feb" }, { value: "3", label: "Mar" },
+  { value: "4", label: "Apr" }, { value: "5", label: "Mei" }, { value: "6", label: "Jun" },
+  { value: "7", label: "Jul" }, { value: "8", label: "Agu" }, { value: "9", label: "Sep" },
+  { value: "10", label: "Okt" }, { value: "11", label: "Nov" }, { value: "12", label: "Des" },
+];
 
 export const TaskListPanel = ({
   filteredTasks, selectedId, onSelect, load,
   statusFilter, setStatusFilter,
   priorityFilter, setPriorityFilter,
+  monthFilter, setMonthFilter,
   query, setQuery,
   meOnly, setMeOnly,
   employee, loading,
@@ -37,6 +45,11 @@ export const TaskListPanel = ({
       <div className="flex items-center gap-2">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search task..."
           className="flex-1 h-8 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300 transition" />
+        <select className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none"
+          value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
+          <option value="all">All Month</option>
+          {MONTH_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
         <select className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none"
           value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
           <option value="all">All Priority</option>

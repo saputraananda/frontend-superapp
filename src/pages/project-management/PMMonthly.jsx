@@ -23,31 +23,24 @@ import {
     HiOutlineAdjustmentsHorizontal,
     HiOutlinePencilSquare,
     HiOutlineTrash,
+    HiOutlineBuildingOffice2,
 } from "react-icons/hi2";
 
 // ─── Helpers ──────────────────────────────────────────
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-const MONTH_FULL = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-const monthName = (m) => MONTH_NAMES[Number(m) - 1] || `M${m}`;
-const monthFull = (m) => MONTH_FULL[Number(m) - 1] || `Bulan ${m}`;
-
-const MONTH_CONFIGS = [
-    { gradient: "from-rose-500 to-pink-500", light: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" },
-    { gradient: "from-orange-500 to-amber-500", light: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" },
-    { gradient: "from-amber-500 to-yellow-500", light: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
-    { gradient: "from-lime-500 to-green-500", light: "bg-lime-50", border: "border-lime-200", text: "text-lime-700" },
-    { gradient: "from-emerald-500 to-teal-500", light: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
-    { gradient: "from-teal-500 to-cyan-500", light: "bg-teal-50", border: "border-teal-200", text: "text-teal-700" },
-    { gradient: "from-cyan-500 to-sky-500", light: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" },
-    { gradient: "from-sky-500 to-blue-500", light: "bg-sky-50", border: "border-sky-200", text: "text-sky-700" },
+// Department-based color configs (cycle through gradient palette)
+const DEPT_COLORS = [
     { gradient: "from-blue-500 to-indigo-500", light: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
+    { gradient: "from-emerald-500 to-teal-500", light: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" },
     { gradient: "from-violet-500 to-purple-500", light: "bg-violet-50", border: "border-violet-200", text: "text-violet-700" },
-    { gradient: "from-purple-500 to-fuchsia-500", light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
+    { gradient: "from-orange-500 to-amber-500", light: "bg-orange-50", border: "border-orange-200", text: "text-orange-700" },
+    { gradient: "from-rose-500 to-pink-500", light: "bg-rose-50", border: "border-rose-200", text: "text-rose-700" },
+    { gradient: "from-cyan-500 to-sky-500", light: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700" },
+    { gradient: "from-lime-500 to-green-500", light: "bg-lime-50", border: "border-lime-200", text: "text-lime-700" },
     { gradient: "from-pink-500 to-rose-500", light: "bg-pink-50", border: "border-pink-200", text: "text-pink-700" },
 ];
-const monthConfig = (m) => MONTH_CONFIGS[(Number(m) - 1) % 12];
+const deptColor = (idx) => DEPT_COLORS[idx % DEPT_COLORS.length];
 
 function initials(name) {
     if (!name) return "?";
@@ -232,22 +225,24 @@ export default function PMMonthly() {
     const isDirektur = useMemo(() => canSupervisorUp(employee) && employee.job_level_id == 1, [employee]);
 
     const [loading, setLoading] = useState(true);
-    const [months, setMonths] = useState([]);
+    const [subdivisions, setSubdivisions] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [semesterData, setSemesterData] = useState(null);
     const [projectData, setProjectData] = useState(null);
     const [err, setErr] = useState("");
     const [open, setOpen] = useState(false);
-    const [month, setMonth] = useState(1);
+    const [department, setDepartment] = useState("");
     const [title, setTitle] = useState("");
     const [desc, setDesc] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [search, setSearch] = useState("");
-    const [sortBy, setSortBy] = useState("month_asc");
+    const [sortBy, setSortBy] = useState("az");
     const [viewMode, setViewMode] = useState("grid");
+    const [filterDept, setFilterDept] = useState("all");
 
     // Edit
     const [editItem, setEditItem] = useState(null);
-    const [editMonth, setEditMonth] = useState(1);
+    const [editDepartment, setEditDepartment] = useState("");
     const [editTitle, setEditTitle] = useState("");
     const [editDesc, setEditDesc] = useState("");
     const [editSubmitting, setEditSubmitting] = useState(false);
@@ -286,18 +281,20 @@ export default function PMMonthly() {
         setErr("");
         setLoading(true);
         try {
-            const [semRes, monthRes] = await Promise.all([
+            const [semRes, monthRes, deptRes] = await Promise.all([
                 pmApi.getSemesterDetail(semesterId),
                 pmApi.listMonths(semesterId),
+                pmApi.listDepartments(),
             ]);
             const sem = semRes?.data || null;
             setSemesterData(sem);
-            setMonths(monthRes?.data || []);
+            setSubdivisions(monthRes?.data || []);
+            setDepartments(deptRes?.data || []);
 
             // ← Set title setelah data semester berhasil dimuat
             document.title = sem?.title
-                ? `${sem.title} - Monthly | Project Management Alora`
-                : "Monthly Plans | Project Management Alora";
+                ? `${sem.title} - Sub Division | Project Management Alora`
+                : "Sub Division | Project Management Alora";
 
             if (sem?.id_project) {
                 try {
@@ -309,8 +306,8 @@ export default function PMMonthly() {
             }
         } catch (e) {
             console.error("load monthly error:", e);
-            setErr(e?.message || "Gagal memuat monthly");
-            document.title = "Monthly Plans | Project Management Alora";
+            setErr(e?.message || "Gagal memuat sub division");
+            document.title = "Sub Division | Project Management Alora";
         } finally {
             setLoading(false);
         }
@@ -322,15 +319,16 @@ export default function PMMonthly() {
         if (!semesterId) { toast.error("semesterId tidak ditemukan."); return; }
         setSubmitting(true);
         try {
-            await pmApi.createMonth(semesterId, { projectId, month, title: t, desc: desc.trim() });
+            await pmApi.createMonth(semesterId, { projectId, department: department.trim(), title: t, desc: desc.trim() });
             setOpen(false);
             setTitle("");
             setDesc("");
-            toast.success("Monthly berhasil dibuat");
+            setDepartment("");
+            toast.success("Sub Division berhasil dibuat");
             await load();
         } catch (e) {
-            console.error("create monthly error:", e);
-            toast.error(e?.message || "Gagal membuat monthly");
+            console.error("create sub division error:", e);
+            toast.error(e?.message || "Gagal membuat sub division");
         } finally {
             setSubmitting(false);
         }
@@ -338,75 +336,99 @@ export default function PMMonthly() {
 
     const goBoard = (m) => {
         const id = monthIdOf(m);
-        if (!id) { toast.error("Monthly ID tidak ditemukan."); return; }
+        if (!id) { toast.error("Sub Division ID tidak ditemukan."); return; }
         nav(`/projectmanagement/month/${id}`, { state: { projectId, semesterId } });
     };
 
-    useEffect(() => { load(); }, [semesterId]);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { load(); loadNotifCount(); }, [semesterId]);
 
-    function openEditMonth(e, m) {
+    function openEditSubdiv(e, m) {
         e.stopPropagation();
         setEditItem(m);
-        setEditMonth(m.month);
+        setEditDepartment(m.department || "");
         setEditTitle(m.title || "");
         setEditDesc(m.desc || "");
     }
 
-    async function saveEditMonth() {
+    async function saveEditSubdiv() {
         const id = monthIdOf(editItem);
         if (!id) return;
         if (!editTitle.trim()) { toast.error("Title wajib diisi."); return; }
         setEditSubmitting(true);
         try {
-            await pmApi.updateMonth(id, { month: editMonth, title: editTitle.trim(), desc: editDesc.trim() });
+            await pmApi.updateMonth(id, { department: editDepartment.trim(), title: editTitle.trim(), desc: editDesc.trim() });
             setEditItem(null);
-            toast.success("Monthly berhasil diperbarui");
+            toast.success("Sub Division berhasil diperbarui");
             await load();
         } catch (e) {
-            console.error("saveEditMonth error:", e);
-            toast.error(e?.message || "Gagal update monthly");
+            console.error("saveEditSubdiv error:", e);
+            toast.error(e?.message || "Gagal update sub division");
         } finally {
             setEditSubmitting(false);
         }
     }
 
-    async function handleDeleteMonth(e, m) {
+    async function handleDeleteSubdiv(e, m) {
         e.stopPropagation();
         const id = monthIdOf(m);
         if (!id) return;
 
         const confirmed = await customConfirm(
-            "Hapus Monthly",
-            `Monthly "${m.title}" dan semua task di dalamnya akan dihapus permanen. Aksi ini tidak dapat dibatalkan.`,
-            "Hapus Monthly",
+            "Hapus Sub Division",
+            `Sub Division "${m.title}" dan semua task di dalamnya akan dihapus permanen. Aksi ini tidak dapat dibatalkan.`,
+            "Hapus Sub Division",
             true
         );
         if (!confirmed) return;
 
         try {
             await pmApi.deleteMonth(id);
-            toast.success(`Monthly "${m.title}" berhasil dihapus`);
+            toast.success(`Sub Division "${m.title}" berhasil dihapus`);
             await load();
         } catch (e) {
-            console.error("deleteMonth error:", e);
-            toast.error(e?.message || "Gagal hapus monthly");
+            console.error("deleteSubdiv error:", e);
+            toast.error(e?.message || "Gagal hapus sub division");
         }
     }
 
+    // Map department_name → stable color index from master data
+    const deptColorMap = useMemo(() => {
+        const map = {};
+        departments.forEach((d, i) => { map[d.department_name] = i; });
+        return map;
+    }, [departments]);
+
+    // Custom color overrides for specific departments
+    const DEPT_CUSTOM_COLORS = {
+        "Business Development, Sales & Marketing": {
+            gradient: "from-[#ffa0c2] to-[#ff7eab]",
+            light: "bg-[#fff0f6]",
+            border: "border-[#ffc8da]",
+            text: "text-[#b5546e]",
+        },
+    };
+
+    const getDeptColor = (deptName) => {
+        if (deptName && DEPT_CUSTOM_COLORS[deptName]) return DEPT_CUSTOM_COLORS[deptName];
+        const idx = deptName && deptColorMap[deptName] != null ? deptColorMap[deptName] : 0;
+        return deptColor(idx);
+    };
+
     const filtered = useMemo(() => {
-        let list = [...months];
+        let list = [...subdivisions];
+        if (filterDept !== "all") {
+            list = list.filter(m => m.department === filterDept);
+        }
         if (search.trim()) {
             const q = search.trim().toLowerCase();
-            list = list.filter(m => m.title?.toLowerCase().includes(q) || m.desc?.toLowerCase().includes(q));
+            list = list.filter(m => m.title?.toLowerCase().includes(q) || m.desc?.toLowerCase().includes(q) || m.department?.toLowerCase().includes(q));
         }
-        if (sortBy === "month_asc") list.sort((a, b) => Number(a.month) - Number(b.month));
-        if (sortBy === "month_desc") list.sort((a, b) => Number(b.month) - Number(a.month));
         if (sortBy === "newest") list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         if (sortBy === "az") list.sort((a, b) => a.title?.localeCompare(b.title));
+        if (sortBy === "dept") list.sort((a, b) => (a.department || "").localeCompare(b.department || ""));
         return list;
-    }, [months, search, sortBy]);
+    }, [subdivisions, search, sortBy, filterDept]);
 
     const semCfg = semesterData?.semester === 1
         ? { gradient: "from-emerald-600 to-teal-500", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700" }
@@ -446,7 +468,7 @@ export default function PMMonthly() {
                             <HiOutlineTableCells className="h-5 w-5" />
                         </div>
                         <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                            Monthly Projects
+                            Sub Division Project
                         </h1>
                     </div>
 
@@ -524,7 +546,7 @@ export default function PMMonthly() {
                         {semesterData?.title ?? `Semester ${semesterData?.semester ?? "—"}`}
                     </button>
                     <HiOutlineChevronRight className="h-3 w-3 shrink-0" />
-                    <span className="text-slate-700 font-semibold">Monthly</span>
+                    <span className="text-slate-700 font-semibold">Sub Division</span>
                 </div>
 
                 {/* ── Semester Info Banner ── */}
@@ -546,7 +568,7 @@ export default function PMMonthly() {
                                 )}
                                 <div className={`flex items-center gap-3 mt-2 text-[10px] ${semCfg.text} opacity-70 flex-wrap`}>
                                     <span className="flex items-center gap-1"><HiOutlineCalendarDays className="h-3 w-3" />Dibuat {fmtDate(semesterData.created_at)}</span>
-                                    <span className="flex items-center gap-1"><HiOutlineRectangleStack className="h-3 w-3" />{months.length} Monthly</span>
+                                    <span className="flex items-center gap-1"><HiOutlineRectangleStack className="h-3 w-3" />{subdivisions.length} Sub Division</span>
                                 </div>
                             </div>
                         </div>
@@ -556,7 +578,7 @@ export default function PMMonthly() {
                 {/* ── Page Header ── */}
                 <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Monthly Plans</h2>
+                        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Sub Division</h2>
                         <p className="text-xs text-slate-500 mt-1">Klik setiap kartu untuk masuk ke board task & progress tracking.</p>
                     </div>
 
@@ -566,12 +588,12 @@ export default function PMMonthly() {
                             className="shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 active:scale-95 transition-all shadow-sm"
                         >
                             <HiOutlinePlus className="h-4 w-4" />
-                            Buat Monthly
+                            Buat Sub Division
                         </button>
                     ) : (
                         <div className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-400">
                             <HiOutlineLockClosed className="h-3.5 w-3.5" />
-                            Hanya Supervisor & BoD yang bisa membuat monthly
+                            Hanya Supervisor & BoD yang bisa membuat sub division
                         </div>
                     )}
                 </div>
@@ -584,9 +606,22 @@ export default function PMMonthly() {
                             <input
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                placeholder="Cari monthly..."
+                                placeholder="Cari sub division..."
                                 className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white transition"
                             />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <HiOutlineBuildingOffice2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <select
+                                value={filterDept}
+                                onChange={e => setFilterDept(e.target.value)}
+                                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
+                            >
+                                <option value="all">Semua Department</option>
+                                {departments.map(d => (
+                                    <option key={d.department_id} value={d.department_name}>{d.department_name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <HiOutlineAdjustmentsHorizontal className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -595,10 +630,9 @@ export default function PMMonthly() {
                                 onChange={e => setSortBy(e.target.value)}
                                 className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
                             >
-                                <option value="month_asc">Bulan ↑</option>
-                                <option value="month_desc">Bulan ↓</option>
-                                <option value="newest">Terbaru</option>
                                 <option value="az">A → Z</option>
+                                <option value="dept">Department</option>
+                                <option value="newest">Terbaru</option>
                             </select>
                         </div>
                         <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden bg-white">
@@ -630,19 +664,19 @@ export default function PMMonthly() {
                     </div>
                 ) : filtered.length ? (
                     <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1")}>
-                        {filtered.map(m => {
+                        {filtered.map((m) => {
                             const id = monthIdOf(m);
-                            const cfg = monthConfig(m.month);
+                            const cfg = getDeptColor(m.department);
                             const canEdit = isSupervisorUp || m.requestor_employee_id === employee?.employee_id;
                             return (
                                 <div key={id ?? JSON.stringify(m)} className="group relative">
                                     {canEdit && (
                                         <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
-                                            <button type="button" onClick={(e) => openEditMonth(e, m)} title="Edit"
+                                            <button type="button" onClick={(e) => openEditSubdiv(e, m)} title="Edit"
                                                 className="h-7 w-7 rounded-md border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center text-slate-400 hover:text-blue-600 transition shadow-sm">
                                                 <HiOutlinePencilSquare className="h-3.5 w-3.5" />
                                             </button>
-                                            <button type="button" onClick={(e) => handleDeleteMonth(e, m)} title="Hapus"
+                                            <button type="button" onClick={(e) => handleDeleteSubdiv(e, m)} title="Hapus"
                                                 className="h-7 w-7 rounded-md border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300 flex items-center justify-center text-slate-400 hover:text-rose-600 transition shadow-sm">
                                                 <HiOutlineTrash className="h-3.5 w-3.5" />
                                             </button>
@@ -661,12 +695,14 @@ export default function PMMonthly() {
                                                 <div className={`h-1.5 bg-gradient-to-r ${cfg.gradient}`} />
                                                 <div className="p-5">
                                                     <div className="flex items-start justify-between gap-2 mb-3">
-                                                        <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${cfg.gradient} text-white flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0`}>
-                                                            {monthName(m.month)}
+                                                        <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${cfg.gradient} text-white flex items-center justify-center shadow-sm shrink-0`}>
+                                                            <HiOutlineBuildingOffice2 className="h-5 w-5" />
                                                         </div>
-                                                        <span className={`inline-flex items-center rounded-md ${cfg.light} ${cfg.border} border px-2 py-0.5 text-[10px] font-semibold ${cfg.text}`}>
-                                                            Bulan {m.month}
-                                                        </span>
+                                                        {m.department && (
+                                                            <span className={`inline-flex items-center rounded-md ${cfg.light} ${cfg.border} border px-2 py-0.5 text-[10px] font-semibold ${cfg.text}`}>
+                                                                {m.department}
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-orange-600 transition-colors line-clamp-2 mb-1.5">
@@ -691,7 +727,7 @@ export default function PMMonthly() {
                                                     <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                                                         <div className="flex items-center gap-1 text-[10px] text-slate-400">
                                                             <HiOutlineCalendarDays className="h-3 w-3" />
-                                                            {monthFull(m.month)}
+                                                            {fmtDate(m.created_at)}
                                                         </div>
                                                         <div className="flex items-center gap-0.5 text-[10px] font-bold text-orange-600 group-hover:gap-1 transition-all">
                                                             Board <HiOutlineChevronRight className="h-3 w-3" />
@@ -702,15 +738,17 @@ export default function PMMonthly() {
                                         ) : (
                                             <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-sm hover:shadow-md hover:border-orange-300 transition-all">
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${cfg.gradient} text-white flex items-center justify-center text-xs font-extrabold shrink-0`}>
-                                                        {monthName(m.month)}
+                                                    <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${cfg.gradient} text-white flex items-center justify-center shrink-0`}>
+                                                        <HiOutlineBuildingOffice2 className="h-5 w-5" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-0.5">
                                                             <h3 className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors truncate">{m.title || "—"}</h3>
-                                                            <span className={`shrink-0 inline-flex items-center rounded-md ${cfg.light} border ${cfg.border} px-2 py-0.5 text-[10px] font-semibold ${cfg.text}`}>
-                                                                {monthFull(m.month)}
-                                                            </span>
+                                                            {m.department && (
+                                                                <span className={`shrink-0 inline-flex items-center rounded-md ${cfg.light} border ${cfg.border} px-2 py-0.5 text-[10px] font-semibold ${cfg.text}`}>
+                                                                    {m.department}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <p className="text-xs text-slate-500 truncate">{m.desc || "Tidak ada deskripsi."}</p>
                                                     </div>
@@ -737,14 +775,14 @@ export default function PMMonthly() {
                     <div className="rounded-xl bg-white border border-slate-200 p-16 text-center shadow-sm">
                         <HiOutlineInboxStack className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                         <p className="text-sm font-bold text-slate-700">
-                            {search ? "Tidak ada hasil" : "Belum ada monthly"}
+                            {search || filterDept !== "all" ? "Tidak ada hasil" : "Belum ada sub division"}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                            {search ? "Coba ubah kata kunci pencarian." : "Supervisor dapat membuat monthly project di sini."}
+                            {search || filterDept !== "all" ? "Coba ubah filter atau kata kunci pencarian." : "Supervisor dapat membuat sub division project di sini."}
                         </p>
-                        {search && (
-                            <button onClick={() => setSearch("")} className="mt-4 h-8 px-4 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200 transition">
-                                Reset
+                        {(search || filterDept !== "all") && (
+                            <button onClick={() => { setSearch(""); setFilterDept("all"); }} className="mt-4 h-8 px-4 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200 transition">
+                                Reset Filter
                             </button>
                         )}
                     </div>
@@ -763,8 +801,8 @@ export default function PMMonthly() {
                     >
                         <div className="bg-gradient-to-r from-orange-600 to-amber-500 px-6 py-5 flex items-center justify-between">
                             <div>
-                                <h3 className="text-base font-bold text-white">Buat Monthly Plan</h3>
-                                <p className="text-xs text-orange-100 mt-0.5">Pilih bulan dan isi detail project</p>
+                                <h3 className="text-base font-bold text-white">Buat Sub Division</h3>
+                                <p className="text-xs text-orange-100 mt-0.5">Isi department dan detail sub division project</p>
                             </div>
                             <button
                                 onClick={() => !submitting && setOpen(false)}
@@ -775,24 +813,20 @@ export default function PMMonthly() {
                         </div>
 
                         <div className="p-6 space-y-4">
-                            <div>
-                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-2">Bulan</span>
-                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
-                                    {MONTH_NAMES.map((name, i) => {
-                                        const cfg = monthConfig(i + 1);
-                                        return (
-                                            <button key={i} type="button" onClick={() => setMonth(i + 1)} disabled={submitting}
-                                                className={cn("h-9 rounded-lg text-xs font-bold transition-all",
-                                                    month === i + 1
-                                                        ? `bg-gradient-to-br ${cfg.gradient} text-white shadow-sm`
-                                                        : "bg-slate-50 border border-slate-200 text-slate-600 hover:border-slate-300"
-                                                )}>
-                                                {name}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                            <label className="block">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Department</span>
+                                <select
+                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-orange-400 transition"
+                                    value={department}
+                                    onChange={e => setDepartment(e.target.value)}
+                                    disabled={submitting}
+                                >
+                                    <option value="">— Pilih Department —</option>
+                                    {departments.map(d => (
+                                        <option key={d.department_id} value={d.department_name}>{d.department_name}</option>
+                                    ))}
+                                </select>
+                            </label>
 
                             <label className="block">
                                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Title <span className="text-rose-500">*</span></span>
@@ -800,7 +834,7 @@ export default function PMMonthly() {
                                     className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-orange-400 transition"
                                     value={title}
                                     onChange={e => setTitle(e.target.value)}
-                                    placeholder={`Rencana ${monthFull(month)}...`}
+                                    placeholder="Nama sub division project..."
                                     disabled={submitting}
                                     autoFocus
                                 />
@@ -812,7 +846,7 @@ export default function PMMonthly() {
                                     className="mt-1.5 min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-orange-400 transition resize-none"
                                     value={desc}
                                     onChange={e => setDesc(e.target.value)}
-                                    placeholder="Target & fokus bulan ini..."
+                                    placeholder="Deskripsi sub division..."
                                     disabled={submitting}
                                 />
                             </label>
@@ -839,7 +873,7 @@ export default function PMMonthly() {
                                             <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                                             Menyimpan...
                                         </span>
-                                    ) : "Buat Monthly"}
+                                    ) : "Buat Sub Division"}
                                 </button>
                             </div>
                         </div>
@@ -857,8 +891,8 @@ export default function PMMonthly() {
                         onClick={e => e.stopPropagation()}>
                         <div className="bg-gradient-to-r from-blue-700 to-blue-500 px-6 py-5 flex items-center justify-between">
                             <div>
-                                <h3 className="text-base font-bold text-white">Edit Monthly</h3>
-                                <p className="text-xs text-blue-200 mt-0.5">Ubah bulan, title & deskripsi</p>
+                                <h3 className="text-base font-bold text-white">Edit Sub Division</h3>
+                                <p className="text-xs text-blue-200 mt-0.5">Ubah department, title & deskripsi</p>
                             </div>
                             <button onClick={() => !editSubmitting && setEditItem(null)}
                                 className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition">
@@ -867,24 +901,18 @@ export default function PMMonthly() {
                         </div>
 
                         <div className="p-6 space-y-4">
-                            <div>
-                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-2">Bulan</span>
-                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
-                                    {MONTH_NAMES.map((name, i) => {
-                                        const cfg = monthConfig(i + 1);
-                                        return (
-                                            <button key={i} type="button" onClick={() => setEditMonth(i + 1)} disabled={editSubmitting}
-                                                className={cn("h-9 rounded-lg text-xs font-bold transition-all",
-                                                    editMonth === i + 1
-                                                        ? `bg-gradient-to-br ${cfg.gradient} text-white shadow-sm`
-                                                        : "bg-slate-50 border border-slate-200 text-slate-600 hover:border-slate-300"
-                                                )}>
-                                                {name}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                            <label className="block">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Department</span>
+                                <select
+                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 transition"
+                                    value={editDepartment} onChange={e => setEditDepartment(e.target.value)}
+                                    disabled={editSubmitting}>
+                                    <option value="">— Pilih Department —</option>
+                                    {departments.map(d => (
+                                        <option key={d.department_id} value={d.department_name}>{d.department_name}</option>
+                                    ))}
+                                </select>
+                            </label>
 
                             <label className="block">
                                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Title <span className="text-rose-500">*</span></span>
@@ -906,7 +934,7 @@ export default function PMMonthly() {
                                 <button type="button" onClick={() => !editSubmitting && setEditItem(null)}
                                     className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
                                     disabled={editSubmitting}>Batal</button>
-                                <button type="button" onClick={saveEditMonth}
+                                <button type="button" onClick={saveEditSubdiv}
                                     className="h-9 px-5 rounded-lg bg-blue-700 text-white text-sm font-bold hover:bg-blue-800 disabled:opacity-50 transition"
                                     disabled={editSubmitting}>
                                     {editSubmitting ? (
