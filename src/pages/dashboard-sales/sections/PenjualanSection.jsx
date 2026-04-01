@@ -15,22 +15,22 @@ function buildParams({ outlet, filterType, month, year, startDate, endDate }) {
     p.set("asOfDate", `${month}-25`);
   } else if (filterType === "year" && year) {
     const yearStart = `${parseInt(year) - 1}-12-26`; // misal 2025-12-26
-    const yearEnd   = `${year}-12-25`;               // misal 2026-12-25
-    const today     = new Date().toISOString().split("T")[0];
+    const yearEnd = `${year}-12-25`;               // misal 2026-12-25
+    const today = new Date().toISOString().split("T")[0];
     p.set("startDate", yearStart);
     p.set("endDate", today < yearEnd ? today : yearEnd);
   } else if (filterType === "range" && startDate && endDate) {
     p.set("startDate", startDate);
     p.set("endDate", endDate);
   }
-  return p.toString();  
+  return p.toString();
 }
 
 function fetchReducer(state, action) {
   switch (action.type) {
     case "success": return { data: action.payload, loading: false, error: null };
-    case "error":   return { data: null,           loading: false, error: action.payload };
-    default:        return state;
+    case "error": return { data: null, loading: false, error: action.payload };
+    default: return state;
   }
 }
 
@@ -46,7 +46,7 @@ export default function PenjualanSection({ filters }) {
     const qs = filters ? buildParams(filters) : "";
     api(`/sales/penjualan${qs ? `?${qs}` : ""}`)
       .then((res) => { if (!cancelled) dispatch({ type: "success", payload: res }); })
-      .catch((err) => { if (!cancelled) dispatch({ type: "error",   payload: err.message }); });
+      .catch((err) => { if (!cancelled) dispatch({ type: "error", payload: err.message }); });
     return () => { cancelled = true; };
   }, [
     filters?.outlet, filters?.filterType, filters?.month,
@@ -56,7 +56,7 @@ export default function PenjualanSection({ filters }) {
   if (loading) return (
     <div className="space-y-5 animate-pulse">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {[1,2,3,4].map((i) => <div key={i} className="h-24 rounded-2xl bg-slate-200" />)}
+        {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 rounded-2xl bg-slate-200" />)}
       </div>
       <div className="h-72 rounded-2xl bg-slate-200" />
       <div className="h-64 rounded-2xl bg-slate-200" />
@@ -69,19 +69,19 @@ export default function PenjualanSection({ filters }) {
     </div>
   );
 
-  const outlets      = data?.outlets      ?? [];
-  const trend        = data?.trend        ?? [];
+  const outlets = data?.outlets ?? [];
+  const trend = data?.trend ?? [];
   const trendWaschen = data?.trendWaschen ?? [];
-  const meta         = data?.meta         ?? {};
+  const meta = data?.meta ?? {};
 
   // Tampilan: Full Waschen + 30% bagi hasil Cleanox
   const getAdjustedSales = (o) => {
-    const actual  = Number(o.actual_sales);
+    const actual = Number(o.actual_sales);
     const cleanox = Number(o.cleanox_sales || 0);
     return (actual - cleanox) + 0.30 * cleanox;
   };
 
-  const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
   const waschenMap = Object.fromEntries(trendWaschen.map(d => [d.date, d.sales]));
   const chartTrendDaily = trend.map(d => ({
@@ -93,25 +93,25 @@ export default function PenjualanSection({ filters }) {
   const isYearFilter = filters?.filterType === "year";
   const chartTrend = isYearFilter
     ? Object.values(
-        chartTrendDaily.reduce((acc, d) => {
-          const m = d.date.slice(0, 7); // "2026-03"
-          if (!acc[m]) acc[m] = { month: m, sales: 0 };
-          acc[m].sales += d.sales;
-          return acc;
-        }, {})
-      )
-        .sort((a, b) => a.month.localeCompare(b.month))
-        .map(d => ({
-          label: MONTH_NAMES[parseInt(d.month.slice(5, 7)) - 1],
-          sales: d.sales,
-        }))
+      chartTrendDaily.reduce((acc, d) => {
+        const m = d.date.slice(0, 7); // "2026-03"
+        if (!acc[m]) acc[m] = { month: m, sales: 0 };
+        acc[m].sales += d.sales;
+        return acc;
+      }, {})
+    )
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map(d => ({
+        label: MONTH_NAMES[parseInt(d.month.slice(5, 7)) - 1],
+        sales: d.sales,
+      }))
     : chartTrendDaily;
 
-  const totalCapaian        = outlets.reduce((a, o) => a + getAdjustedSales(o), 0);
-  const totalTarget         = outlets.reduce((a, o) => a + Number(o.target_bulanan), 0);
+  const totalCapaian = outlets.reduce((a, o) => a + getAdjustedSales(o), 0);
+  const totalTarget = outlets.reduce((a, o) => a + Number(o.target_bulanan), 0);
   const totalTargetKumulatif = outlets.reduce((a, o) => a + Number(o.target_kumulatif_sales), 0);
-  const totalGap            = totalCapaian - totalTargetKumulatif;
-  const achievement         = totalTarget > 0 ? ((totalCapaian / totalTarget) * 100).toFixed(1) : "0.0";
+  const totalGap = totalCapaian - totalTargetKumulatif;
+  const achievement = totalTarget > 0 ? ((totalCapaian / totalTarget) * 100).toFixed(1) : "0.0";
 
   return (
     <div className="space-y-5">
@@ -124,14 +124,14 @@ export default function PenjualanSection({ filters }) {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: "Total Penjualan",      value: `Rp ${fmtIDR(totalCapaian)}`,  icon: "💰", tone: "from-fuchsia-500 to-pink-500" },
-          { label: "Total Target Bulanan", value: `Rp ${fmtIDR(totalTarget)}`,   icon: "🎯", tone: "from-violet-500 to-purple-500" },
-          { label: "Achievement",          value: `${achievement}%`,             icon: "📈", tone: "from-sky-500 to-blue-500" },
+          { label: "Total Penjualan", value: `Rp ${fmtIDR(totalCapaian)}`, icon: "💰", tone: "from-fuchsia-500 to-pink-500" },
+          { label: "Total Target Bulanan", value: `Rp ${fmtIDR(totalTarget)}`, icon: "🎯", tone: "from-violet-500 to-purple-500" },
+          { label: "Achievement", value: `${achievement}%`, icon: "📈", tone: "from-sky-500 to-blue-500" },
           {
             label: "Gap s.d Hari Ini",
             value: `${totalGap >= 0 ? "+" : ""}Rp ${fmtIDR(Math.round(totalGap))}`,
-            icon:  totalGap >= 0 ? "✅" : "⚠️",
-            tone:  totalGap >= 0 ? "from-emerald-400 to-teal-500" : "from-rose-400 to-red-500",
+            icon: totalGap >= 0 ? "✅" : "⚠️",
+            tone: totalGap >= 0 ? "from-emerald-400 to-teal-500" : "from-rose-400 to-red-500",
           },
         ].map((k) => (
           <Card key={k.label} className="p-4 sm:p-5 flex items-center gap-4">
@@ -185,15 +185,14 @@ export default function PenjualanSection({ filters }) {
         <div className="flex flex-col gap-3 md:hidden">
           {outlets.map((row) => {
             const adjustedActual = getAdjustedSales(row);
-            const gap    = adjustedActual - Number(row.target_kumulatif_sales);
+            const gap = adjustedActual - Number(row.target_kumulatif_sales);
             const isOver = gap >= 0;
             return (
               <div key={row.outlet} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-800 text-sm">{row.outlet}</span>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
-                    isOver ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
-                  }`}>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${isOver ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
+                    }`}>
                     {isOver ? "🟢 Over Target" : "🔴 Tertinggal"}
                   </span>
                 </div>
@@ -238,7 +237,7 @@ export default function PenjualanSection({ filters }) {
             <tbody>
               {outlets.map((row) => {
                 const adjustedActual = getAdjustedSales(row);
-                const gap    = adjustedActual - Number(row.target_kumulatif_sales);
+                const gap = adjustedActual - Number(row.target_kumulatif_sales);
                 const isOver = gap >= 0;
                 return (
                   <tr key={row.outlet} className="border-b border-slate-50 hover:bg-slate-50/40 transition">
@@ -253,9 +252,8 @@ export default function PenjualanSection({ filters }) {
                       {isOver ? "+" : ""}Rp {fmtIDR(Math.round(gap))}
                     </td>
                     <td className="py-3">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
-                        isOver ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
-                      }`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${isOver ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
+                        }`}>
                         {isOver ? "🟢 Over Target" : "🔴 Tertinggal"}
                       </span>
                     </td>

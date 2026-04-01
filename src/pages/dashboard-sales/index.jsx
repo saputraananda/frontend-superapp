@@ -57,8 +57,17 @@ export default function Dashboard() {
 
   const [outlet, setOutlet] = useState("all");
   const [filterType, setFilterType] = useState("month");
-  const [month, setMonth] = useState("2026-03");
-  const [year, setYear] = useState("2026");
+  const [month, setMonth] = useState(() => {
+    const today = new Date();
+    // Billing cycle: 26th prev month – 25th current month
+    // If today >= 26th, we're already in next month's cycle
+    if (today.getDate() >= 26) {
+      const next = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+    }
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [year, setYear] = useState(() => String(new Date().getFullYear()));
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
