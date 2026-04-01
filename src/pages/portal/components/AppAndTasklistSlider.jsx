@@ -32,19 +32,19 @@ export default function AppAndTasklistSlider({ children }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       {/* Tab header */}
-      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 flex items-center gap-1">
+      <div className="border-b border-slate-100 bg-slate-50 px-3 py-3 flex items-center gap-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => switchTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 ${
               activeTab === tab.id
                 ? "bg-white text-blue-600 shadow-sm border border-slate-200"
                 : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
             }`}
           >
             <span className={activeTab === tab.id ? "text-blue-600" : "text-slate-400"}>{tab.icon}</span>
-            {tab.label}
+            <span className="truncate">{tab.label}</span>
           </button>
         ))}
       </div>
