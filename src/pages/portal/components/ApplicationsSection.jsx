@@ -92,20 +92,19 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-5">
-        {/* Header statis — tanpa toggle */}
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-blue-100">
-            <HiOutlineSquares2X2 className="h-4 w-4 text-blue-600" />
-          </div>
-          <h2 className="text-base font-bold text-slate-800">Aplikasi Untuk Kamu</h2>
-          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
-            {apps.length}
-          </span>
+    <div className="p-5">
+      {/* Header statis — tanpa toggle */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-blue-100">
+          <HiOutlineSquares2X2 className="h-4 w-4 text-blue-600" />
         </div>
+        <h2 className="text-base font-bold text-slate-800">Aplikasi Untuk Kamu</h2>
+        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
+          {apps.length}
+        </span>
+      </div>
 
-        {/* Search & Grid langsung tampil */}
+      {/* Search & Grid langsung tampil */}
         <div className="relative mb-5">
           <input
             type="text"
@@ -147,13 +146,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           </div>
         )}
 
-        {/* Footer info */}
-        {filteredApps.length > 0 && (
-          <p className="mt-4 text-center text-xs text-slate-400">
-            Menampilkan <span className="font-semibold text-slate-600">{filteredApps.length}</span> aplikasi
-          </p>
-        )}
-      </div>
+      {/* Footer info */}
+      {filteredApps.length > 0 && (
+        <p className="mt-4 text-center text-xs text-slate-400">
+          Menampilkan <span className="font-semibold text-slate-600">{filteredApps.length}</span> aplikasi
+        </p>
+      )}
     </div>
   );
 }

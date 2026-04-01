@@ -12,6 +12,8 @@ import WeatherWidget from "./components/WeatherWidget";
 import YouTubeSlider from "./components/YouTubeSlider";
 import BroadcastBanner from "./components/BroadcastBanner"; 
 import AloraChatBot from "./components/AloraChatBot";
+import PersonalTasklistCard from "./components/PersonalTasklistCard";
+import AppAndTasklistSlider from "./components/AppAndTasklistSlider";
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -100,11 +102,14 @@ export default function Portal({ user, onLogout }) {
           <div className="flex-1 space-y-6">
             {/* <BroadcastBanner /> */}
             <StatsCards />
-            <ApplicationsSection
-              apps={apps}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-            />
+            <AppAndTasklistSlider>
+              <ApplicationsSection
+                apps={apps}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+              />
+              <PersonalTasklistCard />
+            </AppAndTasklistSlider>
           </div>
 
           {/* Sidebar */}
