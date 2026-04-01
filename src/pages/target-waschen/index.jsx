@@ -45,6 +45,10 @@ const formatRupiah = (n) => RUPIAH.format(n ?? 0);
 export default function TargetWaschen({ user, onLogout }) {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("sales");
+
+    useEffect(() => {
+        document.title = "Target Waschen Laundry | Alora App";
+    }, []);
     const [refreshSales, setRefreshSales] = useState(0);
     const [refreshCustomer, setRefreshCustomer] = useState(0);
 
@@ -64,7 +68,7 @@ export default function TargetWaschen({ user, onLogout }) {
         const { type, id } = pendingDelete;
         try {
             if (type === "sales") {
-                await api(`/target-waschen/target/${encodeURIComponent(id)}`, { method: "DELETE" });
+                await api(`/target-waschen/target/${id}`, { method: "DELETE" });
                 showToast("success", "Target sales berhasil dihapus");
                 setRefreshSales((k) => k + 1);
             } else {
@@ -179,20 +183,45 @@ export default function TargetWaschen({ user, onLogout }) {
 /* ════════════════════════════════════════════════════════════════
    TARGET SALES SECTION
 ════════════════════════════════════════════════════════════════ */
+const BULAN_NAMES = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+const OUTLET_OPTIONS = [
+    "Waschen Citra Grand",
+    "Waschen Laundry Canadian",
+    "Waschen Laundry Kota Wisata",
+    "Waschen Laundry Legenda Wisata",
+    "Waschen Laundry Raffles Hills",
+];
+
+function getBillingMonth() {
+    const today = new Date();
+    if (today.getDate() >= 26) {
+        const next = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        return { tahun: next.getFullYear(), bulan: next.getMonth() + 1 };
+    }
+    return { tahun: today.getFullYear(), bulan: today.getMonth() + 1 };
+}
+
 function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
+    const billing = getBillingMonth();
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [filterTahun, setFilterTahun] = useState(String(billing.tahun));
+    const [filterBulan, setFilterBulan] = useState(String(billing.bulan));
     const [modalOpen, setModalOpen] = useState(false);
     const [editRow, setEditRow] = useState(null);
-    const [form, setForm] = useState({ outlet: "", nominal: "" });
+    const [form, setForm] = useState({ outlet: "", tahun: "", bulan: "", nominal: "" });
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
 
     const fetchSales = async () => {
         setLoading(true);
         try {
-            const rows = await api("/target-waschen/target");
+            const qs = new URLSearchParams();
+            if (filterTahun) qs.set("tahun", filterTahun);
+            if (filterBulan) qs.set("bulan", filterBulan);
+            const rows = await api(`/target-waschen/target?${qs.toString()}`);
             setData(rows);
         } catch (err) {
             showToast("error", err.message);
@@ -201,14 +230,18 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
         }
     };
 
-    useEffect(() => { fetchSales(); }, [refreshKey]);
+    useEffect(() => { fetchSales(); }, [refreshKey, filterTahun, filterBulan]);
 
-    const openAdd = () => { setEditRow(null); setForm({ outlet: "", nominal: "" }); setErrors({}); setModalOpen(true); };
-    const openEdit = (row) => { setEditRow(row); setForm({ outlet: row.outlet, nominal: String(row.nominal) }); setErrors({}); setModalOpen(true); };
+    const openAdd = () => { setEditRow(null); setForm({ outlet: "", tahun: filterTahun, bulan: filterBulan, nominal: "" }); setErrors({}); setModalOpen(true); };
+    const openEdit = (row) => { setEditRow(row); setForm({ outlet: row.outlet, tahun: String(row.tahun), bulan: String(row.bulan), nominal: String(row.nominal) }); setErrors({}); setModalOpen(true); };
 
     const validate = () => {
         const e = {};
         if (!form.outlet.trim()) e.outlet = "Outlet wajib diisi";
+        const y = Number(form.tahun);
+        if (!form.tahun || isNaN(y) || y < 2000 || y > 2100) e.tahun = "Tahun tidak valid";
+        const b = Number(form.bulan);
+        if (!form.bulan || isNaN(b) || b < 1 || b > 12) e.bulan = "Bulan tidak valid";
         if (!form.nominal || isNaN(Number(form.nominal)) || Number(form.nominal) < 0)
             e.nominal = "Nominal harus angka positif";
         return e;
@@ -219,16 +252,17 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
         if (Object.keys(e).length) { setErrors(e); return; }
         setSaving(true);
         try {
+            const body = { outlet: form.outlet.trim(), tahun: Number(form.tahun), bulan: Number(form.bulan), nominal: Number(form.nominal) };
             if (editRow) {
-                await api(`/target-waschen/target/${encodeURIComponent(editRow.outlet)}`, {
+                await api(`/target-waschen/target/${editRow.id}`, {
                     method: "PUT",
-                    body: JSON.stringify({ outlet: form.outlet.trim(), nominal: Number(form.nominal) }),
+                    body: JSON.stringify(body),
                 });
                 showToast("success", "Target sales diperbarui");
             } else {
                 await api("/target-waschen/target", {
                     method: "POST",
-                    body: JSON.stringify({ outlet: form.outlet.trim(), nominal: Number(form.nominal) }),
+                    body: JSON.stringify(body),
                 });
                 showToast("success", "Target sales ditambahkan");
             }
@@ -247,6 +281,22 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
 
     return (
         <>
+            {/* Period filter */}
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500">Tahun</label>
+                    <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)} className={cn(inputCls, "w-24")}>
+                        {["2024", "2025", "2026", "2027"].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500">Bulan</label>
+                    <select value={filterBulan} onChange={(e) => setFilterBulan(e.target.value)} className={cn(inputCls, "w-36")}>
+                        {BULAN_NAMES.map((name, i) => <option key={i + 1} value={String(i + 1)}>{name}</option>)}
+                    </select>
+                </div>
+            </div>
+
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="relative flex-1 max-w-sm">
@@ -287,16 +337,26 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
                                 <tr className="border-b border-slate-100 bg-slate-50">
                                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">No</th>
                                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Outlet</th>
+                                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Periode</th>
                                     <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Nominal Target</th>
+                                    <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Dibuat</th>
+                                    <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Diupdate</th>
                                     <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filtered.map((row, i) => (
-                                    <tr key={i} className="hover:bg-slate-50/60 transition">
+                                    <tr key={row.id} className="hover:bg-slate-50/60 transition">
                                         <td className="px-5 py-4 text-slate-400">{i + 1}</td>
                                         <td className="px-5 py-4 font-medium text-slate-800">{row.outlet}</td>
+                                        <td className="px-5 py-4 text-slate-600">{BULAN_NAMES[row.bulan - 1]} {row.tahun}</td>
                                         <td className="px-5 py-4 text-right font-semibold text-emerald-700">{formatRupiah(row.nominal)}</td>
+                                        <td className="px-5 py-4 text-right text-slate-400 text-xs">
+                                            {row.created_at ? new Date(row.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                        </td>
+                                        <td className="px-5 py-4 text-right text-slate-400 text-xs">
+                                            {row.updated_at ? new Date(row.updated_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                        </td>
                                         <td className="px-5 py-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
@@ -307,7 +367,7 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
                                                     Edit
                                                 </button>
                                                 <button
-                                                    onClick={() => openConfirm("sales", row.outlet)}
+                                                    onClick={() => openConfirm("sales", row.id)}
                                                     className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition"
                                                 >
                                                     <HiOutlineTrash className="h-3.5 w-3.5" />
@@ -325,9 +385,9 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
 
             {/* Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-                    <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+                    <div className="absolute inset-0 bg-black/40" onClick={() => setModalOpen(false)} />
+                    <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
                         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-orange-50">
@@ -346,13 +406,37 @@ function TargetSalesSection({ showToast, openConfirm, refreshKey }) {
                         </div>
                         <div className="px-6 py-5 space-y-4">
                             <Field label="Outlet" required error={errors.outlet}>
-                                <input
+                                <select
                                     className={inputCls}
                                     value={form.outlet}
                                     onChange={(e) => setForm((f) => ({ ...f, outlet: e.target.value }))}
-                                    placeholder="Nama outlet"
-                                />
+                                >
+                                    <option value="">Pilih outlet</option>
+                                    {OUTLET_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>
                             </Field>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Tahun" required error={errors.tahun}>
+                                    <select
+                                        className={inputCls}
+                                        value={form.tahun}
+                                        onChange={(e) => setForm((f) => ({ ...f, tahun: e.target.value }))}
+                                    >
+                                        <option value="">Pilih tahun</option>
+                                        {["2024", "2025", "2026", "2027"].map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </Field>
+                                <Field label="Bulan" required error={errors.bulan}>
+                                    <select
+                                        className={inputCls}
+                                        value={form.bulan}
+                                        onChange={(e) => setForm((f) => ({ ...f, bulan: e.target.value }))}
+                                    >
+                                        <option value="">Pilih bulan</option>
+                                        {BULAN_NAMES.map((name, i) => <option key={i + 1} value={String(i + 1)}>{name}</option>)}
+                                    </select>
+                                </Field>
+                            </div>
                             <Field label="Nominal Target (Rp)" required error={errors.nominal}>
                                 <input
                                     type="number"
@@ -527,9 +611,9 @@ function TargetCustomerSection({ showToast, openConfirm, refreshKey }) {
 
             {/* Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-                    <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+                    <div className="absolute inset-0 bg-black/40" onClick={() => setModalOpen(false)} />
+                    <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
                         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-orange-50">
