@@ -124,7 +124,7 @@ export default function PenjualanSection({ filters }) {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: "Total Penjualan", value: `Rp ${fmtIDR(totalCapaian)}`, icon: "💰", tone: "from-fuchsia-500 to-pink-500" },
+          { label: "Total Pendapatan", value: `Rp ${fmtIDR(totalCapaian)}`, icon: "💰", tone: "from-fuchsia-500 to-pink-500" },
           { label: "Total Target Bulanan", value: `Rp ${fmtIDR(totalTarget)}`, icon: "🎯", tone: "from-violet-500 to-purple-500" },
           { label: "Achievement", value: `${achievement}%`, icon: "📈", tone: "from-sky-500 to-blue-500" },
           {
@@ -149,7 +149,7 @@ export default function PenjualanSection({ filters }) {
       {/* Sales Trend Chart */}
       <Card className="p-4 sm:p-6">
         <p className="text-sm font-bold text-slate-700 mb-4">
-          {isYearFilter ? "Tren Penjualan Bulanan" : "Tren Penjualan Harian"}
+          {isYearFilter ? "Tren Pendapatan Bulanan" : "Tren Pendapatan Harian"}
           {meta.dateStart && (
             <span className="ml-2 text-xs font-normal text-slate-400">
               ({meta.dateStart} s.d {meta.asOfDate})
@@ -170,7 +170,7 @@ export default function PenjualanSection({ filters }) {
                 label={{ value: isYearFilter ? "Bulan" : "Tanggal", position: "insideBottom", offset: -2, fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={45}
                 tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
-              <Tooltip formatter={(v) => [`Rp ${fmtIDR(v)}`, "Penjualan"]} />
+              <Tooltip formatter={(v) => [`Rp ${fmtIDR(v)}`, "Pendapatan"]} />
               <Area type="monotone" dataKey="sales" stroke="#EC4899" strokeWidth={2.5} fill="url(#gSales2)" />
             </AreaChart>
           </ResponsiveContainer>

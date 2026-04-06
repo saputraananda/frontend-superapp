@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "../utils/utils";
 
 const NAV_ITEMS = [
-  { key: "penjualan",          label: "Penjualan",      icon: "📊", desc: "Overview & target" },
+  { key: "pendapatan",          label: "Pendapatan",      icon: "📊", desc: "Revenue & target" },
   { key: "cleanox_by_waschen", label: "Cleanox By Waschen",        icon: "🧺", desc: "Bagi hasil cleanox" },
   { key: "piutang",            label: "Piutang",        icon: "💳", desc: "Receivables" },
   { key: "komplain",           label: "Komplain",       icon: "⚠️", desc: "Customer complaints" },

@@ -12,7 +12,7 @@ import { getEmployeeFromLocal, canSupervisorUp } from "../project-management/rol
 import { api } from "../../lib/api";
 
 const SECTIONS = {
-  penjualan:          PenjualanSection,
+  pendapatan:          PenjualanSection,
   cleanox_by_waschen: CleanoxByWaschenSection,
   piutang:            PiutangSection,
   komplain:           KomplainSection,
@@ -34,7 +34,7 @@ function capitalizeEachWord(text) {
 }
 
 const SECTION_LABELS = {
-  penjualan:          "Dashboard Penjualan",
+  pendapatan:          "Dashboard Pendapatan",
   cleanox_by_waschen: "Dashboard Cleanox By Waschen",
   piutang:            "Dashboard Piutang",
   komplain:           "Dashboard Komplain",
@@ -44,7 +44,7 @@ const SECTION_LABELS = {
 
 export default function Dashboard() {
   const [showDevDialog, setShowDevDialog] = useState(false);
-  const [activeSection, setActiveSection] = useState("penjualan");
+  const [activeSection, setActiveSection] = useState("pendapatan");
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
