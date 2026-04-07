@@ -131,11 +131,9 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm sm:p-4"
-      onClick={() => { if (!tSubmitting) onClose(); }}
     >
       <div
         className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[95dvh] sm:max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="h-1 w-10 bg-slate-200 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
 
