@@ -173,7 +173,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
           <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
 
             {/* ─── Kolom Kiri ─── */}
-            <div className="space-y-5">
+            <div className="space-y-5 min-w-0">
               {/* Judul */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -274,7 +274,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                   <div className="mt-3 space-y-2">
                     <p className="text-[10px] text-slate-500 font-medium">File saat ini:</p>
                     {existingEvidences.map((ev) => (
-                      <div key={ev.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                      <div key={ev.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
                         {ev.file_type?.startsWith("image/") ? (
                           <img src={`${BASE_URL}/assets/${ev.file_path}`} alt={ev.file_name} className="h-8 w-8 object-cover rounded" />
                         ) : (
@@ -303,7 +303,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                   <div className="mt-3 space-y-2">
                     <p className="text-[10px] text-slate-500 font-medium">File baru:</p>
                     {newFilePreviews.map((f, idx) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <div key={idx} className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200 overflow-hidden">
                         {f.url ? (
                           <img src={f.url} alt={f.name} className="h-8 w-8 object-cover rounded" />
                         ) : (
