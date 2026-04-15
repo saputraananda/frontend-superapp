@@ -712,7 +712,7 @@ export default function EmployeeDetail() {
                               name="company_id"
                               value={formData.company_id || ""}
                               onChange={(e) => {
-                                setFormData((p) => ({ ...p, company_id: e.target.value, department_id: "" }));
+                                setFormData((p) => ({ ...p, company_id: e.target.value }));
                                 if (fieldErrors.company_id) setFieldErrors((p) => ({ ...p, company_id: "" }));
                               }}
                               className={selectCls()}
@@ -724,34 +724,19 @@ export default function EmployeeDetail() {
                             </select>
                           </Field>
 
-                          {/* Departemen — turunan dari Perusahaan */}
+                          {/* Departemen */}
                           <Field label="Departemen">
-                            {(() => {
-                              const selectedCompany = masterData.companies?.find(
-                                (c) => String(c.company_id) === String(formData.company_id)
-                              );
-                              const filteredDepts = selectedCompany
-                                ? masterData.departments?.filter(
-                                  (d) => d.company_code === selectedCompany.company_code
-                                )
-                                : masterData.departments;
-                              return (
-                                <select
-                                  name="department_id"
-                                  value={formData.department_id || ""}
-                                  onChange={handleChange}
-                                  className={selectCls()}
-                                  disabled={!formData.company_id}
-                                >
-                                  <option value="">
-                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
-                                  </option>
-                                  {filteredDepts?.map((d) => (
-                                    <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
-                                  ))}
-                                </select>
-                              );
-                            })()}
+                            <select
+                              name="department_id"
+                              value={formData.department_id || ""}
+                              onChange={handleChange}
+                              className={selectCls()}
+                            >
+                              <option value="">— Pilih —</option>
+                              {masterData.departments?.map((d) => (
+                                <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                              ))}
+                            </select>
                           </Field>
 
                           {/* Posisi */}
@@ -760,7 +745,7 @@ export default function EmployeeDetail() {
                               name="position_id"
                               value={formData.position_id || ""}
                               onChange={(e) => {
-                                setFormData((p) => ({ ...p, position_id: e.target.value, job_level_id: "" }));
+                                setFormData((p) => ({ ...p, position_id: e.target.value }));
                                 if (fieldErrors.position_id) setFieldErrors((p) => ({ ...p, position_id: "" }));
                               }}
                               className={selectCls()}
@@ -772,34 +757,19 @@ export default function EmployeeDetail() {
                             </select>
                           </Field>
 
-                          {/* Level Jabatan — turunan dari Posisi */}
+                          {/* Level Jabatan */}
                           <Field label="Level Jabatan">
-                            {(() => {
-                              const selectedPosition = masterData.positions?.find(
-                                (p) => String(p.position_id) === String(formData.position_id)
-                              );
-                              const filteredLevels = selectedPosition
-                                ? masterData.jobLevels?.filter(
-                                  (j) => j.position_code === selectedPosition.position_code
-                                )
-                                : masterData.jobLevels;
-                              return (
-                                <select
-                                  name="job_level_id"
-                                  value={formData.job_level_id || ""}
-                                  onChange={handleChange}
-                                  className={selectCls()}
-                                  disabled={!formData.position_id}
-                                >
-                                  <option value="">
-                                    {formData.position_id ? "— Pilih —" : "— Pilih posisi dulu —"}
-                                  </option>
-                                  {filteredLevels?.map((j) => (
-                                    <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
-                                  ))}
-                                </select>
-                              );
-                            })()}
+                            <select
+                              name="job_level_id"
+                              value={formData.job_level_id || ""}
+                              onChange={handleChange}
+                              className={selectCls()}
+                            >
+                              <option value="">— Pilih —</option>
+                              {masterData.jobLevels?.map((j) => (
+                                <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
+                              ))}
+                            </select>
                           </Field>
 
                           {/* Status Kepegawaian */}
