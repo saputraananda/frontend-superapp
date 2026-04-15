@@ -15,8 +15,8 @@ export default function ApprovalSection({ aset, employee, onRefresh, showToast }
     const [loading, setLoading] = useState(false);
 
     const jobLevel = Number(employee?.job_level_id);
-    const isStaff = jobLevel >= 3;          // ← tambah ini
-    const isSupervisorUp = jobLevel <= 2;
+    const isStaff = jobLevel >= 4;
+    const isSupervisorUp = jobLevel <= 3;
     const isDirector = jobLevel === 1;
     const status = aset?.approval_status;
 

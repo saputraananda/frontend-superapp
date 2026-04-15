@@ -120,7 +120,7 @@ export default function PMBoard() {
                   {capitalizeEachWord(board.employee?.full_name || "User")}
                 </div>
                 <div className="text-xs text-slate-400">
-                  {board.isDirektur ? "Direktur" : board.isSupervisor ? "Supervisor" : "Staff"}
+                  {board.roleLabel}
                 </div>
               </div>
 

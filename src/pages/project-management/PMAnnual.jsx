@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
 import { api } from "../../lib/api";
-import { getEmployeeFromLocal, canDirektur, canSupervisorUp } from "./role";
+import { getEmployeeFromLocal, canDirektur, canSupervisorUp, getJobLevelLabel } from "./role";
 import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiTrash2, FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX } from "react-icons/fi";
@@ -234,6 +234,7 @@ export default function PMAnnual() {
   const employee = useMemo(() => getEmployeeFromLocal(), []);
   const isDirektur = useMemo(() => canDirektur(employee), [employee]);
   const isSupervisorUp = useMemo(() => canSupervisorUp(employee), [employee]);
+  const roleLabel = useMemo(() => getJobLevelLabel(employee), [employee]);
 
 
   const [loading, setLoading] = useState(true);
@@ -490,7 +491,7 @@ export default function PMAnnual() {
                 {capitalizeEachWord(employee?.full_name || "User")}
               </div>
               <div className="text-xs text-slate-500">
-                {isDirektur ? "Direktur" : isSupervisorUp ? "Supervisor" : "Staff"}
+                {roleLabel}
               </div>
             </div>
 
@@ -555,7 +556,7 @@ export default function PMAnnual() {
             ) : (
               <div className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-400">
                 <HiOutlineLockClosed className="h-3.5 w-3.5" />
-                Hanya Direktur & Supervisor yang bisa membuat project
+                Hanya Direktur/Manager/Supervisor yang bisa membuat project
               </div>
             )}
           </div>
@@ -839,7 +840,7 @@ export default function PMAnnual() {
             <p className="text-xs text-slate-400 mt-1">
               {search || yearFilter !== "all" || companyFilter !== "all"
                 ? "Coba ubah filter atau keyword pencarian."
-                : "Direktur & Supervisor dapat membuat project tahunan pertama."}
+                : "Direktur/Manager/Supervisor dapat membuat project tahunan pertama."}
             </p>
             {(search || yearFilter !== "all" || companyFilter !== "all") && (
               <button
@@ -922,7 +923,7 @@ export default function PMAnnual() {
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
-                  <div className="text-[10px] text-slate-400">Creator · {isSupervisorUp ? "Supervisor" : "Staff"}</div>
+                  <div className="text-[10px] text-slate-400">Creator · {roleLabel}</div>
                 </div>
               </div>
 

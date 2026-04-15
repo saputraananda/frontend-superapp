@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo} from "react";
 import { pmApi } from "../pmApi";
-import { getEmployeeFromLocal, canSupervisorUp, canDirektur } from "../role";
+import { getEmployeeFromLocal, canSupervisorUp, canDirektur, getJobLevelLabel } from "../role";
 import { computeProgress, isOverdue } from "../utils/pmUtils";
 import { toast } from "./useToast";
 import { customConfirm } from "./useModal";
@@ -10,6 +10,7 @@ export function usePMBoard(monthlyId) {
   const isDirektur   = useMemo(() => canDirektur(employee), [employee]);
   const isSupervisor = useMemo(() => canSupervisorUp(employee), [employee]);
   const isStaff      = !isSupervisor;
+  const roleLabel    = useMemo(() => getJobLevelLabel(employee), [employee]);
 
   const [loading, setLoading] = useState(true);
   const [monthly, setMonthly] = useState(null);
@@ -241,6 +242,6 @@ export function usePMBoard(monthlyId) {
     // methods
     load, loadNotifCount, updateTask, deleteTask, addComment,
     // role
-    employee, isDirektur, isSupervisor, isStaff,
+    employee, isDirektur, isSupervisor, isStaff, roleLabel,
   };
 }

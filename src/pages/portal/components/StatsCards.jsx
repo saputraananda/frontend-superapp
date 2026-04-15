@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../../lib/api";
 
-export default function StatsCards() {
+export default function StatsCards({ companyId }) {
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -23,6 +23,7 @@ export default function StatsCards() {
     // Data lain (masih dummy untuk sekarang)
     const currentEmployee = 156;
     const thisTime = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    const isIkm = Number(companyId) === 2;
 
     const employeeGrowthMonitoring = 3.9;
     const breakdown = [
@@ -35,6 +36,17 @@ export default function StatsCards() {
     // FETCH SALES DATA
     // ═══════════════════════════════════════════════════════════════════════════
     useEffect(() => {
+        if (isIkm) {
+            setSalesData({
+                actual_sales: 1.3,
+                target_bulanan: 1.5,
+                percentage: 88,
+                sales_growth: 0,
+            });
+            setLoading(false);
+            return;
+        }
+
         const fetchSalesData = async () => {
             try {
                 setLoading(true);
@@ -62,15 +74,29 @@ export default function StatsCards() {
         };
 
         fetchSalesData();
-    }, []);
+    }, [isIkm]);
 
-    // Format angka ke juta (untuk display)
-    const formatRupiah = (value) => {
-        return value.toLocaleString('id-ID');
-    };
+    const formatNumber = (value) =>
+        value.toLocaleString("id-ID", {
+            minimumFractionDigits: Number.isInteger(value) ? 0 : 1,
+            maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
+        });
+
+    const salesUnit = isIkm ? "Miliar" : "Juta";
+    const salesRemaining = salesData.target_bulanan - salesData.actual_sales;
 
     // Fetch customer data
     useEffect(() => {
+        if (isIkm) {
+            setCustomerData({
+                actual_customer: 15,
+                target_customer: 30,
+                percentage: 50,
+            });
+            setCustomerLoading(false);
+            return;
+        }
+
         const fetchCustomerData = async () => {
             try {
                 setCustomerLoading(true);
@@ -89,7 +115,7 @@ export default function StatsCards() {
             }
         };
         fetchCustomerData();
-    }, []);
+    }, [isIkm]);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -158,7 +184,7 @@ export default function StatsCards() {
                                 </svg>
                             </div>
                             <div>
-                                <p className="text-xs text-slate-600 font-semibold">Total Sales</p>
+                                <p className="text-xs text-slate-600 font-semibold">{isIkm ? "Total Sales IKM" : "Total Sales"}</p>
                                 <p className="text-[10px] text-slate-500">
                                     {loading ? "Loading..." : `Total Saat Ini - ${thisTime}`}
                                 </p>
@@ -199,16 +225,16 @@ export default function StatsCards() {
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-xs text-slate-500 font-medium">Rp</span>
                                         <span className="text-2xl font-bold text-slate-800">
-                                            {formatRupiah(salesData.actual_sales)}
+                                            {formatNumber(salesData.actual_sales)}
                                         </span>
-                                        <span className="text-xs text-slate-500 font-medium">juta</span>
+                                        <span className="text-xs text-slate-500 font-medium">{salesUnit}</span>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-lg font-bold text-blue-600">{salesData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
-                                    Target {thisTime}: <span className="font-semibold text-slate-700">Rp {formatRupiah(salesData.target_bulanan)}</span> juta
+                                    Target {thisTime}: <span className="font-semibold text-slate-700">Rp {formatNumber(salesData.target_bulanan)}</span> {salesUnit}
                                 </p>
                             </div>
 
@@ -224,7 +250,7 @@ export default function StatsCards() {
 
                                 <div className="flex items-center justify-between">
                                     <p className="text-[10px] text-slate-600">
-                                        Sisa <span className="font-bold text-blue-600">Rp {formatRupiah(salesData.target_bulanan - salesData.actual_sales)}</span> lagi! 💰
+                                        Sisa <span className="font-bold text-blue-600">Rp {formatNumber(salesRemaining)}</span> {salesUnit} lagi! 💰
                                     </p>
                                 </div>
                             </div>
@@ -242,11 +268,11 @@ export default function StatsCards() {
                         <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
                                 <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                    <path d="M4 3a1 1 0 00-1 1v12a1 1 0 001 1h5v-4h2v4h5a1 1 0 001-1V4a1 1 0 00-1-1H4zm6 4h2v2h2v2h-2v2h-2v-2H8V9h2V7z" />
                                 </svg>
                             </div>
                             <div>
-                                <p className="text-xs text-slate-600 font-semibold">Total Customer Baru</p>
+                                <p className="text-xs text-slate-600 font-semibold">{isIkm ? "Total Rumah Sakit" : "Total Customer Baru"}</p>
                                 <p className="text-[10px] text-slate-500">
                                     {customerLoading ? "Loading..." : `Total Saat Ini-  ${thisTime}`}
                                 </p>
@@ -267,14 +293,14 @@ export default function StatsCards() {
                                         <span className="text-2xl font-bold text-slate-800">
                                             {customerData.actual_customer.toLocaleString('id-ID')}
                                         </span>
-                                        <span className="text-xs text-slate-500 font-medium">pelanggan aktif</span>
+                                        <span className="text-xs text-slate-500 font-medium">{isIkm ? "RS aktif" : "pelanggan aktif"}</span>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-lg font-bold text-amber-600">{customerData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
-                                    Target 2026: <span className="font-semibold text-slate-700">{customerData.target_customer.toLocaleString('id-ID')}</span> pelanggan
+                                    Target 2026: <span className="font-semibold text-slate-700">{customerData.target_customer.toLocaleString('id-ID')}</span> {isIkm ? "RS" : "pelanggan"}
                                 </p>
                             </div>
 

@@ -213,6 +213,8 @@ export default function Profile() {
     const errs = {};
     if (!formData.full_name?.trim()) errs.full_name = "Nama lengkap wajib diisi.";
     if (!formData.employee_code?.trim()) errs.employee_code = "Nomor Induk Karyawan wajib diisi.";
+    if (!formData.company_id) errs.company_id = "Perusahaan wajib diisi.";
+    if (!formData.job_level_id) errs.job_level_id = "Jabatan wajib diisi.";
     if (formData.phone_number && !/^[0-9+()\-\s]{6,}$/.test(formData.phone_number))
       errs.phone_number = "Format nomor telepon tidak valid.";
     if (formData.ktp_number && formData.ktp_number.length < 10)
@@ -296,7 +298,7 @@ export default function Profile() {
     const check = (keys) => keys.every((k) => String(combined[k] ?? "").trim() !== "");
     return {
       personal: check(["full_name", "gender", "birth_date", "phone_number", "address", "ktp_number"]),
-      employment: check(["company_id", "department_id", "position_id", "join_date", "employee_code"]),
+      employment: check(["company_id", "job_level_id", "employee_code"]),
       financial: check(["bank_id", "bank_account_number"]),
       emergency: check(["emergency_contact"]),
       // photos: hanya pas foto
@@ -667,22 +669,12 @@ export default function Profile() {
                             />
                           </Field>
 
-                          <Field label="Perusahaan">
+                          <Field label="Perusahaan" required error={fieldErrors.company_id}>
                             <select
                               name="company_id"
                               value={formData.company_id || ""}
-                              onChange={(e) => {
-                                handleChange(e);
-                                // Reset department, position, job_level saat company berubah
-                                setFormData((p) => ({
-                                  ...p,
-                                  company_id: e.target.value,
-                                  department_id: "",
-                                  position_id: "",
-                                  job_level_id: "",
-                                }));
-                              }}
-                              className={selectCls(false)}
+                              onChange={handleChange}
+                              className={selectCls(fieldErrors.company_id)}
                             >
                               <option value="">— Pilih —</option>
                               {masterData.companies?.map((c) => (
@@ -692,93 +684,45 @@ export default function Profile() {
                           </Field>
 
                           <Field label="Departemen">
-                            {(() => {
-                              const selectedCompany = masterData.companies?.find(
-                                (c) => String(c.company_id) === String(formData.company_id)
-                              );
-                              const filteredDepts = selectedCompany
-                                ? masterData.departments?.filter(
-                                  (d) => d.company_code === selectedCompany.company_code
-                                )
-                                : masterData.departments;
-                              return (
-                                <select
-                                  name="department_id"
-                                  value={formData.department_id || ""}
-                                  onChange={handleChange}
-                                  className={selectCls(false)}
-                                  disabled={!formData.company_id}
-                                >
-                                  <option value="">
-                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
-                                  </option>
-                                  {filteredDepts?.map((d) => (
-                                    <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
-                                  ))}
-                                </select>
-                              );
-                            })()}
+                            <select
+                              name="department_id"
+                              value={formData.department_id || ""}
+                              onChange={handleChange}
+                              className={selectCls(false)}
+                            >
+                              <option value="">— Pilih —</option>
+                              {masterData.departments?.map((d) => (
+                                <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                              ))}
+                            </select>
                           </Field>
 
-                          <Field label="Posisi / Jabatan">
-                            {(() => {
-                              const selectedCompany = masterData.companies?.find(
-                                (c) => String(c.company_id) === String(formData.company_id)
-                              );
-                              const filteredPositions = selectedCompany
-                                ? masterData.positions?.filter(
-                                  (p) => p.company_code === selectedCompany.company_code
-                                )
-                                : masterData.positions;
-                              return (
-                                <select
-                                  name="position_id"
-                                  value={formData.position_id || ""}
-                                  onChange={(e) => {
-                                    handleChange(e);
-                                    setFormData((p) => ({ ...p, position_id: e.target.value, job_level_id: "" }));
-                                  }}
-                                  className={selectCls(false)}
-                                  disabled={!formData.company_id}
-                                >
-                                  <option value="">
-                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
-                                  </option>
-                                  {filteredPositions?.map((p) => (
-                                    <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
-                                  ))}
-                                </select>
-                              );
-                            })()}
+                          <Field label="Divisi / Posisi">
+                            <select
+                              name="position_id"
+                              value={formData.position_id || ""}
+                              onChange={handleChange}
+                              className={selectCls(false)}
+                            >
+                              <option value="">— Pilih —</option>
+                              {masterData.positions?.map((p) => (
+                                <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
+                              ))}
+                            </select>
                           </Field>
 
-                          <Field label="Level Jabatan">
-                            {(() => {
-                              const selectedCompany = masterData.companies?.find(
-                                (c) => String(c.company_id) === String(formData.company_id)
-                              );
-                              const filteredJobLevels = selectedCompany
-                                ? masterData.jobLevels?.filter(
-                                  (j) => j.company_code === selectedCompany.company_code
-                                )
-                                : masterData.jobLevels;
-                              return (
-                                <select
-                                  name="job_level_id"
-                                  value={formData.job_level_id || ""}
-                                  onChange={handleChange}
-                                  className={selectCls(false)}
-                                  disabled={!formData.company_id}
-                                >
-                                  <option value="">
-                                    {formData.company_id ? "— Pilih —" : "— Pilih perusahaan dulu —"}
-                                  </option>
-                                  {filteredJobLevels?.map((j) => (
-                                    <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
-                                  ))}
-                                </select>
-                              );
-                            })()}
+                          <Field label="Jabatan" required error={fieldErrors.job_level_id}>
+                            <select
+                              name="job_level_id"
+                              value={formData.job_level_id || ""}
+                              onChange={handleChange}
+                              className={selectCls(fieldErrors.job_level_id)}
+                            >
+                              <option value="">— Pilih —</option>
+                              {masterData.jobLevels?.map((j) => (
+                                <option key={j.job_level_id} value={j.job_level_id}>{j.job_level_name}</option>
+                              ))}
+                            </select>
                           </Field>
 
                           <Field label="Status Kepegawaian">

@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
 import { api } from "../../lib/api";
-import { getEmployeeFromLocal, canSupervisorUp } from "./role";
+import { getEmployeeFromLocal, canDirektur, canSupervisorUp, getJobLevelLabel } from "./role";
 import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX, FiTrash2 } from "react-icons/fi";
@@ -222,7 +222,8 @@ export default function PMMonthly() {
     const nav = useNavigate();
     const employee = useMemo(() => getEmployeeFromLocal(), []);
     const isSupervisorUp = useMemo(() => canSupervisorUp(employee), [employee]);
-    const isDirektur = useMemo(() => canSupervisorUp(employee) && employee.job_level_id == 1, [employee]);
+    const isDirektur = useMemo(() => canDirektur(employee), [employee]);
+    const roleLabel = useMemo(() => getJobLevelLabel(employee), [employee]);
 
     const [loading, setLoading] = useState(true);
     const [subdivisions, setSubdivisions] = useState([]);
@@ -489,7 +490,7 @@ export default function PMMonthly() {
                                 {capitalizeEachWord(employee?.full_name || "User")}
                             </div>
                             <div className="text-xs text-slate-500">
-                                {isDirektur ? "Direktur" : isSupervisorUp ? "Supervisor" : "Staff"}
+                                {roleLabel}
                             </div>
                         </div>
 
@@ -593,7 +594,7 @@ export default function PMMonthly() {
                     ) : (
                         <div className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-400">
                             <HiOutlineLockClosed className="h-3.5 w-3.5" />
-                            Hanya Supervisor & BoD yang bisa membuat sub division
+                            Hanya Direktur/Manager/Supervisor yang bisa membuat sub division
                         </div>
                     )}
                 </div>
@@ -778,7 +779,7 @@ export default function PMMonthly() {
                             {search || filterDept !== "all" ? "Tidak ada hasil" : "Belum ada sub division"}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                            {search || filterDept !== "all" ? "Coba ubah filter atau kata kunci pencarian." : "Supervisor dapat membuat sub division project di sini."}
+                            {search || filterDept !== "all" ? "Coba ubah filter atau kata kunci pencarian." : "Direktur/Manager/Supervisor dapat membuat sub division project di sini."}
                         </p>
                         {(search || filterDept !== "all") && (
                             <button onClick={() => { setSearch(""); setFilterDept("all"); }} className="mt-4 h-8 px-4 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-slate-200 transition">
@@ -857,7 +858,7 @@ export default function PMMonthly() {
                                 </div>
                                 <div>
                                     <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
-                                    <div className="text-[10px] text-slate-400">Creator · {isSupervisorUp ? "Supervisor" : "Staff"}</div>
+                                    <div className="text-[10px] text-slate-400">Creator · {roleLabel}</div>
                                 </div>
                             </div>
 

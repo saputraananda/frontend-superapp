@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
 import { api } from "../../lib/api";
-import { getEmployeeFromLocal, canSupervisorUp } from "./role";
+import { getEmployeeFromLocal, canDirektur, canSupervisorUp, getJobLevelLabel } from "./role";
 import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX, FiTrash2 } from "react-icons/fi";
@@ -210,7 +210,8 @@ export default function PMSemester() {
   const nav = useNavigate();
   const employee = useMemo(() => getEmployeeFromLocal(), []);
   const isSupervisorUp = useMemo(() => canSupervisorUp(employee), [employee]);
-  const isDirektur = useMemo(() => canSupervisorUp(employee) && employee.job_level_id == 1, [employee]);
+  const isDirektur = useMemo(() => canDirektur(employee), [employee]);
+  const roleLabel = useMemo(() => getJobLevelLabel(employee), [employee]);
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState(null);
@@ -414,7 +415,7 @@ export default function PMSemester() {
                 {capitalizeEachWord(employee?.full_name || "User")}
               </div>
               <div className="text-xs text-slate-500">
-                {isDirektur ? "Direktur" : isSupervisorUp ? "Supervisor" : "Staff"}
+                {roleLabel}
               </div>
             </div>
 
@@ -505,7 +506,7 @@ export default function PMSemester() {
           ) : (
             <div className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-400">
               <HiOutlineLockClosed className="h-3.5 w-3.5" />
-              Hanya Supervisor Up yang dapat membuat proyek semester
+              Hanya Direktur/Manager/Supervisor yang dapat membuat proyek semester
             </div>
           )}
         </div>
@@ -589,7 +590,7 @@ export default function PMSemester() {
           <div className="rounded-xl bg-white border border-slate-200 p-16 text-center shadow-sm">
             <HiOutlineInboxStack className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <p className="text-sm font-bold text-slate-700">Belum ada semester</p>
-            <p className="text-xs text-slate-400 mt-1">Supervisor dapat membuat semester 1 & 2 di sini.</p>
+            <p className="text-xs text-slate-400 mt-1">Direktur/Manager/Supervisor dapat membuat semester 1 & 2 di sini.</p>
           </div>
         )}
       </div>
@@ -670,7 +671,7 @@ export default function PMSemester() {
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-slate-800">{employee?.full_name || "User"}</div>
-                  <div className="text-[10px] text-slate-400">Creator · {isSupervisorUp ? "Supervisor" : "Staff"}</div>
+                  <div className="text-[10px] text-slate-400">Creator · {roleLabel}</div>
                 </div>
               </div>
 

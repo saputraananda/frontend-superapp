@@ -101,7 +101,7 @@ export default function Portal({ user, onLogout }) {
           {/* Main Content */}
           <div className="flex-1 space-y-6">
             {/* <BroadcastBanner /> */}
-            <StatsCards />
+            <StatsCards companyId={employeeData?.company_id} />
             <AppAndTasklistSlider>
               <ApplicationsSection
                 apps={apps}

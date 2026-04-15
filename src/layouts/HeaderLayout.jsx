@@ -1,9 +1,19 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { assetUrl } from "../lib/api";
 
 export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [logoIndex, setLogoIndex] = useState(0);
+  const [logoVisible, setLogoVisible] = useState(true);
+  const logoTimeoutRef = useRef(null);
+
+  const logos = [
+    { src: "/alora.png", alt: "Alora Group Indonesia" },
+    { src: "/ikm.png", alt: "IKM" },
+    { src: "/waschen.webp", alt: "Waschen" },
+    { src: "/cleanox.png", alt: "Cleanox" },
+  ];
 
   const fallbackSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=a855f7&color=ffffff&bold=true`;
 
@@ -18,6 +28,22 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   const capitalizeEachWord = (text) =>
     text.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setLogoVisible(false);
+      if (logoTimeoutRef.current) clearTimeout(logoTimeoutRef.current);
+      logoTimeoutRef.current = setTimeout(() => {
+        setLogoIndex((prev) => (prev + 1) % logos.length);
+        setLogoVisible(true);
+      }, 250);
+    }, 3500);
+
+    return () => {
+      clearInterval(intervalId);
+      if (logoTimeoutRef.current) clearTimeout(logoTimeoutRef.current);
+    };
+  }, [logos.length]);
+
   return (
     <div className="min-h-screen bg-indigo-50">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
@@ -26,7 +52,11 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
           {/* Desktop */}
           <div className="hidden md:flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
-              <img src="/alora.png" alt="Alora Group Indonesia" className="h-16 lg:h-20" />
+              <img
+                src={logos[logoIndex].src}
+                alt={logos[logoIndex].alt}
+                className={`h-16 w-36 lg:h-20 lg:w-44 object-contain transition-opacity duration-300 ${logoVisible ? "opacity-100" : "opacity-0"}`}
+              />
               <div>
                 <h1 className="text-base lg:text-lg font-bold text-slate-800">Alora Group Indonesia</h1>
                 <p className="text-xs text-slate-500">Semua layanan dalam satu dashboard</p>
@@ -72,7 +102,11 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
           {/* Mobile */}
           <div className="flex md:hidden items-center justify-between py-3">
             <div className="flex items-center gap-2">
-              <img src="/alora.png" className="h-12" alt="Alora" />
+              <img
+                src={logos[logoIndex].src}
+                className={`h-12 w-28 object-contain transition-opacity duration-300 ${logoVisible ? "opacity-100" : "opacity-0"}`}
+                alt={logos[logoIndex].alt}
+              />
               <div>
                 <h1 className="text-sm font-bold text-slate-800">Alora Group Indonesia</h1>
                 <p className="text-xs text-slate-500">Portal App Alora</p>
