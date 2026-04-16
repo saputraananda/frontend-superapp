@@ -17,6 +17,9 @@ import LoadingScreen from "./components/LoadingScreen";
 import MaintenancePage from "./pages/maintenance";
 import AsetManagement from "./pages/aset-management";
 import TargetWaschen from "./pages/target-waschen";
+import AbsensiIKM from "./pages/absensi-ikm";
+import KaryawanIKM from "./pages/karyawan-ikm";
+import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -214,6 +217,80 @@ export default function App() {
           element={
             <ProtectedRoute user={user} allowedRoles={appRoles["/target-waschen"]}>
               <TargetWaschen user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Absensi IKM ── */}
+        <Route
+          path="/absensi-IKM"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/absensi-IKM"] || appRoles["/absensi-ikm"]}
+            >
+              <AbsensiIKM user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/absensi-ikm"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/absensi-IKM"] || appRoles["/absensi-ikm"]}
+            >
+              <AbsensiIKM user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Karyawan IKM ── */}
+        <Route
+          path="/karyawan-IKM"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/karyawan-IKM"] || appRoles["/karyawan-ikm"]}
+            >
+              <KaryawanIKM user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/karyawan-ikm"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/karyawan-IKM"] || appRoles["/karyawan-ikm"]}
+            >
+              <KaryawanIKM user={user} onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/karyawan-IKM/:id"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/karyawan-IKM"] || appRoles["/karyawan-ikm"]}
+            >
+              <KaryawanIKMDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/karyawan-ikm/:id"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/karyawan-IKM"] || appRoles["/karyawan-ikm"]}
+            >
+              <KaryawanIKMDetail />
             </ProtectedRoute>
           }
         />
