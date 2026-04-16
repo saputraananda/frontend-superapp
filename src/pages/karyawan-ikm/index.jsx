@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	HiOutlineUsers,
@@ -14,15 +14,25 @@ import {
 	HiOutlineXMark,
 	HiOutlineArrowLeft,
 	HiOutlineArrowPath,
-	HiOutlineAdjustmentsHorizontal,
 	HiOutlineCheckCircle,
-	HiOutlineSparkles,
 	HiOutlineEye,
 	HiOutlineEyeSlash,
 	HiOutlineInformationCircle,
+	HiOutlineChevronLeft,
+	HiOutlineChevronRight,
+	HiOutlineChevronUp,
+	HiOutlineChevronDown,
+	HiOutlineArrowsUpDown,
+	HiOutlineCalendarDays,
 } from "react-icons/hi2";
 import HeaderLayout from "../../layouts/HeaderLayout";
 import { api } from "../../lib/api";
+
+// Helpers
+
+function cn(...classes) {
+	return classes.filter(Boolean).join(" ");
+}
 
 function formatDate(value) {
 	if (!value) return "-";
@@ -42,22 +52,216 @@ function capitalEachWord(value) {
 		.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function MetricCard({ icon: Icon, label, value, helper }) {
+function generatePages(current, total) {
+	if (total <= 1) return [];
+	if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+	if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
+	if (current >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+	return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
+function SortTh({ col, label, sortBy, sortDir, onSort, className = "" }) {
+	const active = sortBy === col;
 	return (
-		<div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-			<div className="flex items-start justify-between gap-3">
-				<div>
-					<p className="text-xs font-medium uppercase tracking-[0.18em] text-white/70">{label}</p>
-					<p className="mt-2 text-2xl font-bold text-white">{value}</p>
-					<p className="mt-1 text-xs text-white/75">{helper}</p>
-				</div>
-				<div className="rounded-xl bg-white/15 p-2.5 text-white">
-					<Icon className="h-5 w-5" />
-				</div>
+		<th
+			className={cn(
+				"px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap transition-colors hover:bg-slate-100",
+				active ? "text-blue-600 bg-blue-50/60" : "text-slate-500",
+				className,
+			)}
+			onClick={() => onSort(col)}
+		>
+			<div className="flex items-center gap-1">
+				{label}
+				{active ? (
+					sortDir === "asc"
+						? <HiOutlineChevronUp className="h-3.5 w-3.5" />
+						: <HiOutlineChevronDown className="h-3.5 w-3.5" />
+				) : (
+					<HiOutlineArrowsUpDown className="h-3.5 w-3.5 opacity-30" />
+				)}
+			</div>
+		</th>
+	);
+}
+
+function SkeletonRow() {
+	return (
+		<tr className="border-t border-slate-100 animate-pulse">
+			{[32, 24, 40, 28, 48, 28, 36, 24, 20].map((w, i) => (
+				<td key={i} className="px-4 py-4">
+					<div className={`h-3.5 rounded-md bg-slate-200`} style={{ width: `${w * 3}px` }} />
+				</td>
+			))}
+		</tr>
+	);
+}
+
+function EmploymentBadge({ exitDate }) {
+	const resigned = Boolean(exitDate);
+	return (
+		<span className={cn(
+			"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+			resigned
+				? "border-rose-200 bg-rose-50 text-rose-700"
+				: "border-sky-200 bg-sky-50 text-sky-700",
+		)}>
+			{resigned ? "Resign" : "Aktif"}
+		</span>
+	);
+}
+
+function GenderBadge({ gender }) {
+	if (!gender) return <span className="text-slate-300 text-xs">-</span>;
+	return (
+		<span className={cn(
+			"inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase",
+			gender === "L"
+				? "border-blue-200 bg-blue-50 text-blue-700"
+				: "border-pink-200 bg-pink-50 text-pink-700",
+		)}>
+			{gender === "L" ? "L" : "P"}
+		</span>
+	);
+}
+
+function PaginationBar({ page, totalPages, total, limit, onPage, onLimitChange, loading }) {
+	const from = total === 0 ? 0 : (page - 1) * limit + 1;
+	const to = Math.min(page * limit, total);
+	const pages = generatePages(page, totalPages);
+
+	return (
+		<div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex flex-wrap items-center gap-3 text-sm">
+				<span className="text-slate-500">
+					{total > 0 ? (
+						<>
+							Menampilkan{" "}
+							<strong className="text-slate-700">{from}-{to}</strong>{" "}
+							dari{" "}
+							<strong className="text-slate-700">{total.toLocaleString("id-ID")}</strong>{" "}
+							data
+						</>
+					) : "Tidak ada data"}
+				</span>
+				<label className="flex items-center gap-1.5 text-xs text-slate-400">
+					Tampil:
+					<select
+						value={limit}
+						onChange={(e) => onLimitChange(Number(e.target.value))}
+						disabled={loading}
+						className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/30 disabled:opacity-60"
+					>
+						<option value={10}>10</option>
+						<option value={20}>20</option>
+						<option value={50}>50</option>
+						<option value={100}>100</option>
+					</select>
+				</label>
+			</div>
+
+			<div className="flex items-center gap-1">
+				<button type="button" onClick={() => onPage(1)} disabled={page <= 1 || loading}
+					className="flex h-7 min-w-[28px] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="Halaman pertama">«
+				</button>
+				<button type="button" onClick={() => onPage(page - 1)} disabled={page <= 1 || loading}
+					className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+					<HiOutlineChevronLeft className="h-3.5 w-3.5" />
+				</button>
+
+				{pages.map((p, i) =>
+					p === "..." ? (
+						<span key={`el-${i}`} className="flex h-7 w-6 items-center justify-center text-xs text-slate-400">...</span>
+					) : (
+						<button key={p} type="button" onClick={() => onPage(p)} disabled={loading}
+							className={cn(
+								"flex h-7 min-w-[28px] items-center justify-center rounded-md border px-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed",
+								p === page
+									? "border-blue-500 bg-blue-600 text-white shadow-sm"
+									: "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+							)}>
+							{p}
+						</button>
+					)
+				)}
+
+				<button type="button" onClick={() => onPage(page + 1)} disabled={page >= totalPages || loading}
+					className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+					<HiOutlineChevronRight className="h-3.5 w-3.5" />
+				</button>
+				<button type="button" onClick={() => onPage(totalPages)} disabled={page >= totalPages || loading}
+					className="flex h-7 min-w-[28px] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="Halaman terakhir">»
+				</button>
 			</div>
 		</div>
 	);
 }
+
+function MobileCard({ item, idx, startItem, onDetail }) {
+	return (
+		<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+			<div className="flex items-start justify-between gap-2">
+				<div className="min-w-0">
+					<p className="truncate text-sm font-bold text-slate-800">
+						{capitalEachWord(item.full_name) || "-"}
+					</p>
+					<p className="mt-0.5 text-xs text-slate-400">
+						#{startItem + idx} -{" "}
+						<span className="font-medium text-slate-500">{item.employee_code || "Tanpa kode"}</span>
+					</p>
+				</div>
+				<button
+					type="button"
+					onClick={() => onDetail(item.employee_id)}
+					className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+				>
+					Detail
+				</button>
+			</div>
+
+			<div className="flex flex-wrap gap-1.5">
+				<EmploymentBadge exitDate={item.exit_date} />
+				<GenderBadge gender={item.gender} />
+			</div>
+
+			<div className="grid grid-cols-1 gap-1.5 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+				{item.username && (
+					<div className="flex items-center gap-2">
+						<HiOutlineIdentification className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+						<span>{item.username}</span>
+					</div>
+				)}
+				{item.email && (
+					<div className="flex items-center gap-2 min-w-0">
+						<HiOutlineEnvelope className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+						<span className="truncate">{item.email}</span>
+					</div>
+				)}
+				{item.phone_number && (
+					<div className="flex items-center gap-2">
+						<HiOutlinePhone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+						<span>{item.phone_number}</span>
+					</div>
+				)}
+				{(item.job_level_name || item.position_name) && (
+					<div className="flex items-center gap-2">
+						<HiOutlineBriefcase className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+						<span>{[item.job_level_name, item.position_name].filter(Boolean).join(" - ")}</span>
+					</div>
+				)}
+			</div>
+
+			{item.join_date && (
+				<div className="flex items-center gap-1.5 text-xs text-slate-400">
+					<HiOutlineCalendarDays className="h-3.5 w-3.5" />
+					Bergabung: <strong className="text-slate-600 ml-0.5">{formatDate(item.join_date)}</strong>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// Main page
 
 export default function KaryawanIKM({ user, onLogout }) {
 	const navigate = useNavigate();
@@ -67,6 +271,7 @@ export default function KaryawanIKM({ user, onLogout }) {
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
 
+	// Server-side filter state
 	const [searchInput, setSearchInput] = useState("");
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState("full_name");
@@ -77,6 +282,7 @@ export default function KaryawanIKM({ user, onLogout }) {
 	const [totalPages, setTotalPages] = useState(1);
 	const [refreshKey, setRefreshKey] = useState(0);
 
+	// Add modal state
 	const [openAddModal, setOpenAddModal] = useState(false);
 	const [savingAdd, setSavingAdd] = useState(false);
 	const [emailTouched, setEmailTouched] = useState(false);
@@ -117,6 +323,7 @@ export default function KaryawanIKM({ user, onLogout }) {
 		document.title = "Data Karyawan IKM | Alora Group Indonesia";
 	}, []);
 
+	// Debounce search input
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			setSearch(searchInput.trim());
@@ -125,21 +332,20 @@ export default function KaryawanIKM({ user, onLogout }) {
 		return () => clearTimeout(timer);
 	}, [searchInput]);
 
+	// Lock body scroll when modal open
 	useEffect(() => {
 		if (!openAddModal) return;
-
-		const previousBodyOverflow = document.body.style.overflow;
-		const previousHtmlOverflow = document.documentElement.style.overflow;
-
+		const prevBody = document.body.style.overflow;
+		const prevHtml = document.documentElement.style.overflow;
 		document.body.style.overflow = "hidden";
 		document.documentElement.style.overflow = "hidden";
-
 		return () => {
-			document.body.style.overflow = previousBodyOverflow;
-			document.documentElement.style.overflow = previousHtmlOverflow;
+			document.body.style.overflow = prevBody;
+			document.documentElement.style.overflow = prevHtml;
 		};
 	}, [openAddModal]);
 
+	// Fetch employees
 	useEffect(() => {
 		const fetchEmployees = async () => {
 			try {
@@ -168,31 +374,37 @@ export default function KaryawanIKM({ user, onLogout }) {
 		fetchEmployees();
 	}, [page, limit, search, sortBy, sortDir, refreshKey]);
 
-	const totalLabel = useMemo(() => `${total} data`, [total]);
-
-	const visibleCount = rows.length;
-	const accountCount = useMemo(
-		() => rows.filter((item) => Boolean(item.username || item.email)).length,
-		[rows]
-	);
-	const incompleteCount = useMemo(
-		() =>
-			rows.filter(
-				(item) =>
-					!item.employee_code ||
-					!item.company_name ||
-					(!item.job_level_name && !item.position_name)
-			).length,
-		[rows]
-	);
-
-	const activeFilters = useMemo(
-		() => [search ? `Pencarian: "${search}"` : null].filter(Boolean),
-		[search]
-	);
-
+	// Derived
 	const startItem = total === 0 ? 0 : (page - 1) * limit + 1;
-	const endItem = Math.min(page * limit, total);
+	const activeEmployees = useMemo(() => rows.filter((r) => !r.exit_date).length, [rows]);
+	const resignedEmployees = useMemo(() => rows.filter((r) => Boolean(r.exit_date)).length, [rows]);
+	const hasActiveSearch = Boolean(search);
+
+	// Handlers
+	const handleSort = (col) => {
+		if (sortBy === col) {
+			setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+		} else {
+			setSortBy(col);
+			setSortDir("asc");
+		}
+		setPage(1);
+	};
+
+	const handlePage = (p) => setPage(Math.max(1, Math.min(p, totalPages)));
+
+	const handleLimitChange = (newLimit) => {
+		setLimit(newLimit);
+		setPage(1);
+	};
+
+	const resetFilters = () => {
+		setSearchInput("");
+		setSearch("");
+		setSortBy("full_name");
+		setSortDir("asc");
+		setPage(1);
+	};
 
 	const openAdd = () => {
 		setError("");
@@ -208,18 +420,6 @@ export default function KaryawanIKM({ user, onLogout }) {
 		setOpenAddModal(false);
 	};
 
-	const handleBack = () => {
-		navigate("/portal");
-	};
-
-	const resetFilters = () => {
-		setSearchInput("");
-		setSearch("");
-		setSortBy("full_name");
-		setSortDir("asc");
-		setPage(1);
-	};
-
 	const onChangeFullName = (value) => {
 		setAddForm((prev) => ({
 			...prev,
@@ -229,32 +429,18 @@ export default function KaryawanIKM({ user, onLogout }) {
 		}));
 	};
 
-	const handleSort = (column) => {
-		if (sortBy === column) {
-			setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-		} else {
-			setSortBy(column);
-			setSortDir("asc");
-		}
-		setPage(1);
-	};
-
 	const submitAdd = async (e) => {
 		e.preventDefault();
-
 		if (!addForm.full_name.trim()) return setError("Nama wajib diisi");
 		if (!addForm.username.trim()) return setError("Username wajib diisi");
 		if (!addForm.password.trim()) return setError("Password wajib diisi");
 		if (addForm.password.trim().length < 6) return setError("Password minimal 6 karakter");
 		if (!addForm.email.trim()) return setError("Email wajib diisi");
-
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(addForm.email.trim())) return setError("Format email tidak valid");
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email.trim())) return setError("Format email tidak valid");
 
 		try {
 			setSavingAdd(true);
 			setError("");
-
 			await api("/ikm/employees/register", {
 				method: "POST",
 				body: JSON.stringify({
@@ -266,7 +452,6 @@ export default function KaryawanIKM({ user, onLogout }) {
 					email: addForm.email.trim().toLowerCase(),
 				}),
 			});
-
 			setSuccess("Karyawan baru berhasil ditambahkan.");
 			setOpenAddModal(false);
 			setPage(1);
@@ -279,19 +464,21 @@ export default function KaryawanIKM({ user, onLogout }) {
 		}
 	};
 
+	// Render
 	return (
 		<HeaderLayout user={user} jobTitle={jobTitle} onLogout={onLogout}>
 			<div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
+
+				{/* Hero header */}
 				<section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-900 to-cyan-700 shadow-sm">
 					<div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
 					<div className="absolute -left-20 bottom-0 h-60 w-60 rounded-full bg-cyan-300/10 blur-3xl" />
 
 					<div className="relative p-5 sm:p-6 lg:p-8">
-						<div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-							<div className="max-w-3xl">
+						<div className="max-w-3xl">
 								<button
 									type="button"
-									onClick={handleBack}
+									onClick={() => navigate("/portal")}
 									className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
 								>
 									<HiOutlineArrowLeft className="h-4 w-4" />
@@ -301,7 +488,6 @@ export default function KaryawanIKM({ user, onLogout }) {
 								<h1 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
 									Master Data Karyawan IKM
 								</h1>
-
 								<p className="mt-3 max-w-2xl text-sm leading-6 text-white/75 sm:text-base">
 									Kelola data karyawan dengan tampilan yang lebih informatif, filter yang lebih jelas,
 									dan aksi cepat untuk membuka detail atau menambahkan akun baru.
@@ -309,378 +495,307 @@ export default function KaryawanIKM({ user, onLogout }) {
 
 								<div className="mt-5 flex flex-wrap gap-2">
 									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
-										Total: {totalLabel}
+										Total: {total.toLocaleString("id-ID")} data
 									</span>
 									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
 										Halaman {page} / {totalPages}
 									</span>
-									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
-										Tampil {visibleCount} data
-									</span>
 								</div>
 							</div>
-
-							<div className="grid w-full gap-3 sm:grid-cols-2 xl:max-w-xl">
-								<MetricCard
-									icon={HiOutlineUsers}
-									label="Total Data"
-									value={total}
-									helper="Jumlah seluruh data karyawan"
-								/>
-								<MetricCard
-									icon={HiOutlineCheckCircle}
-									label="Data Ditampilkan"
-									value={visibleCount}
-									helper="Jumlah baris di halaman aktif"
-								/>
-								<MetricCard
-									icon={HiOutlineIdentification}
-									label="Punya Akun"
-									value={accountCount}
-									helper="Username atau email sudah tersedia"
-								/>
-								<MetricCard
-									icon={HiOutlineInformationCircle}
-									label="Perlu Dilengkapi"
-									value={incompleteCount}
-									helper="Masih ada field penting yang kosong"
-								/>
-							</div>
-						</div>
 					</div>
 				</section>
 
+				{/* Notifications */}
 				{success && (
 					<div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
 						<HiOutlineCheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
 						<p>{success}</p>
 					</div>
 				)}
-
-				{error && (
+				{error && !openAddModal && (
 					<div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
 						<HiOutlineExclamationTriangle className="mt-0.5 h-5 w-5 shrink-0" />
 						<p>{error}</p>
 					</div>
 				)}
 
-				<section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-					<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-						<div>
-							<div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-								<HiOutlineAdjustmentsHorizontal className="h-4 w-4" />
-								Filter Utama
+				{/* Search bar */}
+				<section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex items-center gap-2">
+							<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+								<HiOutlineMagnifyingGlass className="h-4 w-4" />
 							</div>
-							<h2 className="mt-3 text-lg font-bold text-slate-800">Temukan data lebih cepat</h2>
-							<p className="mt-1 text-sm text-slate-500">
-								Filter difokuskan ke pencarian agar proses cari data lebih cepat.
-							</p>
+							<div>
+								<p className="text-sm font-bold text-slate-800">Pencarian Karyawan</p>
+								<p className="text-xs text-slate-500">Cari semua kata kunci (nama, username, email, kode, jabatan)</p>
+							</div>
 						</div>
 
 						<div className="flex flex-wrap items-center gap-2">
 							<button
 								type="button"
 								onClick={() => setRefreshKey((k) => k + 1)}
-								className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+								className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
 							>
-								<HiOutlineArrowPath className="h-4 w-4" />
+								<HiOutlineArrowPath className="h-3.5 w-3.5" />
 								Refresh
 							</button>
-							<button
-								type="button"
-								onClick={resetFilters}
-								className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-							>
-								Reset Filter
-							</button>
+							{hasActiveSearch && (
+								<button
+									type="button"
+									onClick={resetFilters}
+									className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-colors"
+								>
+									<HiOutlineXMark className="h-3.5 w-3.5" />
+									Bersihkan
+								</button>
+							)}
 							<button
 								type="button"
 								onClick={openAdd}
-								className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+								className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
 							>
-								<HiOutlinePlus className="h-4 w-4" />
+								<HiOutlinePlus className="h-3.5 w-3.5" />
 								Tambah Karyawan
 							</button>
 						</div>
 					</div>
 
-					<div className="mt-5">
-						<label className="relative block">
-							<HiOutlineMagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+					<div className="mt-4">
+						<div className="relative">
 							<input
 								value={searchInput}
 								onChange={(e) => setSearchInput(e.target.value)}
-								placeholder="Cari nama, username, email, kode..."
-								className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+								placeholder="Ketik keyword untuk cari semua data karyawan..."
+								className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
 							/>
-						</label>
-					</div>
-
-					{activeFilters.length > 0 && (
-						<div className="mt-4 flex flex-wrap gap-2">
-							{activeFilters.map((item) => (
-								<span
-									key={item}
-									className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+							{searchInput && (
+								<button
+									type="button"
+									onClick={() => setSearchInput("")}
+									className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
 								>
-									{item}
-								</span>
-							))}
+									<HiOutlineXMark className="h-3.5 w-3.5" />
+								</button>
+							)}
 						</div>
-					)}
+					</div>
 				</section>
 
-				<section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+				{/* Employee table */}
+				<section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
 					<div className="border-b border-slate-100 px-5 py-4">
-						<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 							<div>
-								<h2 className="text-lg font-bold text-slate-800">Daftar Karyawan</h2>
-								<p className="mt-1 text-sm text-slate-500">
-									Menampilkan <span className="font-semibold text-slate-700">{startItem}</span>-
-									<span className="font-semibold text-slate-700">{endItem}</span> dari{" "}
-									<span className="font-semibold text-slate-700">{total}</span> data.
+								<h2 className="text-base font-bold text-slate-800">Daftar Karyawan</h2>
+								<p className="mt-0.5 text-xs text-slate-500">
+									Tabel interaktif: klik header untuk sortir, gunakan pencarian global untuk menemukan data lebih cepat.
 								</p>
 							</div>
-
-							<div className="rounded-2xl bg-slate-50 px-4 py-2 text-sm text-slate-600">
-								Halaman <span className="font-semibold text-slate-800">{page}</span> dari{" "}
-								<span className="font-semibold text-slate-800">{totalPages}</span>
+							<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+								<span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-600">
+									Aktif: {activeEmployees}
+								</span>
+								<span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 font-semibold text-rose-700">
+									Resign: {resignedEmployees}
+								</span>
 							</div>
 						</div>
 					</div>
 
-					<div className="lg:hidden">
-						{loading && (
-							<div className="p-4">
-								<div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-									Memuat data karyawan...
-								</div>
-							</div>
-						)}
+					{/* Desktop table (lg+) */}
+					<div className="hidden lg:block overflow-x-auto">
+						<table className="min-w-full text-sm">
+							<thead className="border-b border-slate-100 bg-slate-50">
+								<tr>
+									<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap w-10">
+										No
+									</th>
+									<SortTh col="employee_code" label="Kode"         sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+									<SortTh col="full_name"     label="Nama"          sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+									<SortTh col="username"      label="Username"      sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+									<SortTh col="join_date"     label="Bergabung"     sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+									<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+										Telepon
+									</th>
+									<SortTh col="jabatan"       label="Jabatan"       sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+									<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+										Status
+									</th>
+									<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+										Aksi
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-slate-100">
+								{loading &&
+									Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+								}
 
-						{!loading && rows.length === 0 && (
-							<div className="p-4">
-								<div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-									Tidak ada data yang cocok dengan filter saat ini.
-								</div>
-							</div>
-						)}
-
-						{!loading && rows.length > 0 && (
-							<div className="grid gap-3 p-4">
-								{rows.map((item, idx) => (
-									<div
-										key={item.employee_id}
-										className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-									>
-										<div className="flex items-start justify-between gap-3">
-											<div>
-												<p className="text-base font-bold text-slate-800">{capitalEachWord(item.full_name) || "-"}</p>
-												<p className="mt-1 text-xs text-slate-500">
-													No. {startItem + idx} • {item.employee_code || "Tanpa kode"}
+								{!loading && rows.length === 0 && (
+									<tr>
+										<td colSpan={9} className="px-4 py-14 text-center">
+											<div className="flex flex-col items-center gap-2 text-slate-400">
+												<HiOutlineUsers className="h-9 w-9 opacity-40" />
+												<p className="text-sm">
+													{hasActiveSearch
+														? "Tidak ada karyawan yang cocok dengan filter saat ini."
+														: "Belum ada data karyawan."}
 												</p>
+												{hasActiveSearch && (
+													<button type="button" onClick={resetFilters} className="mt-1 text-xs font-semibold text-blue-600 hover:underline">
+														Reset Filter
+													</button>
+												)}
 											</div>
+										</td>
+									</tr>
+								)}
+
+								{!loading && rows.map((item, idx) => (
+									<tr
+										key={item.employee_id}
+										className="align-top transition-colors hover:bg-blue-50/30"
+									>
+										<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400 font-medium">
+											{startItem + idx}
+										</td>
+										<td className="whitespace-nowrap px-4 py-3">
+											{item.employee_code ? (
+												<span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-mono font-semibold text-slate-600">
+													{item.employee_code}
+												</span>
+											) : (
+												<span className="text-slate-300 text-xs">-</span>
+											)}
+										</td>
+										<td className="px-4 py-3">
+											<div className="flex items-center gap-2">
+												<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-xs font-bold text-white">
+													{(item.full_name || "?")[0].toUpperCase()}
+												</div>
+												<div>
+													<p className="text-xs font-bold text-slate-800 whitespace-nowrap">
+														{capitalEachWord(item.full_name) || "-"}
+													</p>
+													{item.email && (
+														<p className="text-[11px] text-slate-400 whitespace-nowrap">{item.email}</p>
+													)}
+												</div>
+											</div>
+										</td>
+										<td className="whitespace-nowrap px-4 py-3">
+											{item.username ? (
+												<span className="text-xs font-medium text-slate-700">{item.username}</span>
+											) : (
+												<span className="text-xs italic text-slate-300">-</span>
+											)}
+										</td>
+										<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
+											{item.join_date ? (
+												<span className="flex items-center gap-1">
+													<HiOutlineCalendarDays className="h-3.5 w-3.5 text-slate-300" />
+													{formatDate(item.join_date)}
+												</span>
+											) : (
+												<span className="text-slate-300">-</span>
+											)}
+										</td>
+										<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
+											{item.phone_number || <span className="text-slate-300">-</span>}
+										</td>
+										<td className="whitespace-nowrap px-4 py-3">
+											{(item.job_level_name || item.position_name) ? (
+												<span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+													<HiOutlineBriefcase className="h-3 w-3 text-slate-400" />
+													{[item.job_level_name, item.position_name].filter(Boolean).join(" - ")}
+												</span>
+											) : (
+												<span className="text-slate-300 text-xs">-</span>
+											)}
+										</td>
+										<td className="whitespace-nowrap px-4 py-3">
+											<div className="flex flex-col gap-1">
+												<EmploymentBadge exitDate={item.exit_date} />
+											</div>
+										</td>
+										<td className="whitespace-nowrap px-4 py-3">
 											<button
 												type="button"
-												onClick={() =>
-													navigate(`/karyawan-ikm/${item.employee_id}`, {
-														state: { backTo: "/karyawan-ikm" },
-													})
-												}
-												className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+												onClick={() => navigate(`/karyawan-ikm/${item.employee_id}`, { state: { backTo: "/karyawan-ikm" } })}
+												className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
 											>
+												<HiOutlineEye className="h-3.5 w-3.5" />
 												Detail
 											</button>
-										</div>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 
-										<div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600">
-											<div className="flex items-center gap-2">
-												<HiOutlineIdentification className="h-4 w-4 text-slate-400" />
-												<span>{item.username || "-"}</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<HiOutlineEnvelope className="h-4 w-4 text-slate-400" />
-												<span>{item.email || "-"}</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<HiOutlinePhone className="h-4 w-4 text-slate-400" />
-												<span>{item.phone_number || "-"}</span>
-											</div>
-											<div className="flex items-center gap-2">
-												<HiOutlineBriefcase className="h-4 w-4 text-slate-400" />
-												<span>
-													{[item.job_level_name, item.position_name].filter(Boolean).join(" ") || "-"}
-												</span>
-											</div>
+					{/* Mobile cards (<lg) */}
+					<div className="lg:hidden">
+						{loading ? (
+							<div className="space-y-3 p-4">
+								{Array.from({ length: 3 }).map((_, i) => (
+									<div key={i} className="animate-pulse rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-2">
+										<div className="flex justify-between">
+											<div className="h-4 w-36 rounded-md bg-slate-200" />
+											<div className="h-4 w-20 rounded-md bg-slate-200" />
 										</div>
-
-										<div className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-											Join Date: <span className="font-medium text-slate-700">{formatDate(item.join_date)}</span>
+										<div className="flex gap-2">
+											<div className="h-5 w-20 rounded-full bg-slate-200" />
+											<div className="h-5 w-14 rounded-full bg-slate-200" />
 										</div>
+										<div className="h-16 rounded-lg bg-slate-200" />
 									</div>
+								))}
+							</div>
+						) : rows.length === 0 ? (
+							<div className="flex flex-col items-center gap-2 py-14 text-sm text-slate-400">
+								<HiOutlineUsers className="h-8 w-8 opacity-40" />
+								<p>
+									{hasActiveSearch ? "Tidak ada data yang cocok." : "Belum ada data karyawan."}
+								</p>
+								{hasActiveSearch && (
+									<button type="button" onClick={resetFilters} className="mt-1 text-xs font-semibold text-blue-600 hover:underline">
+										Reset Filter
+									</button>
+								)}
+							</div>
+						) : (
+							<div className="grid gap-3 p-4 sm:grid-cols-2">
+								{rows.map((item, idx) => (
+									<MobileCard
+										key={item.employee_id}
+										item={item}
+										idx={idx}
+										startItem={startItem}
+										onDetail={(id) => navigate(`/karyawan-ikm/${id}`, { state: { backTo: "/karyawan-ikm" } })}
+									/>
 								))}
 							</div>
 						)}
 					</div>
 
-					<div className="hidden overflow-x-auto lg:block">
-						<table className="min-w-full text-sm">
-							<thead className="bg-slate-50 text-slate-500">
-								<tr>
-									<th className="px-4 py-3 text-left font-semibold">No</th>
-									<th className="px-4 py-3 text-left font-semibold">Kode</th>
-									<th className="px-4 py-3 text-left font-semibold">
-										<button
-											type="button"
-											onClick={() => handleSort("full_name")}
-											className="inline-flex w-full items-center gap-2 text-left"
-											title="Klik untuk urut Nama"
-										>
-											<span>Nama</span>
-											<span
-												className={`text-xs font-bold ${
-													sortBy === "full_name" ? "text-blue-700" : "text-slate-400"
-												}`}
-											>
-												{sortBy === "full_name" ? (sortDir === "asc" ? "^" : "v") : "^v"}
-											</span>
-										</button>
-									</th>
-									<th className="px-4 py-3 text-left font-semibold">Username</th>
-									<th className="px-4 py-3 text-left font-semibold">Email</th>
-									<th className="px-4 py-3 text-left font-semibold">No. Telepon</th>
-									<th className="px-4 py-3 text-left font-semibold">
-										<button
-											type="button"
-											onClick={() => handleSort("jabatan")}
-											className="inline-flex w-full items-center gap-2 text-left"
-											title="Klik untuk urut Jabatan"
-										>
-											<span>Jabatan</span>
-											<span
-												className={`text-xs font-bold ${
-													sortBy === "jabatan" ? "text-blue-700" : "text-slate-400"
-												}`}
-											>
-												{sortBy === "jabatan" ? (sortDir === "asc" ? "^" : "v") : "^v"}
-											</span>
-										</button>
-									</th>
-									<th className="px-4 py-3 text-left font-semibold">Join Date</th>
-									<th className="px-4 py-3 text-left font-semibold">Aksi</th>
-								</tr>
-							</thead>
-							<tbody>
-								{loading && (
-									<tr>
-										<td colSpan={9} className="px-4 py-10 text-center text-slate-500">
-											Memuat data karyawan...
-										</td>
-									</tr>
-								)}
-
-								{!loading && rows.length === 0 && (
-									<tr>
-										<td colSpan={9} className="px-4 py-10 text-center text-slate-500">
-											Tidak ada data yang cocok dengan filter saat ini.
-										</td>
-									</tr>
-								)}
-
-								{!loading &&
-									rows.map((item, idx) => (
-										<tr
-											key={item.employee_id}
-											className="border-t border-slate-100 transition hover:bg-slate-50/80"
-										>
-											<td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">
-												{startItem + idx}
-											</td>
-											<td className="whitespace-nowrap px-4 py-4 text-slate-600">
-												<span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-													<HiOutlineIdentification className="h-4 w-4 text-slate-400" />
-													{item.employee_code || "-"}
-												</span>
-											</td>
-											<td className="px-4 py-4 text-slate-700">{capitalEachWord(item.full_name) || "-"}</td>
-											<td className="whitespace-nowrap px-4 py-4 text-slate-600">
-												{item.username || "-"}
-											</td>
-											<td className="whitespace-nowrap px-4 py-4 text-slate-600">
-												{item.email || "-"}
-											</td>
-											<td className="whitespace-nowrap px-4 py-4 text-slate-600">
-												{item.phone_number || "-"}
-											</td>
-											<td className="whitespace-nowrap px-4 py-4 text-slate-600">
-												<span className="inline-flex items-center gap-1.5">
-													<HiOutlineBriefcase className="h-4 w-4 text-slate-400" />
-													{[item.job_level_name, item.position_name].filter(Boolean).join(" ") || "-"}
-												</span>
-											</td>
-											<td className="whitespace-nowrap px-4 py-4 text-slate-600">
-												{formatDate(item.join_date)}
-											</td>
-											<td className="whitespace-nowrap px-4 py-4">
-												<button
-													type="button"
-													onClick={() =>
-														navigate(`/karyawan-ikm/${item.employee_id}`, {
-															state: { backTo: "/karyawan-ikm" },
-														})
-													}
-													className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-												>
-													Detail
-												</button>
-											</td>
-										</tr>
-									))}
-							</tbody>
-						</table>
-					</div>
-
-					<div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-						<div className="text-slate-500">
-							Menampilkan <span className="font-semibold text-slate-700">{limit}</span> data per halaman
-						</div>
-
-						<div className="flex flex-wrap items-center gap-2">
-							<select
-								value={limit}
-								onChange={(e) => {
-									setLimit(Number(e.target.value));
-									setPage(1);
-								}}
-								className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700"
-							>
-								<option value={10}>10 / halaman</option>
-								<option value={20}>20 / halaman</option>
-								<option value={50}>50 / halaman</option>
-							</select>
-
-							<button
-								type="button"
-								onClick={() => setPage((p) => Math.max(p - 1, 1))}
-								disabled={page <= 1 || loading}
-								className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								Sebelumnya
-							</button>
-
-							<button
-								type="button"
-								onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-								disabled={page >= totalPages || loading}
-								className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								Berikutnya
-							</button>
-						</div>
-					</div>
+					{/* Pagination */}
+					<PaginationBar
+						page={page}
+						totalPages={totalPages}
+						total={total}
+						limit={limit}
+						onPage={handlePage}
+						onLimitChange={handleLimitChange}
+						loading={loading}
+					/>
 				</section>
 			</div>
 
+			{/* Add employee modal */}
 			{openAddModal && (
 				<div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-6 sm:items-center sm:p-6">
 					<div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={closeAdd} />
@@ -697,32 +812,30 @@ export default function KaryawanIKM({ user, onLogout }) {
 										Setelah tersimpan, profil lengkap bisa dilanjutkan dari halaman detail.
 									</p>
 								</div>
-
-								<button
-									type="button"
-									onClick={closeAdd}
-									className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-								>
+								<button type="button" onClick={closeAdd} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
 									<HiOutlineXMark className="h-5 w-5" />
 								</button>
 							</div>
 						</div>
 
 						<form onSubmit={submitAdd} className="max-h-[calc(100vh-10rem)] space-y-4 overflow-y-auto px-5 py-5 sm:max-h-[calc(100vh-12rem)]">
+							{error && (
+								<div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+									<HiOutlineExclamationTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+									{error}
+								</div>
+							)}
+
 							<div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
 								<div className="flex items-start gap-2">
 									<HiOutlineInformationCircle className="mt-0.5 h-5 w-5 shrink-0" />
-									<p>
-										Username dan email akan otomatis terisi dari nama, tapi tetap bisa diedit manual.
-									</p>
+									<p>Username dan email akan otomatis terisi dari nama, tapi tetap bisa diedit manual.</p>
 								</div>
 							</div>
 
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 								<label className="block sm:col-span-2">
-									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Nama Lengkap
-									</span>
+									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Lengkap</span>
 									<div className="relative">
 										<HiOutlineUser className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 										<input
@@ -735,19 +848,12 @@ export default function KaryawanIKM({ user, onLogout }) {
 								</label>
 
 								<label className="block">
-									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Kode Karyawan (Opsional)
-									</span>
+									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Kode Karyawan (Opsional)</span>
 									<div className="relative">
 										<HiOutlineIdentification className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 										<input
 											value={addForm.employee_code}
-											onChange={(e) =>
-												setAddForm((prev) => ({
-													...prev,
-													employee_code: e.target.value.toUpperCase(),
-												}))
-											}
+											onChange={(e) => setAddForm((prev) => ({ ...prev, employee_code: e.target.value.toUpperCase() }))}
 											placeholder="Contoh: IKM2024033"
 											className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
 										/>
@@ -755,17 +861,12 @@ export default function KaryawanIKM({ user, onLogout }) {
 								</label>
 
 								<label className="block">
-									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Username
-									</span>
+									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Username</span>
 									<div className="relative">
 										<HiOutlineIdentification className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 										<input
 											value={addForm.username}
-											onChange={(e) => {
-												setUsernameTouched(true);
-												setAddForm((prev) => ({ ...prev, username: e.target.value }));
-											}}
+											onChange={(e) => { setUsernameTouched(true); setAddForm((prev) => ({ ...prev, username: e.target.value })); }}
 											placeholder="Username login"
 											className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
 										/>
@@ -773,17 +874,12 @@ export default function KaryawanIKM({ user, onLogout }) {
 								</label>
 
 								<label className="block sm:col-span-2">
-									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Email
-									</span>
+									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Email</span>
 									<div className="relative">
 										<HiOutlineEnvelope className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 										<input
 											value={addForm.email}
-											onChange={(e) => {
-												setEmailTouched(true);
-												setAddForm((prev) => ({ ...prev, email: e.target.value }));
-											}}
+											onChange={(e) => { setEmailTouched(true); setAddForm((prev) => ({ ...prev, email: e.target.value })); }}
 											placeholder="contoh@ikmalora.com"
 											className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
 										/>
@@ -791,9 +887,7 @@ export default function KaryawanIKM({ user, onLogout }) {
 								</label>
 
 								<label className="block sm:col-span-2">
-									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Password
-									</span>
+									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Password</span>
 									<div className="relative">
 										<HiOutlineKey className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 										<input
@@ -805,46 +899,26 @@ export default function KaryawanIKM({ user, onLogout }) {
 										/>
 										<button
 											type="button"
-											onClick={() => setShowPassword((prev) => !prev)}
+											onClick={() => setShowPassword((p) => !p)}
 											className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
 										>
-											{showPassword ? (
-												<HiOutlineEyeSlash className="h-5 w-5" />
-											) : (
-												<HiOutlineEye className="h-5 w-5" />
-											)}
+											{showPassword ? <HiOutlineEyeSlash className="h-5 w-5" /> : <HiOutlineEye className="h-5 w-5" />}
 										</button>
 									</div>
 								</label>
 							</div>
 
-							<div className="flex flex-col gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
-								<p>
-									Preview kode: <span className="font-semibold text-slate-700">{addForm.employee_code || "-"}</span>
-								</p>
-								<p>
-									Preview username:{" "}
-									<span className="font-semibold text-slate-700">{addForm.username || "-"}</span>
-								</p>
-								<p>
-									Preview email:{" "}
-									<span className="font-semibold text-slate-700">{addForm.email || "-"}</span>
-								</p>
+							<div className="flex flex-col gap-1.5 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+								<p>Preview kode: <span className="font-semibold text-slate-700">{addForm.employee_code || "-"}</span></p>
+								<p>Preview username: <span className="font-semibold text-slate-700">{addForm.username || "-"}</span></p>
+								<p>Preview email: <span className="font-semibold text-slate-700">{addForm.email || "-"}</span></p>
 							</div>
 
 							<div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
-								<button
-									type="button"
-									onClick={closeAdd}
-									className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-								>
+								<button type="button" onClick={closeAdd} className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
 									Batal
 								</button>
-								<button
-									type="submit"
-									disabled={savingAdd}
-									className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-								>
+								<button type="submit" disabled={savingAdd} className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
 									{savingAdd ? "Menyimpan..." : "Simpan Karyawan"}
 								</button>
 							</div>
