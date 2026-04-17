@@ -907,7 +907,7 @@ export default function AbsensiIKM() {
 																	<span className="min-w-0">
 																		<span className="block truncate font-medium text-slate-700">{item.employee_name || `ID ${id}`}</span>
 																		<span className="block truncate text-[11px] text-slate-400">
-																			{item.employee_code || "Tanpa kode"} • ID {id}
+																			{item.employee_code || "Belum ada NIK"}
 																		</span>
 																	</span>
 																</label>

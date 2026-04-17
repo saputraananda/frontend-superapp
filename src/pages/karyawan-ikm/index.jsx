@@ -669,7 +669,7 @@ export default function KaryawanIKM() {
 									<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap w-10">
 										No
 									</th>
-									<SortTh col="employee_code" label="Kode"         sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+									<SortTh col="employee_code" label="NIK"         sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
 									<SortTh col="full_name"     label="Nama"          sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
 									<SortTh col="username"      label="Username"      sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
 									<SortTh col="join_date"     label="Bergabung"     sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
@@ -905,7 +905,7 @@ export default function KaryawanIKM() {
 								</label>
 
 								<label className="block">
-									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Kode Karyawan (Opsional)</span>
+									<span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Nomor Induk Karyawan  (Opsional)</span>
 									<div className="relative">
 										<HiOutlineIdentification className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 										<input
