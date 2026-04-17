@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	HiOutlineUsers,
@@ -25,7 +25,6 @@ import {
 	HiOutlineArrowsUpDown,
 	HiOutlineCalendarDays,
 } from "react-icons/hi2";
-import HeaderLayout from "../../layouts/HeaderLayout";
 import { api } from "../../lib/api";
 
 // Helpers
@@ -263,7 +262,7 @@ function MobileCard({ item, idx, startItem, onDetail }) {
 
 // Main page
 
-export default function KaryawanIKM({ user, onLogout }) {
+export default function KaryawanIKM() {
 	const navigate = useNavigate();
 
 	const [rows, setRows] = useState([]);
@@ -281,6 +280,8 @@ export default function KaryawanIKM({ user, onLogout }) {
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(1);
 	const [refreshKey, setRefreshKey] = useState(0);
+	const [showSuggestions, setShowSuggestions] = useState(false);
+	const searchContainerRef = useRef(null);
 
 	// Add modal state
 	const [openAddModal, setOpenAddModal] = useState(false);
@@ -295,9 +296,6 @@ export default function KaryawanIKM({ user, onLogout }) {
 		password: "",
 		email: "",
 	});
-
-	const jobTitle =
-		user?.employee?.job_level_name || user?.employee?.position || user?.role || "Employee";
 
 	const autoUsernameFromName = (name) => {
 		const firstName =
@@ -322,6 +320,18 @@ export default function KaryawanIKM({ user, onLogout }) {
 	useEffect(() => {
 		document.title = "Data Karyawan IKM | Alora Group Indonesia";
 	}, []);
+
+	// Close suggestion dropdown on outside click
+	useEffect(() => {
+		if (!showSuggestions) return;
+		function handleClick(e) {
+			if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+				setShowSuggestions(false);
+			}
+		}
+		document.addEventListener("mousedown", handleClick);
+		return () => document.removeEventListener("mousedown", handleClick);
+	}, [showSuggestions]);
 
 	// Debounce search input
 	useEffect(() => {
@@ -466,7 +476,8 @@ export default function KaryawanIKM({ user, onLogout }) {
 
 	// Render
 	return (
-		<HeaderLayout user={user} jobTitle={jobTitle} onLogout={onLogout}>
+		<>
+			<main className="min-h-screen bg-indigo-50 py-6 sm:py-10">
 			<div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
 
 				{/* Hero header */}
@@ -563,21 +574,66 @@ export default function KaryawanIKM({ user, onLogout }) {
 					</div>
 
 					<div className="mt-4">
-						<div className="relative">
-							<input
-								value={searchInput}
-								onChange={(e) => setSearchInput(e.target.value)}
-								placeholder="Ketik keyword untuk cari semua data karyawan..."
-								className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-							/>
-							{searchInput && (
-								<button
-									type="button"
-									onClick={() => setSearchInput("")}
-									className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-								>
-									<HiOutlineXMark className="h-3.5 w-3.5" />
-								</button>
+						<div className="relative" ref={searchContainerRef}>
+							<div className="relative">
+								<HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+								<input
+									value={searchInput}
+									onChange={(e) => { setSearchInput(e.target.value); setShowSuggestions(true); }}
+									onFocus={() => setShowSuggestions(true)}
+									placeholder="Ketik nama karyawan untuk melihat saran..."
+									className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-9 pr-10 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+								/>
+								{searchInput && (
+									<button
+										type="button"
+										onClick={() => { setSearchInput(""); setShowSuggestions(false); }}
+										className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+									>
+										<HiOutlineXMark className="h-3.5 w-3.5" />
+									</button>
+								)}
+							</div>
+
+							{/* Autocomplete suggestions dropdown */}
+							{showSuggestions && searchInput && rows.length > 0 && (
+								<div className="absolute left-0 right-0 top-full z-40 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+									<div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+										{rows.length} saran ditemukan
+									</div>
+									{rows.slice(0, 10).map((emp) => (
+										<button
+											key={emp.employee_id}
+											type="button"
+											onMouseDown={(e) => e.preventDefault()}
+											onClick={() => {
+												setSearchInput(emp.full_name || emp.employee_code || "");
+												setShowSuggestions(false);
+											}}
+											className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-blue-50"
+										>
+											<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+												<HiOutlineUser className="h-4 w-4" />
+											</div>
+											<div className="min-w-0">
+												<p className="truncate text-sm font-semibold text-slate-800">{emp.full_name || "-"}</p>
+												<p className="text-xs text-slate-400">
+													{[emp.employee_code, emp.job_level_name, emp.position_name].filter(Boolean).join(" · ")}
+												</p>
+											</div>
+											{emp.exit_date ? (
+												<span className="ml-auto shrink-0 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Resign</span>
+											) : (
+												<span className="ml-auto shrink-0 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-600">Aktif</span>
+											)}
+										</button>
+									))}
+									{rows.length > 10 && (
+										<div className="border-t border-slate-100 px-4 py-2 text-center text-xs text-slate-400">
+											+{rows.length - 10} lainnya — lihat di tabel di bawah
+										</div>
+									)}
+								</div>
 							)}
 						</div>
 					</div>
@@ -794,6 +850,7 @@ export default function KaryawanIKM({ user, onLogout }) {
 					/>
 				</section>
 			</div>
+				</main>
 
 			{/* Add employee modal */}
 			{openAddModal && (
@@ -926,6 +983,6 @@ export default function KaryawanIKM({ user, onLogout }) {
 					</div>
 				</div>
 			)}
-		</HeaderLayout>
+		</>
 	);
 }
