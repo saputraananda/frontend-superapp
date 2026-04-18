@@ -77,6 +77,9 @@ export const pmApi = {
   deleteEvidence: (evidenceId) =>
     http(`/evidence/${evidenceId}`, { method: "DELETE" }),
 
+  // ── Global Search ─────────────────────────────────────────────────────────
+  searchTasks:      (q)                   => http(`/tasks/search?q=${encodeURIComponent(q)}`),
+
   // ── Employees ─────────────────────────────────────────────────────────────
   listEmployees:    ()                    => http("/employees"),
 

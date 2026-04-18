@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import ReactDOM from "react-dom";
 import { pmApi } from "./pmApi";
 import { api } from "../../lib/api";
-import { getEmployeeFromLocal, canDirektur, canSupervisorUp, getJobLevelLabel } from "./role";
+import { getEmployeeFromLocal, canSupervisorUp, getJobLevelLabel } from "./role";
 import { NotifPanel } from "./components/pm/NotifPanel";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiTrash2, FiAlertTriangle, FiCheckCircle, FiInfo, FiXCircle, FiX } from "react-icons/fi";
@@ -228,11 +228,60 @@ const ModalDialog = () => {
   );
 };
 
+// ─── Status Config ─────────────────────────────────────────────────────────
+const TASK_STATUS_CONFIG = {
+  assigned:    { label: "Assigned",     cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  in_progress: { label: "In Progress",  cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  review:      { label: "Review",       cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  completed:   { label: "Done",         cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  blocked:     { label: "Blocked",      cls: "bg-rose-100 text-rose-700 border-rose-200" },
+};
+
+const TASK_PRIORITY_CONFIG = {
+  low:      { label: "Low",      dot: "bg-slate-400" },
+  medium:   { label: "Medium",   dot: "bg-blue-500" },
+  high:     { label: "High",     dot: "bg-amber-500" },
+  critical: { label: "Critical", dot: "bg-rose-600" },
+};
+
+// ─── GlobalTaskSearch Component (controlled input only) ────────────────────
+function GlobalTaskSearch({ q, setQ, searching }) {
+  const inputRef = useRef(null);
+
+  function clear() {
+    setQ("");
+    inputRef.current?.focus();
+  }
+
+  return (
+    <div className={cn(
+      "flex items-center gap-3 rounded-xl border bg-white px-4 py-3 shadow-sm transition-all duration-200",
+      q ? "border-blue-400 ring-2 ring-blue-100 shadow-md" : "border-slate-200"
+    )}>
+      <HiOutlineMagnifyingGlass className={cn("h-5 w-5 shrink-0 transition-colors", q ? "text-blue-500" : "text-slate-400")} />
+      <input
+        ref={inputRef}
+        value={q}
+        onChange={e => setQ(e.target.value)}
+        placeholder="Cari task di semua project — nama task atau nama anggota tim..."
+        className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+      />
+      {searching && (
+        <span className="h-4 w-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin shrink-0" />
+      )}
+      {q && !searching && (
+        <button onClick={clear} className="shrink-0 text-slate-400 hover:text-slate-600 transition">
+          <HiOutlineXMark className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ────────────────────────────────────
 export default function PMAnnual() {
   const nav = useNavigate();
   const employee = useMemo(() => getEmployeeFromLocal(), []);
-  const isDirektur = useMemo(() => canDirektur(employee), [employee]);
   const isSupervisorUp = useMemo(() => canSupervisorUp(employee), [employee]);
   const roleLabel = useMemo(() => getJobLevelLabel(employee), [employee]);
 
@@ -266,6 +315,13 @@ export default function PMAnnual() {
 
   const [showNotifs, setShowNotifs] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Task search (global)
+  const [taskQ, setTaskQ] = useState("");
+  const [taskResults, setTaskResults] = useState([]);
+  const [taskSearching, setTaskSearching] = useState(false);
+  const [taskSearched, setTaskSearched] = useState(false);
+  const taskDebounceRef = useRef(null);
 
   useEffect(() => {
     function handleOutside(e) {
@@ -428,6 +484,25 @@ export default function PMAnnual() {
     lastYear: projects.filter(p => getYear(p.created_at) === new Date().getFullYear() - 1).length,
   }), [projects]);
 
+  useEffect(() => {
+    if (taskDebounceRef.current) clearTimeout(taskDebounceRef.current);
+    if (!taskQ.trim()) { setTaskResults([]); setTaskSearched(false); return; }
+    taskDebounceRef.current = setTimeout(async () => {
+      setTaskSearching(true);
+      setTaskSearched(false);
+      try {
+        const res = await pmApi.searchTasks(taskQ.trim());
+        setTaskResults(res?.data || []);
+      } catch { setTaskResults([]); }
+      finally { setTaskSearching(false); setTaskSearched(true); }
+    }, 350);
+    return () => clearTimeout(taskDebounceRef.current);
+  }, [taskQ]);
+
+  function handleTaskSelect(task) {
+    nav(`/projectmanagement/month/${task.id_monthly}?task=${task.id}`);
+  }
+
   async function loadNotifCount() {
     try {
       const res = await pmApi.listNotifications();
@@ -577,6 +652,18 @@ export default function PMAnnual() {
           ))}
         </div>
 
+        {/* ── Global Task Search ── */}
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 shadow-sm mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider shadow-sm">
+              ✨ New Feature!
+            </span>
+            <span className="text-sm font-bold text-slate-800">Pencarian Cepat</span>
+            <span className="text-xs text-slate-500">— Temukan task di seluruh project dalam sekejap</span>
+          </div>
+          <GlobalTaskSearch q={taskQ} setQ={setTaskQ} searching={taskSearching} />
+        </div>
+
         {/* ── Filters ── */}
         <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -685,7 +772,130 @@ export default function PMAnnual() {
           </div>
         )}
 
-        {/* ── Content ── */}
+        {/* ── Task Search Results ── */}
+        {taskQ.trim() ? (
+          <div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <HiOutlineMagnifyingGlass className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-bold text-slate-800">
+                  Hasil pencarian: <span className="text-blue-600">"{taskQ}"</span>
+                </span>
+                {taskSearched && (
+                  <span className="text-xs text-slate-400">
+                    — {taskResults.length} task ditemukan
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setTaskQ("")}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+              >
+                <HiOutlineXMark className="h-3.5 w-3.5" />
+                Kembali ke Projects
+              </button>
+            </div>
+
+            {taskSearching ? (
+              <div className="grid gap-3">
+                {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-slate-200 animate-pulse" />)}
+              </div>
+            ) : taskSearched && taskResults.length === 0 ? (
+              <div className="rounded-xl bg-white border border-slate-200 p-16 text-center shadow-sm">
+                <HiOutlineInboxStack className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-sm font-bold text-slate-700">Tidak ada task yang cocok</p>
+                <p className="text-xs text-slate-400 mt-1">Coba kata kunci lain atau nama anggota tim</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {taskResults.map(task => {
+                  const st = TASK_STATUS_CONFIG[task.status] || { label: task.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+                  const pr = TASK_PRIORITY_CONFIG[task.priority];
+                  return (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => handleTaskSelect(task)}
+                      className="w-full text-left group rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-sm hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          {/* Breadcrumb */}
+                          <div className="flex items-center gap-1 text-[10px] text-slate-400 mb-2 flex-wrap">
+                            <span className="font-medium text-slate-500">{task.project_title || "—"}</span>
+                            <HiOutlineChevronRight className="h-2.5 w-2.5 shrink-0" />
+                            <span>{task.semester_title || "—"}</span>
+                            <HiOutlineChevronRight className="h-2.5 w-2.5 shrink-0" />
+                            <span>{task.monthly_title || "—"}</span>
+                          </div>
+                          {/* Title + badges */}
+                          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+                            <span className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                              {task.title}
+                            </span>
+                            <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold", st.cls)}>
+                              {st.label}
+                            </span>
+                            {pr && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500">
+                                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", pr.dot)} />
+                                {pr.label}
+                              </span>
+                            )}
+                          </div>
+                          {/* Meta */}
+                          <div className="flex items-center gap-4 flex-wrap">
+                            {(task.startdate || task.enddate) && (
+                              <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                                <HiOutlineCalendarDays className="h-3 w-3 shrink-0" />
+                                {task.startdate ? fmtDate(task.startdate) : "?"}
+                                {task.enddate && <> → {fmtDate(task.enddate)}</>}
+                              </div>
+                            )}
+                            {task.owner_name && (
+                              <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                <div className="h-4 w-4 rounded bg-slate-700 text-white flex items-center justify-center text-[8px] font-bold shrink-0">
+                                  {initials(task.owner_name)}
+                                </div>
+                                <span className="font-medium">{task.owner_name}</span>
+                              </div>
+                            )}
+                            {task.assignees?.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-slate-400">Assignee:</span>
+                                <div className="flex items-center">
+                                  {task.assignees.slice(0, 5).map((a, i) => (
+                                    <div
+                                      key={a.employee_id}
+                                      title={a.full_name}
+                                      style={{ zIndex: 5 - i }}
+                                      className="relative h-5 w-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold border-2 border-white -ml-1 first:ml-0"
+                                    >
+                                      {initials(a.full_name)}
+                                    </div>
+                                  ))}
+                                  {task.assignees.length > 5 && (
+                                    <span className="text-[10px] text-slate-400 ml-1.5">+{task.assignees.length - 5}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-blue-600 group-hover:gap-2 transition-all mt-1">
+                          Buka Task
+                          <HiOutlineChevronRight className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+        <>{/* ── Content (Projects) ── */}
         {loading ? (
           <div className={cn("grid gap-4", viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1")}>
             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -850,6 +1060,7 @@ export default function PMAnnual() {
             )}
           </div>
         )}
+        </> )}
       </div>
 
       {/* ── Modal Create ── */}
