@@ -20,6 +20,7 @@ import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
+import PerizinanIKM from "./pages/perizinan-ikm";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -291,6 +292,19 @@ export default function App() {
               allowedRoles={appRoles["/karyawan-IKM"] || appRoles["/karyawan-ikm"]}
             >
               <KaryawanIKMDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Perizinan IKM ── */}
+        <Route
+          path="/perizinan-ikm"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={appRoles["/absensi-IKM"] || appRoles["/absensi-ikm"]}
+            >
+              <PerizinanIKM user={user} onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

@@ -17,6 +17,7 @@ import {
 	HiOutlineMapPin,
 	HiOutlinePhoto,
 	HiOutlineXMark,
+	HiOutlineClipboardDocumentList,
 } from "react-icons/hi2";
 import { BASE_URL, api } from "../../lib/api";
 
@@ -154,9 +155,17 @@ const PERIOD_MONTHS = [
 	{ value: 12, label: "Desember" },
 ];
 
-function StatCard({ title, value, subtitle, tone = "blue", Icon }) {
+function StatCard({ title, value, subtitle, tone = "blue", Icon, onClick }) {
+	const Tag = onClick ? "button" : "div";
 	return (
-		<div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+		<Tag
+			type={onClick ? "button" : undefined}
+			onClick={onClick}
+			className={cn(
+				"rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm text-left w-full",
+				onClick && "cursor-pointer transition hover:shadow-md hover:border-slate-300 active:scale-[0.99]",
+			)}
+		>
 			<div className="flex items-start justify-between gap-3">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</p>
@@ -167,7 +176,10 @@ function StatCard({ title, value, subtitle, tone = "blue", Icon }) {
 					<Icon className="h-5 w-5" />
 				</div>
 			</div>
-		</div>
+			{onClick && (
+				<p className="mt-2 text-[11px] font-semibold text-slate-400 group-hover:text-slate-500">Lihat detail →</p>
+			)}
+		</Tag>
 	);
 }
 
@@ -476,6 +488,7 @@ export default function AbsensiIKM() {
 
 	const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1, limit: 50 });
 	const [summary, setSummary] = useState(null);
+	const [leaveSummary, setLeaveSummary] = useState({ izin: 0, sakit: 0, cuti: 0 });
 	const [employeeSummary, setEmployeeSummary] = useState([]);
 	const [employeeSummaryPage, setEmployeeSummaryPage] = useState(1);
 	const [employeeSummaryLimit, setEmployeeSummaryLimit] = useState("5");
@@ -569,6 +582,7 @@ export default function AbsensiIKM() {
 
 				const response = await api(`/ikm/absensi/shifts?${qs.toString()}`);
 				setSummary(response.summary ?? null);
+				setLeaveSummary(response.summary?.leaveSummary ?? { izin: 0, sakit: 0, cuti: 0 });
 				setEmployeeSummary(response.employeeSummary ?? []);
 				setRecords(response.records ?? []);
 				setEmployeeOptions(Array.isArray(response.employeeOptions) ? response.employeeOptions : []);
@@ -819,6 +833,28 @@ export default function AbsensiIKM() {
 									{activePeriodLabel}
 								</div>
 							</div>
+
+							<div className="relative flex shrink-0 items-start sm:items-center sm:mt-2">
+								<button
+									type="button"
+									onClick={() => navigate("/perizinan-ikm")}
+									className="group flex flex-col items-start gap-3 rounded-3xl border-2 border-white/25 bg-gradient-to-br from-white/20 to-white/5 px-6 py-5 text-left shadow-2xl backdrop-blur-md transition hover:from-white/30 hover:to-white/10 hover:border-white/40 active:scale-95 min-w-[200px]"
+								>
+									<div className="flex items-center gap-3">
+										<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/25 shadow-inner transition group-hover:bg-white/35">
+											<HiOutlineClipboardDocumentList className="h-6 w-6 text-white" />
+										</span>
+										<span className="text-[11px] font-bold uppercase tracking-widest text-white/60">Kelola Izin</span>
+									</div>
+									<div>
+										<p className="text-xl font-extrabold leading-tight text-white">Cuti &amp; Perizinan</p>
+										<p className="mt-0.5 text-xs text-white/60">Setujui atau tolak pengajuan karyawan</p>
+									</div>
+									<span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/80 group-hover:bg-white/20 transition">
+										Buka Halaman →
+									</span>
+								</button>
+							</div>
 						</div>
 					</section>
 
@@ -1055,27 +1091,37 @@ export default function AbsensiIKM() {
 						</div>
 					</section>
 
-					<section className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-						<StatCard
-							title="Total Absen"
-							value={summary?.totalRecords ?? 0}
-							subtitle="Total record absensi pada periode aktif"
-							tone="blue"
-							Icon={HiOutlineDocumentCheck}
-						/>
-						<StatCard
-							title="Total Sakit"
-							value={0}
-							subtitle="Dummy sementara (menunggu data final)"
-							tone="rose"
-							Icon={HiOutlineExclamationTriangle}
-						/>
-						<StatCard
-							title="Total Izin"
-							value={0}
-							subtitle="Dummy sementara (menunggu data final)"
-							tone="amber"
-							Icon={HiOutlineCalendarDays}
+<section className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+					<StatCard
+						title="Total Absen"
+						value={summary?.totalRecords ?? 0}
+						subtitle="Total record absensi pada periode aktif"
+						tone="blue"
+						Icon={HiOutlineDocumentCheck}
+					/>
+					<StatCard
+						title="Total Sakit"
+						value={leaveSummary.sakit}
+						subtitle="Pengajuan izin sakit pada periode ini"
+						tone="rose"
+						Icon={HiOutlineExclamationTriangle}
+						onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "sakit", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
+					/>
+					<StatCard
+						title="Total Izin"
+						value={leaveSummary.izin}
+						subtitle="Pengajuan izin kepentingan pada periode ini"
+						tone="amber"
+						Icon={HiOutlineCalendarDays}
+						onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "izin", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
+					/>
+					<StatCard
+						title="Total Cuti"
+						value={leaveSummary.cuti}
+						subtitle="Pengajuan cuti tahunan pada periode ini"
+						tone="emerald"
+						Icon={HiOutlineClipboardDocumentList}
+						onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "cuti", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
 						/>
 						<StatCard
 							title="Total Lembur"
