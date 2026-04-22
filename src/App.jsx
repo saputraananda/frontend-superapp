@@ -16,11 +16,16 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
 import MaintenancePage from "./pages/maintenance";
 import AsetManagement from "./pages/aset-management";
+import MasterRsIkm from "./pages/master-rs-ikm";
+import RumahSakitPage from "./pages/master-rs-ikm/components/rumahSakit";
+import DataLinenPage from "./pages/master-rs-ikm/components/dataLinen";
 import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
+import AbsensiPage from "./pages/absensi-ikm/components/absensi";
+import PerizinanIKM from "./pages/absensi-ikm/components/perizinanIKM";
+import MasterAbsensi from "./pages/absensi-ikm/components/masterAbsensi";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
-import PerizinanIKM from "./pages/perizinan-ikm";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -212,6 +217,17 @@ export default function App() {
           }
         />
 
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/rumah-sakit-ikm"]}>
+              <MasterRsIkm />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/rumah-sakit-ikm" element={<RumahSakitPage />} />
+          <Route path="/linen-ikm" element={<DataLinenPage />} />
+        </Route>
+
         {/* ── Target Waschen ── */}
         <Route
           path="/target-waschen"
@@ -222,30 +238,22 @@ export default function App() {
           }
         />
 
-        {/* ── Absensi IKM ── */}
+        {/* ── IKM Suite (with sidebar) ── */}
         <Route
-          path="/absensi-IKM"
           element={
             <ProtectedRoute
               user={user}
               allowedRoles={appRoles["/absensi-IKM"] || appRoles["/absensi-ikm"]}
             >
-              <AbsensiIKM user={user} onLogout={handleLogout} />
+              <AbsensiIKM />
             </ProtectedRoute>
           }
-        />
-
-        <Route
-          path="/absensi-ikm"
-          element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={appRoles["/absensi-IKM"] || appRoles["/absensi-ikm"]}
-            >
-              <AbsensiIKM user={user} onLogout={handleLogout} />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route path="/absensi-IKM" element={<AbsensiPage user={user} onLogout={handleLogout} />} />
+          <Route path="/absensi-ikm" element={<AbsensiPage user={user} onLogout={handleLogout} />} />
+          <Route path="/perizinan-ikm" element={<PerizinanIKM user={user} onLogout={handleLogout} />} />
+          <Route path="/master-absensi" element={<MasterAbsensi />} />
+        </Route>
 
         {/* ── Karyawan IKM ── */}
         <Route
@@ -292,19 +300,6 @@ export default function App() {
               allowedRoles={appRoles["/karyawan-IKM"] || appRoles["/karyawan-ikm"]}
             >
               <KaryawanIKMDetail />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ── Perizinan IKM ── */}
-        <Route
-          path="/perizinan-ikm"
-          element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={appRoles["/absensi-IKM"] || appRoles["/absensi-ikm"]}
-            >
-              <PerizinanIKM user={user} onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

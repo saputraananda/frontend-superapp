@@ -63,6 +63,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6zm1 2a1 1 0 000 2h4a1 1 0 100-2H7zm0 4a1 1 0 000 2h4a1 1 0 100-2H7zm0 4a1 1 0 000 2h2a1 1 0 100-2H7z" clipRule="evenodd" />
         </svg>
       );
+    if (name.includes("rumah sakit") || name.includes("hospital") || name.includes("rs ikm"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M7 3.75A2.25 2.25 0 0 0 4.75 6v12A2.25 2.25 0 0 0 7 20.25h10A2.25 2.25 0 0 0 19.25 18V6A2.25 2.25 0 0 0 17 3.75H7ZM12 7a.75.75 0 0 1 .75.75v2.5h2.5a.75.75 0 0 1 0 1.5h-2.5v2.5a.75.75 0 0 1-1.5 0v-2.5h-2.5a.75.75 0 0 1 0-1.5h2.5v-2.5A.75.75 0 0 1 12 7Z" />
+        </svg>
+      );
     if (name.includes("absensi") || name.includes("attendance"))
       return (
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -93,6 +99,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("add-menu") || name.includes("add menu") || name.includes("menu app")) return "bg-teal-500";
     if (name.includes("weekly") || name.includes("leader") || name.includes("report")) return "bg-indigo-500";
     if (name.includes("aset") || name.includes("asset")) return "bg-amber-500";
+    if (name.includes("rumah sakit") || name.includes("hospital") || name.includes("rs ikm")) return "bg-red-500";
     if (name.includes("absensi") || name.includes("attendance")) return "bg-emerald-500";
     if (name.includes("target")) return "bg-orange-500";
     return "bg-blue-600";

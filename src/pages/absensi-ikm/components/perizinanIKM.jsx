@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
 	HiOutlineArrowLeft,
 	HiOutlineCalendarDays,
@@ -18,7 +18,7 @@ import {
 	HiOutlineChevronUp,
 	HiOutlineDocumentText,
 } from "react-icons/hi2";
-import { api } from "../../lib/api";
+import { api } from "../../../lib/api";
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 function cn(...classes) {
@@ -467,7 +467,6 @@ function MobileLeaveCard({ row, onDetail }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function PerizinanIKM() {
-	const navigate = useNavigate();
 	const location = useLocation();
 	const defaultCutoff = useMemo(() => getDefaultCutoff(), []);
 	const yearOptions = useMemo(() => {
@@ -692,14 +691,6 @@ export default function PerizinanIKM() {
 
 						<div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 							<div className="max-w-2xl">
-								<button
-									type="button"
-									onClick={() => navigate("/absensi-ikm")}
-									className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-								>
-									<HiOutlineArrowLeft className="h-4 w-4" />
-									Kembali ke Absensi
-								</button>
 								<h1 className="mt-4 text-2xl font-bold text-white sm:text-3xl">Cuti &amp; Perizinan IKM</h1>
 								<p className="mt-2 text-sm text-white/80">
 									Kelola dan pantau pengajuan izin, sakit, dan cuti karyawan.
