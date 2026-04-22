@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, apiUpload, assetUrl } from "../../lib/api";
 import ConfirmDialog from "../../components/ConfirmDialog";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import Barcode from "react-barcode";
 import { getEmployeeFromLocal } from "../project-management/role";
 
@@ -363,19 +363,119 @@ export default function AsetManagement() {
 
     // ── QR Print ──
     const printQr = () => {
-        const el = document.getElementById("barcode-print-area");
-        if (!el) return;
-        const title = barcodeType === "qr"
-            ? `QR Code - ${qrAset?.kode_aset}`
-            : `Barcode - ${qrAset?.kode_aset}`;
-        const w = window.open("", "_blank", "width=400,height=500");
-        w.document.write(`
-      <html><head><title>${title}</title>
-      <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif}h2{margin-bottom:4px}p{color:#666;font-size:14px}</style>
-      </head><body>${el.innerHTML}</body></html>
-    `);
+        let imgTag = "";
+        if (barcodeType === "qr") {
+            const qrEl = document.getElementById("qr-canvas");
+            if (qrEl) imgTag = `<img src="${qrEl.toDataURL()}" style="width:44mm;height:44mm;display:block">`;
+        } else {
+            const svgEl = document.querySelector("#barcode-print-area svg");
+            if (svgEl) {
+                const svgData = new XMLSerializer().serializeToString(svgEl);
+                const b64 = btoa(unescape(encodeURIComponent(svgData)));
+                imgTag = `<img src="data:image/svg+xml;base64,${b64}" style="width:56mm;height:auto;display:block">`;
+            }
+        }
+        const w = window.open("", "_blank", "width=300,height=400");
+        w.document.write(`<!DOCTYPE html><html><head><title>Label</title><style>
+@page{margin:0}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#fff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.label{display:flex;flex-direction:column;align-items:center;gap:2.5mm}
+.divider{width:8mm;height:0.3mm;background:#cbd5e1}
+.item-name{font-size:4mm;font-weight:700;color:#0f172a;white-space:nowrap;display:inline-block;transform-origin:50% 50%}
+.item-code{font-family:'Courier New',monospace;font-size:3mm;color:#475569;letter-spacing:0.4mm}
+.company{font-size:2.4mm;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8mm}
+</style></head><body>
+<div class="label">
+  ${imgTag}
+  <div class="divider"></div>
+  <div class="item-name" id="nm">${qrAset?.nama_aset || ""}</div>
+  <div class="item-code">${qrAset?.kode_aset || ""}</div>
+  <div class="company">${qrAset?.company_name || ""}</div>
+</div>
+<script>
+window.onload=function(){
+  var el=document.getElementById('nm');
+  var maxW=el.parentElement.offsetWidth-2;
+  if(el.scrollWidth>maxW){el.style.transform='scaleX('+(maxW/el.scrollWidth)+')';}
+  window.print();
+}
+</script>
+</body></html>`);
         w.document.close();
-        w.print();
+    };
+
+    // ── QR Download ──
+    const downloadQr = () => {
+        const W = 260, pad = 20;
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const drawLabel = (codeHeight) => {
+            const totalH = pad + codeHeight + 14 + 22 + 18 + 16 + pad;
+            canvas.width = W;
+            canvas.height = totalH;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, W, totalH);
+
+            let y = pad + codeHeight + 20;
+            // divider
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillRect((W - 32) / 2, y, 32, 1);
+            y += 12;
+            // name
+            ctx.fillStyle = "#0f172a";
+            ctx.font = "bold 14px system-ui,sans-serif";
+            ctx.textAlign = "center";
+            const name = (qrAset?.nama_aset || "").substring(0, 36);
+            ctx.fillText(name, W / 2, y);
+            y += 20;
+            // code
+            ctx.fillStyle = "#475569";
+            ctx.font = "12px 'Courier New',monospace";
+            ctx.fillText(qrAset?.kode_aset || "", W / 2, y);
+            y += 16;
+            // company
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "10px system-ui,sans-serif";
+            ctx.fillText((qrAset?.company_name || "").toUpperCase(), W / 2, y);
+        };
+
+        const saveCanvas = () => {
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${qrAset?.kode_aset || "label"}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        };
+
+        if (barcodeType === "qr") {
+            const qrEl = document.getElementById("qr-canvas");
+            if (!qrEl) return;
+            const qrSize = 160;
+            drawLabel(qrSize);
+            ctx.drawImage(qrEl, (W - qrSize) / 2, pad, qrSize, qrSize);
+            saveCanvas();
+        } else {
+            const svgEl = document.querySelector("#barcode-print-area svg");
+            if (!svgEl) return;
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                drawLabel(img.height);
+                ctx.drawImage(img, (W - img.width) / 2, pad, img.width, img.height);
+                URL.revokeObjectURL(url);
+                saveCanvas();
+            };
+            img.src = url;
+        }
     };
 
     // ── Get current location ──
@@ -887,42 +987,56 @@ export default function AsetManagement() {
             {/* ════════════════════════════════════════════════════════════════════ */}
             {qrModalOpen && qrAset && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setQrModalOpen(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 w-full max-w-sm">
-                        <div className="flex items-center justify-between w-full">
-                            <h3 className="font-bold text-slate-800">QR / Barcode Aset</h3>
-                            <button onClick={() => setQrModalOpen(false)} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50 transition">
-                                <HiOutlineXMark className="h-4 w-4 text-slate-600" />
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setQrModalOpen(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                            <span className="text-sm font-semibold text-slate-700">Label Aset</span>
+                            <button onClick={() => setQrModalOpen(false)} className="rounded-lg p-1.5 hover:bg-slate-100 transition">
+                                <HiOutlineXMark className="h-4 w-4 text-slate-500" />
                             </button>
                         </div>
 
-                        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
-                            <button onClick={() => setBarcodeType("qr")} className={cn("px-4 py-2 text-xs font-semibold transition", barcodeType === "qr" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50")}>
+                        {/* Type toggle */}
+                        <div className="flex border-b border-slate-100">
+                            <button onClick={() => setBarcodeType("qr")} className={cn("flex-1 py-2.5 text-xs font-semibold transition", barcodeType === "qr" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50")}>
                                 QR Code
                             </button>
-                            <button onClick={() => setBarcodeType("barcode")} className={cn("px-4 py-2 text-xs font-semibold transition", barcodeType === "barcode" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50")}>
+                            <button onClick={() => setBarcodeType("barcode")} className={cn("flex-1 py-2.5 text-xs font-semibold transition border-l border-slate-100", barcodeType === "barcode" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50")}>
                                 Barcode
                             </button>
                         </div>
 
-                        <div id="barcode-print-area" className="flex flex-col items-center gap-2 p-4 bg-white">
+                        {/* Label preview */}
+                        <div id="barcode-print-area" className="flex flex-col items-center px-6 py-7 bg-white w-full">
                             {barcodeType === "qr" ? (
-                                <QRCodeSVG
+                                <QRCodeCanvas
+                                    id="qr-canvas"
                                     value={`${window.location.origin}/aset-management?kode=${qrAset.kode_aset}`}
-                                    size={200}
+                                    size={160}
                                     level="M"
-                                    includeMargin
+                                    includeMargin={false}
                                 />
                             ) : (
-                                <Barcode value={qrAset.kode_aset} width={1.5} height={80} fontSize={12} />
+                                <Barcode value={qrAset.kode_aset} width={1.5} height={70} fontSize={12} margin={0} />
                             )}
-                            <h2 className="text-sm font-bold text-slate-800">{toTitleCase(qrAset.nama_aset)}</h2>
-                            <p className="text-xs text-slate-500 font-mono">{qrAset.kode_aset}</p>
+                            <div className="w-8 h-px bg-slate-200 my-3" />
+                            <p className="text-sm font-bold text-slate-900 text-center whitespace-nowrap overflow-hidden w-full" style={{ fontSize: "clamp(9px, 3.8vw, 14px)" }}>
+                                {toTitleCase(qrAset.nama_aset)}
+                            </p>
+                            <p className="text-xs font-mono text-slate-500 mt-1">{qrAset.kode_aset}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-widest">{qrAset.company_name || ""}</p>
                         </div>
 
-                        <button onClick={printQr} className="w-full flex items-center justify-center gap-2 rounded-lg bg-slate-800 py-2.5 text-sm font-semibold text-white hover:bg-slate-900 transition">
-                            <HiOutlinePrinter className="h-4 w-4" /> Print
-                        </button>
+                        {/* Actions */}
+                        <div className="flex gap-2 px-5 pb-5">
+                            <button onClick={downloadQr} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                                <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> Download
+                            </button>
+                            <button onClick={printQr} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition">
+                                <HiOutlinePrinter className="h-3.5 w-3.5" /> Print
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
