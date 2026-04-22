@@ -31,6 +31,14 @@ import {
 
 import { cn, toTitleCase, SUB_KATEGORI, SATUAN, KONDISI, KONDISI_COLOR, SUBKAT_COLOR, APPROVAL_STATUS, inputCls, EMPTY_FORM } from "./components/constants";
 import { Field, InfoRow, StatCard, ApprovalBadge } from "./components/UIComponents";
+
+const COMPANY_LOGO = {
+    1: "/alora.png",
+    2: "/ikm.png",
+    3: "/cleanox.png",
+    4: "/aurora.png",
+    5: "/waschen.webp",
+};
 import ApprovalSection from "./components/ApprovalSection";
 import MutasiTab from "./components/MutasiTab";
 import MaintenanceTab from "./components/MaintenanceTab";
@@ -375,6 +383,10 @@ export default function AsetManagement() {
                 imgTag = `<img src="data:image/svg+xml;base64,${b64}" style="width:56mm;height:auto;display:block">`;
             }
         }
+        const logoPath = COMPANY_LOGO[qrAset?.company_id];
+        const logoTag = logoPath
+            ? `<img src="${window.location.origin}${logoPath}" alt="" style="height:12mm;width:auto;display:block;object-fit:contain">`
+            : "";
         const w = window.open("", "_blank", "width=300,height=400");
         w.document.write(`<!DOCTYPE html><html><head><title>Label</title><style>
 @page{margin:0}
@@ -388,6 +400,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .company{font-size:2.4mm;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8mm}
 </style></head><body>
 <div class="label">
+  ${logoTag}
   ${imgTag}
   <div class="divider"></div>
   <div class="item-name" id="nm">${qrAset?.nama_aset || ""}</div>
@@ -409,17 +422,18 @@ window.onload=function(){
     // ── QR Download ──
     const downloadQr = () => {
         const W = 260, pad = 20;
+        const LOGO_H = 48, LOGO_GAP = 10;
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        const drawLabel = (codeHeight) => {
-            const totalH = pad + codeHeight + 14 + 22 + 18 + 16 + pad;
+        const drawLabel = (codeHeight, logoOffset = 0) => {
+            const totalH = pad + logoOffset + codeHeight + 14 + 22 + 18 + 16 + pad;
             canvas.width = W;
             canvas.height = totalH;
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, W, totalH);
 
-            let y = pad + codeHeight + 20;
+            let y = pad + logoOffset + codeHeight + 20;
             // divider
             ctx.fillStyle = "#e2e8f0";
             ctx.fillRect((W - 32) / 2, y, 32, 1);
@@ -454,13 +468,39 @@ window.onload=function(){
             });
         };
 
+        const drawLogoThenCode = (logoImg, codeDrawFn, codeHeight) => {
+            const logoOffset = LOGO_H + LOGO_GAP;
+            drawLabel(codeHeight, logoOffset);
+            if (logoImg) {
+                const logoW = Math.round((logoImg.naturalWidth / logoImg.naturalHeight) * LOGO_H);
+                ctx.drawImage(logoImg, (W - logoW) / 2, pad, logoW, LOGO_H);
+            }
+            codeDrawFn(logoOffset);
+            saveCanvas();
+        };
+
+        const loadLogoThen = (then) => {
+            const logoPath = COMPANY_LOGO[qrAset?.company_id];
+            if (!logoPath) { then(null); return; }
+            const img = new Image();
+            img.onload  = () => then(img);
+            img.onerror = () => then(null);
+            img.src = logoPath;
+        };
+
         if (barcodeType === "qr") {
             const qrEl = document.getElementById("qr-canvas");
             if (!qrEl) return;
             const qrSize = 160;
-            drawLabel(qrSize);
-            ctx.drawImage(qrEl, (W - qrSize) / 2, pad, qrSize, qrSize);
-            saveCanvas();
+            loadLogoThen((logoImg) => {
+                if (logoImg) {
+                    drawLogoThenCode(logoImg, (offset) => ctx.drawImage(qrEl, (W - qrSize) / 2, pad + offset, qrSize, qrSize), qrSize);
+                } else {
+                    drawLabel(qrSize);
+                    ctx.drawImage(qrEl, (W - qrSize) / 2, pad, qrSize, qrSize);
+                    saveCanvas();
+                }
+            });
         } else {
             const svgEl = document.querySelector("#barcode-print-area svg");
             if (!svgEl) return;
@@ -469,10 +509,16 @@ window.onload=function(){
             const url = URL.createObjectURL(blob);
             const img = new Image();
             img.onload = () => {
-                drawLabel(img.height);
-                ctx.drawImage(img, (W - img.width) / 2, pad, img.width, img.height);
                 URL.revokeObjectURL(url);
-                saveCanvas();
+                loadLogoThen((logoImg) => {
+                    if (logoImg) {
+                        drawLogoThenCode(logoImg, (offset) => ctx.drawImage(img, (W - img.width) / 2, pad + offset, img.width, img.height), img.height);
+                    } else {
+                        drawLabel(img.height);
+                        ctx.drawImage(img, (W - img.width) / 2, pad, img.width, img.height);
+                        saveCanvas();
+                    }
+                });
             };
             img.src = url;
         }
@@ -1009,6 +1055,13 @@ window.onload=function(){
 
                         {/* Label preview */}
                         <div id="barcode-print-area" className="flex flex-col items-center px-6 py-7 bg-white w-full">
+                            {COMPANY_LOGO[qrAset.company_id] && (
+                                <img
+                                    src={COMPANY_LOGO[qrAset.company_id]}
+                                    alt=""
+                                    className="h-10 w-auto object-contain mb-3"
+                                />
+                            )}
                             {barcodeType === "qr" ? (
                                 <QRCodeCanvas
                                     id="qr-canvas"
