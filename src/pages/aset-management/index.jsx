@@ -430,7 +430,7 @@ window.onload=function(){
             if (svgEl) {
                 const svgData = new XMLSerializer().serializeToString(svgEl);
                 const b64 = btoa(unescape(encodeURIComponent(svgData)));
-                imgTag = `<img src="data:image/svg+xml;base64,${b64}" style="width:28mm;height:auto;display:block">`;
+                imgTag = `<img src="data:image/svg+xml;base64,${b64}" style="width:50mm;height:auto;display:block">`;
             }
         }
         const logoPath = COMPANY_LOGO[qrAset?.company_id];
