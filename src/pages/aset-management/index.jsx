@@ -419,6 +419,59 @@ window.onload=function(){
         w.document.close();
     };
 
+    // ── QR Print Kecil (50% scale + black border) ──
+    const printQrKecil = () => {
+        let imgTag = "";
+        if (barcodeType === "qr") {
+            const qrEl = document.getElementById("qr-canvas");
+            if (qrEl) imgTag = `<img src="${qrEl.toDataURL()}" style="width:22mm;height:22mm;display:block">`;
+        } else {
+            const svgEl = document.querySelector("#barcode-print-area svg");
+            if (svgEl) {
+                const svgData = new XMLSerializer().serializeToString(svgEl);
+                const b64 = btoa(unescape(encodeURIComponent(svgData)));
+                imgTag = `<img src="data:image/svg+xml;base64,${b64}" style="width:28mm;height:auto;display:block">`;
+            }
+        }
+        const logoPath = COMPANY_LOGO[qrAset?.company_id];
+        const logoTag = logoPath
+            ? `<img src="${window.location.origin}${logoPath}" alt="" style="height:6mm;width:auto;display:block;object-fit:contain">`
+            : "";
+        const w = window.open("", "_blank", "width=200,height=280");
+        w.document.write(`<!DOCTYPE html><html><head><title>Label Kecil</title><style>
+@page{margin:0}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#fff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.wrapper{display:inline-block;border:0.4mm solid #000;padding:2mm}
+.label{display:flex;flex-direction:column;align-items:center;gap:1.25mm}
+.divider{width:4mm;height:0.3mm;background:#cbd5e1}
+.item-name{font-size:2mm;font-weight:700;color:#0f172a;white-space:nowrap;display:inline-block;transform-origin:50% 50%}
+.item-code{font-family:'Courier New',monospace;font-size:1.5mm;color:#475569;letter-spacing:0.2mm}
+.company{font-size:1.2mm;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4mm}
+</style></head><body>
+<div class="wrapper">
+  <div class="label">
+    ${logoTag}
+    ${imgTag}
+    <div class="divider"></div>
+    <div class="item-name" id="nm">${qrAset?.nama_aset || ""}</div>
+    <div class="item-code">${qrAset?.kode_aset || ""}</div>
+    <div class="company">${qrAset?.company_name || ""}</div>
+  </div>
+</div>
+<script>
+window.onload=function(){
+  var el=document.getElementById('nm');
+  var maxW=el.parentElement.offsetWidth-2;
+  if(el.scrollWidth>maxW){el.style.transform='scaleX('+(maxW/el.scrollWidth)+')';}
+  window.print();
+}
+</script>
+</body></html>`);
+        w.document.close();
+    };
+
     // ── QR Download ──
     const downloadQr = () => {
         const W = 260, pad = 20;
@@ -1082,12 +1135,17 @@ window.onload=function(){
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2 px-5 pb-5">
-                            <button onClick={downloadQr} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
-                                <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> Download
-                            </button>
-                            <button onClick={printQr} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition">
-                                <HiOutlinePrinter className="h-3.5 w-3.5" /> Print
+                        <div className="flex flex-col gap-2 px-5 pb-5">
+                            <div className="flex gap-2">
+                                <button onClick={downloadQr} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                                    <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> Download
+                                </button>
+                                <button onClick={printQr} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition">
+                                    <HiOutlinePrinter className="h-3.5 w-3.5" /> Print
+                                </button>
+                            </div>
+                            <button onClick={printQrKecil} className="w-full flex items-center justify-center gap-1.5 rounded-xl border-2 border-black py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition">
+                                <HiOutlinePrinter className="h-3.5 w-3.5" /> Print Kecil
                             </button>
                         </div>
                     </div>
