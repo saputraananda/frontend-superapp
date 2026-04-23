@@ -1,0 +1,21 @@
+export const cleanoxOperationalConfig = {
+  id: "cleanox",
+  companyIds: [3],
+  pageBgClass: "bg-slate-50",
+  navActiveClass: "bg-gradient-to-r from-slate-950 to-blue-900 text-white shadow-md shadow-lime-200",
+  navIdleClass: "text-slate-600 hover:bg-lime-50 hover:text-slate-900",
+  navDescriptionActiveClass: "text-lime-100",
+  brandShellClass: "bg-gradient-to-br from-slate-950 to-blue-900 shadow-md shadow-lime-200",
+  heroShellClass: "border border-lime-200 bg-gradient-to-br from-blue-50 to-lime-50 shadow-sm shadow-lime-100",
+  heroIconClass: "text-blue-900",
+  liveBadgeClass: "border border-lime-300 bg-lime-50 text-lime-700",
+  liveDotClass: "bg-lime-500",
+  tabActiveClass: "bg-white text-lime-700 shadow-sm",
+  focusClass: "focus:ring-2 focus:ring-lime-400/30 focus:border-lime-400",
+  primaryKpiClass: "bg-gradient-to-br from-slate-950 via-blue-900 to-lime-500",
+  chart: {
+    primary: "#2f4f83",
+    outletColors: ["#1c2748", "#2b4776", "#355f97", "#8fbd44", "#d6ea4e"],
+    cycleColors: ["#1c2748", "#253f6c", "#2b4776", "#355f97", "#5f84ba", "#8fbd44", "#d6ea4e"],
+  },
+};

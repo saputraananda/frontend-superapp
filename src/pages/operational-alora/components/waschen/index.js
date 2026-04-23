@@ -1,0 +1,21 @@
+export const waschenOperationalConfig = {
+  id: "waschen",
+  companyIds: [1, 5],
+  pageBgClass: "bg-violet-50",
+  navActiveClass: "bg-violet-600 text-white shadow-md shadow-violet-200",
+  navIdleClass: "text-slate-600 hover:bg-violet-50 hover:text-slate-900",
+  navDescriptionActiveClass: "text-violet-100",
+  brandShellClass: "bg-gradient-to-br from-violet-700 to-fuchsia-500 shadow-md shadow-violet-200",
+  heroShellClass: "border border-violet-200 bg-gradient-to-br from-violet-100 to-fuchsia-50 shadow-sm shadow-violet-100",
+  heroIconClass: "text-violet-500",
+  liveBadgeClass: "border border-violet-200 bg-violet-50 text-violet-700",
+  liveDotClass: "bg-violet-500",
+  tabActiveClass: "bg-white text-violet-700 shadow-sm",
+  focusClass: "focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400",
+  primaryKpiClass: "bg-gradient-to-br from-violet-600 to-fuchsia-500",
+  chart: {
+    primary: "#8b5cf6",
+    outletColors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#d8b4fe"],
+    cycleColors: ["#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#d8b4fe", "#e9d5ff"],
+  },
+};

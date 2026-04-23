@@ -26,6 +26,11 @@ import PerizinanIKM from "./pages/absensi-ikm/components/perizinanIKM";
 import MasterAbsensi from "./pages/absensi-ikm/components/masterAbsensi";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
+import OperationalAlora from "./pages/operational-alora";
+import DashboardOperasional from "./pages/operational-alora/components/dashboardOperasional";
+import QualityCheckOC from "./pages/operational-alora/components/qualityCheck";
+import ChemicalTreatmentOC from "./pages/operational-alora/components/chemicalTreatment";
+import ComplainOC from "./pages/operational-alora/components/complain";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -303,6 +308,20 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ── Operational Alora ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/operational-alora-group"]}>
+              <OperationalAlora />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/operational-alora-group" element={<DashboardOperasional />} />
+          <Route path="/quality-check-oc" element={<QualityCheckOC />} />
+          <Route path="/chemical-treatment-oc" element={<ChemicalTreatmentOC />} />
+          <Route path="/complain-oc" element={<ComplainOC />} />
+        </Route>
 
         <Route path="/" element={<Navigate to={user ? "/portal" : "/login"} />} />
         <Route path="*" element={<Navigate to={user ? "/portal" : "/login"} />} />

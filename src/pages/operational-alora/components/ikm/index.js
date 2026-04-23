@@ -1,0 +1,21 @@
+export const ikmOperationalConfig = {
+  id: "ikm",
+  companyIds: [2, 4],
+  pageBgClass: "bg-sky-50",
+  navActiveClass: "bg-sky-500 text-white shadow-md shadow-sky-200",
+  navIdleClass: "text-slate-600 hover:bg-sky-50 hover:text-slate-900",
+  navDescriptionActiveClass: "text-sky-50",
+  brandShellClass: "bg-gradient-to-br from-sky-500 to-cyan-400 shadow-md shadow-sky-200",
+  heroShellClass: "border border-sky-200 bg-gradient-to-br from-sky-100 to-cyan-50 shadow-sm shadow-sky-100",
+  heroIconClass: "text-sky-500",
+  liveBadgeClass: "border border-sky-200 bg-sky-50 text-sky-700",
+  liveDotClass: "bg-sky-500",
+  tabActiveClass: "bg-white text-sky-700 shadow-sm",
+  focusClass: "focus:ring-2 focus:ring-sky-400/30 focus:border-sky-400",
+  primaryKpiClass: "bg-gradient-to-br from-sky-500 to-cyan-400",
+  chart: {
+    primary: "#38bdf8",
+    outletColors: ["#0ea5e9", "#38bdf8", "#7dd3fc", "#67e8f9", "#bae6fd"],
+    cycleColors: ["#0284c7", "#0ea5e9", "#38bdf8", "#67e8f9", "#7dd3fc", "#a5f3fc", "#bae6fd"],
+  },
+};

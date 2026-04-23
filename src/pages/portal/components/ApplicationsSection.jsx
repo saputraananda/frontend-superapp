@@ -82,6 +82,19 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M12 4a8 8 0 100 16 8 8 0 000-16zm0 3.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zm0 2.5a2 2 0 100 4 2 2 0 000-4z" />
         </svg>
       );
+    if (name.includes("monitoring") || name.includes("waschen monitoring"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 19a1 1 0 100 2h16a1 1 0 100-2H4z" />
+          <path d="M7 10a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zM12 6a1 1 0 011 1v9a1 1 0 11-2 0V7a1 1 0 011-1zM17 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1z" />
+        </svg>
+      );
+    if (name.includes("operational") || name.includes("control"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -102,6 +115,8 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("rumah sakit") || name.includes("hospital") || name.includes("rs ikm")) return "bg-red-500";
     if (name.includes("absensi") || name.includes("attendance")) return "bg-emerald-500";
     if (name.includes("target")) return "bg-orange-500";
+    if (name.includes("monitoring") || name.includes("waschen monitoring")) return "bg-sky-600";
+    if (name.includes("operational") || name.includes("control")) return "bg-violet-600";
     return "bg-blue-600";
   };
 
@@ -119,46 +134,46 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
       </div>
 
       {/* Search & Grid langsung tampil */}
-        <div className="relative mb-5">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari layanan atau aplikasi..."
-            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 pl-11 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-          />
-          <svg className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
+      <div className="relative mb-5">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Cari layanan atau aplikasi..."
+          className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 pl-11 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+        />
+        <svg className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
 
-        {/* Apps Grid */}
-        {filteredApps.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-slate-500 text-sm">Tidak ada aplikasi ditemukan.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredApps.map((app) => (
-              <a
-                key={app.id}
-                href={app.href}
-                className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
-              >
-                <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getAppIconBg(app.name)} text-white flex items-center justify-center shadow-sm`}>
-                  {getAppIcon(app.name)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-800 truncate">{app.name}</h3>
-                  <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{app.description}</p>
-                  <span className={`inline-block mt-2 rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusUI(app.is_active)}`}>
-                    {statusText(app.is_active)}
-                  </span>
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
+      {/* Apps Grid */}
+      {filteredApps.length === 0 ? (
+        <div className="py-8 text-center">
+          <p className="text-slate-500 text-sm">Tidak ada aplikasi ditemukan.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredApps.map((app) => (
+            <a
+              key={app.id}
+              href={app.href}
+              className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
+            >
+              <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getAppIconBg(app.name)} text-white flex items-center justify-center shadow-sm`}>
+                {getAppIcon(app.name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-slate-800 truncate">{app.name}</h3>
+                <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{app.description}</p>
+                <span className={`inline-block mt-2 rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusUI(app.is_active)}`}>
+                  {statusText(app.is_active)}
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* Footer info */}
       {filteredApps.length > 0 && (
