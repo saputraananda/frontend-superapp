@@ -87,6 +87,7 @@ function SortTh({ col, label, sortBy, sortDir, onSort, className = "" }) {
 const LEADER_ROLE_META = {
 	leader: { label: "Leader", cls: "border-amber-300 bg-amber-50 text-amber-700 focus:ring-amber-500/20" },
 	deputi: { label: "Deputi", cls: "border-violet-300 bg-violet-50 text-violet-700 focus:ring-violet-500/20" },
+	management: { label: "Management", cls: "border-emerald-300 bg-emerald-50 text-emerald-700 focus:ring-emerald-500/20" },
 	normal: { label: "Normal", cls: "border-slate-200 bg-slate-50 text-slate-500 focus:ring-slate-500/20" },
 };
 
@@ -95,6 +96,7 @@ const LEADER_ROLE_FILTER_OPTIONS = [
 	{ value: "normal", label: "Normal" },
 	{ value: "leader", label: "Leader" },
 	{ value: "deputi", label: "Deputi" },
+	{ value: "management", label: "Management" },
 ];
 
 function LeaderRoleSelect({ employeeId, currentRole, onRoleChange }) {
@@ -131,6 +133,7 @@ function LeaderRoleSelect({ employeeId, currentRole, onRoleChange }) {
 			<option value="normal">Normal</option>
 			<option value="leader">Leader</option>
 			<option value="deputi">Deputi</option>
+			<option value="management">Management</option>
 		</select>
 	);
 }
@@ -309,7 +312,7 @@ function MobileCard({ item, idx, startItem, onDetail, onLeaderRoleChange }) {
 			)}
 
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-xs text-slate-400">Leader / Deputi:</span>
+				<span className="text-xs text-slate-400">Role:</span>
 				<LeaderRoleSelect
 					employeeId={item.employee_id}
 					currentRole={item.leader_role ?? null}
@@ -770,7 +773,7 @@ export default function KaryawanIKM() {
 										</th>
 										<SortTh col="jabatan" label="Jabatan" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
 										<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-											Leader / Deputi
+											Role
 										</th>
 										<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
 											Status
