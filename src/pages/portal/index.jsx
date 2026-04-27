@@ -14,6 +14,7 @@ import BroadcastBanner from "./components/BroadcastBanner";
 import AloraChatBot from "./components/AloraChatBot";
 import PersonalTasklistCard from "./components/PersonalTasklistCard";
 import AppAndTasklistSlider from "./components/AppAndTasklistSlider";
+import BirthdayPortalTheme from "./components/BirthdayPortalTheme";
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -95,6 +96,7 @@ export default function Portal({ user, onLogout }) {
   return (
     <HeaderLayout user={user} jobTitle={getJobTitle()} onLogout={onLogout}>
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-6">
+        <BirthdayPortalTheme />
 
         {/* Top section: Main Content + Sidebar */}
         <div className="flex flex-col lg:flex-row gap-6">

@@ -7,6 +7,8 @@ import {
 	HiOutlineClipboardDocumentList,
 	HiOutlineCog6Tooth,
 	HiOutlineXMark,
+	HiOutlineDocumentText,
+	HiOutlineClipboardDocument,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -32,6 +34,18 @@ const MENU_ITEMS = [
 		icon: HiOutlineCog6Tooth,
 		label: "Master Absensi",
 		description: "Manajemen data shift",
+	},
+	{
+		to: "/linen-report-ikm",
+		icon: HiOutlineDocumentText,
+		label: "Linen Report",
+		description: "Catatan temuan linen",
+	},
+	{
+		to: "/leader-daily-report",
+		icon: HiOutlineClipboardDocument,
+		label: "Leader Daily Report",
+		description: "Laporan harian operasional",
 	},
 ];
 

@@ -24,6 +24,8 @@ import AbsensiIKM from "./pages/absensi-ikm";
 import AbsensiPage from "./pages/absensi-ikm/components/absensi";
 import PerizinanIKM from "./pages/absensi-ikm/components/perizinanIKM";
 import MasterAbsensi from "./pages/absensi-ikm/components/masterAbsensi";
+import LinenReport from "./pages/absensi-ikm/components/LinenReport";
+import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -258,6 +260,8 @@ export default function App() {
           <Route path="/absensi-ikm" element={<AbsensiPage user={user} onLogout={handleLogout} />} />
           <Route path="/perizinan-ikm" element={<PerizinanIKM user={user} onLogout={handleLogout} />} />
           <Route path="/master-absensi" element={<MasterAbsensi />} />
+          <Route path="/linen-report-ikm" element={<LinenReport />} />
+          <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
         </Route>
 
         {/* ── Karyawan IKM ── */}
