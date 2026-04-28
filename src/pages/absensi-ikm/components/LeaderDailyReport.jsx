@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash,
   HiOutlineFunnel, HiOutlinePaperClip, HiOutlineXMark,
   HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineChevronDown,
   HiOutlineExclamationTriangle, HiOutlineClipboardDocumentList,
   HiOutlineArrowDownTray, HiOutlineUserMinus, HiOutlineClock,
-  HiOutlineCheckCircle, HiOutlineNoSymbol,
+  HiOutlineCheckCircle, HiOutlinePhoto,
+  HiOutlineArrowsUpDown, HiOutlineChevronUp,
+  HiOutlineMagnifyingGlass,
 } from "react-icons/hi2";
-import { api, apiUpload } from "../../../lib/api";
+import { api } from "../../../lib/api";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -37,32 +39,154 @@ function firstDayOfMonth() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;
 }
 
+function generatePages(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push("...");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push("...");
+  pages.push(total);
+  return pages;
+}
+
 const EMPTY_FORM = {
   report_date: todayISO(), area_id: "", pic_name: "", role: "Leader",
   present_count: 0, production_start_time: "07:00", is_late: false,
   area_cleanliness: "Bersih", constraint_notes: "",
 };
 
-function Toast({ toasts }) {
+const ROLE_META = {
+  Leader: { cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  Deputi: { cls: "bg-violet-50 text-violet-700 border-violet-200" },
+};
+
+const CLEANLINESS_META = {
+  Bersih: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  Kotor:  { cls: "bg-rose-50 text-rose-700 border-rose-200" },
+};
+
+const ABSENCE_META = {
+  Sakit: { cls: "bg-amber-50 border-amber-200 text-amber-700" },
+  Alfa:  { cls: "bg-rose-50 border-rose-200 text-rose-700" },
+  Izin:  { cls: "bg-blue-50 border-blue-200 text-blue-700" },
+};
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function Toast({ toast }) {
+  if (!toast) return null;
   return (
-    <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none">
-      {toasts.map((t) => (
-        <div key={t.id} className={cn(
-          "flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold shadow-lg pointer-events-auto",
-          t.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
-        )}>
-          {t.type === "success" ? "✓" : "✕"} {t.message}
-        </div>
-      ))}
+    <div
+      className={cn(
+        "fixed bottom-5 right-5 z-[80] flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl transition",
+        toast.type === "error"
+          ? "border-rose-200 bg-rose-50 text-rose-700"
+          : "border-emerald-200 bg-emerald-50 text-emerald-700",
+      )}
+    >
+      {toast.type === "error"
+        ? <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
+        : <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />}
+      {toast.message}
     </div>
   );
 }
 
-// ── Employee picker row ─────────────────────────────────────────────────────
+// ─── SortTh ───────────────────────────────────────────────────────────────────
+function SortTh({ col, label, sort, onSort, className = "" }) {
+  const active = sort.col === col;
+  return (
+    <th
+      className={cn(
+        "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap transition-colors hover:bg-slate-100",
+        active ? "text-blue-600 bg-blue-50/60" : "text-slate-500",
+        className,
+      )}
+      onClick={() => onSort(col)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {active ? (
+          sort.dir === "asc" ? <HiOutlineChevronUp className="h-3.5 w-3.5" /> : <HiOutlineChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <HiOutlineArrowsUpDown className="h-3.5 w-3.5 opacity-30" />
+        )}
+      </div>
+    </th>
+  );
+}
+
+// ─── SkeletonRow ──────────────────────────────────────────────────────────────
+function SkeletonRow({ cols = 10 }) {
+  return (
+    <tr className="border-t border-slate-100 animate-pulse">
+      {Array.from({ length: cols }).map((_, i) => (
+        <td key={i} className="px-4 py-4">
+          <div className={cn("h-3.5 rounded-md bg-slate-200", i <= 1 ? "w-28" : i <= 3 ? "w-20" : "w-14")} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+// ─── Photo Thumbnail + Viewer ─────────────────────────────────────────────────
+function PhotoThumb({ url, label = "Foto" }) {
+  const [open, setOpen] = useState(false);
+  if (!url) return <span className="text-xs text-slate-300">-</span>;
+  const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Lihat foto"
+        className="group relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 hover:border-blue-400 hover:shadow-md transition"
+      >
+        {isImage ? (
+          <img src={url} alt={label} className="h-full w-full object-cover group-hover:opacity-80 transition" />
+        ) : (
+          <HiOutlinePaperClip className="h-5 w-5 text-slate-400 group-hover:text-blue-500 transition" />
+        )}
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div className="relative inline-flex max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-600 shadow-md transition hover:bg-white hover:text-slate-800"
+              aria-label="Tutup foto"
+            >
+              <HiOutlineXMark className="h-5 w-5" />
+            </button>
+            {isImage ? (
+              <img src={url} alt={label} className="max-h-[84vh] w-auto max-w-[94vw] rounded-2xl object-contain shadow-2xl" />
+            ) : (
+              <div className="bg-white rounded-2xl p-8 text-center shadow-2xl max-w-sm">
+                <HiOutlinePhoto className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-600 mb-4">{label}</p>
+                <a href={url} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                  <HiOutlineArrowDownTray className="h-4 w-4" /> Buka Dokumen
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Employee picker row ──────────────────────────────────────────────────────
 function EmployeeRow({ value, employees, onChange, onRemove, children }) {
   return (
     <div className="flex items-center gap-2">
-      <select className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+      <select
+        className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
         value={value.employee_id || ""} onChange={(e) => onChange({ ...value, employee_id: e.target.value })}>
         <option value="">-- Pilih Karyawan --</option>
         {employees.map((e) => (
@@ -71,58 +195,65 @@ function EmployeeRow({ value, employees, onChange, onRemove, children }) {
       </select>
       {children}
       <button type="button" onClick={onRemove}
-        className="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition flex-shrink-0">
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition flex-shrink-0">
         <HiOutlineXMark className="h-4 w-4" />
       </button>
     </div>
   );
 }
 
-// ── Detail Expand Panel ─────────────────────────────────────────────────────
+// ─── Detail Expand Panel ──────────────────────────────────────────────────────
 function DetailPanel({ record }) {
   const [open, setOpen] = useState(false);
   const hasAbsent = record.absent_employees?.length > 0;
   const hasLate   = record.late_employees?.length > 0;
-  if (!hasAbsent && !hasLate && !record.constraint_notes && !record.briefing_doc_url) return (
-    <span className="text-xs text-slate-300">-</span>
-  );
+  if (!hasAbsent && !hasLate && !record.constraint_notes && !record.briefing_doc_url) {
+    return <span className="text-xs text-slate-300">-</span>;
+  }
 
   return (
     <div>
       <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-xs text-blue-600 hover:underline font-semibold">
+        className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
         Detail <HiOutlineChevronDown className={cn("h-3.5 w-3.5 transition", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="mt-2 space-y-2 text-xs">
+        <div className="mt-2 space-y-2.5 text-xs rounded-xl border border-slate-100 bg-slate-50 p-3">
           {hasAbsent && (
             <div>
               <p className="font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                <HiOutlineUserMinus className="h-3.5 w-3.5 text-red-500" /> Tidak Hadir
+                <HiOutlineUserMinus className="h-3.5 w-3.5 text-rose-500" /> Tidak Hadir
               </p>
-              {record.absent_employees.map((a, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-slate-700">
-                  <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-semibold border",
-                    a.absence_reason === "Sakit" ? "bg-amber-50 border-amber-200 text-amber-700" :
-                    a.absence_reason === "Alfa"  ? "bg-red-50 border-red-200 text-red-700" :
-                    "bg-blue-50 border-blue-200 text-blue-700"
-                  )}>{a.absence_reason}</span>
-                  {a.full_name || `Karyawan #${a.employee_id}`}
-                </div>
-              ))}
+              <div className="space-y-1">
+                {record.absent_employees.map((a, i) => {
+                  const meta = ABSENCE_META[a.absence_reason] ?? ABSENCE_META.Izin;
+                  return (
+                    <div key={i} className="flex items-center gap-1.5 text-slate-700">
+                      <span className={cn("px-1.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", meta.cls)}>
+                        {a.absence_reason}
+                      </span>
+                      {a.full_name || `Karyawan #${a.employee_id}`}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           {hasLate && (
             <div>
               <p className="font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                <HiOutlineClock className="h-3.5 w-3.5 text-orange-500" /> Terlambat
+                <HiOutlineClock className="h-3.5 w-3.5 text-amber-500" /> Terlambat
               </p>
-              {record.late_employees.map((l, i) => (
-                <div key={i} className="text-slate-700">
-                  {l.full_name || `Karyawan #${l.employee_id}`}
-                  <span className="ml-1 text-slate-400">({l.late_time?.slice(0,5)})</span>
-                </div>
-              ))}
+              <div className="space-y-1">
+                {record.late_employees.map((l, i) => (
+                  <div key={i} className="text-slate-700">
+                    {l.full_name || `Karyawan #${l.employee_id}`}
+                    <span className="ml-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
+                      {l.late_time?.slice(0,5)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {record.constraint_notes && (
@@ -132,10 +263,10 @@ function DetailPanel({ record }) {
             </div>
           )}
           {record.briefing_doc_url && (
-            <a href={record.briefing_doc_url} target="_blank" rel="noreferrer"
-              className="flex items-center gap-1 text-blue-600 hover:underline">
-              <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> Dokumen Briefing
-            </a>
+            <div>
+              <p className="font-semibold text-slate-600 mb-1">Dokumen Briefing</p>
+              <PhotoThumb url={record.briefing_doc_url} label="Dokumen Briefing" />
+            </div>
           )}
         </div>
       )}
@@ -143,15 +274,13 @@ function DetailPanel({ record }) {
   );
 }
 
-// ── Form Modal ──────────────────────────────────────────────────────────────
+// ─── Form Modal ───────────────────────────────────────────────────────────────
 function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
   const [form, setForm]     = useState(EMPTY_FORM);
   const [absentList, setAbsentList] = useState([]);
   const [lateList, setLateList]     = useState([]);
-  const [file, setFile]     = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
-  const fileRef = useRef();
 
   useEffect(() => {
     if (!open) return;
@@ -179,7 +308,6 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
       setAbsentList([]);
       setLateList([]);
     }
-    setFile(null);
     setError("");
   }, [open, editData]);
 
@@ -188,16 +316,11 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
     setError("");
     setSaving(true);
     try {
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
-      fd.append("absent_employees", JSON.stringify(absentList));
-      fd.append("late_employees",   JSON.stringify(lateList));
-      if (file) fd.append("briefing_doc", file);
-
+      const body = { ...form, absent_employees: absentList, late_employees: lateList };
       if (editData) {
-        await apiUpload(`/ikm/leader-daily-report/${editData.id}`, { method: "PUT", body: fd });
+        await api(`/ikm/leader-daily-report/${editData.id}`, { method: "PUT", body: JSON.stringify(body) });
       } else {
-        await apiUpload("/ikm/leader-daily-report", { method: "POST", body: fd });
+        await api("/ikm/leader-daily-report", { method: "POST", body: JSON.stringify(body) });
       }
       onSaved();
       onClose();
@@ -210,84 +333,92 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
 
   if (!open) return null;
 
+  const labelClass = "block text-xs font-semibold text-slate-500 mb-1";
+  const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-50";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
-          <h2 className="text-base font-bold text-slate-800">
-            {editData ? "Edit Leader Daily Report" : "Tambah Leader Daily Report"}
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sticky top-0 bg-white rounded-t-3xl z-10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <HiOutlineClipboardDocumentList className="h-5 w-5" />
+            </div>
+            <h2 className="text-base font-bold text-slate-800">
+              {editData ? "Edit Leader Daily Report" : "Tambah Leader Daily Report"}
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
             <HiOutlineXMark className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
           {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
               {error}
             </div>
           )}
 
-          {/* Basic fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Tanggal Laporan *</label>
-              <input type="date" required className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.report_date} onChange={(e) => setForm({ ...form, report_date: e.target.value })} />
+              <label className={labelClass}>Tanggal Laporan <span className="text-rose-500">*</span></label>
+              <input type="date" required className={inputClass}
+                value={form.report_date} onChange={(e) => setForm({ ...form, report_date: e.target.value })} disabled={saving} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Area *</label>
-              <select required className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.area_id} onChange={(e) => setForm({ ...form, area_id: e.target.value })}>
+              <label className={labelClass}>Area <span className="text-rose-500">*</span></label>
+              <select required className={inputClass}
+                value={form.area_id} onChange={(e) => setForm({ ...form, area_id: e.target.value })} disabled={saving}>
                 <option value="">-- Pilih Area --</option>
                 {areas.map((a) => <option key={a.id} value={a.id}>{a.area_name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Nama PIC *</label>
-              <input required className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.pic_name} onChange={(e) => setForm({ ...form, pic_name: e.target.value })}
-                placeholder="Nama Leader / Deputi" />
+              <label className={labelClass}>Nama PIC <span className="text-rose-500">*</span></label>
+              <input required className={inputClass} value={form.pic_name}
+                onChange={(e) => setForm({ ...form, pic_name: e.target.value })}
+                placeholder="Nama Leader / Deputi" disabled={saving} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Role *</label>
-              <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              <label className={labelClass}>Role <span className="text-rose-500">*</span></label>
+              <select className={inputClass} value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })} disabled={saving}>
                 <option>Leader</option>
                 <option>Deputi</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Jumlah Hadir</label>
-              <input type="number" min="0" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.present_count} onChange={(e) => setForm({ ...form, present_count: e.target.value })} />
+              <label className={labelClass}>Jumlah Hadir</label>
+              <input type="number" min="0" className={inputClass} value={form.present_count}
+                onChange={(e) => setForm({ ...form, present_count: e.target.value })} disabled={saving} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Jam Mulai Produksi *</label>
-              <input type="time" required className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.production_start_time} onChange={(e) => setForm({ ...form, production_start_time: e.target.value })} />
+              <label className={labelClass}>Jam Mulai Produksi <span className="text-rose-500">*</span></label>
+              <input type="time" required className={inputClass} value={form.production_start_time}
+                onChange={(e) => setForm({ ...form, production_start_time: e.target.value })} disabled={saving} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Kebersihan Area *</label>
-              <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                value={form.area_cleanliness} onChange={(e) => setForm({ ...form, area_cleanliness: e.target.value })}>
+              <label className={labelClass}>Kebersihan Area <span className="text-rose-500">*</span></label>
+              <select className={inputClass} value={form.area_cleanliness}
+                onChange={(e) => setForm({ ...form, area_cleanliness: e.target.value })} disabled={saving}>
                 <option>Bersih</option>
                 <option>Kotor</option>
               </select>
             </div>
             <div className="flex items-end">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" className="w-4 h-4 rounded text-orange-500"
-                  checked={form.is_late} onChange={(e) => setForm({ ...form, is_late: e.target.checked })} />
+              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 w-full cursor-pointer hover:bg-slate-100 transition">
+                <input type="checkbox" className="h-4 w-4 rounded accent-blue-600"
+                  checked={form.is_late} onChange={(e) => setForm({ ...form, is_late: e.target.checked })} disabled={saving} />
                 <span className="text-sm font-semibold text-slate-700">Produksi Terlambat</span>
               </label>
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Catatan Kendala</label>
-              <textarea rows={2} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                value={form.constraint_notes} onChange={(e) => setForm({ ...form, constraint_notes: e.target.value })}
-                placeholder="Kendala operasional hari ini..." />
+              <label className={labelClass}>Catatan Kendala</label>
+              <textarea rows={2} className={cn(inputClass, "resize-none")} value={form.constraint_notes}
+                onChange={(e) => setForm({ ...form, constraint_notes: e.target.value })}
+                placeholder="Kendala operasional hari ini..." disabled={saving} />
             </div>
           </div>
 
@@ -295,9 +426,10 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <HiOutlineUserMinus className="h-4 w-4 text-red-500" /> Karyawan Tidak Hadir
+                <HiOutlineUserMinus className="h-4 w-4 text-rose-500" /> Karyawan Tidak Hadir
               </p>
-              <button type="button" onClick={() => setAbsentList((l) => [...l, { employee_id: "", absence_reason: "Izin" }])}
+              <button type="button" disabled={saving}
+                onClick={() => setAbsentList((l) => [...l, { employee_id: "", absence_reason: "Izin" }])}
                 className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
                 <HiOutlinePlus className="h-3.5 w-3.5" /> Tambah
               </button>
@@ -310,7 +442,8 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
                 <EmployeeRow key={i} value={a} employees={employees}
                   onChange={(v) => setAbsentList((l) => l.map((x, j) => j === i ? v : x))}
                   onRemove={() => setAbsentList((l) => l.filter((_, j) => j !== i))}>
-                  <select className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     value={a.absence_reason}
                     onChange={(e) => setAbsentList((l) => l.map((x, j) => j === i ? { ...x, absence_reason: e.target.value } : x))}>
                     {["Izin", "Sakit", "Alfa"].map((r) => <option key={r}>{r}</option>)}
@@ -324,9 +457,10 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <HiOutlineClock className="h-4 w-4 text-orange-500" /> Karyawan Terlambat
+                <HiOutlineClock className="h-4 w-4 text-amber-500" /> Karyawan Terlambat
               </p>
-              <button type="button" onClick={() => setLateList((l) => [...l, { employee_id: "", late_time: "07:00" }])}
+              <button type="button" disabled={saving}
+                onClick={() => setLateList((l) => [...l, { employee_id: "", late_time: "07:00" }])}
                 className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
                 <HiOutlinePlus className="h-3.5 w-3.5" /> Tambah
               </button>
@@ -339,7 +473,8 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
                 <EmployeeRow key={i} value={l} employees={employees}
                   onChange={(v) => setLateList((ll) => ll.map((x, j) => j === i ? v : x))}
                   onRemove={() => setLateList((ll) => ll.filter((_, j) => j !== i))}>
-                  <input type="time" className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                  <input type="time"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     value={l.late_time}
                     onChange={(e) => setLateList((ll) => ll.map((x, j) => j === i ? { ...x, late_time: e.target.value } : x))} />
                 </EmployeeRow>
@@ -347,31 +482,22 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
             </div>
           </div>
 
-          {/* Briefing doc upload */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Dokumen Briefing (Foto/PDF)</label>
-            <div onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 p-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
-              <HiOutlinePaperClip className="h-5 w-5 text-slate-400 flex-shrink-0" />
-              <p className="text-xs text-slate-500">{file ? file.name : "Klik untuk upload foto atau PDF (maks 10MB)"}</p>
+          {editData?.briefing_doc_url && (
+            <div>
+              <label className={labelClass}>Dokumen Briefing</label>
+              <PhotoThumb url={editData.briefing_doc_url} label="Dokumen Briefing" />
             </div>
-            <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => setFile(e.target.files[0] || null)} />
-            {editData?.briefing_doc_url && !file && (
-              <a href={editData.briefing_doc_url} target="_blank" rel="noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> Lihat dokumen saat ini
-              </a>
-            )}
-          </div>
+          )}
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} disabled={saving}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50">
               Batal
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition">
-              {saving ? "Menyimpan..." : editData ? "Simpan Perubahan" : "Tambah Laporan"}
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+              {saving && <HiOutlineClock className="h-4 w-4 animate-spin" />}
+              {editData ? "Simpan Perubahan" : "Tambah Laporan"}
             </button>
           </div>
         </form>
@@ -380,26 +506,29 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
   );
 }
 
-// ── Delete Confirm ──────────────────────────────────────────────────────────
+// ─── Delete Confirm ───────────────────────────────────────────────────────────
 function DeleteModal({ open, onClose, onConfirm, target, loading }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-          <HiOutlineExclamationTriangle className="h-6 w-6 text-red-600" />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 mb-4">
+          <HiOutlineTrash className="h-6 w-6" />
         </div>
-        <h3 className="text-base font-bold text-slate-800 mb-1">Hapus Laporan?</h3>
-        <p className="text-sm text-slate-500 mb-5">
-          Laporan harian <strong>{target?.pic_name}</strong> tanggal{" "}
-          <strong>{fmtDate(target?.report_date)}</strong> beserta data absen dan keterlambatan akan dihapus.
+        <h3 className="text-base font-bold text-slate-800">Hapus Laporan?</h3>
+        <p className="mt-1 text-sm text-slate-500 mb-5">
+          Laporan harian <span className="font-semibold text-slate-700">{target?.pic_name}</span> tanggal{" "}
+          <span className="font-semibold text-slate-700">{fmtDate(target?.report_date)}</span> beserta data absen dan keterlambatan akan dihapus.
         </p>
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} disabled={loading}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50">
             Batal
           </button>
-          <button onClick={onConfirm} disabled={loading} className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition">
-            {loading ? "Menghapus..." : "Ya, Hapus"}
+          <button onClick={onConfirm} disabled={loading}
+            className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 transition disabled:opacity-50 flex items-center gap-2">
+            {loading && <HiOutlineClock className="h-4 w-4 animate-spin" />}
+            Hapus
           </button>
         </div>
       </div>
@@ -407,7 +536,7 @@ function DeleteModal({ open, onClose, onConfirm, target, loading }) {
   );
 }
 
-// ── Main Component ──────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function LeaderDailyReport() {
   const [records, setRecords] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -417,17 +546,19 @@ export default function LeaderDailyReport() {
   const [filters, setFilters] = useState({
     startDate: firstDayOfMonth(), endDate: todayISO(), area_id: "",
   });
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [sort, setSort] = useState({ col: "report_date", dir: "desc" });
   const [formOpen, setFormOpen] = useState(false);
   const [editData, setEditData] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [toasts, setToasts] = useState([]);
+  const [toast, setToast] = useState(null);
 
-  const addToast = (message, type = "success") => {
-    const id = Date.now();
-    setToasts((t) => [...t, { id, message, type }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-  };
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
 
   const fetchData = useCallback(async (pg = pagination.page) => {
     setLoading(true);
@@ -436,20 +567,20 @@ export default function LeaderDailyReport() {
       if (filters.startDate) qs.set("startDate", filters.startDate);
       if (filters.endDate)   qs.set("endDate", filters.endDate);
       if (filters.area_id)   qs.set("area_id", filters.area_id);
+      if (search) qs.set("search", search);
 
       const res = await api(`/ikm/leader-daily-report?${qs}`);
       setRecords(res.data || []);
       setPagination((p) => ({ ...p, page: pg, total: res.pagination?.total || 0, totalPages: res.pagination?.totalPages || 0 }));
       if (res.areas?.length) setAreas(res.areas);
     } catch (err) {
-      addToast(err.message, "error");
+      showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.limit]);
+  }, [filters, pagination.limit, search]);
 
   useEffect(() => {
-    // Load meta + employee options
     Promise.all([
       api("/ikm/leader-daily-report/meta"),
       api("/ikm/leader-daily-report/employee-options"),
@@ -459,252 +590,351 @@ export default function LeaderDailyReport() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => { fetchData(1); }, [filters]);
+  useEffect(() => { fetchData(1); }, [filters, search]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await api(`/ikm/leader-daily-report/${deleteTarget.id}`, { method: "DELETE" });
-      addToast("Laporan berhasil dihapus");
+      showToast("Laporan berhasil dihapus");
       setDeleteTarget(null);
       fetchData(pagination.page);
     } catch (err) {
-      addToast(err.message, "error");
+      showToast(err.message, "error");
     } finally {
       setDeleting(false);
     }
   };
 
+  const handleSort = (col) =>
+    setSort((prev) => (prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" }));
+
+  const handlePage = (p) => fetchData(Math.max(1, Math.min(p, pagination.totalPages)));
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setSearch(searchInput.trim());
+    setPagination((p) => ({ ...p, page: 1 }));
+  };
+
+  const sortedRecords = useMemo(() => {
+    if (!sort.col) return records;
+    return [...records].sort((a, b) => {
+      let va = a[sort.col] ?? "";
+      let vb = b[sort.col] ?? "";
+      if (typeof va === "string") va = va.toLowerCase();
+      if (typeof vb === "string") vb = vb.toLowerCase();
+      if (va < vb) return sort.dir === "asc" ? -1 : 1;
+      if (va > vb) return sort.dir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [records, sort]);
+
+  const pages = generatePages(pagination.page, pagination.totalPages);
+  const from = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+  const to = Math.min(pagination.page * pagination.limit, pagination.total);
+
   return (
-    <div className="p-4 sm:p-6 space-y-5">
-      <Toast toasts={toasts} />
+    <>
+      <Toast toast={toast} />
 
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <HiOutlineClipboardDocumentList className="h-6 w-6 text-blue-600" />
-            Leader Daily Report
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Laporan harian operasional dari Leader & Deputi</p>
-        </div>
-        <button onClick={() => { setEditData(null); setFormOpen(true); }}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm">
-          <HiOutlinePlus className="h-4 w-4" /> Tambah Laporan
-        </button>
-      </div>
+      <main className="min-h-screen bg-indigo-50 py-6 sm:py-10">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <HiOutlineFunnel className="h-4 w-4 text-slate-500" />
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Filter</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Dari Tanggal</label>
-            <input type="date" className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-              value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Sampai Tanggal</label>
-            <input type="date" className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-              value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Area</label>
-            <select className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-              value={filters.area_id} onChange={(e) => setFilters({ ...filters, area_id: e.target.value })}>
-              <option value="">Semua Area</option>
-              {areas.map((a) => <option key={a.id} value={a.id}>{a.area_name}</option>)}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary row */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          {loading ? "Memuat..." : `${pagination.total} laporan ditemukan`}
-        </p>
-        <div className="flex items-center gap-1.5">
-          <label className="text-xs text-slate-500">Per halaman:</label>
-          <select className="text-xs rounded-lg border border-slate-200 px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
-            value={pagination.limit}
-            onChange={(e) => setPagination((p) => ({ ...p, limit: Number(e.target.value), page: 1 }))}>
-            {[25, 50, 100].map((n) => <option key={n}>{n}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Table — Desktop */}
-      <div className="hidden sm:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">
-                <th className="px-4 py-3 text-left">Tanggal</th>
-                <th className="px-4 py-3 text-left">PIC</th>
-                <th className="px-4 py-3 text-left">Role</th>
-                <th className="px-4 py-3 text-left">Area</th>
-                <th className="px-4 py-3 text-center">Hadir</th>
-                <th className="px-4 py-3 text-center">Mulai</th>
-                <th className="px-4 py-3 text-center">Terlambat</th>
-                <th className="px-4 py-3 text-center">Kebersihan</th>
-                <th className="px-4 py-3 text-left">Detail</th>
-                <th className="px-4 py-3 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-slate-100">
-                    {Array.from({ length: 10 }).map((__, j) => (
-                      <td key={j} className="px-4 py-3">
-                        <div className="h-4 bg-slate-100 rounded animate-pulse" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : records.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-400">
-                    Tidak ada data laporan harian
-                  </td>
-                </tr>
-              ) : (
-                records.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                    <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{fmtDate(r.report_date)}</td>
-                    <td className="px-4 py-3 text-xs font-medium text-slate-800">{r.pic_name}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn("px-2 py-0.5 rounded-full border text-[10px] font-semibold",
-                        r.role === "Leader"
-                          ? "bg-purple-50 border-purple-200 text-purple-700"
-                          : "bg-cyan-50 border-cyan-200 text-cyan-700"
-                      )}>{r.role}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{r.area_name || "-"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
-                        {r.present_count}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-xs text-slate-600 whitespace-nowrap">
-                      {r.production_start_time?.slice(0, 5) || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {r.is_late
-                        ? <HiOutlineNoSymbol className="h-4 w-4 text-orange-500 mx-auto" />
-                        : <HiOutlineCheckCircle className="h-4 w-4 text-emerald-500 mx-auto" />}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={cn("px-2 py-0.5 rounded-full border text-[10px] font-semibold",
-                        r.area_cleanliness === "Bersih"
-                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                          : "bg-red-50 border-red-200 text-red-700"
-                      )}>{r.area_cleanliness}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <DetailPanel record={r} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => { setEditData(r); setFormOpen(true); }}
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition">
-                          <HiOutlinePencilSquare className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => setDeleteTarget(r)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition">
-                          <HiOutlineTrash className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Cards — Mobile */}
-      <div className="sm:hidden space-y-3">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 space-y-2 animate-pulse">
-              <div className="h-4 bg-slate-100 rounded w-1/2" />
-              <div className="h-3 bg-slate-100 rounded w-3/4" />
-            </div>
-          ))
-        ) : records.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-400">
-            Tidak ada data
-          </div>
-        ) : (
-          records.map((r) => (
-            <div key={r.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-800">{r.pic_name}</p>
-                  <p className="text-[10px] text-slate-500">{fmtDate(r.report_date)} · {r.area_name}</p>
+          {/* Page Header */}
+          <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-violet-900 to-indigo-700 p-5 shadow-sm sm:p-6">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-violet-300/10 blur-3xl" />
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 border border-white/15">
+                  <HiOutlineClipboardDocumentList className="h-5 w-5 text-white" />
                 </div>
-                <span className={cn("px-2 py-0.5 rounded-full border text-[10px] font-semibold",
-                  r.role === "Leader" ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-cyan-50 border-cyan-200 text-cyan-700"
-                )}>{r.role}</span>
+                <div>
+                  <h1 className="text-xl font-bold text-white sm:text-2xl">Leader Daily Report</h1>
+                  <p className="text-sm text-white/70">Laporan harian operasional dari Leader &amp; Deputi</p>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2 text-[10px] text-slate-600">
-                <span>👥 Hadir: {r.present_count}</span>
-                <span>⏰ {r.production_start_time?.slice(0,5)}</span>
-                <span className={r.is_late ? "text-orange-600" : "text-emerald-600"}>
-                  {r.is_late ? "⚠ Terlambat" : "✓ Tepat Waktu"}
-                </span>
-                <span className={r.area_cleanliness === "Bersih" ? "text-emerald-600" : "text-red-600"}>
-                  {r.area_cleanliness === "Bersih" ? "✓ Bersih" : "✗ Kotor"}
-                </span>
-              </div>
-              <DetailPanel record={r} />
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setEditData(r); setFormOpen(true); }}
-                  className="flex-1 rounded-lg border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition flex items-center justify-center gap-1">
-                  <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit
+              <button
+                onClick={() => { setEditData(null); setFormOpen(true); }}
+                className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm shrink-0"
+              >
+                <HiOutlinePlus className="h-4 w-4" /> Tambah Laporan
+              </button>
+            </div>
+          </section>
+
+          {/* Filters */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <HiOutlineFunnel className="h-4 w-4 text-slate-400" />
+              Filter
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: "Dari Tanggal", field: "startDate", type: "date" },
+                { label: "Sampai Tanggal", field: "endDate", type: "date" },
+              ].map(({ label, field, type }) => (
+                <label key={field} className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">{label}</span>
+                  <input type={type}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    value={filters[field]} onChange={(e) => setFilters({ ...filters, [field]: e.target.value })} />
+                </label>
+              ))}
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Area</span>
+                <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  value={filters.area_id} onChange={(e) => setFilters({ ...filters, area_id: e.target.value })}>
+                  <option value="">Semua Area</option>
+                  {areas.map((a) => <option key={a.id} value={a.id}>{a.area_name}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1 max-w-xs">
+                <div className="relative flex-1">
+                  <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input type="text" value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Cari nama PIC..."
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  />
+                </div>
+                <button type="submit"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  Cari
                 </button>
-                <button onClick={() => setDeleteTarget(r)}
-                  className="flex-1 rounded-lg border border-red-200 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition flex items-center justify-center gap-1">
-                  <HiOutlineTrash className="h-3.5 w-3.5" /> Hapus
-                </button>
+              </form>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">Per halaman:</span>
+                <select value={pagination.limit}
+                  onChange={(e) => setPagination((p) => ({ ...p, limit: Number(e.target.value), page: 1 }))}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400">
+                  {[25, 50, 100].map((n) => <option key={n}>{n}</option>)}
+                </select>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          </section>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">
-            Halaman {pagination.page} dari {pagination.totalPages}
-          </p>
-          <div className="flex items-center gap-1">
-            <button onClick={() => fetchData(pagination.page - 1)} disabled={pagination.page <= 1}
-              className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-              <HiOutlineChevronLeft className="h-4 w-4" />
-            </button>
-            <button onClick={() => fetchData(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
-              className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-              <HiOutlineChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          {/* Table */}
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-slate-100 px-5 py-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <HiOutlineClipboardDocumentList className="h-5 w-5 text-violet-500" />
+                <h2 className="text-base font-bold text-slate-800">Daftar Leader Daily Report</h2>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
+                {pagination.total.toLocaleString("id-ID")} data
+              </span>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">No</th>
+                    <SortTh col="report_date" label="Tanggal" sort={sort} onSort={handleSort} />
+                    <SortTh col="pic_name" label="PIC" sort={sort} onSort={handleSort} />
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Role</th>
+                    <SortTh col="area_name" label="Area" sort={sort} onSort={handleSort} />
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Hadir</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Mulai</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Terlambat</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Kebersihan</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Detail</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading
+                    ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={11} />)
+                    : sortedRecords.length === 0
+                    ? (
+                      <tr>
+                        <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-400">
+                          Tidak ada data laporan
+                        </td>
+                      </tr>
+                    )
+                    : sortedRecords.map((r, idx) => {
+                        const roleMeta = ROLE_META[r.role] ?? { cls: "bg-slate-50 text-slate-600 border-slate-200" };
+                        const cleanMeta = CLEANLINESS_META[r.area_cleanliness] ?? { cls: "bg-slate-50 text-slate-600 border-slate-200" };
+                        return (
+                          <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3.5 text-xs font-medium text-slate-400 tabular-nums">
+                              {(pagination.page - 1) * pagination.limit + idx + 1}
+                            </td>
+                            <td className="px-4 py-3.5 text-xs text-slate-600 whitespace-nowrap">{fmtDate(r.report_date)}</td>
+                            <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">{r.pic_name}</td>
+                            <td className="px-4 py-3.5">
+                              <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", roleMeta.cls)}>
+                                {r.role}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-xs text-slate-600">{r.area_name || "-"}</td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold text-slate-700 tabular-nums">
+                                {r.present_count ?? "-"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-xs font-mono font-semibold text-slate-600">
+                                {r.production_start_time?.slice(0,5) || "-"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              {r.is_late ? (
+                                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+                                  Terlambat
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                                  Tepat
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", cleanMeta.cls)}>
+                                {r.area_cleanliness}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <DetailPanel record={r} />
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button onClick={() => { setEditData(r); setFormOpen(true); }}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600 transition">
+                                  <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit
+                                </button>
+                                <button onClick={() => setDeleteTarget(r)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:text-rose-600 transition">
+                                  <HiOutlineTrash className="h-3.5 w-3.5" /> Hapus
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {loading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-4 space-y-2 animate-pulse">
+                      <div className="h-4 bg-slate-200 rounded-md w-1/2" />
+                      <div className="h-3 bg-slate-200 rounded-md w-3/4" />
+                      <div className="h-3 bg-slate-200 rounded-md w-1/3" />
+                    </div>
+                  ))
+                : sortedRecords.length === 0
+                ? <div className="p-8 text-center text-sm text-slate-400">Tidak ada data</div>
+                : sortedRecords.map((r) => {
+                    const roleMeta = ROLE_META[r.role] ?? { cls: "bg-slate-50 text-slate-600 border-slate-200" };
+                    const cleanMeta = CLEANLINESS_META[r.area_cleanliness] ?? { cls: "bg-slate-50 text-slate-600 border-slate-200" };
+                    return (
+                      <div key={r.id} className="p-4 space-y-2.5 rounded-xl border border-transparent mx-2 my-1 hover:border-blue-100 hover:bg-slate-50 transition cursor-pointer">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{r.pic_name}</p>
+                            <p className="text-xs text-slate-500">{fmtDate(r.report_date)} · {r.area_name || "-"}</p>
+                          </div>
+                          <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0", roleMeta.cls)}>
+                            {r.role}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold", cleanMeta.cls)}>
+                            {r.area_cleanliness}
+                          </span>
+                          {r.is_late ? (
+                            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">Terlambat</span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Tepat</span>
+                          )}
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs text-slate-600">
+                            Hadir: {r.present_count ?? "-"}
+                          </span>
+                        </div>
+                        <DetailPanel record={r} />
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={() => { setEditData(r); setFormOpen(true); }}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-600 transition">
+                            <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit
+                          </button>
+                          <button onClick={() => setDeleteTarget(r)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition">
+                            <HiOutlineTrash className="h-3.5 w-3.5" /> Hapus
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+            </div>
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="border-t border-slate-100 px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">
+                  {from}–{to} dari {pagination.total.toLocaleString("id-ID")} data
+                </p>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handlePage(pagination.page - 1)} disabled={pagination.page <= 1}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                    <HiOutlineChevronLeft className="h-4 w-4" />
+                  </button>
+                  {pages.map((p, i) =>
+                    p === "..." ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs select-none">…</span>
+                    ) : (
+                      <button key={p} onClick={() => handlePage(p)}
+                        className={cn(
+                          "inline-flex h-8 min-w-8 px-2 items-center justify-center rounded-lg border text-xs font-semibold transition",
+                          p === pagination.page
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                        )}>
+                        {p}
+                      </button>
+                    )
+                  )}
+                  <button onClick={() => handlePage(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                    <HiOutlineChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
-      )}
+      </main>
 
-      <FormModal open={formOpen} onClose={() => setFormOpen(false)}
-        onSaved={() => { addToast(editData ? "Laporan diperbarui" : "Laporan ditambahkan"); fetchData(pagination.page); }}
-        editData={editData} areas={areas} employees={employees} />
+      <FormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => {
+          showToast(editData ? "Laporan diperbarui" : "Laporan ditambahkan");
+          fetchData(pagination.page);
+        }}
+        editData={editData}
+        areas={areas}
+        employees={employees}
+      />
 
-      <DeleteModal open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete} target={deleteTarget} loading={deleting} />
-    </div>
+      <DeleteModal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        target={deleteTarget}
+        loading={deleting}
+      />
+    </>
   );
 }
