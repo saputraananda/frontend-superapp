@@ -498,7 +498,7 @@ export default function AbsensiIKM() {
 	const [photoViewer, setPhotoViewer] = useState(null);
 
 	const [statusFilter, setStatusFilter] = useState("");
-	const [sort, setSort] = useState({ col: null, dir: "asc" });
+	const [sort, setSort] = useState({ col: "check_in_time", dir: "desc" });
 
 	const yearOptions = useMemo(() => {
 		const base = new Date().getFullYear();
@@ -760,7 +760,7 @@ export default function AbsensiIKM() {
 		setEmployeeSummaryPage(1);
 		setEmployeeSummaryLimit("5");
 		setStatusFilter("");
-		setSort({ col: null, dir: "asc" });
+		setSort({ col: "check_in_time", dir: "desc" });
 		setError("");
 	};
 
