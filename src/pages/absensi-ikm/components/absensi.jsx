@@ -183,6 +183,23 @@ function StatCard({ title, value, subtitle, tone = "blue", Icon, onClick }) {
 	);
 }
 
+const ROLE_STYLE = {
+	management: { cls: "bg-purple-50 text-purple-700 border-purple-200", label: "Management" },
+	deputi: { cls: "bg-amber-50 text-amber-700 border-amber-200", label: "Deputi" },
+	leader: { cls: "bg-blue-50 text-blue-700 border-blue-200", label: "Leader" },
+	staff: { cls: "bg-slate-50 text-slate-600 border-slate-200", label: "Staff" },
+};
+
+function RoleBadge({ role }) {
+	const key = String(role || "staff").toLowerCase();
+	const { cls, label } = ROLE_STYLE[key] ?? ROLE_STYLE.staff;
+	return (
+		<span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold", cls)}>
+			{label}
+		</span>
+	);
+}
+
 function ShiftBadge({ type }) {
 	const style = SHIFT_STYLE[type] ?? "bg-slate-50 text-slate-600 border-slate-200";
 	return (
@@ -1171,7 +1188,7 @@ export default function AbsensiIKM() {
 													<div className="text-sm font-semibold text-slate-800">{row.employee_name}</div>
 													<div className="text-xs text-slate-400">{row.employee_code || "-"}</div>
 												</td>
-												<td className="px-4 py-3 text-center text-xs text-slate-600">{row.jabatan || "-"}</td>
+												<td className="px-4 py-3 text-center"><RoleBadge role={row.jabatan} /></td>
 												<td className="px-4 py-3 text-center text-sm font-semibold text-slate-700">{formatMinutesToHourMinute(row.total_absen_minutes)}</td>
 												<td className="px-4 py-3 text-center text-sm font-semibold text-indigo-700">{formatMinutesToHourMinute(row.total_lembur_minutes)}</td>
 												<td className="px-4 py-3 pr-8 text-center text-sm font-semibold text-emerald-700">{row.total_complete}</td>
