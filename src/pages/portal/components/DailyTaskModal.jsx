@@ -534,7 +534,6 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                           badgeClass="bg-amber-100 text-amber-700"
                           emptyLabel="— Semua Karyawan —"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1">Maks. 100 karyawan ditampilkan</p>
                       </div>
                     </div>
                   )}
