@@ -58,6 +58,23 @@ function TaskItem({ task, onClick }) {
               </span>
             )}
 
+            {/* Target audience badges */}
+            {task.target_companies?.map((c) => (
+              <span key={c.id} className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                🏢 {c.name}
+              </span>
+            ))}
+            {task.target_departments?.map((d) => (
+              <span key={d.id} className="text-[10px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">
+                🏬 {d.name}
+              </span>
+            ))}
+            {task.target_employees?.length > 0 && (
+              <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                👤 {task.target_employees.length} karyawan
+              </span>
+            )}
+
             {task.links?.length > 0 &&
               task.links.map((l, i) => (
                 <a

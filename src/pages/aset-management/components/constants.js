@@ -74,5 +74,5 @@
         brand: "", model: "", no_seri: "", lokasi_nama: "",
         lokasi_lat: "", lokasi_lng: "", jumlah: 1, satuan: "Unit",
         pic_employee_id: "", kondisi: "Baik",
-        is_active: true,
+        is_active: true, outlet_id: "",
     };

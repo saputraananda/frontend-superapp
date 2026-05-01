@@ -22,7 +22,13 @@ export default function StatsCards({ companyId }) {
 
     // Data lain (masih dummy untuk sekarang)
     const currentEmployee = 156;
-    const thisTime = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    const thisTime = (() => {
+        const now = new Date();
+        const d = now.getDate() >= 26
+            ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+            : now;
+        return d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    })();
     const isIkm = Number(companyId) === 2;
 
     const employeeGrowthMonitoring = 3.9;

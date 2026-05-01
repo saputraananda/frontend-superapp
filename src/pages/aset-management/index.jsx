@@ -69,6 +69,10 @@ export default function AsetManagement() {
     // Master data
     const [companies, setCompanies] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [outlets, setOutlets] = useState([]);
+
+    // Filter outlet
+    const [filterOutlet, setFilterOutlet] = useState("");
 
     // Modal states
     const [modalOpen, setModalOpen] = useState(false);
@@ -121,6 +125,7 @@ export default function AsetManagement() {
                 const d = await api("/aset/master-data");
                 setCompanies(d.companies || []);
                 setEmployees(d.employees || []);
+                setOutlets(d.outlets || []);
             } catch { /* ignore */ }
         })();
     }, []);
@@ -143,6 +148,7 @@ export default function AsetManagement() {
             if (filterKondisi) params.set("kondisi", filterKondisi);
             if (filterCompany) params.set("company_id", filterCompany);
             if (filterApproval) params.set("approval_status", filterApproval);
+            if (filterOutlet) params.set("outlet_id", filterOutlet);
             params.set("page", page);
             params.set("limit", 20);
             const d = await api(`/aset?${params}`);
@@ -154,7 +160,7 @@ export default function AsetManagement() {
         } finally {
             setLoading(false);
         }
-    }, [search, filterSub, filterKondisi, filterCompany, filterApproval, page]);
+    }, [search, filterSub, filterKondisi, filterCompany, filterApproval, filterOutlet, page]);
 
     useEffect(() => { loadAsets(); loadStats(); }, [loadAsets, loadStats]);
 
@@ -228,6 +234,7 @@ export default function AsetManagement() {
             pic_employee_id: aset.pic_employee_id || "",
             kondisi: aset.kondisi || "Baik",
             is_active: aset.is_active === 1 || aset.is_active === true,
+            outlet_id: aset.outlet_id || "",
         });
         setFormErrors({});
         setModalOpen(true);
@@ -253,6 +260,7 @@ export default function AsetManagement() {
                 pic_employee_id: form.pic_employee_id || null,
                 lokasi_lat: form.lokasi_lat || null,
                 lokasi_lng: form.lokasi_lng || null,
+                outlet_id: Number(form.company_id) === 5 ? (form.outlet_id || null) : null,
             };
             if (editTarget) {
                 await api(`/aset/${editTarget.id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -697,13 +705,20 @@ window.onload=function(){
                             <option value="">Semua Kondisi</option>
                             {KONDISI.map(k => <option key={k} value={k}>{k}</option>)}
                         </select>
-                        <select value={filterCompany} onChange={(e) => { setFilterCompany(e.target.value); setPage(1); }} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition">
+                        <select value={filterCompany} onChange={(e) => { setFilterCompany(e.target.value); setFilterOutlet(""); setPage(1); }} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition">
                             <option value="">Semua Perusahaan</option>
                             {companies.map(c => <option key={c.company_id} value={c.company_id}>{c.company_name}</option>)}                        </select>
                         <select value={filterApproval} onChange={(e) => { setFilterApproval(e.target.value); setPage(1); }} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition">
                             <option value="">Semua Status</option>
                             {Object.entries(APPROVAL_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                         </select>
+                        {/* Outlet filter — hanya muncul saat filterCompany = 5 */}
+                        {filterCompany === "5" && (
+                            <select value={filterOutlet} onChange={(e) => { setFilterOutlet(e.target.value); setPage(1); }} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition">
+                                <option value="">Semua Outlet</option>
+                                {outlets.map(o => <option key={o.id} value={o.id}>{o.full_name || o.name}</option>)}
+                            </select>
+                        )}
                     </div>
                 </div>
 
@@ -883,6 +898,9 @@ window.onload=function(){
                                         <InfoRow label="Jumlah" value={`${detailAset.jumlah} ${detailAset.satuan}`} />
                                         <InfoRow label="Perusahaan" value={toTitleCase(detailAset.company_name || "-")} />
                                         <InfoRow label="PIC" value={toTitleCase(detailAset.pic_name || "-")} />
+                                        {detailAset.outlet_name && (
+                                            <InfoRow label="Outlet" value={detailAset.outlet_full_name || detailAset.outlet_name} />
+                                        )}
                                     </div>
 
                                     {detailAset.lokasi_nama && (
@@ -1005,12 +1023,22 @@ window.onload=function(){
                                         <input className={inputCls} value={form.no_seri} onChange={e => setForm(p => ({ ...p, no_seri: e.target.value }))} placeholder="Serial number..." />
                                     </Field>
                                     <Field label="Perusahaan">
-                                        <select className={inputCls} value={form.company_id} onChange={e => setForm(p => ({ ...p, company_id: e.target.value }))}>
+                                        <select className={inputCls} value={form.company_id} onChange={e => setForm(p => ({ ...p, company_id: e.target.value, outlet_id: "" }))}>
                                             <option value="">— Pilih Perusahaan —</option>
                                             {companies.map(c => <option key={c.company_id} value={c.company_id}>{c.company_name}</option>)}
                                         </select>
                                     </Field>
                                 </div>
+
+                                {/* Outlet — hanya untuk Waschen (company_id = 5) */}
+                                {String(form.company_id) === "5" && (
+                                    <Field label="Outlet">
+                                        <select className={inputCls} value={form.outlet_id} onChange={e => setForm(p => ({ ...p, outlet_id: e.target.value }))}>
+                                            <option value="">— Pilih Outlet —</option>
+                                            {outlets.map(o => <option key={o.id} value={o.id}>{o.full_name || o.name}</option>)}
+                                        </select>
+                                    </Field>
+                                )}
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     <div className="col-span-2 sm:col-span-1">

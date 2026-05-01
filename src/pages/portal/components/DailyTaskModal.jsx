@@ -18,16 +18,126 @@ const formatBytes = (bytes = 0) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+// ─── Multi-Select Picker ─────────────────────────────────────────────────────
+function MultiSelectPicker({ options, selectedIds, onToggle, idKey, nameKey, badgeClass, emptyLabel }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = options.filter((o) =>
+    String(o[nameKey]).toLowerCase().includes(search.toLowerCase())
+  );
+  const selectedItems = options.filter((o) => selectedIds.includes(o[idKey]));
+
+  return (
+    <div ref={wrapRef} className="relative">
+      {selectedItems.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {selectedItems.map((item) => (
+            <span
+              key={item[idKey]}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${badgeClass}`}
+            >
+              {item[nameKey]}
+              <button
+                type="button"
+                onClick={() => onToggle(item[idKey])}
+                className="opacity-60 hover:opacity-100 leading-none"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-500 hover:border-blue-400 transition bg-white"
+      >
+        <span>{selectedIds.length === 0 ? emptyLabel : `${selectedIds.length} dipilih`}</span>
+        <svg className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 flex flex-col">
+          <div className="p-2 border-b border-slate-100">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari..."
+              className="w-full px-2 py-1 text-xs border border-slate-200 rounded outline-none focus:border-blue-400"
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">Tidak ada hasil</p>
+            ) : (
+              filtered.map((opt) => (
+                <label
+                  key={opt[idKey]}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(opt[idKey])}
+                    onChange={() => onToggle(opt[idKey])}
+                    className="accent-blue-600 flex-shrink-0"
+                  />
+                  <span className="text-xs text-slate-700 truncate">{opt[nameKey]}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DailyTaskModal({ mode = "create", task = null, onClose, onSaved }) {
   const [departments, setDepartments] = useState([]);
+  const [companies, setCompanies]     = useState([]);
+  const [employees, setEmployees]     = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Form state
   const [title, setTitle]             = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
-  const [departmentId, setDepartmentId] = useState(task?.department_id || "");
-  const [isPublic, setIsPublic]       = useState(task?.is_public !== 0); // default: public
+  // Visibility mode: "public" | "private" | "target"
+  const initVisibility = () => {
+    if (!task) return "public";
+    const hasTargets =
+      (Array.isArray(task.target_company_ids)    && task.target_company_ids.length > 0) ||
+      (Array.isArray(task.target_department_ids) && task.target_department_ids.length > 0) ||
+      (Array.isArray(task.target_employee_ids)   && task.target_employee_ids.length > 0);
+    if (hasTargets) return "target";
+    return task.is_public !== 0 ? "public" : "private";
+  };
+  const [visibilityMode, setVisibilityMode] = useState(initVisibility);
+
+  // Target audience state
+  const initIds = (arr) => (Array.isArray(arr) ? arr.map(Number) : []);
+  const [targetCompanyIds, setTargetCompanyIds]   = useState(() => initIds(task?.target_company_ids));
+  const [targetDeptIds, setTargetDeptIds]         = useState(() => initIds(task?.target_department_ids));
+  const [targetEmployeeIds, setTargetEmployeeIds] = useState(() => initIds(task?.target_employee_ids));
+
+  const toggleId = (setter) => (id) =>
+    setter((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   // Multiple links state
   const initLinks = () =>
@@ -46,15 +156,26 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    const loadDepts = async () => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
       try {
-        const d = await api("/daily-tasks/departments");
+        const [d, c, e] = await Promise.all([
+          api("/daily-tasks/departments"),
+          api("/daily-tasks/companies"),
+          api("/daily-tasks/employees"),
+        ]);
         setDepartments(d.departments || []);
+        setCompanies(c.companies || []);
+        setEmployees(e.employees || []);
       } catch {
-        setDepartments([]);
+        // non-fatal
       }
     };
-    loadDepts();
+    load();
   }, []);
 
   // ─── Links helpers ───────────────────────────────────────────────────────
@@ -106,8 +227,13 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
       const formData = new FormData();
       formData.append("title", title.trim());
       formData.append("description", description || "");
-      formData.append("department_id", departmentId || "");
-      formData.append("is_public", isPublic ? "1" : "0");
+      formData.append("is_public", visibilityMode === "private" ? "0" : "1");
+
+      // Target audience — hanya dikirim jika mode "target"
+      const isTarget = visibilityMode === "target";
+      formData.append("target_company_ids",    JSON.stringify(isTarget ? targetCompanyIds : []));
+      formData.append("target_department_ids", JSON.stringify(isTarget ? targetDeptIds : []));
+      formData.append("target_employee_ids",   JSON.stringify(isTarget ? targetEmployeeIds : []));
 
       const validLinks = links.filter((l) => l.url.trim());
       formData.append("links", JSON.stringify(validLinks));
@@ -328,80 +454,90 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
 
             {/* ─── Kolom Kanan ─── */}
             <div className="space-y-5">
-              {/* Departemen */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Departemen <span className="text-slate-400">(opsional)</span>
-                </label>
-                <select
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
-                >
-                  <option value="">— Pilih Departemen —</option>
-                  {departments.map((d) => (
-                    <option key={d.department_id} value={d.department_id}>
-                      {d.department_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Visibilitas (Private / Public) */}
+              {/* Visibilitas */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-2">
                   Visibilitas
                 </label>
                 <div className="space-y-2">
                   {/* Public */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                      isPublic
-                        ? "border-blue-400 bg-blue-50"
-                        : "border-slate-200 hover:border-blue-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value="public"
-                      checked={isPublic}
-                      onChange={() => setIsPublic(true)}
-                      className="mt-0.5 accent-blue-600"
-                    />
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${visibilityMode === "public" ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:border-blue-300"}`}>
+                    <input type="radio" name="visibility" checked={visibilityMode === "public"} onChange={() => setVisibilityMode("public")} className="mt-0.5 accent-blue-600" />
                     <div>
                       <p className="text-xs font-semibold text-slate-700">🌐 Public</p>
                       <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
-                        Notulensi ini dapat dilihat oleh semua karyawan.
-                        Cocok untuk agenda tim, pengumuman, atau laporan bersama.
+                        Dapat dilihat oleh semua karyawan. Cocok untuk agenda tim, pengumuman, atau laporan bersama.
                       </p>
                     </div>
                   </label>
 
                   {/* Private */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                      !isPublic
-                        ? "border-violet-400 bg-violet-50"
-                        : "border-slate-200 hover:border-violet-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value="private"
-                      checked={!isPublic}
-                      onChange={() => setIsPublic(false)}
-                      className="mt-0.5 accent-violet-600"
-                    />
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${visibilityMode === "private" ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-red-300"}`}>
+                    <input type="radio" name="visibility" checked={visibilityMode === "private"} onChange={() => setVisibilityMode("private")} className="mt-0.5 accent-red-600" />
                     <div>
                       <p className="text-xs font-semibold text-slate-700">🔒 Private</p>
                       <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
-                        Hanya Anda yang dapat melihat notulensi ini.
-                        Cocok untuk catatan pribadi atau draft yang belum selesai.
+                        Hanya Anda yang dapat melihat. Cocok untuk catatan pribadi atau draft yang belum selesai.
                       </p>
                     </div>
                   </label>
+
+                  {/* Target Audience */}
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${visibilityMode === "target" ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:border-amber-300"}`}>
+                    <input type="radio" name="visibility" checked={visibilityMode === "target"} onChange={() => setVisibilityMode("target")} className="mt-0.5 accent-amber-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-700">🎯 Target Audience</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                        Hanya orang-orang tertentu yang dapat melihat. Pilih perusahaan, departemen, atau karyawan.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Pickers — tampil hanya saat mode "target" */}
+                  {visibilityMode === "target" && (
+                    <div className="ml-1 pl-3 border-l-2 border-amber-200 space-y-3 pt-1">
+                      {/* Perusahaan */}
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">🏢 Perusahaan</label>
+                        <MultiSelectPicker
+                          options={companies}
+                          selectedIds={targetCompanyIds}
+                          onToggle={toggleId(setTargetCompanyIds)}
+                          idKey="company_id"
+                          nameKey="company_name"
+                          badgeClass="bg-blue-100 text-blue-700"
+                          emptyLabel="— Semua Perusahaan —"
+                        />
+                      </div>
+                      {/* Departemen */}
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">🏬 Departemen</label>
+                        <MultiSelectPicker
+                          options={departments}
+                          selectedIds={targetDeptIds}
+                          onToggle={toggleId(setTargetDeptIds)}
+                          idKey="department_id"
+                          nameKey="department_name"
+                          badgeClass="bg-violet-100 text-violet-700"
+                          emptyLabel="— Semua Departemen —"
+                        />
+                      </div>
+                      {/* Karyawan */}
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">👤 Karyawan</label>
+                        <MultiSelectPicker
+                          options={employees}
+                          selectedIds={targetEmployeeIds}
+                          onToggle={toggleId(setTargetEmployeeIds)}
+                          idKey="employee_id"
+                          nameKey="full_name"
+                          badgeClass="bg-amber-100 text-amber-700"
+                          emptyLabel="— Semua Karyawan —"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Maks. 100 karyawan ditampilkan</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
