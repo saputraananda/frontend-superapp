@@ -108,6 +108,13 @@ function MultiSelectPicker({ options, selectedIds, onToggle, idKey, nameKey, bad
   );
 }
 
+// Helper untuk progress config (sama dengan DailyTasksCard)
+const progressConfig = {
+  todo: { border: "border-red-200", bg: "bg-red-50", badgeBg: "bg-red-100", badgeText: "text-red-700", label: "To Do", dot: "bg-red-500" },
+  on_progress: { border: "border-amber-200", bg: "bg-amber-50", badgeBg: "bg-amber-100", badgeText: "text-amber-700", label: "On Progress", dot: "bg-amber-500" },
+  completed: { border: "border-green-200", bg: "bg-green-50", badgeBg: "bg-green-100", badgeText: "text-green-700", label: "Completed", dot: "bg-green-500" },
+};
+
 export default function DailyTaskModal({ mode = "create", task = null, onClose, onSaved }) {
   const [departments, setDepartments] = useState([]);
   const [companies, setCompanies]     = useState([]);
@@ -118,6 +125,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
   // Form state
   const [title, setTitle]             = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
+  const [progress, setProgress]       = useState(task?.progress || "todo");
   // Visibility mode: "public" | "private" | "target"
   const initVisibility = () => {
     if (!task) return "public";
@@ -153,7 +161,17 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
   const [newFilePreviews, setNewFilePreviews] = useState([]);
 
   const fileInputRef = useRef(null);
+  const titleTextareaRef = useRef(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Auto-resize title textarea
+  useEffect(() => {
+    const textarea = titleTextareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+  }, [title]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -228,6 +246,7 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
       formData.append("title", title.trim());
       formData.append("description", description || "");
       formData.append("is_public", visibilityMode === "private" ? "0" : "1");
+      formData.append("progress", progress);
 
       // Target audience — hanya dikirim jika mode "target"
       const isTarget = visibilityMode === "target";
@@ -276,13 +295,15 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
       <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-slate-50 rounded-t-2xl">
+        <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-200 rounded-t-2xl ${
+          mode === "view" ? "bg-gradient-to-r from-slate-50 to-blue-50" : "bg-gradient-to-r from-blue-50 to-slate-50"
+        }`}>
           <div>
             <h2 className="text-base font-bold text-slate-800">
-              {mode === "create" ? "Tambah Notulensi" : "Edit Notulensi"}
+              {mode === "create" ? "Tambah Notulensi" : mode === "view" ? "Detail Notulensi" : "Edit Notulensi"}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Catat hasil rapat, laporan harian, atau agenda penting
+              {mode === "view" ? "Lihat detail notulensi rapat, laporan harian, atau agenda" : "Catat hasil rapat, laporan harian, atau agenda penting"}
             </p>
           </div>
           <button
@@ -295,22 +316,189 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        <form onSubmit={mode === "view" ? (e) => e.preventDefault() : handleSubmit}>
+          <div className={`p-6 ${mode === "view" ? "" : "grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6"}`}>
 
             {/* ─── Kolom Kiri ─── */}
-            <div className="space-y-5 min-w-0">
+            <div className={`min-w-0 ${mode === "view" ? "w-full max-w-4xl mx-auto" : "space-y-5"}`}>
+              {mode === "view" ? (
+                // ─── VIEW MODE: Tampilan bersih untuk membaca ───
+                <div className="space-y-6">
+                  {/* Header dengan judul dan metadata */}
+                  <div className="border-b border-slate-200 pb-4">
+                    <h1 className="text-xl font-bold text-slate-800 leading-relaxed">
+                      {task?.title}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      {/* Progress Badge */}
+                      {(() => {
+                        const pCfg = progressConfig[task?.progress] || progressConfig.todo;
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${pCfg.badgeText} ${pCfg.badgeBg} border ${pCfg.border}`}>
+                            <span className={`w-2 h-2 rounded-full ${pCfg.dot}`}></span>
+                            {pCfg.label}
+                          </span>
+                        );
+                      })()}
+                      {/* Visibility Badge */}
+                      {task?.is_public ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200">
+                          🌐 Public
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200">
+                          🔒 Private
+                        </span>
+                      )}
+                      {/* Date */}
+                      <span className="text-xs text-slate-400">
+                        {new Date(task?.created_at).toLocaleDateString("id-ID", {
+                          day: "numeric", month: "long", year: "numeric",
+                          hour: "2-digit", minute: "2-digit"
+                        })}
+                      </span>
+                    </div>
+                    {/* Creator Info */}
+                    {task?.creator_name && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                          {task.creator_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{task.creator_name}</p>
+                          <p className="text-[10px] text-slate-400">Pembuat Notulensi</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Deskripsi Content */}
+                  {task?.description && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-2">📝 Notulensi / Catatan</h3>
+                      <div
+                        className="
+                          text-slate-700 text-sm leading-relaxed bg-white rounded-lg p-4 border border-slate-200
+                          [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-slate-800
+                          [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-slate-800
+                          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
+                          [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
+                          [&_li]:my-0.5
+                          [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 [&_blockquote]:text-slate-500 [&_blockquote]:italic [&_blockquote]:my-2
+                          [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:my-2 [&_pre]:text-xs [&_pre]:overflow-x-auto
+                          [&_hr]:border-slate-300 [&_hr]:my-3
+                          [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800
+                          [&_p]:my-1.5
+                          [&_strong]:font-bold [&_strong]:text-slate-800
+                          [&_em]:italic
+                          [&_s]:line-through [&_del]:line-through
+                          [&_code]:bg-slate-100 [&_code]:text-rose-600 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
+                          [&_img]:rounded-lg [&_img]:my-2 [&_img]:max-w-full
+                        "
+                        dangerouslySetInnerHTML={{ __html: task.description }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Links */}
+                  {task?.links?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-2">🔗 Link Terkait</h3>
+                      <div className="space-y-2">
+                        {task.links.map((link, idx) => (
+                          <a
+                            key={idx}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition group"
+                          >
+                            <span className="text-lg">🔗</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-blue-700 truncate group-hover:underline">
+                                {link.label || link.url}
+                              </p>
+                              {link.label && <p className="text-[10px] text-blue-400 truncate">{link.url}</p>}
+                            </div>
+                            <svg className="h-4 w-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Evidence */}
+                  {task?.evidences?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-2">📎 Lampiran ({task.evidences.length})</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {task.evidences.map((ev) => (
+                          <a
+                            key={ev.id}
+                            href={`${BASE_URL}/assets/${ev.file_path}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition group"
+                          >
+                            {ev.file_type?.startsWith("image/") ? (
+                              <img src={`${BASE_URL}/assets/${ev.file_path}`} alt={ev.file_name} className="h-10 w-10 object-cover rounded flex-shrink-0" />
+                            ) : (
+                              <span className="text-2xl flex-shrink-0">{fileIcon(ev.file_type)}</span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-slate-700 truncate">{ev.file_name}</p>
+                              <p className="text-[10px] text-slate-400">{formatBytes(ev.file_size)}</p>
+                            </div>
+                            <svg className="h-4 w-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Target Audience Info */}
+                  {(task?.target_companies?.length > 0 || task?.target_departments?.length > 0 || task?.target_employees?.length > 0) && (
+                    <div className="pt-4 border-t border-slate-100">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-2">🎯 Target Audience</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {task.target_companies?.map((c) => (
+                          <span key={c.id} className="text-[10px] px-2 py-1 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                            🏢 {c.name}
+                          </span>
+                        ))}
+                        {task.target_departments?.map((d) => (
+                          <span key={d.id} className="text-[10px] px-2 py-1 bg-violet-50 text-violet-700 rounded border border-violet-200">
+                            🏬 {d.name}
+                          </span>
+                        ))}
+                        {task.target_employees?.length > 0 && (
+                          <span className="text-[10px] px-2 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200">
+                            👤 {task.target_employees.length} karyawan
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // ─── CREATE/EDIT MODE: Form lengkap ───
+                <>
               {/* Judul */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Judul <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <textarea
+                  ref={titleTextareaRef}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Contoh: Notulensi Rapat Mingguan Tim Ops"
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  rows={1}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none overflow-hidden min-h-[42px]"
                 />
               </div>
 
@@ -450,10 +638,28 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                   </div>
                 )}
               </div>
+            </>
+            )}
             </div>
 
-            {/* ─── Kolom Kanan ─── */}
+            {/* ─── Kolom Kanan (hanya untuk create/edit) ─── */}
+            {mode !== "view" && (
             <div className="space-y-5">
+
+              {/* Info creator - read only jika edit */}
+              {mode === "edit" && task?.creator_name && (
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-[10px] text-slate-500 font-semibold mb-1">Dibuat Oleh</p>
+                  <p className="text-xs text-slate-700 font-medium">{task.creator_name}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {new Date(task.created_at).toLocaleString("id-ID", {
+                      day: "2-digit", month: "short", year: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              )}
+
               {/* Visibilitas */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-2">
@@ -540,19 +746,46 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                 </div>
               </div>
 
-              {/* Info creator - read only jika edit */}
-              {mode === "edit" && task?.creator_name && (
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-[10px] text-slate-500 font-semibold mb-1">Dibuat Oleh</p>
-                  <p className="text-xs text-slate-700 font-medium">{task.creator_name}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    {new Date(task.created_at).toLocaleString("id-ID", {
-                      day: "2-digit", month: "short", year: "numeric",
-                      hour: "2-digit", minute: "2-digit",
-                    })}
-                  </p>
+              {/* Progress Status */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Status Progres
+                </label>
+                <div className="space-y-2">
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${progress === "todo" ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-red-300"}`}>
+                    <input type="radio" name="progress" checked={progress === "todo"} onChange={() => setProgress("todo")} className="accent-red-600" />
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">To Do</p>
+                        <p className="text-[10px] text-slate-500">Task belum dikerjakan</p>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${progress === "on_progress" ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:border-amber-300"}`}>
+                    <input type="radio" name="progress" checked={progress === "on_progress"} onChange={() => setProgress("on_progress")} className="accent-amber-600" />
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">On Progress</p>
+                        <p className="text-[10px] text-slate-500">Task sedang dikerjakan</p>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${progress === "completed" ? "border-green-400 bg-green-50" : "border-slate-200 hover:border-green-300"}`}>
+                    <input type="radio" name="progress" checked={progress === "completed"} onChange={() => setProgress("completed")} className="accent-green-600" />
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">Completed</p>
+                        <p className="text-[10px] text-slate-500">Task sudah selesai</p>
+                      </div>
+                    </div>
+                  </label>
                 </div>
-              )}
+              </div>
 
               {/* Tips */}
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
@@ -565,10 +798,11 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                 </ul>
               </div>
             </div>
+            )}
           </div>
 
           {/* Error */}
-          {error && (
+          {mode !== "view" && error && (
             <div className="mx-6 mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
               {error}
             </div>
@@ -593,23 +827,29 @@ export default function DailyTaskModal({ mode = "create", task = null, onClose, 
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-100 transition disabled:opacity-50"
+                className={`px-4 py-2 text-xs font-medium rounded-lg transition disabled:opacity-50 ${
+                  mode === "view"
+                    ? "px-8 bg-blue-600 text-white hover:bg-blue-700"
+                    : "border border-slate-300 text-slate-600 hover:bg-slate-100"
+                }`}
               >
-                Batal
+                {mode === "view" ? "Tutup" : "Batal"}
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60 flex items-center gap-2"
-              >
-                {loading && (
-                  <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                )}
-                {mode === "create" ? "Simpan" : "Update"}
-              </button>
+              {mode !== "view" && (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-60 flex items-center gap-2"
+                >
+                  {loading && (
+                    <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                  )}
+                  {mode === "create" ? "Simpan" : "Update"}
+                </button>
+              )}
             </div>
           </div>
         </form>

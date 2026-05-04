@@ -30,6 +30,9 @@ export default function AloraChatBot() {
     const userName = employee?.full_name?.split(" ")[0] || "Sobat";
 
     const [isOpen, setIsOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(() => {
+        try { return localStorage.getItem("alora_chatbot_minimized") === "1"; } catch { return false; }
+    });
     const [messages, setMessages] = useState(() => [
         {
             id: 1,
@@ -232,7 +235,7 @@ export default function AloraChatBot() {
       `}</style>
 
             {/* ── Chat Window ── */}
-            {isOpen && (
+            {!isMinimized && isOpen && (
                 <div
                     style={{
                         position: "fixed",
@@ -372,9 +375,19 @@ export default function AloraChatBot() {
             {/* ── FAB Button ── */}
             <button
                 type="button"
-                onClick={() => setIsOpen((p) => !p)}
-                className="fixed bottom-6 right-6 z-[9999] h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-xl shadow-blue-600/40 flex items-center justify-center transition-all duration-200"
-                title="Chat dengan minbot Alora"
+                onClick={() => {
+                    if (isMinimized) {
+                        setIsMinimized(false);
+                        localStorage.setItem("alora_chatbot_minimized", "0");
+                    }
+                    setIsOpen((p) => !p);
+                }}
+                className={`fixed z-[9999] rounded-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-xl shadow-blue-600/40 flex items-center justify-center transition-all duration-200 ${
+                    isMinimized
+                        ? "bottom-4 right-4 h-10 w-10 opacity-60 hover:opacity-100"
+                        : "bottom-6 right-6 h-14 w-14"
+                }`}
+                title={isMinimized ? "Buka chatbot" : "Chat dengan minbot Alora"}
             >
                 <div className={`transition-all duration-200 ${isOpen ? "rotate-180 scale-0 opacity-0 absolute" : "rotate-0 scale-100 opacity-100"}`}>
                     <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 24 24">
@@ -399,13 +412,29 @@ export default function AloraChatBot() {
             </button>
 
             {/* Speech bubble tooltip */}
-            {!isOpen && (
+            {!isMinimized && !isOpen && (
                 <div
                     style={{ animation: "float 3s ease-in-out infinite" }}
                     className="fixed bottom-[90px] right-6 z-[9998] flex items-center gap-2"
                 >
-                    <div className="bg-white text-slate-700 text-xs font-medium px-3.5 py-2 rounded-2xl rounded-br-sm shadow-lg border border-slate-200 whitespace-nowrap">
+                    <div className="bg-white text-slate-700 text-xs font-medium px-3.5 py-2 rounded-2xl rounded-br-sm shadow-lg border border-slate-200 whitespace-nowrap relative">
                         Hai Sobat Alora, ada yang bisa MinBot bantu? 👋
+                        {/* Tombol minimize chatbot */}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsMinimized(true);
+                                setIsOpen(false);
+                                localStorage.setItem("alora_chatbot_minimized", "1");
+                            }}
+                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-400 hover:text-amber-600 border border-slate-200 flex items-center justify-center text-[10px] transition"
+                            title="Kecilkan chatbot"
+                        >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
                     <div className="w-3 h-3 bg-white rotate-45 -mt-1.5 border-t border-l border-slate-200" />
                 </div>

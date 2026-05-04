@@ -2,7 +2,19 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../../../lib/api";
 import DailyTaskModal from "./DailyTaskModal";
 
-const PER_PAGE = 5;
+// Helper untuk get current user
+function getCurrentUser() {
+  try {
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Adaptive items per page - minimum 5, maksimum tergantung viewport
+const MIN_PER_PAGE = 5;
+const ITEM_HEIGHT_ESTIMATE = 90; // estimasi tinggi satu task card dalam pixel
 
 function capitalizeEachWord(str) {
   if (!str) return "";
@@ -13,17 +25,26 @@ function capitalizeEachWord(str) {
     .join(" ");
 }
 
+// Helper untuk border dan badge warna berdasarkan progress
+const progressConfig = {
+  todo: { border: "border-red-200", bg: "bg-red-50", hoverBg: "hover:bg-red-100", hoverBorder: "hover:border-red-300", badgeBg: "bg-red-100", badgeText: "text-red-700", label: "To Do", dot: "bg-red-500" },
+  on_progress: { border: "border-amber-200", bg: "bg-amber-50", hoverBg: "hover:bg-amber-100", hoverBorder: "hover:border-amber-300", badgeBg: "bg-amber-100", badgeText: "text-amber-700", label: "On Progress", dot: "bg-amber-500" },
+  completed: { border: "border-green-200", bg: "bg-green-50", hoverBg: "hover:bg-green-100", hoverBorder: "hover:border-green-300", badgeBg: "bg-green-100", badgeText: "text-green-700", label: "Completed", dot: "bg-green-500" },
+};
+
 function TaskItem({ task, onClick }) {
   const date = new Date(task.created_at);
   const dateStr = date.toLocaleDateString("id-ID", {
     day: "2-digit", month: "short", year: "numeric",
   });
 
+  const pCfg = progressConfig[task.progress] || progressConfig.todo;
+
   return (
     <button
       type="button"
       onClick={() => onClick(task)}
-      className="w-full text-left p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 transition group"
+      className={`w-full text-left p-3 rounded-xl border-2 ${pCfg.border} ${pCfg.bg} ${pCfg.hoverBg} ${pCfg.hoverBorder} transition group`}
     >
       <div className="flex items-start gap-2">
         <div className="flex-shrink-0 mt-0.5 h-8 w-8 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center">
@@ -35,7 +56,7 @@ function TaskItem({ task, onClick }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h4 className="text-sm font-semibold text-slate-800 leading-snug group-hover:text-blue-700 line-clamp-1">
+            <h4 className="text-sm font-semibold text-slate-800 leading-snug group-hover:text-slate-900 line-clamp-1">
               {task.title}
             </h4>
             <span className="flex-shrink-0 text-[10px] text-slate-400 whitespace-nowrap">{dateStr}</span>
@@ -48,8 +69,14 @@ function TaskItem({ task, onClick }) {
           )}
 
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+            {/* Progress Badge */}
+            <span className={`text-[10px] font-medium ${pCfg.badgeText} ${pCfg.badgeBg} px-1.5 py-0.5 rounded border ${pCfg.border} flex items-center gap-1`}>
+              <span className={`w-2 h-2 rounded-full ${pCfg.dot}`}></span>
+              {pCfg.label}
+            </span>
+
             {task.is_public ? (
-              <span className="text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+              <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                 🌐 Public
               </span>
             ) : (
@@ -122,7 +149,29 @@ export default function DailyTasksCard() {
   const [filterMonthNum, setFilterMonthNum] = useState(""); // "1"-"12"
   const [filterDept, setFilterDept] = useState(""); // department_id as string
   const [filterVis, setFilterVis] = useState("all"); // "all" | "public" | "private"
+  const [filterProgress, setFilterProgress] = useState("all"); // "all" | "todo" | "on_progress" | "completed"
   const [showFilters, setShowFilters] = useState(false);
+
+  // ─── Adaptive items per page ────────────────────────────────────────────
+  const [itemsPerPage, setItemsPerPage] = useState(MIN_PER_PAGE);
+
+  useEffect(() => {
+    const calculateItemsPerPage = () => {
+      const viewportHeight = window.innerHeight;
+      // Estimasi ruang untuk card (header card ~100px, pagination ~60px, padding ~40px, nav/header halaman ~80px)
+      const overhead = 280;
+      const availableHeight = Math.max(300, viewportHeight - overhead);
+      const calculated = Math.floor(availableHeight / ITEM_HEIGHT_ESTIMATE);
+      // Clamp antara MIN_PER_PAGE dan 8 (agar tidak terlalu banyak)
+      const optimal = Math.max(MIN_PER_PAGE, Math.min(8, calculated));
+      console.log(`[DailyTasks] viewport=${viewportHeight}px, available=${availableHeight}px, itemsPerPage=${optimal}`);
+      setItemsPerPage(optimal);
+    };
+
+    calculateItemsPerPage();
+    window.addEventListener("resize", calculateItemsPerPage);
+    return () => window.removeEventListener("resize", calculateItemsPerPage);
+  }, []);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -174,14 +223,15 @@ export default function DailyTasksCard() {
       if (filterDept && String(t.department_id) !== filterDept) return false;
       if (filterVis === "public" && !t.is_public) return false;
       if (filterVis === "private" && t.is_public) return false;
+      if (filterProgress !== "all" && t.progress !== filterProgress) return false;
       return true;
     });
-  }, [tasks, search, filterYear, filterMonthNum, filterDept, filterVis]);
+  }, [tasks, search, filterYear, filterMonthNum, filterDept, filterVis, filterProgress]);
 
   // Reset to page 1 whenever filters change
-  useEffect(() => { setPage(1); }, [search, filterYear, filterMonthNum, filterDept, filterVis]);
+  useEffect(() => { setPage(1); }, [search, filterYear, filterMonthNum, filterDept, filterVis, filterProgress]);
 
-  const isFiltered = search || filterYear || filterMonthNum || filterDept || filterVis !== "all";
+  const isFiltered = search || filterYear || filterMonthNum || filterDept || filterVis !== "all" || filterProgress !== "all";
 
   const clearFilters = () => {
     setSearch("");
@@ -189,18 +239,22 @@ export default function DailyTasksCard() {
     setFilterMonthNum("");
     setFilterDept("");
     setFilterVis("all");
+    setFilterProgress("all");
   };
 
   // ─── Modal helpers ────────────────────────────────────────────────────────
+  const currentUser = getCurrentUser();
+
   const openCreate = () => {
     setSelectedTask(null);
     setModalMode("create");
     setShowModal(true);
   };
 
-  const openEdit = (task) => {
+  const openTask = (task) => {
+    const isOwner = task.creator_id === currentUser?.id;
     setSelectedTask(task);
-    setModalMode("edit");
+    setModalMode(isOwner ? "edit" : "view");
     setShowModal(true);
   };
 
@@ -213,15 +267,15 @@ export default function DailyTasksCard() {
     } else if (mode === "delete") {
       setTasks((prev) => {
         const next = prev.filter((t) => t.id !== savedTask.id);
-        const newTotalPages = Math.max(1, Math.ceil(next.length / PER_PAGE));
+        const newTotalPages = Math.max(1, Math.ceil(next.length / itemsPerPage));
         setPage((p) => Math.min(p, newTotalPages));
         return next;
       });
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / PER_PAGE));
-  const pagedTasks = filteredTasks.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / itemsPerPage));
+  const pagedTasks = filteredTasks.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <>
@@ -248,7 +302,7 @@ export default function DailyTasksCard() {
               Filter
               {isFiltered && (
                 <span className="h-4 w-4 flex items-center justify-center bg-blue-600 text-white rounded-full text-[9px] font-bold">
-                  {[search, filterYear, filterMonthNum, filterDept, filterVis !== "all"].filter(Boolean).length}
+                  {[search, filterYear, filterMonthNum, filterDept, filterVis !== "all", filterProgress !== "all"].filter(Boolean).length}
                 </span>
               )}
             </button>
@@ -340,8 +394,8 @@ export default function DailyTasksCard() {
               </div>
             </div>
 
-            {/* Row 3: Visibility toggle + clear */}
-            <div className="flex items-center justify-between">
+            {/* Row 3: Visibility toggle + Progress filter */}
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
                 <span className="text-[10px] font-semibold text-slate-500 mr-1">Visibilitas:</span>
                 {[
@@ -362,15 +416,39 @@ export default function DailyTasksCard() {
                 ))}
               </div>
 
-              {isFiltered && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-slate-500 mr-1">Progres:</span>
+                {[
+                  { val: "all", label: "Semua" },
+                  { val: "todo", label: "🔴 To Do" },
+                  { val: "on_progress", label: "🟡 On Progress" },
+                  { val: "completed", label: "🟢 Completed" },
+                ].map(({ val, label }) => (
+                  <button
+                    key={val}
+                    onClick={() => setFilterProgress(val)}
+                    className={`px-2 py-1 rounded text-[10px] font-semibold border transition ${filterProgress === val
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "bg-white border-slate-200 text-slate-500 hover:border-blue-300"
+                      }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 4: Clear filters */}
+            {isFiltered && (
+              <div className="flex justify-end">
                 <button
                   onClick={clearFilters}
                   className="text-[10px] text-red-500 hover:text-red-700 font-semibold transition"
                 >
                   ✕ Reset Filter
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -409,7 +487,7 @@ export default function DailyTasksCard() {
             </div>
           ) : (
             pagedTasks.map((task) => (
-              <TaskItem key={task.id} task={task} onClick={openEdit} />
+              <TaskItem key={task.id} task={task} onClick={openTask} />
             ))
           )}
         </div>
@@ -418,7 +496,7 @@ export default function DailyTasksCard() {
         {filteredTasks.length > 0 && (
           <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
             <p className="text-[10px] text-slate-400">
-              {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filteredTasks.length)} dari {filteredTasks.length}
+              {(page - 1) * itemsPerPage + 1}–{Math.min(page * itemsPerPage, filteredTasks.length)} dari {filteredTasks.length}
               {isFiltered && <span className="text-slate-300"> (filter aktif)</span>}
             </p>
             <div className="flex items-center gap-1">
