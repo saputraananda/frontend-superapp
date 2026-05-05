@@ -31,12 +31,35 @@ function fmtDate(v) {
 
 function todayISO() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function firstDayOfMonth() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function getCutoffDates() {
+  const now = new Date();
+  const day = now.getDate();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed
+
+  let start, end;
+  if (day <= 25) {
+    // 26 bulan lalu s/d 25 bulan ini
+    const s = new Date(year, month - 1, 26);
+    const e = new Date(year, month, 25);
+    start = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-26`;
+    end = `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-25`;
+  } else {
+    // 26 bulan ini s/d 25 bulan depan
+    const s = new Date(year, month, 26);
+    const e = new Date(year, month + 1, 25);
+    start = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-26`;
+    end = `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-25`;
+  }
+  return { start, end };
 }
 
 function generatePages(current, total) {
@@ -54,12 +77,18 @@ const FINDING_LOCATIONS = ["Rumah Sakit", "IKM"];
 const EMPTY_FORM = {
   reporter_name: "", report_date: todayISO(), area_id: "",
   hospital_id: "", finding_location: "IKM", linen_type: "",
-  finding_type: "", finding_qty: 1,
+  finding_type: "", finding_qty: 1, sending_note: "",
 };
 
 const LOCATION_META = {
   "Rumah Sakit": { cls: "bg-blue-50 text-blue-700 border-blue-200" },
-  "IKM":         { cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  "IKM": { cls: "bg-amber-50 text-amber-700 border-amber-200" },
+};
+
+const STATUS_META = {
+  terkirim: { label: "Terkirim", cls: "bg-slate-100 text-slate-600 border-slate-200", dot: "bg-slate-400" },
+  proses: { label: "Diproses", cls: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" },
+  selesai: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
 };
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -178,6 +207,8 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [statusNote, setStatusNote] = useState("");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -191,12 +222,14 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
         linen_type: editData.linen_type || "",
         finding_type: editData.finding_type || "",
         finding_qty: editData.finding_qty ?? 1,
+        sending_note: editData.sending_note || "",
       });
     } else {
       const user = getCurrentUser();
       setForm({ ...EMPTY_FORM, reporter_name: user.name || "" });
     }
     setError("");
+    setStatusNote("");
   }, [open, editData]);
 
   const handleSubmit = async (e) => {
@@ -218,109 +251,269 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
     }
   };
 
+  const handleUpdateStatus = async (nextStatus) => {
+    if (!editData || !nextStatus) return;
+    setUpdatingStatus(true);
+    try {
+      await api(`/ikm/linen-report/${editData.id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: nextStatus, note: statusNote, by_name: getCurrentUser().name }),
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   if (!open) return null;
 
   const labelClass = "block text-xs font-semibold text-slate-500 mb-1";
   const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-50";
 
+  const steps = editData ? [
+    {
+      key: "terkirim",
+      label: "Laporan Terkirim",
+      icon: HiOutlineClipboardDocumentList,
+      active: true,
+      date: editData.created_at,
+      by: editData.reporter_name,
+      note: editData.sending_note,
+    },
+    {
+      key: "proses",
+      label: "Sedang Diproses",
+      icon: HiOutlineClock,
+      active: ["proses", "selesai"].includes(editData.status),
+      date: editData.process_at,
+      by: editData.process_by_name,
+      note: editData.process_note,
+    },
+    {
+      key: "selesai",
+      label: "Selesai",
+      icon: HiOutlineCheckCircle,
+      active: editData.status === "selesai",
+      date: editData.completed_at,
+      by: editData.completed_by_name,
+      note: editData.completed_note,
+    },
+  ] : [];
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sticky top-0 bg-white rounded-t-3xl z-10">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-5xl rounded-3xl border border-slate-200 bg-white shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-white/95 backdrop-blur z-10 rounded-t-3xl">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-sm">
               <HiOutlineClipboardDocumentList className="h-5 w-5" />
             </div>
-            <h2 className="text-base font-bold text-slate-800">
-              {editData ? "Edit Linen Report" : "Tambah Linen Report"}
-            </h2>
+            <div>
+              <h2 className="text-base font-bold text-slate-800">
+                {editData ? "Detail & Edit Laporan" : "Tambah Laporan Linen"}
+              </h2>
+              {editData && (
+                <p className="text-xs text-slate-500">{editData.linen_type} — {editData.finding_type}</p>
+              )}
+            </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
             <HiOutlineXMark className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6 space-y-5">
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
 
-          <div>
-            <label className={labelClass}>Nama Pelapor <span className="text-rose-500">*</span></label>
-            <input className={inputClass} value={form.reporter_name} onChange={(e) => setForm({ ...form, reporter_name: e.target.value })}
-              placeholder="Nama pelapor" required disabled={saving} />
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Left: Tracking */}
+              <div className="lg:col-span-2 space-y-5">
+                {editData ? (
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                      <HiOutlineClipboardDocumentList className="h-4 w-4 text-blue-500" />
+                      Riwayat Tracking
+                    </div>
+                    <div className="relative pl-1">
+                      {steps.map((step, idx) => {
+                        const Icon = step.icon;
+                        const isLast = idx === steps.length - 1;
+                        return (
+                          <div key={step.key} className="relative flex gap-3 pb-5 last:pb-0">
+                            {!isLast && (
+                              <div className={cn("absolute left-[15px] top-7 w-0.5 h-[calc(100%-20px)]", step.active ? "bg-blue-200" : "bg-slate-100")} />
+                            )}
+                            <div className={cn("relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border", step.active ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-slate-50 border-slate-200 text-slate-300")}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={cn("text-sm font-bold", step.active ? "text-slate-800" : "text-slate-300")}>{step.label}</p>
+                              {step.active && step.date && (
+                                <p className="text-xs text-slate-400 mt-0.5">{fmtDate(step.date)} {step.by ? `· ${step.by}` : ""}</p>
+                              )}
+                              {step.active && step.note && (
+                                <div className="mt-1.5 rounded-lg border border-slate-100 bg-white px-3 py-2">
+                                  <p className="text-xs text-slate-500 font-semibold">Catatan:</p>
+                                  <p className="text-sm text-slate-700 leading-relaxed">{step.note}</p>
+                                </div>
+                              )}
+                              {!step.active && <p className="text-xs text-slate-300 mt-0.5">Belum ada aktivitas</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                    <HiOutlineClipboardDocumentList className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-slate-500">Laporan Baru</p>
+                    <p className="text-xs text-slate-400 mt-1">Lengkapi form di samping untuk menambahkan laporan linen.</p>
+                  </div>
+                )}
+
+                {editData && editData.status !== "selesai" && (
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                        {editData.status === "terkirim" ? <HiOutlineClock className="h-4 w-4 text-amber-500" /> : <HiOutlineCheckCircle className="h-4 w-4 text-emerald-500" />}
+                        Update Status
+                      </div>
+                      <span className="text-xs text-slate-500">Oleh: <strong className="text-slate-700">{getCurrentUser().name || "-"}</strong></span>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5">Catatan Tindak Lanjut</label>
+                      <textarea
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 min-h-[60px] resize-y"
+                        value={statusNote}
+                        onChange={(e) => setStatusNote(e.target.value)}
+                        placeholder={editData.status === "terkirim" ? "Contoh: Baik, coba selesaikan ke Pak Heru untuk dijahit" : "Contoh: Baik sudah selesai dan sudah diberikan ke RS kembali"}
+                        disabled={updatingStatus}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      {editData.status === "terkirim" && (
+                        <button type="button" onClick={() => handleUpdateStatus("proses")} disabled={updatingStatus}
+                          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition disabled:opacity-50">
+                          {updatingStatus && <HiOutlineClock className="h-4 w-4 animate-spin" />}
+                          <HiOutlineClock className="h-4 w-4" /> Tandai Diproses
+                        </button>
+                      )}
+                      {editData.status === "proses" && (
+                        <button type="button" onClick={() => handleUpdateStatus("selesai")} disabled={updatingStatus}
+                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50">
+                          {updatingStatus && <HiOutlineClock className="h-4 w-4 animate-spin" />}
+                          <HiOutlineCheckCircle className="h-4 w-4" /> Tandai Selesai
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {editData && editData.status === "selesai" && (
+                  <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm font-semibold text-emerald-700">
+                    <HiOutlineCheckCircle className="h-5 w-5" />
+                    Laporan ini sudah selesai ditangani.
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Form */}
+              <div className="lg:col-span-3">
+                <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <HiOutlinePencilSquare className="h-4 w-4 text-blue-500" />
+                    {editData ? "Detail Laporan" : "Form Laporan"}
+                  </h3>
+                  <form onSubmit={handleSubmit} id="linen-form" className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className={labelClass}>Nama Pelapor <span className="text-rose-500">*</span></label>
+                        <input className={inputClass} value={form.reporter_name} onChange={(e) => setForm({ ...form, reporter_name: e.target.value })} placeholder="Nama pelapor" required disabled={saving} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Tanggal Laporan <span className="text-rose-500">*</span></label>
+                        <input type="date" className={inputClass} value={form.report_date} onChange={(e) => setForm({ ...form, report_date: e.target.value })} required disabled={saving} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Lokasi Temuan <span className="text-rose-500">*</span></label>
+                        <select className={inputClass} value={form.finding_location} onChange={(e) => setForm({ ...form, finding_location: e.target.value })} disabled={saving}>
+                          {FINDING_LOCATIONS.map((l) => <option key={l}>{l}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Area <span className="text-rose-500">*</span></label>
+                        <select className={inputClass} value={form.area_id} onChange={(e) => setForm({ ...form, area_id: e.target.value })} required disabled={saving}>
+                          <option value="">-- Pilih Area --</option>
+                          {areas.map((a) => <option key={a.id} value={a.id}>{a.area_name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Rumah Sakit <span className="text-rose-500">*</span></label>
+                        <select className={inputClass} value={form.hospital_id} onChange={(e) => setForm({ ...form, hospital_id: e.target.value })} required disabled={saving}>
+                          <option value="">-- Pilih RS --</option>
+                          {hospitals.map((h) => <option key={h.id} value={h.id}>{h.hospital_name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Jenis Linen <span className="text-rose-500">*</span></label>
+                        <input className={inputClass} value={form.linen_type} onChange={(e) => setForm({ ...form, linen_type: e.target.value })} placeholder="Contoh: Sprei, Handuk..." required disabled={saving} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Jenis Temuan <span className="text-rose-500">*</span></label>
+                        <input className={inputClass} value={form.finding_type} onChange={(e) => setForm({ ...form, finding_type: e.target.value })} placeholder="Contoh: Robek, Kotor, Hilang..." required disabled={saving} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Jumlah <span className="text-rose-500">*</span></label>
+                        <input type="number" min="1" className={inputClass} value={form.finding_qty} onChange={(e) => setForm({ ...form, finding_qty: e.target.value })} required disabled={saving} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelClass}>Catatan Dari Pelapor</label>
+                      <textarea className={cn(inputClass, "min-h-[80px] resize-y")} value={form.sending_note} onChange={(e) => setForm({ ...form, sending_note: e.target.value })} placeholder="Contoh: Kain robek, perlu dijahit ulang..." disabled={saving} />
+                    </div>
+
+                    {editData?.attachment_url && (
+                      <div>
+                        <label className={labelClass}>Lampiran</label>
+                        <PhotoThumb url={editData.attachment_url} label={`Linen ${editData.linen_type || ""}`} />
+                      </div>
+                    )}
+                  </form>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Tanggal Laporan <span className="text-rose-500">*</span></label>
-              <input type="date" className={inputClass} value={form.report_date}
-                onChange={(e) => setForm({ ...form, report_date: e.target.value })} required disabled={saving} />
-            </div>
-            <div>
-              <label className={labelClass}>Lokasi Temuan <span className="text-rose-500">*</span></label>
-              <select className={inputClass} value={form.finding_location}
-                onChange={(e) => setForm({ ...form, finding_location: e.target.value })} disabled={saving}>
-                {FINDING_LOCATIONS.map((l) => <option key={l}>{l}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Area <span className="text-rose-500">*</span></label>
-              <select className={inputClass} value={form.area_id}
-                onChange={(e) => setForm({ ...form, area_id: e.target.value })} required disabled={saving}>
-                <option value="">-- Pilih Area --</option>
-                {areas.map((a) => <option key={a.id} value={a.id}>{a.area_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Rumah Sakit <span className="text-rose-500">*</span></label>
-              <select className={inputClass} value={form.hospital_id}
-                onChange={(e) => setForm({ ...form, hospital_id: e.target.value })} required disabled={saving}>
-                <option value="">-- Pilih RS --</option>
-                {hospitals.map((h) => <option key={h.id} value={h.id}>{h.hospital_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Jenis Linen <span className="text-rose-500">*</span></label>
-              <input className={inputClass} value={form.linen_type}
-                onChange={(e) => setForm({ ...form, linen_type: e.target.value })}
-                placeholder="Contoh: Sprei, Handuk..." required disabled={saving} />
-            </div>
-            <div>
-              <label className={labelClass}>Jenis Temuan <span className="text-rose-500">*</span></label>
-              <input className={inputClass} value={form.finding_type}
-                onChange={(e) => setForm({ ...form, finding_type: e.target.value })}
-                placeholder="Contoh: Robek, Kotor, Hilang..." required disabled={saving} />
-            </div>
-            <div>
-              <label className={labelClass}>Jumlah <span className="text-rose-500">*</span></label>
-              <input type="number" min="1" className={inputClass} value={form.finding_qty}
-                onChange={(e) => setForm({ ...form, finding_qty: e.target.value })} required disabled={saving} />
+        {/* Sticky Bottom Action Bar */}
+        <div className="shrink-0 border-t border-slate-100 bg-white/95 backdrop-blur px-6 py-4 z-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-end gap-4 w-full">
+            <div className="flex gap-2 shrink-0 self-end sm:self-auto">
+              <button type="button" onClick={onClose} disabled={saving || updatingStatus}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50">
+                Tutup
+              </button>
+              <button type="submit" form="linen-form" disabled={saving || updatingStatus}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+                {saving && <HiOutlineClock className="h-4 w-4 animate-spin" />}
+                {editData ? "Simpan Perubahan" : "Tambah Laporan"}
+              </button>
             </div>
           </div>
-
-          {editData?.attachment_url && (
-            <div>
-              <label className={labelClass}>Lampiran</label>
-              <PhotoThumb url={editData.attachment_url} label={`Linen ${editData.linen_type || ""}`} />
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} disabled={saving}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50">
-              Batal
-            </button>
-            <button type="submit" disabled={saving}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
-              {saving && <HiOutlineClock className="h-4 w-4 animate-spin" />}
-              {editData ? "Simpan Perubahan" : "Tambah Laporan"}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -363,8 +556,9 @@ export default function LinenReport() {
   const [hospitals, setHospitals] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
+  const { start: cutoffStart, end: cutoffEnd } = getCutoffDates();
   const [filters, setFilters] = useState({
-    startDate: firstDayOfMonth(), endDate: todayISO(),
+    startDate: cutoffStart, endDate: cutoffEnd,
     area_id: "", hospital_id: "", finding_location: "",
   });
   const [search, setSearch] = useState("");
@@ -386,8 +580,8 @@ export default function LinenReport() {
     try {
       const qs = new URLSearchParams({ page: String(pg), limit: String(pagination.limit) });
       if (filters.startDate) qs.set("startDate", filters.startDate);
-      if (filters.endDate)   qs.set("endDate", filters.endDate);
-      if (filters.area_id)   qs.set("area_id", filters.area_id);
+      if (filters.endDate) qs.set("endDate", filters.endDate);
+      if (filters.area_id) qs.set("area_id", filters.area_id);
       if (filters.hospital_id) qs.set("hospital_id", filters.hospital_id);
       if (filters.finding_location) qs.set("finding_location", filters.finding_location);
       if (search) qs.set("search", search);
@@ -395,7 +589,7 @@ export default function LinenReport() {
       const res = await api(`/ikm/linen-report?${qs}`);
       setRecords(res.data || []);
       setPagination((p) => ({ ...p, page: pg, total: res.pagination?.total || 0, totalPages: res.pagination?.totalPages || 0 }));
-      if (res.areas?.length)    setAreas(res.areas);
+      if (res.areas?.length) setAreas(res.areas);
       if (res.hospitals?.length) setHospitals(res.hospitals);
     } catch (err) {
       showToast(err.message, "error");
@@ -408,10 +602,19 @@ export default function LinenReport() {
     api("/ikm/linen-report/meta").then((r) => {
       if (r.areas?.length) setAreas(r.areas);
       if (r.hospitals?.length) setHospitals(r.hospitals);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => { fetchData(1); }, [filters, search]);
+
+  useEffect(() => {
+    if (formOpen || Boolean(deleteTarget)) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [formOpen, deleteTarget]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -580,6 +783,7 @@ export default function LinenReport() {
                     <SortTh col="area_name" label="Area" sort={sort} onSort={handleSort} />
                     <SortTh col="hospital_name" label="Rumah Sakit" sort={sort} onSort={handleSort} />
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Lokasi</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Status</th>
                     <SortTh col="linen_type" label="Jenis Linen" sort={sort} onSort={handleSort} />
                     <SortTh col="finding_type" label="Temuan" sort={sort} onSort={handleSort} />
                     <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Qty</th>
@@ -589,17 +793,18 @@ export default function LinenReport() {
                 </thead>
                 <tbody>
                   {loading
-                    ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={11} />)
+                    ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={12} />)
                     : sortedRecords.length === 0
-                    ? (
-                      <tr>
-                        <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-400">
-                          Tidak ada data laporan linen
-                        </td>
-                      </tr>
-                    )
-                    : sortedRecords.map((r, idx) => {
+                      ? (
+                        <tr>
+                          <td colSpan={12} className="px-4 py-12 text-center text-sm text-slate-400">
+                            Tidak ada data laporan linen
+                          </td>
+                        </tr>
+                      )
+                      : sortedRecords.map((r, idx) => {
                         const locMeta = LOCATION_META[r.finding_location] ?? { cls: "bg-slate-50 text-slate-600 border-slate-200" };
+                        const stMeta = STATUS_META[r.status] || STATUS_META.terkirim;
                         return (
                           <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3.5 text-xs font-medium text-slate-400 tabular-nums">
@@ -612,6 +817,12 @@ export default function LinenReport() {
                             <td className="px-4 py-3.5">
                               <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", locMeta.cls)}>
                                 {r.finding_location}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", stMeta.cls)}>
+                                <span className={cn("mr-1.5 h-1.5 w-1.5 rounded-full", stMeta.dot)} />
+                                {stMeta.label}
                               </span>
                             </td>
                             <td className="px-4 py-3.5 text-xs text-slate-700">{r.linen_type}</td>
@@ -627,12 +838,14 @@ export default function LinenReport() {
                             <td className="px-4 py-3.5 text-right">
                               <div className="inline-flex items-center gap-1.5">
                                 <button onClick={() => { setEditData(r); setFormOpen(true); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600 transition">
-                                  <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600 transition"
+                                  title="Detail & Edit">
+                                  <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Detail
                                 </button>
                                 <button onClick={() => setDeleteTarget(r)}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:text-rose-600 transition">
-                                  <HiOutlineTrash className="h-3.5 w-3.5" /> Hapus
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:text-rose-600 transition"
+                                  title="Hapus">
+                                  <HiOutlineTrash className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </td>
@@ -647,26 +860,33 @@ export default function LinenReport() {
             <div className="md:hidden divide-y divide-slate-100">
               {loading
                 ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="p-4 space-y-2 animate-pulse">
-                      <div className="h-4 bg-slate-200 rounded-md w-1/2" />
-                      <div className="h-3 bg-slate-200 rounded-md w-3/4" />
-                      <div className="h-3 bg-slate-200 rounded-md w-1/3" />
-                    </div>
-                  ))
+                  <div key={i} className="p-4 space-y-2 animate-pulse">
+                    <div className="h-4 bg-slate-200 rounded-md w-1/2" />
+                    <div className="h-3 bg-slate-200 rounded-md w-3/4" />
+                    <div className="h-3 bg-slate-200 rounded-md w-1/3" />
+                  </div>
+                ))
                 : sortedRecords.length === 0
-                ? <div className="p-8 text-center text-sm text-slate-400">Tidak ada data</div>
-                : sortedRecords.map((r) => {
+                  ? <div className="p-8 text-center text-sm text-slate-400">Tidak ada data</div>
+                  : sortedRecords.map((r) => {
                     const locMeta = LOCATION_META[r.finding_location] ?? { cls: "bg-slate-50 text-slate-600 border-slate-200" };
+                    const stMeta = STATUS_META[r.status] || STATUS_META.terkirim;
                     return (
                       <div key={r.id} className="p-4 space-y-2.5 cursor-pointer hover:bg-slate-50 hover:border-blue-100 transition rounded-xl mx-2 my-1 border border-transparent">
                         <div className="flex items-start justify-between gap-2">
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold text-slate-800">{r.linen_type} — {r.finding_type}</p>
                             <p className="text-xs text-slate-500">{fmtDate(r.report_date)} · {r.reporter_name}</p>
                           </div>
-                          <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0", locMeta.cls)}>
-                            {r.finding_location}
-                          </span>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", locMeta.cls)}>
+                              {r.finding_location}
+                            </span>
+                            <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", stMeta.cls)}>
+                              <span className={cn("mr-1 h-1 w-1 rounded-full", stMeta.dot)} />
+                              {stMeta.label}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
                           <span>📍 {r.area_name || "-"}</span>
@@ -674,13 +894,13 @@ export default function LinenReport() {
                           <span>📦 Qty: <strong>{r.finding_qty}</strong></span>
                         </div>
                         {r.attachment_url && <PhotoThumb url={r.attachment_url} label={`Linen ${r.linen_type}`} />}
-                        <div className="flex gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1">
                           <button onClick={() => { setEditData(r); setFormOpen(true); }}
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-600 transition">
-                            <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-600 transition">
+                            <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Detail
                           </button>
                           <button onClick={() => setDeleteTarget(r)}
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition">
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition">
                             <HiOutlineTrash className="h-3.5 w-3.5" /> Hapus
                           </button>
                         </div>
