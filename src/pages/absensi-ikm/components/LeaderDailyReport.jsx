@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash,
   HiOutlineFunnel, HiOutlinePaperClip, HiOutlineXMark,
@@ -37,6 +37,26 @@ function todayISO() {
 function firstDayOfMonth() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;
+}
+
+function getCutoffDates() {
+  const now = new Date();
+  const day = now.getDate();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  let start, end;
+  if (day <= 25) {
+    const s = new Date(year, month - 1, 26);
+    const e = new Date(year, month, 25);
+    start = `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,"0")}-26`;
+    end   = `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-25`;
+  } else {
+    const s = new Date(year, month, 26);
+    const e = new Date(year, month + 1, 25);
+    start = `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,"0")}-26`;
+    end   = `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-25`;
+  }
+  return { start, end };
 }
 
 function generatePages(current, total) {
@@ -543,8 +563,9 @@ export default function LeaderDailyReport() {
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
+  const { start: cutoffStart, end: cutoffEnd } = getCutoffDates();
   const [filters, setFilters] = useState({
-    startDate: firstDayOfMonth(), endDate: todayISO(), area_id: "",
+    startDate: cutoffStart, endDate: cutoffEnd, area_id: "",
   });
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -694,12 +715,12 @@ export default function LeaderDailyReport() {
             </div>
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1 max-w-xs">
+              <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1">
                 <div className="relative flex-1">
                   <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input type="text" value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Cari nama PIC..."
+                    placeholder="Cari PIC, area, role, kebersihan, kendala..."
                     className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>

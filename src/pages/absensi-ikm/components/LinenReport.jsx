@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash,
   HiOutlineFunnel, HiOutlinePaperClip, HiOutlineXMark,
@@ -27,6 +27,15 @@ function fmtDate(v) {
   const d = new Date(v);
   if (isNaN(d)) return v;
   return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+}
+
+function fmtDateTime(v) {
+  if (!v) return { date: "-", time: null };
+  const d = new Date(v);
+  if (isNaN(d)) return { date: v, time: null };
+  const date = new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+  const time = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  return { date, time };
 }
 
 function todayISO() {
@@ -734,13 +743,13 @@ export default function LinenReport() {
             </div>
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1 max-w-xs">
+              <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1">
                 <div className="relative flex-1">
                   <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text" value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Cari pelapor / jenis linen..."
+                    placeholder="Cari pelapor, area, RS, jenis linen, status..."
                     className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>
@@ -810,7 +819,9 @@ export default function LinenReport() {
                             <td className="px-4 py-3.5 text-xs font-medium text-slate-400 tabular-nums">
                               {(pagination.page - 1) * pagination.limit + idx + 1}
                             </td>
-                            <td className="px-4 py-3.5 text-xs text-slate-600 whitespace-nowrap">{fmtDate(r.report_date)}</td>
+                            <td className="px-4 py-3.5 whitespace-nowrap">
+                              {(() => { const { date, time } = fmtDateTime(r.created_at); return (<><p className="text-xs text-slate-700 font-medium">{date}</p>{time && <p className="text-[10px] text-slate-400 tabular-nums mt-0.5">⏰ {time}</p>}</>); })()}
+                            </td>
                             <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">{r.reporter_name}</td>
                             <td className="px-4 py-3.5 text-xs text-slate-600">{r.area_name || "-"}</td>
                             <td className="px-4 py-3.5 text-xs text-slate-600">{r.hospital_name || "-"}</td>
@@ -876,7 +887,10 @@ export default function LinenReport() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold text-slate-800">{r.linen_type} — {r.finding_type}</p>
-                            <p className="text-xs text-slate-500">{fmtDate(r.report_date)} · {r.reporter_name}</p>
+                            <p className="text-xs text-slate-500">
+                              {(() => { const { date, time } = fmtDateTime(r.created_at); return <>{date}{time && <span className="text-slate-400"> · ⏰{time}</span>}</>; })()}
+                              {" · "}{r.reporter_name}
+                            </p>
                           </div>
                           <div className="flex flex-col items-end gap-1 shrink-0">
                             <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", locMeta.cls)}>
