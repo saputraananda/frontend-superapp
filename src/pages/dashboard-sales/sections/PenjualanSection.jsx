@@ -185,6 +185,8 @@ export default function PenjualanSection({ filters }) {
         <div className="flex flex-col gap-3 md:hidden">
           {outlets.map((row) => {
             const adjustedActual = getAdjustedSales(row);
+            const targetBulanan = Number(row.target_bulanan) || 0;
+            const capaianPersen = targetBulanan > 0 ? (adjustedActual / targetBulanan) * 100 : 0;
             const gap = adjustedActual - Number(row.target_kumulatif_sales);
             const isOver = gap >= 0;
             return (
@@ -202,12 +204,15 @@ export default function PenjualanSection({ filters }) {
                     <p className="text-slate-700 font-semibold">Rp {fmtIDR(Number(row.target_bulanan))}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 font-medium">Target s.d H-1 ({Number(row.persen_target_kumulatif).toFixed(1)}%)</p>
+                    <p className="text-slate-400 font-medium">Target s.d Hari Ini ({Number(row.persen_target_kumulatif).toFixed(1)}%)</p>
                     <p className="text-slate-700 font-semibold">Rp {fmtIDR(Math.round(Number(row.target_kumulatif_sales)))}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 font-medium">Capaian s.d H-1</p>
-                    <p className="text-slate-800 font-bold">Rp {fmtIDR(adjustedActual)}</p>
+                    <p className="text-slate-400 font-medium">Capaian s.d Hari Ini</p>
+                    <p className="text-slate-800 font-bold">
+                      Rp {fmtIDR(adjustedActual)}
+                      <span className="ml-1 text-xs text-slate-400 font-normal">({capaianPersen.toFixed(1)}%)</span>
+                    </p>
                   </div>
                   <div>
                     <p className="text-slate-400 font-medium">Gap</p>
@@ -228,8 +233,8 @@ export default function PenjualanSection({ filters }) {
               <tr className="text-left text-xs font-bold text-slate-500 border-b border-slate-100">
                 <th className="pb-3 pr-4">Outlet</th>
                 <th className="pb-3 pr-4">Target Bulanan</th>
-                <th className="pb-3 pr-4">Target s.d H-1</th>
-                <th className="pb-3 pr-4">Capaian s.d H-1</th>
+                <th className="pb-3 pr-4">Target s.d Hari Ini</th>
+                <th className="pb-3 pr-4">Capaian s.d Hari Ini</th>
                 <th className="pb-3 pr-4">Gap</th>
                 <th className="pb-3">Status</th>
               </tr>
@@ -237,6 +242,8 @@ export default function PenjualanSection({ filters }) {
             <tbody>
               {outlets.map((row) => {
                 const adjustedActual = getAdjustedSales(row);
+                const targetBulanan = Number(row.target_bulanan) || 0;
+                const capaianPersen = targetBulanan > 0 ? (adjustedActual / targetBulanan) * 100 : 0;
                 const gap = adjustedActual - Number(row.target_kumulatif_sales);
                 const isOver = gap >= 0;
                 return (
@@ -245,11 +252,14 @@ export default function PenjualanSection({ filters }) {
                     <td className="py-3 pr-4 text-slate-600">Rp {fmtIDR(Number(row.target_bulanan))}</td>
                     <td className="py-3 pr-4 text-slate-600">
                       Rp {fmtIDR(Math.round(Number(row.target_kumulatif_sales)))}
-                      <span className="ml-1 text-xs text-slate-400">({Number(row.persen_target_kumulatif).toFixed(1)}%)</span>
                     </td>
-                    <td className="py-3 pr-4 font-semibold text-slate-800">Rp {fmtIDR(adjustedActual)}</td>
+                    <td className="py-3 pr-4 font-semibold text-slate-800">
+                      Rp {fmtIDR(adjustedActual)}
+                      <span className="ml-1 text-xs text-slate-400 font-normal">({capaianPersen.toFixed(1)}%)</span>
+                    </td>
                     <td className={`py-3 pr-4 font-semibold ${isOver ? "text-emerald-600" : "text-rose-500"}`}>
                       {isOver ? "+" : ""}Rp {fmtIDR(Math.round(gap))}
+
                     </td>
                     <td className="py-3">
                       <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${isOver ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"
