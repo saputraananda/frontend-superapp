@@ -188,13 +188,10 @@ export function exportAbsensiExcel({
   summary,
   leaveResumeMap = new Map(),
 }) {
-  const TOTAL_COLS = 9;
-
   const periodStr = activePeriod
     ? `${fmtDate(activePeriod.startDate)} s.d. ${fmtDate(activePeriod.endDate)}`
     : "–";
 
-  // Build filter info string
   const filterParts = [];
   if (filters?.shiftType) filterParts.push(`Shift: ${filters.shiftType.toUpperCase()}`);
   if (filters?.onlyIncomplete) filterParts.push("Hanya data belum lengkap");
@@ -210,230 +207,333 @@ export function exportAbsensiExcel({
   const filterLabel = filterParts.length > 0 ? filterParts.join("  |  ") : "Semua data (tanpa filter)";
   const exportedAt = `Diekspor: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}`;
 
-  // ── Collect rows ──────────────────────────────────────────────────────────
-  const wsData = [];
+  // ── Sheet 1: Pivot layout — employee × ALL dates in period ────────────────
+  // Cols: # | Nama | Tanggal | Pagi×3 | Siang×3 | Sore×3 | Lembur×3 | Grand Total | Lembur Final
+  const TOTAL_COLS = 17;
+  const SHIFTS = ["pagi", "siang", "sore", "lembur"];
+  const WORK_HOURS_PER_DAY = 8 * 60; // 480 minutes
 
-  // Row 0: Title
-  wsData.push([
-    cell("Detail Riwayat Absensi IKM", titleStyle),
-    ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(titleStyle)),
-  ]);
+  // ── Generate full date list for the period ────────────────────────────────
+  const allDates = [];
+  if (activePeriod?.startDate && activePeriod?.endDate) {
+    const cur = new Date(activePeriod.startDate);
+    const end = new Date(activePeriod.endDate);
+    while (cur <= end) {
+      allDates.push(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
 
-  // Row 1: Period
-  wsData.push([
-    cell(`Periode: ${periodLabel || periodStr}`, metaStyle),
-    ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle)),
-  ]);
+  // ── Collect all unique employees (sorted A-Z) ─────────────────────────────
+  const empMeta = new Map(); // empKey → { name, employee_id }
+  records.forEach((row) => {
+    const empKey = row.employee_id ?? row.employee_name;
+    if (!empMeta.has(empKey)) {
+      empMeta.set(empKey, {
+        name: row.employee_name || "-",
+        employee_id: row.employee_id,
+      });
+    }
+  });
+  const sortedEmps = [...empMeta.entries()].sort((a, b) =>
+    String(a[1].name).localeCompare(String(b[1].name), "id-ID")
+  );
 
-  // Row 2: Filter info
-  wsData.push([
-    cell(`Filter: ${filterLabel}`, metaStyle),
-    ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle)),
-  ]);
-
-  // Row 3: Exported at
-  wsData.push([
-    cell(exportedAt, metaStyle),
-    ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle)),
-  ]);
-
-  // Row 4: Blank spacer
-  wsData.push(Array.from({ length: TOTAL_COLS }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
-
-  // Row 5: Column headers
-  const HEADERS = [
-    "#",
-    "Tanggal Kerja",
-    "Nama Karyawan",
-    "Kode Karyawan",
-    "Shift",
-    "Absen In",
-    "Absen Out",
-    "Durasi",
-    "Status",
-  ];
-  wsData.push(HEADERS.map((h) => cell(h, headerStyle)));
-
-  // Row 6+: Data rows
-  let lupaCount = 0;
-  records.forEach((row, idx) => {
-    const isAlt = idx % 2 === 1;
-    const cs = makeCellStyle(isAlt);
-    const csCenter = makeCellStyle(isAlt, "center");
-    const lupa = isLupaAbsenKeluar(row);
-    if (lupa) lupaCount++;
-
-    const statusLabel = row.status_label || getStatusLabel(row);
-    const duration = calcDuration(row.check_in_time, row.check_out_time);
-
-    // For Absen Out cell: if lupa absen keluar, show red cell
-    const absenOutCell = lupa
-      ? cell("Lupa Absen Keluar", lupaAbsenStyle)
-      : cell(row.check_out_time ? fmtDateTime(row.check_out_time) : "-", csCenter);
-
-    // For Duration cell: if lupa, also red
-    const durationCell = lupa
-      ? cell("-", lupaAbsenStyle)
-      : cell(duration, csCenter);
-
-    // Keterangan column
-    const keterangan = lupa ? "Lupa Absen Keluar" : "";
-    const keteranganCell = lupa
-      ? cell(keterangan, lupaAbsenStyle)
-      : cell(keterangan, cs);
-
-    const isValet = Boolean(row.is_valet || row.is_valet === 1 || row.is_valet === "1");
-    const shiftStr = String(row.shift_type || "-").toUpperCase() + (isValet ? " (VALET)" : "");
-
-    wsData.push([
-      cell(idx + 1, { ...csCenter, font: { sz: 10, color: { rgb: C.textGray }, name: "Calibri" } }),
-      cell(row.work_date ? fmtDate(row.work_date) : "-", csCenter),
-      cell(row.employee_name || "-", cs),
-      cell(row.employee_code || "-", { ...csCenter, font: { sz: 9, color: { rgb: C.textGray }, name: "Courier New" } }),
-      cell(shiftStr, makeShiftStyle(row.shift_type, isAlt)),
-      cell(row.check_in_time ? fmtDateTime(row.check_in_time) : "-", csCenter),
-      absenOutCell,
-      durationCell,
-      cell(statusLabel, makeStatusStyle(statusLabel, isAlt)),
-    ]);
+  // ── Build attendance lookup: empKey + date + shift → {in, out} ───────────
+  const attendLookup = new Map(); // key: `${empKey}||${date}||${shift}`
+  records.forEach((row) => {
+    const empKey = row.employee_id ?? row.employee_name;
+    const dateKey = row.work_date ? String(row.work_date).slice(0, 10) : "-";
+    const shiftKey = String(row.shift_type || "").toLowerCase();
+    const lk = `${empKey}||${dateKey}||${shiftKey}`;
+    if (!attendLookup.has(lk)) attendLookup.set(lk, { in: null, out: null });
+    const entry = attendLookup.get(lk);
+    if (row.check_in_time)  entry.in  = row.check_in_time;
+    if (row.check_out_time) entry.out = row.check_out_time;
   });
 
-  // Summary footer
-  const totalRecords = records.length;
-  const totalLengkap = records.filter((r) => (r.status_label || getStatusLabel(r)) === "Lengkap").length;
-  const totalBelumOut = records.filter((r) => isLupaAbsenKeluar(r)).length;
-  const totalBelumIn = records.filter((r) => (r.status_label || getStatusLabel(r)) === "Belum check-in").length;
+  // ── Duration in minutes helper ─────────────────────────────────────────────
+  const diffMinutes = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return 0;
+    const d = new Date(checkOut) - new Date(checkIn);
+    return d > 0 ? d / 60000 : 0;
+  };
 
-  const sl = summaryLabelStyle;
-  const sv = summaryValueStyle;
-  const se = summaryEmptyStyle;
+  const fmtMin = (m) => {
+    if (!m || m <= 0) return "-";
+    const h = Math.floor(m / 60);
+    const mn = Math.floor(m % 60);
+    return h > 0 ? `${h}j ${mn}m` : `${mn}m`;
+  };
 
-  // Spacer before summary
+  // ── Style helpers ──────────────────────────────────────────────────────────
+  const shiftGroupHeaderStyle = (shiftKey) => {
+    const colorMap = {
+      pagi:   { bg: "0369A1", text: "FFFFFF" },
+      siang:  { bg: "92400E", text: "FFFFFF" },
+      sore:   { bg: "9A3412", text: "FFFFFF" },
+      lembur: { bg: "6D28D9", text: "FFFFFF" },
+    };
+    const c = colorMap[shiftKey] || { bg: C.headerBg, text: "FFFFFF" };
+    return { fill: { fgColor: { rgb: c.bg } }, font: { bold: true, sz: 10, color: { rgb: c.text }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: border() };
+  };
+
+  const shiftCellStyle = (shiftKey, isMissing = false) => {
+    const colorMap = {
+      pagi:   { bg: isMissing ? "FEE2E2" : C.shift_pagi_bg,   text: isMissing ? "DC2626" : C.shift_pagi_text },
+      siang:  { bg: isMissing ? "FEE2E2" : C.shift_siang_bg,  text: isMissing ? "DC2626" : C.shift_siang_text },
+      sore:   { bg: isMissing ? "FEE2E2" : C.shift_sore_bg,   text: isMissing ? "DC2626" : C.shift_sore_text },
+      lembur: { bg: isMissing ? "FEE2E2" : C.shift_lembur_bg, text: isMissing ? "DC2626" : C.shift_lembur_text },
+    };
+    const c = colorMap[shiftKey] || { bg: "FFFFFF", text: C.textGray };
+    return { fill: { fgColor: { rgb: c.bg } }, font: { sz: 10, color: { rgb: c.text }, name: "Calibri", italic: isMissing }, alignment: { horizontal: "center", vertical: "center" }, border: border() };
+  };
+
+  const emptyShiftSty = (isAlt) => ({
+    fill: { fgColor: { rgb: isAlt ? C.altRowBg : "F8FAFC" } },
+    font: { sz: 10, color: { rgb: "CBD5E1" }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+
+  const grandTotalStyle = (isAlt, isOver) => ({
+    fill: { fgColor: { rgb: isOver ? "DCFCE7" : (isAlt ? C.altRowBg : C.whiteBg) } },
+    font: { bold: true, sz: 10, color: { rgb: isOver ? "15803D" : C.textDark }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+
+  const lemburFinalStyle = (isAlt, hasLembur) => ({
+    fill: { fgColor: { rgb: hasLembur ? "F3E8FF" : (isAlt ? C.altRowBg : C.whiteBg) } },
+    font: { bold: hasLembur, sz: 10, color: { rgb: hasLembur ? "7C3AED" : C.textGray }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+
+  // ── Build wsData ──────────────────────────────────────────────────────────
+  const wsData = [];
+  const emptyHdr = { fill: { fgColor: { rgb: C.headerBg } }, border: border() };
+  const grandTotalHdrStyle = { fill: { fgColor: { rgb: "166534" } }, font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: border() };
+  const lemburFinalHdrStyle = { fill: { fgColor: { rgb: "5B21B6" } }, font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: border() };
+
+  // Title / meta rows
+  wsData.push([cell("Detail Riwayat Absensi IKM", titleStyle), ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(titleStyle))]);
+  wsData.push([cell(`Periode: ${periodLabel || periodStr}`, metaStyle), ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle))]);
+  wsData.push([cell(`Filter: ${filterLabel}`, metaStyle), ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle))]);
+  wsData.push([cell(exportedAt, metaStyle), ...Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle))]);
   wsData.push(Array.from({ length: TOTAL_COLS }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
 
+  // Row 5: Group headers
   wsData.push([
-    empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Total Record", sl), cell(totalRecords, sv), empty(se),
-  ]);
-  wsData.push([
-    empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Lengkap", sl), cell(totalLengkap, sv), empty(se),
-  ]);
-  wsData.push([
-    empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Lupa Absen Keluar", sl),
-    cell(totalBelumOut, {
-      ...sv,
-      font: { ...sv.font, color: { rgb: totalBelumOut > 0 ? "FCA5A5" : "FFFFFF" } },
-    }),
-    empty(se),
-  ]);
-  wsData.push([
-    empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Belum Check-in", sl), cell(totalBelumIn, sv), empty(se),
+    empty(emptyHdr), empty(emptyHdr), empty(emptyHdr), // #, Nama, Tanggal
+    cell("Shift Pagi",   shiftGroupHeaderStyle("pagi")),   empty(emptyHdr), empty(emptyHdr),
+    cell("Shift Siang",  shiftGroupHeaderStyle("siang")),  empty(emptyHdr), empty(emptyHdr),
+    cell("Shift Sore",   shiftGroupHeaderStyle("sore")),   empty(emptyHdr), empty(emptyHdr),
+    cell("Shift Lembur", shiftGroupHeaderStyle("lembur")), empty(emptyHdr), empty(emptyHdr),
+    cell("Grand Total", grandTotalHdrStyle),
+    cell("Lembur Final", lemburFinalHdrStyle),
   ]);
 
-  // ── Build worksheet 1 ───────────────────────────────────────────────────────
+  // Row 6: Sub-headers
+  wsData.push([
+    "#", "Nama Karyawan", "Tanggal",
+    "Masuk", "Keluar", "Total",
+    "Masuk", "Keluar", "Total",
+    "Masuk", "Keluar", "Total",
+    "Masuk", "Keluar", "Total",
+    "Grand Total", "Lembur Final",
+  ].map((h) => cell(h, headerStyle)));
+
+  // Row 7+: Data rows — one row per employee per date
+  let rowIdx = 0;
+  const datesToRender = allDates.length > 0 ? allDates : [...new Set(records.map(r => String(r.work_date || "").slice(0, 10)).filter(Boolean))].sort();
+
+  sortedEmps.forEach(([empKey, meta]) => {
+    datesToRender.forEach((dateKey) => {
+      const isAlt = rowIdx % 2 === 1;
+      const cs = makeCellStyle(isAlt);
+      const csCenter = makeCellStyle(isAlt, "center");
+
+      const shiftCells = [];
+      let grandTotalMin = 0;
+
+      SHIFTS.forEach((s) => {
+        const lk = `${empKey}||${dateKey}||${s}`;
+        const data = attendLookup.get(lk) || { in: null, out: null };
+        const hasIn  = Boolean(data.in);
+        const hasOut = Boolean(data.out);
+
+        if (!hasIn && !hasOut) {
+          shiftCells.push(cell("-", emptyShiftSty(isAlt)), cell("-", emptyShiftSty(isAlt)), cell("-", emptyShiftSty(isAlt)));
+        } else {
+          const isMissingOut = hasIn && !hasOut;
+          const mins = diffMinutes(data.in, data.out);
+          grandTotalMin += mins;
+          const sty = shiftCellStyle(s, isMissingOut);
+          shiftCells.push(
+            cell(hasIn  ? fmtDateTime(data.in)  : "-", sty),
+            cell(hasOut ? fmtDateTime(data.out) : "Lupa Absen Keluar", isMissingOut ? { ...sty, font: { ...sty.font, bold: true } } : sty),
+            cell(fmtMin(mins), sty),
+          );
+        }
+      });
+
+      const isOver = grandTotalMin > WORK_HOURS_PER_DAY;
+      const lemburFinalMin = Math.max(0, grandTotalMin - WORK_HOURS_PER_DAY);
+
+      wsData.push([
+        cell(rowIdx + 1, { ...csCenter, font: { sz: 10, color: { rgb: C.textGray }, name: "Calibri" } }),
+        cell(meta.name, cs),
+        cell(fmtDate(dateKey), csCenter),
+        ...shiftCells,
+        cell(grandTotalMin > 0 ? fmtMin(grandTotalMin) : "-", grandTotalStyle(isAlt, isOver)),
+        cell(lemburFinalMin > 0 ? fmtMin(lemburFinalMin) : "-", lemburFinalStyle(isAlt, lemburFinalMin > 0)),
+      ]);
+      rowIdx++;
+    });
+  });
+
+  // ── Build worksheet 1 ─────────────────────────────────────────────────────
   const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
 
-  // Merge title / meta rows
   ws["!merges"] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: TOTAL_COLS - 1 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: TOTAL_COLS - 1 } },
     { s: { r: 2, c: 0 }, e: { r: 2, c: TOTAL_COLS - 1 } },
     { s: { r: 3, c: 0 }, e: { r: 3, c: TOTAL_COLS - 1 } },
     { s: { r: 4, c: 0 }, e: { r: 4, c: TOTAL_COLS - 1 } },
+    { s: { r: 5, c: 3 }, e: { r: 5, c: 5  } }, // Shift Pagi
+    { s: { r: 5, c: 6 }, e: { r: 5, c: 8  } }, // Shift Siang
+    { s: { r: 5, c: 9 }, e: { r: 5, c: 11 } }, // Shift Sore
+    { s: { r: 5, c: 12}, e: { r: 5, c: 14 } }, // Shift Lembur
   ];
 
-  // Column widths
   ws["!cols"] = [
     { wch: 5  }, // #
-    { wch: 16 }, // Tanggal Kerja
-    { wch: 24 }, // Nama Karyawan
-    { wch: 14 }, // Kode
-    { wch: 16 }, // Shift
-    { wch: 22 }, // Absen In
-    { wch: 22 }, // Absen Out
-    { wch: 10 }, // Durasi
-    { wch: 20 }, // Status
+    { wch: 24 }, // Nama
+    { wch: 15 }, // Tanggal
+    { wch: 20 }, // Masuk Pagi
+    { wch: 20 }, // Keluar Pagi
+    { wch: 10 }, // Total Pagi
+    { wch: 20 }, // Masuk Siang
+    { wch: 20 }, // Keluar Siang
+    { wch: 10 }, // Total Siang
+    { wch: 20 }, // Masuk Sore
+    { wch: 20 }, // Keluar Sore
+    { wch: 10 }, // Total Sore
+    { wch: 20 }, // Masuk Lembur
+    { wch: 20 }, // Keluar Lembur
+    { wch: 10 }, // Total Lembur
+    { wch: 13 }, // Grand Total
+    { wch: 13 }, // Lembur Final
   ];
 
-  // Row heights
   ws["!rows"] = [
     { hpt: 32 }, // Title
     { hpt: 18 }, // Periode
     { hpt: 18 }, // Filter
     { hpt: 18 }, // Exported at
     { hpt: 6  }, // Spacer
-    { hpt: 24 }, // Header
+    { hpt: 22 }, // Group header
+    { hpt: 24 }, // Sub-header
   ];
 
-  // ── Build Worksheet 2: Summary by Employee ────────────────────────────────
-  const TOTAL_S2 = 15; // # | Nama | Pagi | Siang | Sore | Lembur | Total | Ket | Skt| Izn | Cuti | Skt2 | Izn2 | Alfa | Telat
+
+
+
+
+  // ── Build Worksheet 2: Resume Karyawan ───────────────────────────────────
+  // Layout: # | Nama | Keterangan | [Jam Kerja×5] | Total Hari Kerja | Total Kehadiran | Total Lembur Harian | Jam Kerja Wajib | Jam Lembur | [Pengajuan×3] | [Leader×4]
+  // Total cols: 3 + 5 + 5 + 3 + 4 = 20
+  const TOTAL_S2 = 20;
+
+  // Compute period stats: total days in cutoff, minus 4 weekend/holiday
+  let totalPeriodDays = 0;
+  if (activePeriod?.startDate && activePeriod?.endDate) {
+    const s2 = new Date(activePeriod.startDate);
+    const e2 = new Date(activePeriod.endDate);
+    totalPeriodDays = Math.round((e2 - s2) / 86400000) + 1;
+  }
+  const LIBUR_PER_CUTOFF = 4;
+  const totalHariKerja = Math.max(0, totalPeriodDays - LIBUR_PER_CUTOFF);
+
+  // Count attendance days per employee (dates with any check-in)
+  const empAttendDays = new Map(); // empKey → Set of dateKeys
+  records.forEach((row) => {
+    if (!row.check_in_time) return;
+    const empKey = row.employee_id ?? row.employee_name;
+    const dk = row.work_date ? String(row.work_date).slice(0, 10) : null;
+    if (!dk) return;
+    if (!empAttendDays.has(empKey)) empAttendDays.set(empKey, new Set());
+    empAttendDays.get(empKey).add(dk);
+  });
+
   const summaryWsData = [];
+  const emptyS2 = { fill: { fgColor: { rgb: C.headerBg } }, border: border() };
 
-  summaryWsData.push([
-    cell("Rangkuman Jam Kerja Tiap Karyawan", titleStyle),
-    ...Array.from({ length: TOTAL_S2 - 1 }, () => empty(titleStyle)),
-  ]);
+  // Style helpers for new stat columns
+  const statHdrStyle = (bg) => ({
+    fill: { fgColor: { rgb: bg } },
+    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: border(),
+  });
+  const statCellStyle = (isAlt, highlight = false, highlightBg = "FEF3C7", highlightText = "92400E") => ({
+    fill: { fgColor: { rgb: highlight ? highlightBg : (isAlt ? C.altRowBg : C.whiteBg) } },
+    font: { bold: highlight, sz: 10, color: { rgb: highlight ? highlightText : C.textDark }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
 
-  summaryWsData.push([
-    cell(`Periode: ${periodLabel || periodStr}`, metaStyle),
-    ...Array.from({ length: TOTAL_S2 - 1 }, () => empty(metaStyle)),
-  ]);
-
+  // Title + meta
+  summaryWsData.push([cell("Resume Karyawan IKM", titleStyle), ...Array.from({ length: TOTAL_S2 - 1 }, () => empty(titleStyle))]);
+  summaryWsData.push([cell(`Periode: ${periodLabel || periodStr}`, metaStyle), ...Array.from({ length: TOTAL_S2 - 1 }, () => empty(metaStyle))]);
   summaryWsData.push(Array.from({ length: TOTAL_S2 }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
 
-  // ── Row 3: Group headers (with merges) ───────────────────────────────────
-  const groupHeaderJamKerja = {
-    fill: { fgColor: { rgb: C.headerBg } },
-    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    border: border(),
-  };
-  const groupHeaderPengajuan = {
-    fill: { fgColor: { rgb: "1E6B3C" } }, // dark green
-    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    border: border(),
-  };
-  const groupHeaderLeader = {
-    fill: { fgColor: { rgb: "7C3AED" } }, // purple-700
-    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    border: border(),
-  };
+  // Row 3: Group headers
+  const groupHeaderJamKerja = { fill: { fgColor: { rgb: C.headerBg } }, font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: border() };
+  const groupHeaderPengajuan = { fill: { fgColor: { rgb: "1E6B3C" } }, font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: border() };
+  const groupHeaderLeader    = { fill: { fgColor: { rgb: "7C3AED" } }, font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: border() };
   const emptyGroupStyle = { fill: { fgColor: { rgb: C.headerBg } }, border: border() };
 
+  // Stat group header colours
+  const hariKerjaHdr  = statHdrStyle("0F4C81"); // dark blue
+  const kehadiranHdr  = statHdrStyle("065F46"); // dark emerald
+  const lemburHarHdr  = statHdrStyle("7F1D1D"); // dark red
+  const jwajibHdr     = statHdrStyle("1C3D5A"); // navy
+  const jlemburHdr    = statHdrStyle("5B21B6"); // dark purple
+
   summaryWsData.push([
-    empty(emptyGroupStyle),                              // #
-    empty(emptyGroupStyle),                              // Nama
-    cell("Jam Kerja", groupHeaderJamKerja),              // Pagi → Total Keseluruhan (5 cols)
+    empty(emptyGroupStyle),                           // #
+    empty(emptyGroupStyle),                           // Nama
+    empty(emptyGroupStyle),                           // Keterangan
+    cell("Jam Kerja", groupHeaderJamKerja),           // 5 cols: Pagi Siang Sore Lembur Grand
     empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle),
-    empty(emptyGroupStyle),                              // Keterangan
-    cell("Pengajuan Karyawan", groupHeaderPengajuan),    // Sakit, Izin, Cuti (3 cols)
+    cell("Total Hari Kerja", hariKerjaHdr),           // 1 col
+    cell("Total Kehadiran",  kehadiranHdr),           // 1 col
+    cell("Total Lembur Harian", lemburHarHdr),        // 1 col
+    cell("Jam Kerja Wajib", jwajibHdr),               // 1 col
+    cell("Jam Lembur", jlemburHdr),                   // 1 col
+    cell("Pengajuan Karyawan", groupHeaderPengajuan), // 3 cols
     empty(emptyGroupStyle), empty(emptyGroupStyle),
-    cell("Laporan Leader", groupHeaderLeader),           // Sakit, Izin, Alfa, Telat (4 cols)
+    cell("Laporan Leader", groupHeaderLeader),        // 4 cols
     empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle),
   ]);
 
-  // ── Row 4: Column headers ─────────────────────────────────────────────────
+  // Row 4: Column sub-headers
+  // Stat cols (8-12) intentionally blank here — they merge vertically with row 3 headers above
   const SUM_HEADERS = [
-    "#", "Nama Karyawan",
-    "Total Pagi", "Total Siang", "Total Sore", "Total Lembur", "Total Keseluruhan", "Keterangan",
+    "#", "Nama Karyawan", "Keterangan",
+    "Total Pagi", "Total Siang", "Total Sore", "Total Lembur", "Grand Total",
+    "", "", "", "", "",  // merged from row 3 (stat cols)
     "Sakit", "Izin", "Cuti",
     "Sakit", "Izin", "Alfa", "Telat",
   ];
-  summaryWsData.push(SUM_HEADERS.map((h) => cell(h, headerStyle)));
+  summaryWsData.push(SUM_HEADERS.map((h, i) =>
+    (i >= 8 && i <= 12) ? empty(headerStyle) : cell(h, headerStyle)
+  ));
 
-  const VALET_HIGHLIGHT = {
-    fill: { fgColor: { rgb: "FFF7ED" } },
-    font: { bold: true, sz: 10, color: { rgb: "C2410C" }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center" },
-    border: border(),
-  };
-
-  // ── Build employee summary map ────────────────────────────────────────────
+  // Build employee summary map
   const employeeMapFull = new Map();
   records.forEach((row) => {
     const id = row.employee_id ?? row.employee_name;
@@ -441,20 +541,14 @@ export function exportAbsensiExcel({
       employeeMapFull.set(id, {
         name: row.employee_name || "-",
         employee_id: Number(row.employee_id) || null,
-        pagi: 0,
-        siang: 0,
-        sore: 0,
-        lembur: 0,
-        hasValet: false,
-        hasNormal: false,
+        empKey: id,
+        pagi: 0, siang: 0, sore: 0, lembur: 0,
+        hasValet: false, hasNormal: false,
       });
     }
-
     const emp = employeeMapFull.get(id);
     const isValet = Boolean(row.is_valet) || row.is_valet === 1 || row.is_valet === "1";
-    if (isValet) emp.hasValet = true;
-    else emp.hasNormal = true;
-
+    if (isValet) emp.hasValet = true; else emp.hasNormal = true;
     if (row.check_in_time && row.check_out_time) {
       const diff = new Date(row.check_out_time) - new Date(row.check_in_time);
       if (diff > 0) {
@@ -474,29 +568,19 @@ export function exportAbsensiExcel({
     const min = Math.floor(m % 60);
     return h > 0 ? `${h}j ${min}m` : `${min}m`;
   };
-
   const fmtCount = (n) => (n > 0 ? String(n) : "-");
 
-  // Count cell styles
-  const makeCountStyle = (isAlt, color = C.textDark) => ({
-    fill: { fgColor: { rgb: isAlt ? C.altRowBg : C.whiteBg } },
-    font: { sz: 10, color: { rgb: color }, name: "Calibri", bold: false },
-    alignment: { horizontal: "center", vertical: "center" },
-    border: border(),
-  });
-  const pengajuanBg   = { bg: "F0FDF4", text: "15803D" }; // green tint
-  const leaderBg      = { bg: "FAF5FF", text: "7C3AED" }; // purple tint
+  const pengajuanBg = { bg: "F0FDF4", text: "15803D" };
+  const leaderBg    = { bg: "FAF5FF", text: "7C3AED" };
   const makePengajuanStyle = (isAlt, value) => ({
     fill: { fgColor: { rgb: value > 0 ? pengajuanBg.bg : (isAlt ? C.altRowBg : C.whiteBg) } },
     font: { sz: 10, bold: value > 0, color: { rgb: value > 0 ? pengajuanBg.text : C.textGray }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center" },
-    border: border(),
+    alignment: { horizontal: "center", vertical: "center" }, border: border(),
   });
   const makeLeaderStyle = (isAlt, value) => ({
     fill: { fgColor: { rgb: value > 0 ? leaderBg.bg : (isAlt ? C.altRowBg : C.whiteBg) } },
     font: { sz: 10, bold: value > 0, color: { rgb: value > 0 ? leaderBg.text : C.textGray }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center" },
-    border: border(),
+    alignment: { horizontal: "center", vertical: "center" }, border: border(),
   });
 
   const sortedEmployees = [...employeeMapFull.values()].sort((a, b) =>
@@ -508,9 +592,7 @@ export function exportAbsensiExcel({
     const cs = makeCellStyle(isAlt);
     const csCenter = makeCellStyle(isAlt, "center");
 
-    const totalMin = emp.pagi + emp.siang + emp.sore + emp.lembur;
-
-    // Keterangan: Normal/Valet/Normal+Valet
+    // Keterangan
     let keteranganStr = "";
     let keteranganStyle = cs;
     if (emp.hasValet && emp.hasNormal) {
@@ -519,12 +601,23 @@ export function exportAbsensiExcel({
     } else if (emp.hasValet) {
       keteranganStr = "Valet";
       keteranganStyle = { fill: { fgColor: { rgb: "FEE2E2" } }, font: { bold: true, sz: 10, color: { rgb: "DC2626" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center" }, border: border() };
-    } else if (emp.hasNormal) {
+    } else {
       keteranganStr = "Normal";
       keteranganStyle = { fill: { fgColor: { rgb: "DBEAFE" } }, font: { bold: true, sz: 10, color: { rgb: "1D4ED8" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center" }, border: border() };
     }
 
-    // Leave & late data from leaveResumeMap
+    // Grand Total jam kerja (menit)
+    const grandMin = emp.pagi + emp.siang + emp.sore + emp.lembur;
+
+    // Attendance stats
+    const kehadiran = empAttendDays.get(emp.empKey)?.size ?? 0;
+    // Lembur Harian: hanya ada jika kehadiran MELEBIHI total hari kerja
+    const lemburHarian = Math.max(0, kehadiran - totalHariKerja);
+    // Jam Kerja Wajib: 8 jam × total hari kerja dalam periode
+    const jamKerjaWajibMin = totalHariKerja * 8 * 60;
+    const jamLemburMin = Math.max(0, grandMin - jamKerjaWajibMin);
+
+    // Leave data
     const leaveData = (emp.employee_id && leaveResumeMap.get(emp.employee_id)) || {};
     const pSakit = Number(leaveData.pengajuan_sakit || 0);
     const pIzin  = Number(leaveData.pengajuan_izin  || 0);
@@ -537,17 +630,24 @@ export function exportAbsensiExcel({
     summaryWsData.push([
       cell(sumIdx + 1, { ...csCenter, font: { sz: 10, color: { rgb: C.textGray }, name: "Calibri" } }),
       cell(emp.name, cs),
+      cell(keteranganStr, keteranganStyle),
+      // Jam Kerja
       cell(formatMinutes(emp.pagi),   csCenter),
       cell(formatMinutes(emp.siang),  csCenter),
       cell(formatMinutes(emp.sore),   csCenter),
       cell(formatMinutes(emp.lembur), csCenter),
-      cell(formatMinutes(totalMin), { ...csCenter, font: { ...csCenter.font, bold: true } }),
-      cell(keteranganStr, keteranganStyle),
-      // Pengajuan karyawan
+      cell(formatMinutes(grandMin), { ...csCenter, font: { ...csCenter.font, bold: true } }),
+      // Stats
+      cell(String(totalHariKerja),     statCellStyle(isAlt)),
+      cell(String(kehadiran),          statCellStyle(isAlt, kehadiran < totalHariKerja, "DCFCE7", "065F46")),
+      cell(fmtCount(lemburHarian),     statCellStyle(isAlt, lemburHarian > 0, "FEE2E2", "DC2626")),
+      cell(formatMinutes(jamKerjaWajibMin), csCenter),
+      cell(jamLemburMin > 0 ? formatMinutes(jamLemburMin) : "-", statCellStyle(isAlt, jamLemburMin > 0, "F3E8FF", "7C3AED")),
+      // Pengajuan
       cell(fmtCount(pSakit), makePengajuanStyle(isAlt, pSakit)),
       cell(fmtCount(pIzin),  makePengajuanStyle(isAlt, pIzin)),
       cell(fmtCount(pCuti),  makePengajuanStyle(isAlt, pCuti)),
-      // Laporan leader
+      // Leader
       cell(fmtCount(lSakit), makeLeaderStyle(isAlt, lSakit)),
       cell(fmtCount(lIzin),  makeLeaderStyle(isAlt, lIzin)),
       cell(fmtCount(lAlfa),  makeLeaderStyle(isAlt, lAlfa)),
@@ -557,22 +657,38 @@ export function exportAbsensiExcel({
 
   const ws2 = XLSXStyle.utils.aoa_to_sheet(summaryWsData);
   ws2["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: TOTAL_S2 - 1 } }, // title
-    { s: { r: 1, c: 0 }, e: { r: 1, c: TOTAL_S2 - 1 } }, // periode
-    // Group header merges (row 3)
-    { s: { r: 3, c: 2 }, e: { r: 3, c: 6 } },  // Jam Kerja
-    { s: { r: 3, c: 8 }, e: { r: 3, c: 10 } }, // Pengajuan Karyawan
-    { s: { r: 3, c: 11 }, e: { r: 3, c: 14 } }, // Laporan Leader
+    { s: { r: 0, c: 0  }, e: { r: 0, c: TOTAL_S2 - 1 } }, // title
+    { s: { r: 1, c: 0  }, e: { r: 1, c: TOTAL_S2 - 1 } }, // periode
+    // Row 3-4 vertical merges for single-col headers (#, Nama, Keterangan)
+    { s: { r: 3, c: 0  }, e: { r: 4, c: 0  } }, // #
+    { s: { r: 3, c: 1  }, e: { r: 4, c: 1  } }, // Nama
+    { s: { r: 3, c: 2  }, e: { r: 4, c: 2  } }, // Keterangan
+    // Jam Kerja horizontal merge (row 3 only, row 4 has sub-headers)
+    { s: { r: 3, c: 3  }, e: { r: 3, c: 7  } }, // Jam Kerja
+    // Stat cols: vertical merge rows 3-4 (no sub-header in row 4)
+    { s: { r: 3, c: 8  }, e: { r: 4, c: 8  } }, // Total Hari Kerja
+    { s: { r: 3, c: 9  }, e: { r: 4, c: 9  } }, // Total Kehadiran
+    { s: { r: 3, c: 10 }, e: { r: 4, c: 10 } }, // Total Lembur Harian
+    { s: { r: 3, c: 11 }, e: { r: 4, c: 11 } }, // Jam Kerja Wajib
+    { s: { r: 3, c: 12 }, e: { r: 4, c: 12 } }, // Jam Lembur
+    // Pengajuan & Leader: horizontal row 3, sub-headers in row 4
+    { s: { r: 3, c: 13 }, e: { r: 3, c: 15 } }, // Pengajuan (3 cols)
+    { s: { r: 3, c: 16 }, e: { r: 3, c: 19 } }, // Leader (4 cols)
   ];
   ws2["!cols"] = [
-    { wch: 5 },  // #
+    { wch: 5  }, // #
     { wch: 26 }, // Nama
+    { wch: 14 }, // Keterangan
     { wch: 12 }, // Pagi
     { wch: 12 }, // Siang
     { wch: 12 }, // Sore
     { wch: 12 }, // Lembur
-    { wch: 16 }, // Total
-    { wch: 14 }, // Keterangan
+    { wch: 14 }, // Grand Total
+    { wch: 12 }, // Total Hari Kerja
+    { wch: 12 }, // Total Kehadiran
+    { wch: 14 }, // Total Lembur Harian
+    { wch: 13 }, // Jam Kerja Wajib
+    { wch: 12 }, // Jam Lembur
     { wch: 9  }, // P.Sakit
     { wch: 9  }, // P.Izin
     { wch: 9  }, // P.Cuti
@@ -585,9 +701,10 @@ export function exportAbsensiExcel({
     { hpt: 32 }, // Title
     { hpt: 18 }, // Periode
     { hpt: 6  }, // Spacer
-    { hpt: 22 }, // Group header
-    { hpt: 24 }, // Column header
+    { hpt: 28 }, // Group header
+    { hpt: 30 }, // Column header
   ];
+
 
   // ── Build workbook ────────────────────────────────────────────────────────
   const wb = XLSXStyle.utils.book_new();
