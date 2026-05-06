@@ -1256,11 +1256,21 @@ export default function AbsensiIKM() {
 											if (selectedEmployeeIds.length > 0) qs.set("employeeIds", selectedEmployeeIds.join(","));
 											if (filters.onlyIncomplete) qs.set("onlyIncomplete", "1");
 
-											const response = await api(`/ikm/absensi/shifts?${qs.toString()}`);
-											let allRecords = response.records || [];
+											// Fetch attendance records + leave/late resume in parallel
+											const [response, leaveRes] = await Promise.all([
+												api(`/ikm/absensi/shifts?${qs.toString()}`),
+												api(`/ikm/absensi/employee-leave-resume?startDate=${activePeriod.startDate}&endDate=${activePeriod.endDate}`),
+											]);
 
+											let allRecords = response.records || [];
 											if (statusFilter) {
 												allRecords = allRecords.filter((r) => r.status_label === statusFilter);
+											}
+
+											// Build a Map<employee_id, leaveData> for quick lookup in export
+											const leaveResumeMap = new Map();
+											for (const item of (leaveRes.data || [])) {
+												leaveResumeMap.set(Number(item.employee_id), item);
 											}
 
 											const selectedNames = selectedEmployeeIds
@@ -1280,6 +1290,7 @@ export default function AbsensiIKM() {
 													statusFilter,
 												},
 												summary: response.summary,
+												leaveResumeMap,
 											});
 										} catch (err) {
 											console.error("Gagal mendownload excel:", err);

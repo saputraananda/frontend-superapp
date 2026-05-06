@@ -186,6 +186,7 @@ export function exportAbsensiExcel({
   activePeriod,
   filters,
   summary,
+  leaveResumeMap = new Map(),
 }) {
   const TOTAL_COLS = 9;
 
@@ -368,37 +369,78 @@ export function exportAbsensiExcel({
   ];
 
   // ── Build Worksheet 2: Summary by Employee ────────────────────────────────
+  const TOTAL_S2 = 15; // # | Nama | Pagi | Siang | Sore | Lembur | Total | Ket | Skt| Izn | Cuti | Skt2 | Izn2 | Alfa | Telat
   const summaryWsData = [];
 
   summaryWsData.push([
     cell("Rangkuman Jam Kerja Tiap Karyawan", titleStyle),
-    ...Array.from({ length: 7 }, () => empty(titleStyle)),
+    ...Array.from({ length: TOTAL_S2 - 1 }, () => empty(titleStyle)),
   ]);
 
   summaryWsData.push([
     cell(`Periode: ${periodLabel || periodStr}`, metaStyle),
-    ...Array.from({ length: 7 }, () => empty(metaStyle)),
+    ...Array.from({ length: TOTAL_S2 - 1 }, () => empty(metaStyle)),
   ]);
 
-  summaryWsData.push(Array.from({ length: 8 }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
+  summaryWsData.push(Array.from({ length: TOTAL_S2 }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
+
+  // ── Row 3: Group headers (with merges) ───────────────────────────────────
+  const groupHeaderJamKerja = {
+    fill: { fgColor: { rgb: C.headerBg } },
+    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: border(),
+  };
+  const groupHeaderPengajuan = {
+    fill: { fgColor: { rgb: "1E6B3C" } }, // dark green
+    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: border(),
+  };
+  const groupHeaderLeader = {
+    fill: { fgColor: { rgb: "7C3AED" } }, // purple-700
+    font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border: border(),
+  };
+  const emptyGroupStyle = { fill: { fgColor: { rgb: C.headerBg } }, border: border() };
+
+  summaryWsData.push([
+    empty(emptyGroupStyle),                              // #
+    empty(emptyGroupStyle),                              // Nama
+    cell("Jam Kerja", groupHeaderJamKerja),              // Pagi → Total Keseluruhan (5 cols)
+    empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle),
+    empty(emptyGroupStyle),                              // Keterangan
+    cell("Pengajuan Karyawan", groupHeaderPengajuan),    // Sakit, Izin, Cuti (3 cols)
+    empty(emptyGroupStyle), empty(emptyGroupStyle),
+    cell("Laporan Leader", groupHeaderLeader),           // Sakit, Izin, Alfa, Telat (4 cols)
+    empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle),
+  ]);
+
+  // ── Row 4: Column headers ─────────────────────────────────────────────────
+  const SUM_HEADERS = [
+    "#", "Nama Karyawan",
+    "Total Pagi", "Total Siang", "Total Sore", "Total Lembur", "Total Keseluruhan", "Keterangan",
+    "Sakit", "Izin", "Cuti",
+    "Sakit", "Izin", "Alfa", "Telat",
+  ];
+  summaryWsData.push(SUM_HEADERS.map((h) => cell(h, headerStyle)));
 
   const VALET_HIGHLIGHT = {
-    fill: { fgColor: { rgb: "FFF7ED" } }, // orange-50
-    font: { bold: true, sz: 10, color: { rgb: "C2410C" }, name: "Calibri" }, // orange-700
+    fill: { fgColor: { rgb: "FFF7ED" } },
+    font: { bold: true, sz: 10, color: { rgb: "C2410C" }, name: "Calibri" },
     alignment: { horizontal: "center", vertical: "center" },
     border: border(),
   };
 
-  const SUM_HEADERS = ["#", "Nama Karyawan", "Total Pagi", "Total Siang", "Total Sore", "Total Lembur", "Total Keseluruhan", "Keterangan"];
-  summaryWsData.push(SUM_HEADERS.map((h) => cell(h, headerStyle)));
-
-  // Build employee summary map — include ALL employees from records (even no-checkout)
+  // ── Build employee summary map ────────────────────────────────────────────
   const employeeMapFull = new Map();
   records.forEach((row) => {
     const id = row.employee_id ?? row.employee_name;
     if (!employeeMapFull.has(id)) {
       employeeMapFull.set(id, {
         name: row.employee_name || "-",
+        employee_id: Number(row.employee_id) || null,
         pagi: 0,
         siang: 0,
         sore: 0,
@@ -409,13 +451,10 @@ export function exportAbsensiExcel({
     }
 
     const emp = employeeMapFull.get(id);
-
-    // Track valet vs normal flag
     const isValet = Boolean(row.is_valet) || row.is_valet === 1 || row.is_valet === "1";
     if (isValet) emp.hasValet = true;
     else emp.hasNormal = true;
 
-    // Only accumulate duration if both check_in & check_out exist
     if (row.check_in_time && row.check_out_time) {
       const diff = new Date(row.check_out_time) - new Date(row.check_in_time);
       if (diff > 0) {
@@ -436,7 +475,30 @@ export function exportAbsensiExcel({
     return h > 0 ? `${h}j ${min}m` : `${min}m`;
   };
 
-  // Sort alphabetically by name
+  const fmtCount = (n) => (n > 0 ? String(n) : "-");
+
+  // Count cell styles
+  const makeCountStyle = (isAlt, color = C.textDark) => ({
+    fill: { fgColor: { rgb: isAlt ? C.altRowBg : C.whiteBg } },
+    font: { sz: 10, color: { rgb: color }, name: "Calibri", bold: false },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+  const pengajuanBg   = { bg: "F0FDF4", text: "15803D" }; // green tint
+  const leaderBg      = { bg: "FAF5FF", text: "7C3AED" }; // purple tint
+  const makePengajuanStyle = (isAlt, value) => ({
+    fill: { fgColor: { rgb: value > 0 ? pengajuanBg.bg : (isAlt ? C.altRowBg : C.whiteBg) } },
+    font: { sz: 10, bold: value > 0, color: { rgb: value > 0 ? pengajuanBg.text : C.textGray }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+  const makeLeaderStyle = (isAlt, value) => ({
+    fill: { fgColor: { rgb: value > 0 ? leaderBg.bg : (isAlt ? C.altRowBg : C.whiteBg) } },
+    font: { sz: 10, bold: value > 0, color: { rgb: value > 0 ? leaderBg.text : C.textGray }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+
   const sortedEmployees = [...employeeMapFull.values()].sort((a, b) =>
     String(a.name).localeCompare(String(b.name), "id-ID")
   );
@@ -448,67 +510,83 @@ export function exportAbsensiExcel({
 
     const totalMin = emp.pagi + emp.siang + emp.sore + emp.lembur;
 
-    // Determine keterangan: Normal + Valet (hijau) | Valet (merah) | Normal (biru)
+    // Keterangan: Normal/Valet/Normal+Valet
     let keteranganStr = "";
     let keteranganStyle = cs;
     if (emp.hasValet && emp.hasNormal) {
       keteranganStr = "Normal + Valet";
-      keteranganStyle = {
-        fill: { fgColor: { rgb: "DCFCE7" } }, // green-100
-        font: { bold: true, sz: 10, color: { rgb: "15803D" }, name: "Calibri" }, // green-700
-        alignment: { horizontal: "center", vertical: "center" },
-        border: border(),
-      };
+      keteranganStyle = { fill: { fgColor: { rgb: "DCFCE7" } }, font: { bold: true, sz: 10, color: { rgb: "15803D" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center" }, border: border() };
     } else if (emp.hasValet) {
       keteranganStr = "Valet";
-      keteranganStyle = {
-        fill: { fgColor: { rgb: "FEE2E2" } }, // red-100
-        font: { bold: true, sz: 10, color: { rgb: "DC2626" }, name: "Calibri" }, // red-600
-        alignment: { horizontal: "center", vertical: "center" },
-        border: border(),
-      };
+      keteranganStyle = { fill: { fgColor: { rgb: "FEE2E2" } }, font: { bold: true, sz: 10, color: { rgb: "DC2626" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center" }, border: border() };
     } else if (emp.hasNormal) {
       keteranganStr = "Normal";
-      keteranganStyle = {
-        fill: { fgColor: { rgb: "DBEAFE" } }, // blue-100
-        font: { bold: true, sz: 10, color: { rgb: "1D4ED8" }, name: "Calibri" }, // blue-700
-        alignment: { horizontal: "center", vertical: "center" },
-        border: border(),
-      };
+      keteranganStyle = { fill: { fgColor: { rgb: "DBEAFE" } }, font: { bold: true, sz: 10, color: { rgb: "1D4ED8" }, name: "Calibri" }, alignment: { horizontal: "center", vertical: "center" }, border: border() };
     }
+
+    // Leave & late data from leaveResumeMap
+    const leaveData = (emp.employee_id && leaveResumeMap.get(emp.employee_id)) || {};
+    const pSakit = Number(leaveData.pengajuan_sakit || 0);
+    const pIzin  = Number(leaveData.pengajuan_izin  || 0);
+    const pCuti  = Number(leaveData.pengajuan_cuti  || 0);
+    const lSakit = Number(leaveData.laporan_sakit   || 0);
+    const lIzin  = Number(leaveData.laporan_izin    || 0);
+    const lAlfa  = Number(leaveData.laporan_alfa    || 0);
+    const lTelat = Number(leaveData.laporan_telat   || 0);
 
     summaryWsData.push([
       cell(sumIdx + 1, { ...csCenter, font: { sz: 10, color: { rgb: C.textGray }, name: "Calibri" } }),
       cell(emp.name, cs),
-      cell(formatMinutes(emp.pagi), csCenter),
-      cell(formatMinutes(emp.siang), csCenter),
-      cell(formatMinutes(emp.sore), csCenter),
+      cell(formatMinutes(emp.pagi),   csCenter),
+      cell(formatMinutes(emp.siang),  csCenter),
+      cell(formatMinutes(emp.sore),   csCenter),
       cell(formatMinutes(emp.lembur), csCenter),
       cell(formatMinutes(totalMin), { ...csCenter, font: { ...csCenter.font, bold: true } }),
       cell(keteranganStr, keteranganStyle),
+      // Pengajuan karyawan
+      cell(fmtCount(pSakit), makePengajuanStyle(isAlt, pSakit)),
+      cell(fmtCount(pIzin),  makePengajuanStyle(isAlt, pIzin)),
+      cell(fmtCount(pCuti),  makePengajuanStyle(isAlt, pCuti)),
+      // Laporan leader
+      cell(fmtCount(lSakit), makeLeaderStyle(isAlt, lSakit)),
+      cell(fmtCount(lIzin),  makeLeaderStyle(isAlt, lIzin)),
+      cell(fmtCount(lAlfa),  makeLeaderStyle(isAlt, lAlfa)),
+      cell(fmtCount(lTelat), makeLeaderStyle(isAlt, lTelat)),
     ]);
   });
 
   const ws2 = XLSXStyle.utils.aoa_to_sheet(summaryWsData);
   ws2["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: TOTAL_S2 - 1 } }, // title
+    { s: { r: 1, c: 0 }, e: { r: 1, c: TOTAL_S2 - 1 } }, // periode
+    // Group header merges (row 3)
+    { s: { r: 3, c: 2 }, e: { r: 3, c: 6 } },  // Jam Kerja
+    { s: { r: 3, c: 8 }, e: { r: 3, c: 10 } }, // Pengajuan Karyawan
+    { s: { r: 3, c: 11 }, e: { r: 3, c: 14 } }, // Laporan Leader
   ];
   ws2["!cols"] = [
     { wch: 5 },  // #
-    { wch: 28 }, // Nama
-    { wch: 14 }, // Pagi
-    { wch: 14 }, // Siang
-    { wch: 14 }, // Sore
-    { wch: 14 }, // Lembur
-    { wch: 18 }, // Total
+    { wch: 26 }, // Nama
+    { wch: 12 }, // Pagi
+    { wch: 12 }, // Siang
+    { wch: 12 }, // Sore
+    { wch: 12 }, // Lembur
+    { wch: 16 }, // Total
     { wch: 14 }, // Keterangan
+    { wch: 9  }, // P.Sakit
+    { wch: 9  }, // P.Izin
+    { wch: 9  }, // P.Cuti
+    { wch: 9  }, // L.Sakit
+    { wch: 9  }, // L.Izin
+    { wch: 9  }, // L.Alfa
+    { wch: 9  }, // L.Telat
   ];
   ws2["!rows"] = [
     { hpt: 32 }, // Title
     { hpt: 18 }, // Periode
     { hpt: 6  }, // Spacer
-    { hpt: 24 }, // Header
+    { hpt: 22 }, // Group header
+    { hpt: 24 }, // Column header
   ];
 
   // ── Build workbook ────────────────────────────────────────────────────────
