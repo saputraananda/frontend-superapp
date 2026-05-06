@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     HiOutlineArrowLeft,
     HiOutlineBars3,
@@ -30,6 +30,7 @@ const MENU_ITEMS = [
         label: "Dashboard Operasional",
         description: "Monitoring operasional laundry",
         end: true,
+        upcoming: true,
     },
     {
         to: "/quality-check-oc",
@@ -43,7 +44,6 @@ const MENU_ITEMS = [
         icon: HiOutlineBeaker,
         label: "Chemical & Treatment",
         description: "Manajemen bahan kimia",
-        upcoming: true,
     },
     {
         to: "/complain-oc",
@@ -240,6 +240,26 @@ function Sidebar({
     );
 }
 
+function ActiveMenuTitle() {
+    const { pathname } = useLocation();
+
+    const active =
+        MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
+        MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
+
+    const label = active?.label ?? "Operational Control";
+    const description = active?.description ?? "Navigasi modul operasional";
+
+    return (
+        <div className="flex items-center gap-2.5">
+            <div>
+                <p className="text-sm font-semibold leading-tight text-slate-800">{label}</p>
+                <p className="text-[11px] leading-tight text-slate-400">{description}</p>
+            </div>
+        </div>
+    );
+}
+
 export default function OperationalAlora() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -352,22 +372,22 @@ export default function OperationalAlora() {
             </aside>
 
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                <header className="hidden items-center gap-3 border-b border-slate-200 bg-white px-5 py-3 lg:flex">
-                    <button
-                        type="button"
-                        onClick={() => setDesktopCollapsed((p) => !p)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
-                        aria-label={desktopCollapsed ? "Buka sidebar" : "Tutup sidebar"}
-                    >
-                        {desktopCollapsed ? <HiOutlineBars3 className="h-5 w-5" /> : <HiOutlineXMark className="h-5 w-5" />}
-                    </button>
+                <header className="hidden items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-4 lg:flex">
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setDesktopCollapsed((p) => !p)}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                            aria-label={desktopCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+                        >
+                            <HiOutlineBars3 className="h-5 w-5" />
+                        </button>
+                        <ActiveMenuTitle />
+                    </div>
                     {selectedCompany && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
                             <CompanyLogo companyName={selectedCompany.company_name} companyConfig={companyConfig} size="sm" />
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-700">Operational Control</p>
-                                <p className="text-xs text-slate-400">{selectedCompany.company_name}</p>
-                            </div>
+                            <span>{selectedCompany.company_name}</span>
                         </div>
                     )}
                 </header>
@@ -380,7 +400,7 @@ export default function OperationalAlora() {
                         aria-label="Buka menu navigasi"
                         aria-expanded={mobileOpen}
                     >
-                        {mobileOpen ? <HiOutlineXMark className="h-5 w-5" /> : <HiOutlineBars3 className="h-5 w-5" />}
+                        <HiOutlineBars3 className="h-5 w-5" />
                     </button>
                     {selectedCompany && (
                         <div className="flex min-w-0 items-center gap-2">
