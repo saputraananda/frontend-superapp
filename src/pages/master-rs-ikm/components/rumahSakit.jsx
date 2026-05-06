@@ -8,9 +8,10 @@ import {
 	HiOutlinePencilSquare,
 	HiOutlinePlus,
 	HiOutlineTrash,
+	HiOutlineEye,
 	HiOutlineXMark,
 } from "react-icons/hi2";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -90,6 +91,16 @@ const carIcon = L.divIcon({
 	popupAnchor: [0, -20],
 });
 
+const userLocationIcon = L.divIcon({
+	className: "",
+	html: `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:rgba(239, 68, 68, 0.3);border-radius:50%;position:relative;animation:ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;">
+		<div style="width:14px;height:14px;background:#ef4444;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);position:absolute;"></div>
+	</div>`,
+	iconSize: [28, 28],
+	iconAnchor: [14, 14],
+	popupAnchor: [0, -14],
+});
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 function centroid(hospitals) {
 	const valid = hospitals.filter(
@@ -152,6 +163,17 @@ function Modal({ open, title, onClose, children }) {
 			</div>
 		</div>
 	);
+}
+
+// ── Map Controller ───────────────────────────────────────────────────────
+function MapController({ target }) {
+	const map = useMap();
+	useEffect(() => {
+		if (target) {
+			map.flyTo([target.lat, target.lng], target.zoom || 15, { animate: true });
+		}
+	}, [target, map]);
+	return null;
 }
 
 // ── Form ─────────────────────────────────────────────────────────────────
@@ -220,7 +242,12 @@ export default function RumahSakitPage() {
 	const [toast, setToast] = useState(null);
 	const [modal, setModal] = useState(null); // { mode: "add"|"edit", data: null|{...} }
 	const [deleteTarget, setDeleteTarget] = useState(null);
+	const [detailModal, setDetailModal] = useState(null);
 	const [formLoading, setFormLoading] = useState(false);
+	
+	// Map states
+	const [mapSearch, setMapSearch] = useState("");
+	const [mapTarget, setMapTarget] = useState(null);
 
 	const showToast = (message, type = "success") => setToast({ message, type });
 	const closeToast = () => setToast(null);
@@ -284,6 +311,42 @@ export default function RumahSakitPage() {
 	const mapCenter = centroid(hospitals);
 	const hasCoords = hospitals.some((h) => h.latitude !== null && h.longitude !== null);
 
+	const handleFindLocation = () => {
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition(
+				(pos) => setMapTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude, zoom: 15 }),
+				() => showToast("Gagal mendapatkan lokasi", "error")
+			);
+		} else {
+			showToast("Geolokasi tidak didukung", "error");
+		}
+	};
+
+	const filteredHospitals = hospitals.filter(
+		(h) =>
+			h.latitude !== null &&
+			h.longitude !== null &&
+			h.hospital_name.toLowerCase().includes(mapSearch.toLowerCase())
+	);
+
+	const filteredCars = hospitals
+		.filter((h) => h.latitude !== null && h.longitude !== null)
+		.slice(0, 15)
+		.map((h, i) => {
+			const [dLat, dLng] = CAR_OFFSETS[i];
+			return {
+				id: h.id,
+				hospital_name: h.hospital_name,
+				latitude: parseFloat(h.latitude) + dLat,
+				longitude: parseFloat(h.longitude) + dLng,
+				plate: CAR_PLATES[i],
+			};
+		})
+		.filter((c) => 
+			c.plate.toLowerCase().includes(mapSearch.toLowerCase()) || 
+			c.hospital_name.toLowerCase().includes(mapSearch.toLowerCase())
+		);
+
 	return (
 		<div className="flex flex-col min-h-full">
 			{/* Header */}
@@ -314,6 +377,8 @@ export default function RumahSakitPage() {
 			{/* Map */}
 			<div className="px-4 pt-4 pb-2">
 				<div className="rounded-2xl overflow-hidden shadow-md border border-slate-200" style={{ height: 420, position: "relative", zIndex: 0 }}>
+
+
 					{loading ? (
 						<div className="flex h-full items-center justify-center bg-slate-100 text-sm text-slate-500">
 							Memuat peta...
@@ -325,51 +390,85 @@ export default function RumahSakitPage() {
 							style={{ height: "100%", width: "100%" }}
 							scrollWheelZoom
 						>
+							<MapController target={mapTarget} />
 							<TileLayer
 								attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 								url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 							/>
-							{hospitals
-								.filter((h) => h.latitude !== null && h.longitude !== null)
-								.map((h) => (
-									<Marker
-										key={h.id}
-										position={[parseFloat(h.latitude), parseFloat(h.longitude)]}
-										icon={hospitalIcon}
-									>
-										<Popup>
-											<strong>{h.hospital_name}</strong>
-											{h.company_name && <><br /><span className="text-xs text-slate-500">{h.company_name}</span></>}
-											{h.address && <><br /><span className="text-xs text-slate-400">{h.address}</span></>}
-										</Popup>
-									</Marker>
-								))}
-								{hospitals
-							.filter((h) => h.latitude !== null && h.longitude !== null)
-							.slice(0, 15)
-							.map((h, i) => {
-								const [dLat, dLng] = CAR_OFFSETS[i];
-								const plate = CAR_PLATES[i];
-								return (
-									<Marker
-										key={`car-${h.id}`}
-										position={[parseFloat(h.latitude) + dLat, parseFloat(h.longitude) + dLng]}
-										icon={carIcon}
-									>
-										<Popup>
-											<div style={{minWidth:"140px"}}>
-												<div style={{fontWeight:700,fontSize:"13px",marginBottom:"4px"}}>🚚 Mobil Box</div>
-												<div style={{fontSize:"12px",color:"#374151",marginBottom:"2px"}}>
-													<span style={{fontWeight:600}}>Plat:</span>{" "}
-													<span style={{fontFamily:"monospace",background:"#fef9c3",padding:"1px 6px",borderRadius:"4px",border:"1px solid #d97706"}}>{plate}</span>
-												</div>
-												<div style={{fontSize:"12px",color:"#6b7280"}}>Menuju: <span style={{color:"#dc2626",fontWeight:600}}>{h.hospital_name}</span></div>
+							{mapTarget && (
+								<Marker position={[mapTarget.lat, mapTarget.lng]} icon={userLocationIcon}>
+									<Popup>
+										<strong>Lokasi Anda</strong>
+									</Popup>
+								</Marker>
+							)}
+							{filteredHospitals.map((h) => (
+								<Marker
+									key={h.id}
+									position={[parseFloat(h.latitude), parseFloat(h.longitude)]}
+									icon={hospitalIcon}
+								>
+									<Popup>
+										<strong>{h.hospital_name}</strong>
+										{h.company_name && <><br /><span className="text-xs text-slate-500">{h.company_name}</span></>}
+										{h.address && <><br /><span className="text-xs text-slate-400">{h.address}</span></>}
+									</Popup>
+								</Marker>
+							))}
+							{filteredCars.map((c) => (
+								<Marker
+									key={`car-${c.id}`}
+									position={[c.latitude, c.longitude]}
+									icon={carIcon}
+								>
+									<Popup>
+										<div style={{minWidth:"140px"}}>
+											<div style={{fontWeight:700,fontSize:"13px",marginBottom:"4px"}}>🚚 Mobil Box</div>
+											<div style={{fontSize:"12px",color:"#374151",marginBottom:"2px"}}>
+												<span style={{fontWeight:600}}>Plat:</span>{" "}
+												<span style={{fontFamily:"monospace",background:"#fef9c3",padding:"1px 6px",borderRadius:"4px",border:"1px solid #d97706"}}>{c.plate}</span>
 											</div>
-										</Popup>
-									</Marker>
-								);
-							})}
+											<div style={{fontSize:"12px",color:"#6b7280"}}>Menuju: <span style={{color:"#dc2626",fontWeight:600}}>{c.hospital_name}</span></div>
+										</div>
+									</Popup>
+								</Marker>
+							))}
 						</MapContainer>
+					)}
+					{!loading && (
+						<>
+							{/* Overlay Search */}
+							<div className="absolute top-4 right-4 z-[2000] bg-white/95 backdrop-blur shadow-sm border border-slate-200 rounded-xl p-1 flex items-center">
+								<div className="pl-2 pr-1 text-slate-400">
+									<HiOutlineMapPin className="h-4 w-4" />
+								</div>
+								<input
+									type="text"
+									placeholder="Cari RS atau Plat Mobil..."
+									value={mapSearch}
+									onChange={(e) => setMapSearch(e.target.value)}
+									className="bg-transparent text-sm w-48 px-2 py-1.5 outline-none placeholder:text-slate-400 text-slate-700"
+								/>
+								{mapSearch && (
+									<button onClick={() => setMapSearch("")} className="pr-2 text-slate-400 hover:text-red-500">
+										<HiOutlineXMark className="h-4 w-4" />
+									</button>
+								)}
+							</div>
+							{/* Overlay My Location */}
+							<button
+								type="button"
+								onClick={handleFindLocation}
+								title="Lokasi Saya"
+								className="absolute bottom-6 right-4 z-[2000] flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-md border border-slate-200 text-red-600 hover:bg-red-50 transition hover:scale-105 active:scale-95"
+							>
+								<HiOutlineMapPin className="h-6 w-6" />
+								<span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+									<span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+								</span>
+							</button>
+						</>
 					)}
 				</div>
 				{!hasCoords && !loading && (
@@ -392,20 +491,20 @@ export default function RumahSakitPage() {
 									<th className="px-4 py-3 text-left">Hospital ID</th>
 									<th className="hidden md:table-cell px-4 py-3 text-left">Perusahaan</th>
 									<th className="hidden lg:table-cell px-4 py-3 text-left">Alamat</th>
-									<th className="hidden sm:table-cell px-4 py-3 text-center">Koordinat</th>
+
 									<th className="px-4 py-3 text-center">Aksi</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
 								{loading ? (
 									<tr>
-										<td colSpan={7} className="py-10 text-center text-slate-400">
+										<td colSpan={6} className="py-10 text-center text-slate-400">
 											Memuat data...
 										</td>
 									</tr>
 								) : hospitals.length === 0 ? (
 									<tr>
-										<td colSpan={7} className="py-12 text-center text-slate-400">
+										<td colSpan={6} className="py-12 text-center text-slate-400">
 											Belum ada data rumah sakit.{" "}
 											<button
 												type="button"
@@ -437,18 +536,17 @@ export default function RumahSakitPage() {
 											<td className="hidden lg:table-cell px-4 py-3 text-slate-400 text-xs max-w-[200px] truncate">
 												{h.address || <span className="text-slate-300">—</span>}
 											</td>
-											<td className="hidden sm:table-cell px-4 py-3 text-center">
-												{h.latitude && h.longitude ? (
-													<span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-														<HiOutlineMapPin className="h-3 w-3" />
-														{parseFloat(h.latitude).toFixed(4)}, {parseFloat(h.longitude).toFixed(4)}
-													</span>
-												) : (
-													<span className="text-slate-300 text-xs">Belum ada</span>
-												)}
-											</td>
+
 											<td className="px-4 py-3">
 												<div className="flex items-center justify-center gap-1.5">
+													<button
+														type="button"
+														title="Detail"
+														onClick={() => setDetailModal(h)}
+														className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 transition"
+													>
+														<HiOutlineEye className="h-4 w-4" />
+													</button>
 													<button
 														type="button"
 														title="Edit"
@@ -521,6 +619,67 @@ export default function RumahSakitPage() {
 						Hapus
 					</button>
 				</div>
+			</Modal>
+
+			{/* Detail modal */}
+			<Modal
+				open={detailModal !== null}
+				title="Detail Rumah Sakit"
+				onClose={() => setDetailModal(null)}
+			>
+				{detailModal && (
+					<div className="space-y-4">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+							<div className="sm:col-span-2">
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Nama Rumah Sakit</label>
+								<div className="text-sm font-semibold text-slate-800">{detailModal.hospital_name}</div>
+							</div>
+							<div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Hospital ID</label>
+								<div className="text-sm text-slate-700">{detailModal.hospital_id || "-"}</div>
+							</div>
+							<div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Nama Perusahaan</label>
+								<div className="text-sm text-slate-700">{detailModal.company_name || "-"}</div>
+							</div>
+							<div className="sm:col-span-2">
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Alamat Lengkap</label>
+								<div className="text-sm text-slate-700 whitespace-pre-wrap">{detailModal.address || "-"}</div>
+							</div>
+							{detailModal.latitude && detailModal.longitude && (
+								<div className="sm:col-span-2 space-y-2">
+									<div className="flex items-center justify-between">
+										<label className="block text-xs font-semibold text-slate-500">Lokasi Peta</label>
+										<span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+											<HiOutlineMapPin className="h-3 w-3" />
+											{detailModal.latitude}, {detailModal.longitude}
+										</span>
+									</div>
+									<div className="w-full h-[200px] rounded-xl overflow-hidden shadow-inner border border-slate-200 bg-slate-50">
+										<iframe
+											title="Google Maps"
+											src={`https://maps.google.com/maps?q=${detailModal.latitude},${detailModal.longitude}&z=15&output=embed`}
+											width="100%"
+											height="100%"
+											style={{ border: 0 }}
+											allowFullScreen=""
+											loading="lazy"
+										></iframe>
+									</div>
+								</div>
+							)}
+						</div>
+						<div className="flex justify-end pt-2">
+							<button
+								type="button"
+								onClick={() => setDetailModal(null)}
+								className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition"
+							>
+								Tutup
+							</button>
+						</div>
+					</div>
+				)}
 			</Modal>
 
 			{/* Toast */}

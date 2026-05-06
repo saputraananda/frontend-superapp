@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
 	HiOutlineArrowLeft,
 	HiOutlineBars3,
@@ -177,6 +177,28 @@ function Sidebar({ collapsed = false, onClose }) {
 	);
 }
 
+function ActiveMenuTitle() {
+	const { pathname } = useLocation();
+
+	// Cari menu yang cocok: prioritaskan match exact dulu, lalu startsWith
+	const active =
+		MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
+		MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
+
+	const label = active?.label ?? "Absensi IKM";
+	const description = active?.description ?? "Navigasi modul absensi";
+	const Icon = active?.icon ?? HiOutlineCalendarDays;
+
+	return (
+		<div className="flex items-center gap-2.5">
+			<div>
+				<p className="text-sm font-semibold leading-tight text-slate-800">{label}</p>
+				<p className="text-[11px] leading-tight text-slate-400">{description}</p>
+			</div>
+		</div>
+	);
+}
+
 export default function AbsensiIKM() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -242,16 +264,11 @@ export default function AbsensiIKM() {
 							{desktopCollapsed ? (
 								<HiOutlineBars3 className="h-5 w-5" />
 							) : (
-								<HiOutlineXMark className="h-5 w-5" />
+								<HiOutlineBars3 className="h-5 w-5" />
 							)}
 						</button>
 
-						<div>
-							<p className="text-sm font-semibold text-slate-800">Navigasi Absensi IKM</p>
-							<p className="text-xs text-slate-500">
-								{desktopCollapsed ? "Sidebar disembunyikan ringkas" : "Sidebar aktif dan siap digunakan"}
-							</p>
-						</div>
+						<ActiveMenuTitle />
 					</div>
 
 					<div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">

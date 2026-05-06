@@ -18,8 +18,10 @@ import {
 	HiOutlinePhoto,
 	HiOutlineXMark,
 	HiOutlineClipboardDocumentList,
+	HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { BASE_URL, api } from "../../../lib/api";
+import { exportAbsensiExcel } from "../utils/exportAbsensiExcel";
 
 function cn(...classes) {
 	return classes.filter(Boolean).join(" ");
@@ -200,11 +202,14 @@ function RoleBadge({ role }) {
 	);
 }
 
-function ShiftBadge({ type }) {
+function ShiftBadge({ type, isValet }) {
 	const style = SHIFT_STYLE[type] ?? "bg-slate-50 text-slate-600 border-slate-200";
+	const isValetTruthy = Boolean(isValet) || isValet === 1 || isValet === "1";
+	const text = String(type || "").toUpperCase() + (isValetTruthy ? " (VALET)" : "");
+
 	return (
 		<span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", style)}>
-			{type}
+			{text}
 		</span>
 	);
 }
@@ -1215,7 +1220,7 @@ export default function AbsensiIKM() {
 									Lihat detail tanggal masuk, jam absen in/absen out, bukti foto, dan status kelengkapan.
 								</p>
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex flex-wrap items-center gap-2">
 								<select
 									value={statusFilter}
 									onChange={(e) => setStatusFilter(e.target.value)}
@@ -1238,6 +1243,54 @@ export default function AbsensiIKM() {
 										Bersihkan
 									</button>
 								)}
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											const qs = new URLSearchParams();
+											qs.set("startDate", activePeriod.startDate);
+											qs.set("endDate", activePeriod.endDate);
+											qs.set("page", "1");
+											qs.set("limit", "99999"); // Download semua data
+											if (filters.shiftType) qs.set("shiftType", filters.shiftType);
+											if (selectedEmployeeIds.length > 0) qs.set("employeeIds", selectedEmployeeIds.join(","));
+											if (filters.onlyIncomplete) qs.set("onlyIncomplete", "1");
+
+											const response = await api(`/ikm/absensi/shifts?${qs.toString()}`);
+											let allRecords = response.records || [];
+
+											if (statusFilter) {
+												allRecords = allRecords.filter((r) => r.status_label === statusFilter);
+											}
+
+											const selectedNames = selectedEmployeeIds
+												.map((id) => {
+													const opt = employeeOptions.find((o) => Number(o.employee_id) === id);
+													return opt?.employee_name || `ID ${id}`;
+												});
+
+											exportAbsensiExcel({
+												records: allRecords,
+												periodLabel: activePeriodLabel,
+												activePeriod,
+												filters: {
+													shiftType: filters.shiftType,
+													onlyIncomplete: filters.onlyIncomplete,
+													selectedEmployeeNames: selectedNames,
+													statusFilter,
+												},
+												summary: response.summary,
+											});
+										} catch (err) {
+											console.error("Gagal mendownload excel:", err);
+											alert("Gagal mengunduh data excel: " + err.message);
+										}
+									}}
+									className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
+									Download Excel
+								</button>
 							</div>
 						</div>
 
@@ -1282,7 +1335,7 @@ export default function AbsensiIKM() {
 														<div className="text-[11px] text-slate-400">{row.employee_code || "-"}</div>
 													</td>
 													<td className="whitespace-nowrap px-4 py-3">
-														<ShiftBadge type={row.shift_type} />
+														<ShiftBadge type={row.shift_type} isValet={row.is_valet} />
 													</td>
 													<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">{formatDateTime(row.check_in_time)}</td>
 													<td className="whitespace-nowrap px-4 py-3">

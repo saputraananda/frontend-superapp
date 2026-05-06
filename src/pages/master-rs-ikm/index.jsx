@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
 	HiOutlineArrowLeft,
 	HiOutlineBars3,
@@ -134,6 +134,24 @@ function Sidebar({ collapsed = false, onClose }) {
 	);
 }
 
+function ActiveMenuTitle() {
+	const { pathname } = useLocation();
+
+	const active =
+		MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
+		MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
+
+	const label = active?.label ?? "RS IKM";
+	const description = active?.description ?? "Navigasi modul RS IKM";
+
+	return (
+		<div>
+			<p className="text-sm font-semibold leading-tight text-slate-800">{label}</p>
+			<p className="text-[11px] leading-tight text-slate-400">{description}</p>
+		</div>
+	);
+}
+
 export default function MasterRsIkm() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -187,20 +205,21 @@ export default function MasterRsIkm() {
 			{/* Content */}
 			<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 				{/* Desktop topbar with toggle */}
-				<header className="hidden lg:flex items-center gap-3 border-b border-slate-200 bg-white px-5 py-3">
-					<button
-						type="button"
-						onClick={() => setDesktopCollapsed((p) => !p)}
-						className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
-						aria-label={desktopCollapsed ? "Buka sidebar" : "Tutup sidebar"}
-					>
-						{desktopCollapsed ? <HiOutlineBars3 className="h-5 w-5" /> : <HiOutlineXMark className="h-5 w-5" />}
-					</button>
-					<div className="flex items-center gap-2">
-						<div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-red-800 to-orange-500">
-							<HiOutlineBuildingOffice2 className="h-3.5 w-3.5 text-white" />
-						</div>
-						<span className="text-sm font-bold text-slate-700">Data RS IKM</span>
+				<header className="hidden lg:flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+					<div className="flex items-center gap-3">
+						<button
+							type="button"
+							onClick={() => setDesktopCollapsed((p) => !p)}
+							className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+							aria-label={desktopCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+						>
+							<HiOutlineBars3 className="h-5 w-5" />
+						</button>
+						<ActiveMenuTitle />
+					</div>
+					<div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
+						<div className="h-2 w-2 rounded-full bg-emerald-500" />
+						Desktop Mode
 					</div>
 				</header>
 
