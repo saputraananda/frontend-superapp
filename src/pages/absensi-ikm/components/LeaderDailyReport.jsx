@@ -222,74 +222,105 @@ function EmployeeRow({ value, employees, onChange, onRemove, children }) {
   );
 }
 
-// ─── Detail Expand Panel ──────────────────────────────────────────────────────
-function DetailPanel({ record }) {
-  const [open, setOpen] = useState(false);
+// ─── Detail Modal ─────────────────────────────────────────────────────────────
+function DetailModal({ open, onClose, record }) {
+  if (!open || !record) return null;
   const hasAbsent = record.absent_employees?.length > 0;
   const hasLate   = record.late_employees?.length > 0;
-  if (!hasAbsent && !hasLate && !record.constraint_notes && !record.briefing_doc_url) {
-    return <span className="text-xs text-slate-300">-</span>;
-  }
+  const noData = !hasAbsent && !hasLate && !record.constraint_notes && !record.briefing_doc_url;
 
   return (
-    <div>
-      <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
-        Detail <HiOutlineChevronDown className={cn("h-3.5 w-3.5 transition", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2.5 text-xs rounded-xl border border-slate-100 bg-slate-50 p-3">
-          {hasAbsent && (
-            <div>
-              <p className="font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                <HiOutlineUserMinus className="h-3.5 w-3.5 text-rose-500" /> Tidak Hadir
-              </p>
-              <div className="space-y-1">
-                {record.absent_employees.map((a, i) => {
-                  const meta = ABSENCE_META[a.absence_reason] ?? ABSENCE_META.Izin;
-                  return (
-                    <div key={i} className="flex items-center gap-1.5 text-slate-700">
-                      <span className={cn("px-1.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", meta.cls)}>
-                        {a.absence_reason}
-                      </span>
-                      {a.full_name || `Karyawan #${a.employee_id}`}
-                    </div>
-                  );
-                })}
-              </div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-white/95 backdrop-blur z-10 rounded-t-3xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <HiOutlineClipboardDocumentList className="h-5 w-5" />
             </div>
-          )}
-          {hasLate && (
             <div>
-              <p className="font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                <HiOutlineClock className="h-3.5 w-3.5 text-amber-500" /> Terlambat
-              </p>
-              <div className="space-y-1">
-                {record.late_employees.map((l, i) => (
-                  <div key={i} className="text-slate-700">
-                    {l.full_name || `Karyawan #${l.employee_id}`}
-                    <span className="ml-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
-                      {l.late_time?.slice(0,5)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-base font-bold text-slate-800">Detail Laporan</h2>
+              <p className="text-xs text-slate-500">{record.pic_name} — {fmtDate(record.report_date)}</p>
             </div>
-          )}
-          {record.constraint_notes && (
-            <div>
-              <p className="font-semibold text-slate-600 mb-1">Kendala</p>
-              <p className="text-slate-700 whitespace-pre-wrap">{record.constraint_notes}</p>
-            </div>
-          )}
-          {record.briefing_doc_url && (
-            <div>
-              <p className="font-semibold text-slate-600 mb-1">Dokumen Briefing</p>
-              <PhotoThumb url={record.briefing_doc_url} label="Dokumen Briefing" />
-            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+            <HiOutlineXMark className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/30">
+          {noData ? (
+             <div className="text-center py-10">
+               <p className="text-sm text-slate-500 font-medium">Tidak ada data detail tambahan (Absen/Telat/Kendala).</p>
+             </div>
+          ) : (
+             <>
+               {(hasAbsent || hasLate) && (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                   {hasAbsent && (
+                     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="font-bold text-slate-700 mb-3 flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-500"><HiOutlineUserMinus className="h-4 w-4" /></div>
+                          Tidak Hadir
+                        </div>
+                        <div className="space-y-2">
+                          {record.absent_employees.map((a, i) => {
+                            const meta = ABSENCE_META[a.absence_reason] ?? ABSENCE_META.Izin;
+                            return (
+                              <div key={i} className="flex items-center justify-between gap-2 text-sm text-slate-700 pb-2 border-b border-slate-50 last:border-0 last:pb-0">
+                                <span>{a.full_name || `Karyawan #${a.employee_id}`}</span>
+                                <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider", meta.cls)}>
+                                  {a.absence_reason}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                     </div>
+                   )}
+                   {hasLate && (
+                     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="font-bold text-slate-700 mb-3 flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-500"><HiOutlineClock className="h-4 w-4" /></div>
+                          Terlambat
+                        </div>
+                        <div className="space-y-2">
+                          {record.late_employees.map((l, i) => (
+                            <div key={i} className="flex items-center justify-between gap-2 text-sm text-slate-700 pb-2 border-b border-slate-50 last:border-0 last:pb-0">
+                              <span>{l.full_name || `Karyawan #${l.employee_id}`}</span>
+                              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-600">
+                                {l.late_time?.slice(0,5)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                     </div>
+                   )}
+                 </div>
+               )}
+
+               {record.constraint_notes && (
+                 <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                   <p className="font-bold text-slate-700 mb-2">Catatan Kendala</p>
+                   <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">{record.constraint_notes}</p>
+                 </div>
+               )}
+
+               {record.briefing_doc_url && (
+                 <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                   <p className="font-bold text-slate-700 mb-2">Dokumen Briefing</p>
+                   <PhotoThumb url={record.briefing_doc_url} label="Dokumen Briefing" />
+                 </div>
+               )}
+             </>
           )}
         </div>
-      )}
+        
+        <div className="shrink-0 border-t border-slate-100 bg-white/95 backdrop-blur px-6 py-4 z-10 flex justify-end">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+            Tutup
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -572,9 +603,19 @@ export default function LeaderDailyReport() {
   const [sort, setSort] = useState({ col: "report_date", dir: "desc" });
   const [formOpen, setFormOpen] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [detailData, setDetailData] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    if (formOpen || Boolean(deleteTarget) || Boolean(detailData)) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [formOpen, deleteTarget, detailData]);
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -824,7 +865,9 @@ export default function LeaderDailyReport() {
                               </span>
                             </td>
                             <td className="px-4 py-3.5">
-                              <DetailPanel record={r} />
+                              <button onClick={() => setDetailData(r)} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition bg-blue-50/50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg border border-blue-100">
+                                <HiOutlineClipboardDocumentList className="h-4 w-4" /> Detail
+                              </button>
                             </td>
                             <td className="px-4 py-3.5 text-right">
                               <div className="inline-flex items-center gap-1.5">
@@ -884,7 +927,11 @@ export default function LeaderDailyReport() {
                             Hadir: {r.present_count ?? "-"}
                           </span>
                         </div>
-                        <DetailPanel record={r} />
+                        <div className="mt-2">
+                          <button onClick={() => setDetailData(r)} className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl border border-blue-100">
+                            <HiOutlineClipboardDocumentList className="h-4 w-4" /> Lihat Detail
+                          </button>
+                        </div>
                         <div className="flex gap-2 pt-1">
                           <button onClick={() => { setEditData(r); setFormOpen(true); }}
                             className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-600 transition">
@@ -956,6 +1003,8 @@ export default function LeaderDailyReport() {
         target={deleteTarget}
         loading={deleting}
       />
+
+      <DetailModal open={!!detailData} onClose={() => setDetailData(null)} record={detailData} />
     </>
   );
 }
