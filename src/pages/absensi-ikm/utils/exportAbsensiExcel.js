@@ -504,19 +504,19 @@ export function exportAbsensiExcel({
   const jlemburHdr    = statHdrStyle("5B21B6"); // dark purple
 
   summaryWsData.push([
-    empty(emptyGroupStyle),                           // #
-    empty(emptyGroupStyle),                           // Nama
-    empty(emptyGroupStyle),                           // Keterangan
-    cell("Jam Kerja", groupHeaderJamKerja),           // 5 cols: Pagi Siang Sore Lembur Grand
+    cell("#", headerStyle),                               // col 0 — merge r3-r4
+    cell("Nama Karyawan", headerStyle),                   // col 1 — merge r3-r4
+    cell("Keterangan", headerStyle),                      // col 2 — merge r3-r4
+    cell("Jam Kerja", groupHeaderJamKerja),               // 5 cols: Pagi Siang Sore Lembur Grand
     empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle),
-    cell("Total Hari Kerja", hariKerjaHdr),           // 1 col
-    cell("Total Kehadiran",  kehadiranHdr),           // 1 col
-    cell("Total Lembur Harian", lemburHarHdr),        // 1 col
-    cell("Jam Kerja Wajib", jwajibHdr),               // 1 col
-    cell("Jam Lembur", jlemburHdr),                   // 1 col
-    cell("Pengajuan Karyawan", groupHeaderPengajuan), // 3 cols
+    cell("Total Hari Kerja",    hariKerjaHdr),            // col 8  — merge r3-r4
+    cell("Total Kehadiran",     kehadiranHdr),            // col 9  — merge r3-r4
+    cell("Total Lembur Harian", lemburHarHdr),            // col 10 — merge r3-r4
+    cell("Jam Kerja Wajib",     jwajibHdr),               // col 11 — merge r3-r4
+    cell("Jam Lembur",          jlemburHdr),              // col 12 — merge r3-r4
+    cell("Pengajuan Karyawan", groupHeaderPengajuan),     // 3 cols
     empty(emptyGroupStyle), empty(emptyGroupStyle),
-    cell("Laporan Leader", groupHeaderLeader),        // 4 cols
+    cell("Laporan Leader", groupHeaderLeader),            // 4 cols
     empty(emptyGroupStyle), empty(emptyGroupStyle), empty(emptyGroupStyle),
   ]);
 
