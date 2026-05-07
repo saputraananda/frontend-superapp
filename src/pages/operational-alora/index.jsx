@@ -45,13 +45,6 @@ const MENU_ITEMS = [
         label: "Chemical & Treatment",
         description: "Manajemen bahan kimia",
     },
-    {
-        to: "/complain-oc",
-        icon: HiOutlineExclamationTriangle,
-        label: "Complain",
-        description: "Monitoring komplain operasional",
-        upcoming: true,
-    },
 ];
 
 function CompanyLogo({ companyName, companyConfig, size = "md" }) {

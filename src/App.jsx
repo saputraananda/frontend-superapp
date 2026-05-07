@@ -32,7 +32,10 @@ import OperationalAlora from "./pages/operational-alora";
 import DashboardOperasional from "./pages/operational-alora/components/dashboardOperasional";
 import QualityCheckOC from "./pages/operational-alora/components/qualityCheck";
 import ChemicalTreatmentOC from "./pages/operational-alora/components/chemicalTreatment";
-import ComplainOC from "./pages/operational-alora/components/complain";
+import ComplaintManagement from "./pages/complaint-management";
+import DashboardKomplain from "./pages/complaint-management/components/dashboardKomplain";
+import DaftarKomplain from "./pages/complaint-management/components/daftarKomplain";
+import FormKomplain from "./pages/complaint-management/components/formKomplain";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -324,11 +327,23 @@ export default function App() {
           <Route path="/operational-alora-group" element={<DashboardOperasional />} />
           <Route path="/quality-check-oc" element={<QualityCheckOC />} />
           <Route path="/chemical-treatment-oc" element={<ChemicalTreatmentOC />} />
-          <Route path="/complain-oc" element={<ComplainOC />} />
         </Route>
 
         <Route path="/" element={<Navigate to={user ? "/portal" : "/login"} />} />
         <Route path="*" element={<Navigate to={user ? "/portal" : "/login"} />} />
+
+        {/* ── Complaint Management System ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/complaint-management-system"]}>
+              <ComplaintManagement />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/complaint-management-system" element={<DashboardKomplain />} />
+          <Route path="/complaint-list" element={<DaftarKomplain />} />
+          <Route path="/complaint-form" element={<FormKomplain />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
