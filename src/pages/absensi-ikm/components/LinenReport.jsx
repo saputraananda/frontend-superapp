@@ -7,6 +7,7 @@ import {
   HiOutlineArrowDownTray, HiOutlinePhoto,
   HiOutlineArrowsUpDown, HiOutlineChevronUp, HiOutlineChevronDown,
   HiOutlineMagnifyingGlass, HiOutlineClock, HiOutlineCheckCircle,
+  HiOutlineEye, HiOutlinePrinter,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
 
@@ -554,6 +555,225 @@ function DeleteModal({ open, onClose, onConfirm, target, loading }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+
+// ─── Print/PDF Linen Report ───────────────────────────────────────────────────
+function printLinenReport(row) {
+  const logoUrl = `${window.location.origin}/ikm.png`;
+  const reportNo = `LR-${String(row.id).padStart(5, "0")}`;
+
+  const statusLabel = { terkirim: "Terkirim", proses: "Sedang Diproses", selesai: "Selesai" }[row.status] || row.status;
+  const statusCls = { terkirim: "badge-terkirim", proses: "badge-proses", selesai: "badge-selesai" }[row.status] || "badge-terkirim";
+
+  const fmt = (v) => {
+    if (!v) return "-";
+    const d = new Date(v);
+    if (isNaN(d)) return v;
+    return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric" }).format(d);
+  };
+
+  const today = fmt(new Date().toISOString());
+
+  const reporterName = (row.reporter_name || "")
+    .replace(/\s*\(.*?\)\s*/g, "").trim()
+    .toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) || "_______________";
+
+  const processRows = [];
+  if (row.process_by_name) processRows.push(`<tr><td>Diproses</td><td>${row.process_by_name}</td><td>${fmt(row.process_at)}</td><td>${row.process_note || "-"}</td></tr>`);
+  if (row.completed_by_name) processRows.push(`<tr><td>Diselesaikan</td><td>${row.completed_by_name}</td><td>${fmt(row.completed_at)}</td><td>${row.completed_note || "-"}</td></tr>`);
+
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Laporan Temuan Linen — ${reportNo}</title>
+  <style>
+    @page { size: A4 portrait; margin: 20mm 18mm 20mm 18mm; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 11pt; color: #1a1a1a; background: #fff; }
+
+    /* --- HEADER --- */
+    .doc-header { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 10px; border-bottom: 3px double #1e3a5f; margin-bottom: 14px; }
+    .doc-header img { height: 60px; width: auto; }
+    .doc-header-info { flex: 1; }
+    .doc-header-info .co-name { font-size: 13pt; font-weight: bold; text-transform: uppercase; color: #1e3a5f; letter-spacing: 0.4px; }
+    .doc-header-info .co-sub { font-size: 9pt; color: #555; margin-top: 2px; }
+    .doc-header-badge { text-align: right; }
+    .doc-no-box { font-size: 9pt; font-weight: bold; color: #1e3a5f; border: 1.5px solid #1e3a5f; padding: 4px 12px; display: inline-block; }
+    .print-date { font-size: 8pt; color: #777; margin-top: 4px; }
+
+    /* --- TITLE --- */
+    .doc-title { text-align: center; margin: 14px 0 12px; }
+    .doc-title h1 { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #1e3a5f; text-decoration: underline; }
+
+    /* --- SECTION --- */
+    .sec-title { font-size: 10.5pt; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1.5px solid #1e3a5f; padding-bottom: 3px; margin-bottom: 7px; }
+
+    /* --- INFO TABLE --- */
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 13px; }
+    .info-table td { padding: 5px 8px; font-size: 10.5pt; border: 1px solid #c8d0db; vertical-align: top; }
+    .info-table .lbl { font-weight: bold; background: #eef2f7; color: #1e3a5f; width: 28%; }
+    .info-table .col { background: #eef2f7; width: 2%; text-align: center; font-weight: bold; }
+    .info-table .val { background: #fff; }
+    .badge-terkirim { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 3px; padding: 1px 8px; font-weight: bold; }
+    .badge-proses   { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 3px; padding: 1px 8px; font-weight: bold; }
+    .badge-selesai  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 3px; padding: 1px 8px; font-weight: bold; }
+
+    /* --- PROCESS TABLE --- */
+    .proc-table { width: 100%; border-collapse: collapse; margin-bottom: 13px; font-size: 10pt; }
+    .proc-table th { background: #eef2f7; border: 1px solid #c8d0db; padding: 5px 8px; font-weight: bold; color: #1e3a5f; text-align: left; }
+    .proc-table td { border: 1px solid #c8d0db; padding: 5px 8px; }
+
+    /* --- SIGNATURE --- */
+    .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 22px; }
+    .sig-box { text-align: center; }
+    .sig-label { font-size: 9.5pt; font-weight: bold; color: #1e3a5f; }
+    .sig-line { height: 58px; border-bottom: 1px solid #555; margin: 8px 4px 4px; }
+    .sig-name { font-size: 9pt; color: #333; }
+
+    /* --- FOOTER --- */
+    .doc-footer { margin-top: 18px; padding-top: 7px; border-top: 1px solid #c8d0db; font-size: 8pt; color: #888; text-align: center; }
+
+    /* --- ATTACHMENT PAGE --- */
+    .att-title { text-align: center; margin-bottom: 14px; }
+    .att-title h2 { font-size: 13pt; font-weight: bold; color: #1e3a5f; text-transform: uppercase; }
+    .att-title p { font-size: 10pt; color: #555; margin-top: 5px; }
+    .att-img-wrap { text-align: center; margin: 16px 0; }
+    .att-img-wrap img { max-width: 100%; max-height: 480px; object-fit: contain; border: 1px solid #e5e7eb; padding: 4px; }
+    .att-caption { font-size: 9pt; color: #888; font-style: italic; text-align: center; margin-top: 6px; }
+
+    /* --- PRINT BUTTON --- */
+    .print-btn { display: block; margin: 20px auto 30px; padding: 10px 28px; background: #1e3a5f; color: #fff; border: none; border-radius: 8px; font-size: 12pt; cursor: pointer; font-family: sans-serif; }
+    .print-btn:hover { background: #162d4c; }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+
+  <!-- PAGE 1 -->
+  <div class="doc-header">
+    <img src="${logoUrl}" alt="Logo IKM" onerror="this.style.display='none'" />
+    <div class="doc-header-info">
+      <div class="co-name">IKM Alora</div>
+      <div class="co-sub">Instalasi Kelola Mitra — Alora Group Indonesia</div>
+      <div class="co-sub">Unit Layanan Linen Rumah Sakit</div>
+    </div>
+    <div class="doc-header-badge">
+      <div class="doc-no-box">${reportNo}</div>
+      <div class="print-date">Dicetak: ${today}</div>
+    </div>
+  </div>
+
+  <div class="doc-title"><h1>Laporan Temuan Linen</h1></div>
+
+  <!-- Informasi Umum -->
+  <div class="sec-title">A. Informasi Laporan</div>
+  <table class="info-table">
+    <tr>
+      <td class="lbl">Nomor Laporan</td><td class="col">:</td><td class="val"><strong>${reportNo}</strong></td>
+      <td class="lbl">Tanggal Laporan</td><td class="col">:</td><td class="val">${fmt(row.report_date)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Nama Pelapor</td><td class="col">:</td><td class="val">${row.reporter_name || "-"}</td>
+      <td class="lbl">Tanggal Dicatat</td><td class="col">:</td><td class="val">${fmt(row.created_at)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Area</td><td class="col">:</td><td class="val">${row.area_name || "-"}</td>
+      <td class="lbl">Rumah Sakit</td><td class="col">:</td><td class="val">${row.hospital_name || "-"}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Lokasi Temuan</td><td class="col">:</td><td class="val">${row.finding_location || "-"}</td>
+      <td class="lbl">Status</td><td class="col">:</td><td class="val"><span class="${statusCls}">${statusLabel}</span></td>
+    </tr>
+  </table>
+
+  <!-- Detail Linen -->
+  <div class="sec-title">B. Detail Temuan Linen</div>
+  <table class="info-table">
+    <tr><td class="lbl">Jenis Linen</td><td class="col">:</td><td class="val" colspan="3">${row.linen_type || "-"}</td></tr>
+    <tr><td class="lbl">Jenis Temuan</td><td class="col">:</td><td class="val" colspan="3">${row.finding_type || "-"}</td></tr>
+    <tr><td class="lbl">Jumlah Temuan</td><td class="col">:</td><td class="val" colspan="3"><strong>${row.finding_qty || 0} pcs</strong></td></tr>
+    ${row.sending_note ? `<tr><td class="lbl">Catatan Pengiriman</td><td class="col">:</td><td class="val" colspan="3">${row.sending_note}</td></tr>` : ""}
+  </table>
+
+  ${processRows.length ? `
+  <!-- Riwayat Tindak Lanjut -->
+  <div class="sec-title">C. Riwayat Tindak Lanjut</div>
+  <table class="proc-table">
+    <thead><tr><th>Tahap</th><th>Oleh</th><th>Tanggal</th><th>Catatan</th></tr></thead>
+    <tbody>${processRows.join("")}</tbody>
+  </table>` : ""}
+
+  <!-- Tanda Tangan -->
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div class="sig-label">Pelapor</div>
+      <div class="sig-line"></div>
+      <div class="sig-name" style="text-transform:capitalize;">${reporterName}</div>
+      <div class="sig-name" style="font-size:8.5pt;color:#555;">Staff Operational</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-label">Diketahui Oleh</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">Siswati</div>
+      <div class="sig-name" style="font-size:8.5pt;color:#555;">Supervisor Marketing &amp; Public Relations</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-label">Disetujui Oleh</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">Rahmi Solehah</div>
+      <div class="sig-name" style="font-size:8.5pt;color:#555;">Direktur</div>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    Dokumen resmi IKM Alora &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Dicetak: ${today} &nbsp;·&nbsp; Halaman 1 ${row.attachment_url ? "dari 2" : "dari 1"}
+  </div>
+
+  ${row.attachment_url ? `
+  <!-- PAGE 2 — LAMPIRAN -->
+  <div class="page-break"></div>
+
+  <div class="doc-header">
+    <img src="${logoUrl}" alt="Logo IKM" onerror="this.style.display='none'" />
+    <div class="doc-header-info">
+      <div class="co-name">IKM Alora</div>
+      <div class="co-sub">Instalasi Kelola Mitra — Alora Group Indonesia</div>
+    </div>
+    <div class="doc-header-badge">
+      <div class="doc-no-box">${reportNo}</div>
+      <div class="print-date">Lampiran — Halaman 2</div>
+    </div>
+  </div>
+
+  <div class="att-title">
+    <h2>Lampiran — Dokumentasi Temuan Linen</h2>
+    <p>Ref: ${reportNo} &nbsp;·&nbsp; ${row.linen_type} &nbsp;·&nbsp; ${row.finding_type} &nbsp;·&nbsp; ${row.finding_qty} pcs</p>
+  </div>
+
+  <div class="att-img-wrap">
+    <img src="${row.attachment_url}" alt="Foto temuan linen"
+         onerror="this.parentElement.innerHTML='<p style=color:#999;text-align:center;padding:40px>Lampiran tidak dapat dimuat.</p>'" />
+  </div>
+  <p class="att-caption">Gambar: Dokumentasi temuan linen — ${row.linen_type} (${row.finding_type})</p>
+
+  <div class="doc-footer">
+    Dokumen resmi IKM Alora &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Lampiran &nbsp;·&nbsp; Halaman 2 dari 2
+  </div>
+  ` : ""}
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=860,height=1100");
+  if (!win) { alert("Popup diblokir browser. Izinkan popup untuk halaman ini."); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
 export default function LinenReport() {
   const [records, setRecords] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -609,7 +829,7 @@ export default function LinenReport() {
     }).catch(() => { });
   }, []);
 
-  useEffect(() => { fetchData(1); }, [filters, search]);
+  useEffect(() => { fetchData(1); }, [filters, search, pagination.limit]);
 
   useEffect(() => {
     if (formOpen || Boolean(deleteTarget)) {
@@ -758,7 +978,7 @@ export default function LinenReport() {
                 <select value={pagination.limit}
                   onChange={(e) => setPagination((p) => ({ ...p, limit: Number(e.target.value), page: 1 }))}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400">
-                  {[25, 50, 100].map((n) => <option key={n}>{n}</option>)}
+                  {[25, 40, 50, 100].map((n) => <option key={n}>{n}</option>)}
                 </select>
               </div>
             </div>
@@ -844,12 +1064,17 @@ export default function LinenReport() {
                             <td className="px-4 py-3.5 text-right">
                               <div className="inline-flex items-center gap-1.5">
                                 <button onClick={() => { setEditData(r); setFormOpen(true); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600 transition"
+                                  className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition"
                                   title="Detail & Edit">
-                                  <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Detail
+                                  <HiOutlineEye className="h-3.5 w-3.5" />
+                                </button>
+                                <button onClick={() => printLinenReport(r)}
+                                  className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition"
+                                  title="Cetak / Download PDF">
+                                  <HiOutlinePrinter className="h-3.5 w-3.5" />
                                 </button>
                                 <button onClick={() => setDeleteTarget(r)}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:text-rose-600 transition"
+                                  className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-rose-300 hover:text-rose-600 transition"
                                   title="Hapus">
                                   <HiOutlineTrash className="h-3.5 w-3.5" />
                                 </button>
@@ -906,7 +1131,11 @@ export default function LinenReport() {
                         <div className="flex flex-wrap gap-2 pt-1">
                           <button onClick={() => { setEditData(r); setFormOpen(true); }}
                             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-600 transition">
-                            <HiOutlinePencilSquare className="h-3.5 w-3.5" /> Detail
+                            <HiOutlineEye className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => printLinenReport(r)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition">
+                            <HiOutlinePrinter className="h-3.5 w-3.5" /> Print
                           </button>
                           <button onClick={() => setDeleteTarget(r)}
                             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition">

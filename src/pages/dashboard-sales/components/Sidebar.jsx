@@ -6,7 +6,6 @@ const NAV_ITEMS = [
   { key: "pendapatan",          label: "Pendapatan",      icon: "📊", desc: "Revenue & target" },
   { key: "cleanox_by_waschen", label: "Cleanox By Waschen",        icon: "🧺", desc: "Bagi hasil cleanox" },
   { key: "piutang",            label: "Piutang",        icon: "💳", desc: "Receivables" },
-  { key: "komplain",           label: "Komplain",       icon: "⚠️", desc: "Customer complaints" },
   { key: "membership",         label: "Membership",     icon: "⭐", desc: "Member analytics" },
   { key: "customer",           label: "Customer",       icon: "👥", desc: "Segmentation" },
 ];

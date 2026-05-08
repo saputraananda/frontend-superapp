@@ -4,7 +4,6 @@ import Sidebar from "./components/Sidebar";
 import FilterBar from "./components/FilterBar";
 import PenjualanSection from "./sections/PenjualanSection";
 import PiutangSection from "./sections/PiutangSection";
-import KomplainSection from "./sections/KomplainSection";
 import MembershipSection from "./sections/MembershipSection";
 import CustomerSection from "./sections/CustomerSection";
 import CleanoxByWaschenSection from "./sections/CleanoxByWaschenSection";
@@ -15,7 +14,6 @@ const SECTIONS = {
   pendapatan:          PenjualanSection,
   cleanox_by_waschen: CleanoxByWaschenSection,
   piutang:            PiutangSection,
-  komplain:           KomplainSection,
   membership:         MembershipSection,
   customer:           CustomerSection,
 };
@@ -37,7 +35,6 @@ const SECTION_LABELS = {
   pendapatan:          "Dashboard Pendapatan",
   cleanox_by_waschen: "Dashboard Cleanox By Waschen",
   piutang:            "Dashboard Piutang",
-  komplain:           "Dashboard Komplain",
   membership:         "Dashboard Membership",
   customer:           "Dashboard Customer",
 };
