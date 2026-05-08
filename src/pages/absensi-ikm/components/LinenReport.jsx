@@ -587,14 +587,15 @@ function printLinenReport(row) {
   <meta charset="UTF-8" />
   <title>Laporan Temuan Linen — ${reportNo}</title>
   <style>
-    @page { size: A4 portrait; margin: 20mm 18mm 20mm 18mm; }
+    @page { size: A4 portrait; margin: 0; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print { display: none !important; }
-      .page-break { page-break-before: always; }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: "Times New Roman", Times, serif; font-size: 11pt; color: #1a1a1a; background: #fff; }
+    .page { padding: 20mm 18mm; min-height: 297mm; page-break-after: always; }
+    .page:last-of-type { page-break-after: auto; }
 
     /* --- HEADER --- */
     .doc-header { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 10px; border-bottom: 3px double #1e3a5f; margin-bottom: 14px; }
@@ -655,11 +656,12 @@ function printLinenReport(row) {
   <button class="print-btn no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
 
   <!-- PAGE 1 -->
+  <div class="page">
   <div class="doc-header">
     <img src="${logoUrl}" alt="Logo IKM" onerror="this.style.display='none'" />
     <div class="doc-header-info">
-      <div class="co-name">IKM Alora</div>
-      <div class="co-sub">Instalasi Kelola Mitra — Alora Group Indonesia</div>
+      <div class="co-name">PT Intersolusi Karya Mandiri</div>
+      <div class="co-sub">Alora Group Indonesia</div>
       <div class="co-sub">Unit Layanan Linen Rumah Sakit</div>
     </div>
     <div class="doc-header-badge">
@@ -731,18 +733,19 @@ function printLinenReport(row) {
   </div>
 
   <div class="doc-footer">
-    Dokumen resmi IKM Alora &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Dicetak: ${today} &nbsp;·&nbsp; Halaman 1 ${row.attachment_url ? "dari 2" : "dari 1"}
+    Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Dicetak: ${today} &nbsp;·&nbsp; Halaman 1 ${row.attachment_url ? "dari 2" : "dari 1"}
   </div>
+  </div><!-- end page 1 -->
 
   ${row.attachment_url ? `
   <!-- PAGE 2 — LAMPIRAN -->
-  <div class="page-break"></div>
-
+  <div class="page">
   <div class="doc-header">
-    <img src="${logoUrl}" alt="Logo IKM" onerror="this.style.display='none'" />
+    <img src="${logoUrl}" alt="Logo PT Intersolusi Karya Mandiri" onerror="this.style.display='none'" />
     <div class="doc-header-info">
-      <div class="co-name">IKM Alora</div>
-      <div class="co-sub">Instalasi Kelola Mitra — Alora Group Indonesia</div>
+      <div class="co-name">PT Intersolusi Karya Mandiri</div>
+      <div class="co-sub">Alora Group Indonesia</div>
+      <div class="co-sub">Unit Layanan Linen Rumah Sakit</div>
     </div>
     <div class="doc-header-badge">
       <div class="doc-no-box">${reportNo}</div>
@@ -762,8 +765,9 @@ function printLinenReport(row) {
   <p class="att-caption">Gambar: Dokumentasi temuan linen — ${row.linen_type} (${row.finding_type})</p>
 
   <div class="doc-footer">
-    Dokumen resmi IKM Alora &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Lampiran &nbsp;·&nbsp; Halaman 2 dari 2
+    Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Lampiran &nbsp;·&nbsp; Halaman 2 dari 2
   </div>
+  </div><!-- end page 2 -->
   ` : ""}
 </body>
 </html>`;
@@ -772,6 +776,7 @@ function printLinenReport(row) {
   if (!win) { alert("Popup diblokir browser. Izinkan popup untuk halaman ini."); return; }
   win.document.write(html);
   win.document.close();
+  win.onload = () => win.print();
 }
 
 export default function LinenReport() {
