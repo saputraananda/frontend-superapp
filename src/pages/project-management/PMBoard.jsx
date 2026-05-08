@@ -60,6 +60,8 @@ export default function PMBoard() {
   }, [board.monthly?.title]);
 
   const handleBack = () => {
+    if (from?.fromPortal)
+      return nav("/apps");
     if (from?.projectId && from?.semesterId)
       return nav(`/projectmanagement/${from.projectId}/semester/${from.semesterId}`);
     nav("/projectmanagement");

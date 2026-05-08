@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../../lib/api";
 import { statusOf, priorityOf } from "../../project-management/constants/pmConstants";
 
@@ -42,6 +43,7 @@ function formatDateId(dateStr) {
 
 
 export default function PersonalTasksCard() {
+  const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [employeeId, setEmployeeId] = useState(null);
@@ -72,9 +74,27 @@ export default function PersonalTasksCard() {
   useEffect(() => {
     if (!employeeId) return;
 
+    const CACHE_KEY = `personalTasks_${employeeId}`;
+    const savedY = sessionStorage.getItem("portalScrollY");
+
+    // ── Jika ada cache & kita baru balik dari board, render dari cache dulu ──
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached && savedY) {
+      try {
+        setAllTasks(JSON.parse(cached));
+        setLoading(false);
+        sessionStorage.removeItem("portalScrollY");
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: Number(savedY), behavior: "instant" });
+          });
+        });
+      } catch { /* cache corrupt, lanjut fetch normal */ }
+    }
+
     const fetchMyTasks = async () => {
       try {
-        setLoading(true);
+        if (!cached || !savedY) setLoading(true);
         const projectsRes = await api("/api/pm/projects");
         const projects = projectsRes.data || [];
         let allMyTasks = [];
@@ -117,6 +137,8 @@ export default function PersonalTasksCard() {
         }
 
         setAllTasks(allMyTasks);
+        // Simpan cache untuk kunjungan berikutnya
+        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(allMyTasks)); } catch { /* ignore */ }
       } catch (err) {
         console.error("Error fetching tasks:", err);
       } finally {
@@ -477,6 +499,11 @@ export default function PersonalTasksCard() {
               <a
                 key={task.id}
                 href={`/projectmanagement/month/${task.monthly_id}?task=${task.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  sessionStorage.setItem("portalScrollY", String(window.scrollY));
+                  navigate(`/projectmanagement/month/${task.monthly_id}?task=${task.id}`);
+                }}
                 className={`group block p-3 rounded-xl border transition-all ${isOverdue
                   ? "border-red-200 bg-red-50/40 hover:border-red-300 hover:shadow-sm"
                   : isToday
