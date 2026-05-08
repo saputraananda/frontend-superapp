@@ -34,10 +34,6 @@ function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
-function firstDayOfMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;
-}
 
 function getCutoffDates() {
   const now = new Date();
@@ -622,10 +618,11 @@ export default function LeaderDailyReport() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const fetchData = useCallback(async (pg = pagination.page) => {
+  const fetchData = useCallback(async (pg) => {
+    const pageToLoad = pg ?? pagination.page;
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ page: String(pg), limit: String(pagination.limit) });
+      const qs = new URLSearchParams({ page: String(pageToLoad), limit: String(pagination.limit) });
       if (filters.startDate) qs.set("startDate", filters.startDate);
       if (filters.endDate)   qs.set("endDate", filters.endDate);
       if (filters.area_id)   qs.set("area_id", filters.area_id);
@@ -633,14 +630,14 @@ export default function LeaderDailyReport() {
 
       const res = await api(`/ikm/leader-daily-report?${qs}`);
       setRecords(res.data || []);
-      setPagination((p) => ({ ...p, page: pg, total: res.pagination?.total || 0, totalPages: res.pagination?.totalPages || 0 }));
+      setPagination((p) => ({ ...p, page: pageToLoad, total: res.pagination?.total || 0, totalPages: res.pagination?.totalPages || 0 }));
       if (res.areas?.length) setAreas(res.areas);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.limit, search]);
+  }, [filters, pagination.limit, pagination.page, search, showToast]);
 
   useEffect(() => {
     Promise.all([
@@ -652,7 +649,7 @@ export default function LeaderDailyReport() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => { fetchData(1); }, [filters, search]);
+  useEffect(() => { fetchData(1); }, [fetchData, filters, search]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;

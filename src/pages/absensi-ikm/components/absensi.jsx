@@ -18,6 +18,7 @@ import {
 	HiOutlinePencilSquare,
 	HiOutlinePlus,
 	HiOutlinePhoto,
+	HiOutlineTrash,
 	HiOutlineXMark,
 	HiOutlineClipboardDocumentList,
 	HiOutlineArrowDownTray,
@@ -308,7 +309,7 @@ function PhotoViewerModal({ item, onClose }) {
 	);
 }
 
-function MobileAttendanceCard({ row, onOpenPhoto, onEdit }) {
+function MobileAttendanceCard({ row, onOpenPhoto, onEdit, onDelete, deleting }) {
 	const duration = calcDuration(row.check_in_time, row.check_out_time);
 	return (
 		<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
@@ -387,7 +388,7 @@ function MobileAttendanceCard({ row, onOpenPhoto, onEdit }) {
 					</a>
 				)}
 			</div>
-			<div className="flex justify-end pt-1">
+			<div className="flex justify-end gap-2 pt-1">
 				<button
 					type="button"
 					onClick={() => onEdit(row)}
@@ -395,6 +396,16 @@ function MobileAttendanceCard({ row, onOpenPhoto, onEdit }) {
 				>
 					<HiOutlinePencilSquare className="h-3.5 w-3.5" />
 					Edit Jam
+				</button>
+				<button
+					type="button"
+					onClick={() => onDelete?.(row)}
+					disabled={deleting}
+					className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+					title="Hapus record absensi"
+				>
+					<HiOutlineTrash className="h-3.5 w-3.5" />
+					{deleting ? "Menghapus..." : "Delete"}
 				</button>
 			</div>
 		</div>
@@ -613,6 +624,99 @@ function EditAttendanceModal({ item, onClose, onSaved }) {
 						</button>
 					</div>
 				</form>
+			</div>
+		</div>
+	);
+}
+
+function DeleteAttendanceModal({ item, onClose, onConfirm, deleting, error }) {
+	useEffect(() => {
+		const onKey = (e) => { if (e.key === "Escape") onClose(); };
+		document.body.style.overflow = "hidden";
+		window.addEventListener("keydown", onKey);
+		return () => {
+			document.body.style.overflow = "";
+			window.removeEventListener("keydown", onKey);
+		};
+	}, [onClose]);
+
+	if (!item) return null;
+
+	return (
+		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+			<div className="w-full max-w-md rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+				<div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+					<div className="flex items-center gap-3">
+						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+							<HiOutlineTrash className="h-5 w-5" />
+						</div>
+						<div>
+							<h3 className="text-base font-bold text-slate-800">Hapus Record Absensi</h3>
+							<p className="mt-0.5 text-xs text-slate-400">Pastikan record yang dipilih sudah benar</p>
+						</div>
+					</div>
+					<button
+						type="button"
+						onClick={onClose}
+						disabled={deleting}
+						className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-60"
+						aria-label="Tutup modal"
+					>
+						<HiOutlineXMark className="h-5 w-5" />
+					</button>
+				</div>
+
+				<div className="px-5 py-4 space-y-3">
+					<div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs space-y-1">
+						<p className="font-bold text-slate-700">{item.employee_name || "-"}</p>
+						<p className="text-slate-400">{item.employee_code || "-"}</p>
+						<div className="flex flex-wrap items-center gap-2 mt-1">
+							<ShiftBadge type={item.shift_type} isValet={item.is_valet} />
+							<span className="text-slate-500">{formatDateOnly(item.work_date)}</span>
+						</div>
+						<div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+							<div className="rounded-lg bg-white border border-slate-100 px-3 py-2">
+								<p className="font-semibold text-slate-400 uppercase tracking-wider">Absen In</p>
+								<p className="mt-0.5 text-slate-700">{formatDateTime(item.check_in_time)}</p>
+							</div>
+							<div className="rounded-lg bg-white border border-slate-100 px-3 py-2">
+								<p className="font-semibold text-slate-400 uppercase tracking-wider">Absen Out</p>
+								<p className="mt-0.5 text-slate-700">{formatDateTime(item.check_out_time)}</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+						<p className="font-bold">Peringatan</p>
+						<p className="mt-0.5">Aksi ini akan menghapus record secara permanen dan tidak bisa dibatalkan.</p>
+					</div>
+
+					{error && (
+						<div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">
+							<HiOutlineExclamationTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+							{error}
+						</div>
+					)}
+				</div>
+
+				<div className="flex gap-2 px-5 pb-5 pt-1">
+					<button
+						type="button"
+						onClick={onClose}
+						disabled={deleting}
+						className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+					>
+						Batal
+					</button>
+					<button
+						type="button"
+						onClick={onConfirm}
+						disabled={deleting}
+						className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+					>
+						{deleting ? "Menghapus..." : "Hapus"}
+					</button>
+				</div>
 			</div>
 		</div>
 	);
@@ -1485,6 +1589,9 @@ export default function AbsensiIKM() {
 	const [photoViewer, setPhotoViewer] = useState(null);
 	const [editModal, setEditModal] = useState(null);
 	const [addModal, setAddModal] = useState(false);
+	const [deletingId, setDeletingId] = useState(null);
+	const [deleteModal, setDeleteModal] = useState(null);
+	const [deleteError, setDeleteError] = useState("");
 	const [employeeResumeModal, setEmployeeResumeModal] = useState(null);
 	const [leaveResumeMap, setLeaveResumeMap] = useState(new Map());
 	const [statusFilter, setStatusFilter] = useState("");
@@ -1660,6 +1767,34 @@ export default function AbsensiIKM() {
 			window.removeEventListener("keydown", onKeyDown);
 		};
 	}, [photoViewer]);
+
+	const openDeleteModal = useCallback((row) => {
+		if (!row?.shift_record_id) return;
+		setDeleteError("");
+		setDeleteModal(row);
+	}, []);
+
+	const confirmDeleteShift = useCallback(
+		async () => {
+			const row = deleteModal;
+			const id = row?.shift_record_id;
+			if (!id) return;
+
+			try {
+				setDeleteError("");
+				setDeletingId(id);
+				await api(`/ikm/absensi/shifts/${id}`, { method: "DELETE" });
+				setDeleteModal(null);
+				await fetchAbsensi({ silent: true });
+			} catch (err) {
+				console.error("Gagal menghapus record:", err);
+				setDeleteError(err.message || "Gagal menghapus record");
+			} finally {
+				setDeletingId(null);
+			}
+		},
+		[deleteModal, fetchAbsensi],
+	);
 
 	const displayedRecords = useMemo(() => {
 		let result = records;
@@ -2403,15 +2538,27 @@ export default function AbsensiIKM() {
 														<StatusBadge label={row.status_label} />
 													</td>
 													<td className="whitespace-nowrap px-4 py-3">
-														<button
-															type="button"
-															onClick={() => setEditModal(row)}
-															className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-															title="Edit jam absensi"
-														>
-															<HiOutlinePencilSquare className="h-3.5 w-3.5" />
-															Edit
-														</button>
+														<div className="flex items-center gap-2">
+															<button
+																type="button"
+																onClick={() => setEditModal(row)}
+																className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+																title="Edit jam absensi"
+															>
+																<HiOutlinePencilSquare className="h-3.5 w-3.5" />
+																Edit
+															</button>
+															<button
+																type="button"
+																onClick={() => openDeleteModal(row)}
+																disabled={deletingId === row.shift_record_id}
+																className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+																title="Hapus record absensi"
+															>
+																<HiOutlineTrash className="h-3.5 w-3.5" />
+																{deletingId === row.shift_record_id ? "Menghapus..." : "Delete"}
+															</button>
+														</div>
 													</td>
 												</tr>
 											);
@@ -2444,7 +2591,14 @@ export default function AbsensiIKM() {
 							) : (
 								<div className="grid gap-3 p-4 sm:grid-cols-2">
 									{displayedRecords.map((row) => (
-										<MobileAttendanceCard key={row.shift_record_id} row={row} onOpenPhoto={(url, label) => setPhotoViewer({ url, label })} onEdit={(r) => setEditModal(r)} />
+										<MobileAttendanceCard
+											key={row.shift_record_id}
+											row={row}
+											onOpenPhoto={(url, label) => setPhotoViewer({ url, label })}
+											onEdit={(r) => setEditModal(r)}
+											onDelete={openDeleteModal}
+											deleting={deletingId === row.shift_record_id}
+										/>
 									))}
 								</div>
 							)}
@@ -2456,6 +2610,17 @@ export default function AbsensiIKM() {
 			</main>
 
 			<PhotoViewerModal item={photoViewer} onClose={() => setPhotoViewer(null)} />
+			<DeleteAttendanceModal
+				item={deleteModal}
+				onClose={() => {
+					if (deletingId) return;
+					setDeleteModal(null);
+					setDeleteError("");
+				}}
+				onConfirm={confirmDeleteShift}
+				deleting={Boolean(deletingId && deleteModal && deletingId === deleteModal.shift_record_id)}
+				error={deleteError}
+			/>
 		{editModal && (
 			<EditAttendanceModal
 				item={editModal}
