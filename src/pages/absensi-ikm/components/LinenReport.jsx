@@ -825,7 +825,7 @@ export default function LinenReport() {
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.limit, search]);
+  }, [filters, pagination.limit, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api("/ikm/linen-report/meta").then((r) => {
@@ -834,7 +834,7 @@ export default function LinenReport() {
     }).catch(() => { });
   }, []);
 
-  useEffect(() => { fetchData(1); }, [filters, search, pagination.limit]);
+  useEffect(() => { fetchData(1); }, [filters, search, pagination.limit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (formOpen || Boolean(deleteTarget)) {

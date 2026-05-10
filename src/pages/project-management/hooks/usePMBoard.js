@@ -176,7 +176,7 @@ export function usePMBoard(monthlyId) {
     } finally { setSendingComment(false); }
   }
 
-  useEffect(() => { load(); loadNotifCount(); }, [monthlyId]);
+  useEffect(() => { load(); loadNotifCount(); }, [monthlyId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadComments(selectedId); }, [selectedId]);
   useEffect(() => {
     if (editMode) return;
