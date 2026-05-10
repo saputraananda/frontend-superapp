@@ -9,6 +9,7 @@ import {
 	HiOutlineXMark,
 	HiOutlineDocumentText,
 	HiOutlineClipboardDocument,
+	HiOutlineBanknotes,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -46,6 +47,12 @@ const MENU_ITEMS = [
 		icon: HiOutlineClipboardDocument,
 		label: "Leader Daily Report",
 		description: "Laporan harian operasional",
+	},
+	{
+		to: "/kasbon-pinjaman",
+		icon: HiOutlineBanknotes,
+		label: "Kasbon & Pinjaman",
+		description: "Pengajuan dan cicilan karyawan",
 	},
 ];
 

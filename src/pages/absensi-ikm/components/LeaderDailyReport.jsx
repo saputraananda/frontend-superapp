@@ -613,6 +613,10 @@ export default function LeaderDailyReport() {
     return () => { document.body.style.overflow = ""; };
   }, [formOpen, deleteTarget, detailData]);
 
+  useEffect(() => {
+    document.title = "Leader Daily Report IKM | Alora Group Indonesia";
+  }, []);
+
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);

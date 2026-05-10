@@ -845,6 +845,10 @@ export default function LinenReport() {
     return () => { document.body.style.overflow = ""; };
   }, [formOpen, deleteTarget]);
 
+  useEffect(() => {
+    document.title = "Laporan Linen IKM | Alora Group Indonesia";
+  }, []);
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);

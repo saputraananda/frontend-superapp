@@ -17,25 +17,26 @@ import LoadingScreen from "./components/LoadingScreen";
 import MaintenancePage from "./pages/maintenance";
 import AsetManagement from "./pages/aset-management";
 import MasterRsIkm from "./pages/master-rs-ikm";
-import RumahSakitPage from "./pages/master-rs-ikm/components/rumahSakit";
-import DataLinenPage from "./pages/master-rs-ikm/components/dataLinen";
+import RumahSakitPage from "./pages/master-rs-ikm/components/RumahSakit";
+import DataLinenPage from "./pages/master-rs-ikm/components/DataLinen";
 import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
-import AbsensiPage from "./pages/absensi-ikm/components/absensi";
-import PerizinanIKM from "./pages/absensi-ikm/components/perizinanIKM";
-import MasterAbsensi from "./pages/absensi-ikm/components/masterAbsensi";
+import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
+import PerizinanIKM from "./pages/absensi-ikm/components/PerizinanIKM";
+import MasterAbsensi from "./pages/absensi-ikm/components/MasterAbsensi";
 import LinenReport from "./pages/absensi-ikm/components/LinenReport";
 import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
+import KasbonPinjaman from "./pages/absensi-ikm/components/KasbonPinjaman";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
-import DashboardOperasional from "./pages/operational-alora/components/dashboardOperasional";
-import QualityCheckOC from "./pages/operational-alora/components/qualityCheck";
-import ChemicalTreatmentOC from "./pages/operational-alora/components/chemicalTreatment";
+import DashboardOperasional from "./pages/operational-alora/components/DashboardOperasional";
+import QualityCheckOC from "./pages/operational-alora/components/QualityCheck";
+import ChemicalTreatmentOC from "./pages/operational-alora/components/ChemicalTreatment";
 import ComplaintManagement from "./pages/complaint-management";
-import DashboardKomplain from "./pages/complaint-management/components/dashboardKomplain";
-import DaftarKomplain from "./pages/complaint-management/components/daftarKomplain";
-import FormKomplain from "./pages/complaint-management/components/formKomplain";
+import DashboardKomplain from "./pages/complaint-management/components/DashboardKomplain";
+import DaftarKomplain from "./pages/complaint-management/components/DaftarKomplain";
+import FormKomplain from "./pages/complaint-management/components/FormKomplain";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -265,6 +266,7 @@ export default function App() {
           <Route path="/master-absensi" element={<MasterAbsensi />} />
           <Route path="/linen-report-ikm" element={<LinenReport />} />
           <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
+          <Route path="/kasbon-pinjaman" element={<KasbonPinjaman />} />
         </Route>
 
         {/* ── Karyawan IKM ── */}
