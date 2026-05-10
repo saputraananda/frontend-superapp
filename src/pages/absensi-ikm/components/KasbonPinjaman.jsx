@@ -1181,6 +1181,7 @@ export default function KasbonPinjaman() {
   const [filterEnd, setFilterEnd] = useState(DEFAULT_CUTOFF.end);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
   const [sort, setSort] = useState({ col: "submission_date", dir: "desc" });
 
   // ── Modal state ────────────────────────────────────────────────────────────
@@ -1219,7 +1220,7 @@ export default function KasbonPinjaman() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 25 });
+      const params = new URLSearchParams({ page, limit });
       if (filterType) params.set("type", filterType);
       if (filterStatus) params.set("status", filterStatus);
       if (filterStart) params.set("startDate", filterStart);
@@ -1234,7 +1235,7 @@ export default function KasbonPinjaman() {
     } finally {
       setLoading(false);
     }
-  }, [page, filterType, filterStatus, filterStart, filterEnd, search]);
+  }, [page, filterType, filterStatus, filterStart, filterEnd, search, limit]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1260,6 +1261,7 @@ export default function KasbonPinjaman() {
     setFilterStart(DEFAULT_CUTOFF.start); setFilterEnd(DEFAULT_CUTOFF.end);
     setSearch("");
     setPage(1);
+    setLimit(25);
   };
 
   const hasFilter = filterType || filterStatus || search ||
@@ -1382,6 +1384,15 @@ export default function KasbonPinjaman() {
                   <HiOutlineXMark className="h-4 w-4" /> Reset
                 </button>
               )}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-slate-500">Per halaman:</span>
+                <select value={limit}
+                  onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400">
+                  {[25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                  <option value={9999}>Semua</option>
+                </select>
+              </div>
             </div>
           </section>
 
@@ -1514,11 +1525,12 @@ export default function KasbonPinjaman() {
             </div>
 
             {/* ── Pagination ────────────────────────────────────────────── */}
-            {!loading && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-                <p className="text-xs text-slate-400">
-                  Total <span className="font-semibold text-slate-700">{pagination.total}</span> data
+            {!loading && pagination.totalPages > 0 && (
+              <div className="border-t border-slate-100 px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">
+                  {pagination.total === 0 ? "0" : (page - 1) * limit + 1}–{Math.min(page * limit, pagination.total)} dari {pagination.total.toLocaleString("id-ID")} data
                 </p>
+                {pagination.totalPages > 1 && (
                 <div className="flex items-center gap-1">
                   <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition">
@@ -1526,12 +1538,12 @@ export default function KasbonPinjaman() {
                   </button>
                   {generatePages(page, pagination.totalPages).map((p, i) =>
                     p === "..." ? (
-                      <span key={i} className="px-1 text-slate-300 text-sm">...</span>
+                      <span key={`e-${i}`} className="px-1 text-slate-400 text-xs select-none">…</span>
                     ) : (
                       <button key={p} type="button" onClick={() => setPage(p)}
                         className={cn(
-                          "inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm transition",
-                          p === page ? "bg-blue-600 text-white font-bold shadow-sm" : "border border-slate-200 text-slate-600 hover:bg-slate-50",
+                          "inline-flex h-8 min-w-8 px-2 items-center justify-center rounded-lg border text-xs font-semibold transition",
+                          p === page ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50",
                         )}>{p}</button>
                     )
                   )}
@@ -1540,6 +1552,7 @@ export default function KasbonPinjaman() {
                     <HiOutlineChevronRight className="h-4 w-4" />
                   </button>
                 </div>
+                )}
               </div>
             )}
           </section>
