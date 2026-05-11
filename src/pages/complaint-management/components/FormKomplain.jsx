@@ -38,6 +38,104 @@ const EMPTY_FORM = {
   submitted_at: "",
 };
 
+// ── Nota searchable field ─────────────────────────────────────────────────────
+// Searches rekap_transaksi_reguler by no_nota, fills nota_number + complaint_name
+
+function NotaSearchField({ label, required, notaValue, onPick, placeholder, error }) {
+  const [query, setQuery]   = useState(notaValue || "");
+  const [options, setOptions] = useState([]);
+  const [open, setOpen]     = useState(false);
+  const [loading, setLoading] = useState(false);
+  const wrapRef  = useRef(null);
+  const debounce = useRef(null);
+
+  // Sync when parent resets
+  useEffect(() => { setQuery(notaValue || ""); }, [notaValue]);
+
+  useEffect(() => {
+    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const search = useCallback((q) => {
+    clearTimeout(debounce.current);
+    debounce.current = setTimeout(async () => {
+      if (!q.trim()) { setOptions([]); return; }
+      setLoading(true);
+      try {
+        const data = await api(`/complaints/nota?q=${encodeURIComponent(q)}`);
+        setOptions(Array.isArray(data) ? data : []);
+      } catch { setOptions([]); }
+      finally { setLoading(false); }
+    }, 280);
+  }, []);
+
+  const handleInput = (e) => {
+    const v = e.target.value;
+    setQuery(v);
+    onPick(v, ""); // update nota only, clear customer name to signal manual
+    setOpen(true);
+    search(v);
+  };
+
+  const pick = (row) => {
+    setQuery(row.no_nota);
+    onPick(row.no_nota, row.customer_nama || "");
+    setOpen(false);
+    setOptions([]);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5" ref={wrapRef}>
+      <label className="text-xs font-semibold text-slate-500">
+        {label}{required && <span className="ml-0.5 text-fuchsia-600">*</span>}
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={handleInput}
+          onFocus={() => { if (query.trim()) { search(query); setOpen(true); } }}
+          placeholder={placeholder}
+          autoComplete="off"
+          className={cn(
+            "w-full rounded-xl border bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-300",
+            "focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20",
+            error ? "border-fuchsia-500 bg-fuchsia-50/40" : "border-slate-300 hover:border-slate-400",
+          )}
+        />
+        {loading
+          ? <div className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
+          : <HiOutlineMagnifyingGlass className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        }
+        {open && options.length > 0 && (
+          <ul className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+            {options.map((row) => (
+              <li
+                key={row.no_nota}
+                onMouseDown={() => pick(row)}
+                className="cursor-pointer px-3.5 py-2.5 text-sm text-slate-700 transition hover:bg-fuchsia-50 hover:text-fuchsia-700"
+              >
+                <span className="block font-semibold">{row.no_nota}</span>
+                {row.customer_nama && (
+                  <span className="text-xs text-slate-400">{row.customer_nama}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {open && !loading && query.trim() && options.length === 0 && (
+          <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-400 shadow-xl">
+            Nota tidak ditemukan — nomor yang diketik akan disimpan langsung.
+          </div>
+        )}
+      </div>
+      {error && <p className="flex items-center gap-1 text-xs text-fuchsia-700"><span>⚠</span> {error}</p>}
+    </div>
+  );
+}
+
 // ── Searchable dropdown (autocomplete + free text) ────────────────────────────
 
 function SearchableField({ label, required, value, onChange, fetchUrl, placeholder, error }) {
@@ -422,16 +520,27 @@ export default function FormKomplain() {
                 <option value="">— Pilih Outlet —</option>
                 {meta.outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </SelectField>
-              <SearchableField
+              <NotaSearchField
+                label="Nomor Nota"
+                required
+                notaValue={form.nota_number}
+                onPick={(nota, customerName) => setForm((f) => ({
+                  ...f,
+                  nota_number: nota,
+                  // hanya auto-fill nama jika customerName tidak kosong
+                  ...(customerName ? { complaint_name: customerName } : {}),
+                }))}
+                placeholder="Ketik sebagian / 6 digit terakhir nota..."
+                error={errors.nota_number}
+              />
+              <TextField
                 label="Nama Pelapor / Pelanggan"
                 required
                 value={form.complaint_name}
-                onChange={(v) => setForm((f) => ({ ...f, complaint_name: v }))}
-                fetchUrl="/complaints/customers"
-                placeholder="Ketik untuk cari nama pelanggan..."
+                onChange={(e) => setForm((f) => ({ ...f, complaint_name: e.target.value }))}
+                placeholder="Auto-isi dari nota, atau ketik manual"
                 error={errors.complaint_name}
               />
-              <TextField label="Nomor Nota" required value={form.nota_number} onChange={(e) => setForm((f) => ({ ...f, nota_number: e.target.value }))} error={errors.nota_number} placeholder="6 Digit Terakhir" />
               <TextField label="Qty" type="number" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} placeholder="1" hint="Jumlah item" />
             </div>
           </FormSection>
