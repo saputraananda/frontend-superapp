@@ -42,11 +42,11 @@ const EMPTY_FORM = {
 // Searches rekap_transaksi_reguler by no_nota, fills nota_number + complaint_name
 
 function NotaSearchField({ label, required, notaValue, onPick, placeholder, error }) {
-  const [query, setQuery]   = useState(notaValue || "");
+  const [query, setQuery] = useState(notaValue || "");
   const [options, setOptions] = useState([]);
-  const [open, setOpen]     = useState(false);
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const wrapRef  = useRef(null);
+  const wrapRef = useRef(null);
   const debounce = useRef(null);
 
   // Sync when parent resets
@@ -139,12 +139,12 @@ function NotaSearchField({ label, required, notaValue, onPick, placeholder, erro
 // ── Searchable dropdown (autocomplete + free text) ────────────────────────────
 
 function SearchableField({ label, required, value, onChange, fetchUrl, placeholder, error }) {
-  const [query, setQuery]           = useState(value || "");
-  const [options, setOptions]       = useState([]);
-  const [open, setOpen]             = useState(false);
-  const [loading, setLoading]       = useState(false);
+  const [query, setQuery] = useState(value || "");
+  const [options, setOptions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [customMode, setCustomMode] = useState(false);
-  const wrapRef  = useRef(null);
+  const wrapRef = useRef(null);
   const inputRef = useRef(null);
   const debounce = useRef(null);
 
@@ -401,39 +401,39 @@ export default function FormKomplain() {
 
   useEffect(() => {
     document.title = editTarget ? "Edit Komplain | Alora App" : "Tambah Komplain | Alora App";
-    api("/complaints/meta").then((d) => setMeta(d)).catch(() => {});
-    
+    api("/complaints/meta").then((d) => setMeta(d)).catch(() => { });
+
     if (editTarget) {
       setForm({
-        type_id:        editTarget.type_id || "",
-        category_id:    editTarget.category_id || "",
-        topic_id:       editTarget.topic_id || "",
-        outlet_id:      editTarget.outlet_id || "",
+        type_id: editTarget.type_id || "",
+        category_id: editTarget.category_id || "",
+        topic_id: editTarget.topic_id || "",
+        outlet_id: editTarget.outlet_id || "",
         complaint_name: editTarget.complaint_name || "",
-        nota_number:    editTarget.nota_number || "",
-        qty:            editTarget.qty || 1,
-        description:    editTarget.description || "",
-        deduction:      editTarget.deduction || "None",
+        nota_number: editTarget.nota_number || "",
+        qty: editTarget.qty || 1,
+        description: editTarget.description || "",
+        deduction: editTarget.deduction || "None",
         pic_employee_id: editTarget.pic_employee_id || "",
-        pic_name:       editTarget.pic_name || "",
-        submitted_at:   editTarget.submitted_at ? new Date(new Date(editTarget.submitted_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "",
+        pic_name: editTarget.pic_name || "",
+        submitted_at: editTarget.submitted_at ? new Date(new Date(editTarget.submitted_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "",
       });
 
       api(`/complaints/${editTarget.complaint_id}`).then(res => {
         if (res.documents) setExistingDocs(res.documents);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [editTarget]);
 
   const validate = () => {
     const e = {};
-    if (!form.type_id)        e.type_id = "Wajib dipilih";
-    if (!form.category_id)    e.category_id = "Wajib dipilih";
-    if (!form.topic_id)       e.topic_id = "Wajib dipilih";
-    if (!form.outlet_id)      e.outlet_id = "Wajib dipilih";
+    if (!form.type_id) e.type_id = "Wajib dipilih";
+    if (!form.category_id) e.category_id = "Wajib dipilih";
+    if (!form.topic_id) e.topic_id = "Wajib dipilih";
+    if (!form.outlet_id) e.outlet_id = "Wajib dipilih";
     if (!form.complaint_name?.toString().trim()) e.complaint_name = "Wajib diisi";
-    if (!form.nota_number?.toString().trim())    e.nota_number = "Wajib diisi";
-    if (!form.description?.toString().trim())    e.description = "Wajib diisi";
+    if (!form.nota_number?.toString().trim()) e.nota_number = "Wajib diisi";
+    if (!form.description?.toString().trim()) e.description = "Wajib diisi";
     return e;
   };
 
@@ -487,229 +487,229 @@ export default function FormKomplain() {
         {/* Form Body */}
         <div className="p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-8">
-          {errors._ && (
-            <div className="flex items-center gap-2.5 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-800">
-              <HiOutlineExclamationCircle className="h-4 w-4 shrink-0" />
-              {errors._}
-            </div>
-          )}
-
-          {/* Section 1: Klasifikasi */}
-          <FormSection title="Klasifikasi Komplain" icon={HiOutlineTag}>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <SelectField label="Tipe" required value={form.type_id} onChange={(e) => setForm((f) => ({ ...f, type_id: e.target.value }))} error={errors.type_id}>
-                <option value="">— Pilih Tipe —</option>
-                {meta.types.map((t) => <option key={t.type_id} value={t.type_id}>{t.type_name}</option>)}
-              </SelectField>
-              <SelectField label="Kategori Bahan" required value={form.category_id} onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))} error={errors.category_id}>
-                <option value="">— Pilih Kategori —</option>
-                {meta.categories.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
-              </SelectField>
-              <SelectField label="Topik" required value={form.topic_id} onChange={(e) => setForm((f) => ({ ...f, topic_id: e.target.value }))} error={errors.topic_id}>
-                <option value="">— Pilih Topik —</option>
-                {meta.topics.map((t) => <option key={t.topic_id} value={t.topic_id}>{t.topic_name}</option>)}
-              </SelectField>
-              <TextField label="Tanggal Diajukan" type="datetime-local" value={form.submitted_at} onChange={(e) => setForm((f) => ({ ...f, submitted_at: e.target.value }))} hint="Opsional" />
-            </div>
-          </FormSection>
-
-          {/* Section 2: Informasi Pelanggan */}
-          <FormSection title="Informasi Pelanggan & Transaksi" icon={HiOutlineUser}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <SelectField label="Outlet" required value={form.outlet_id} onChange={(e) => setForm((f) => ({ ...f, outlet_id: e.target.value }))} error={errors.outlet_id}>
-                <option value="">— Pilih Outlet —</option>
-                {meta.outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </SelectField>
-              <NotaSearchField
-                label="Nomor Nota"
-                required
-                notaValue={form.nota_number}
-                onPick={(nota, customerName) => setForm((f) => ({
-                  ...f,
-                  nota_number: nota,
-                  // hanya auto-fill nama jika customerName tidak kosong
-                  ...(customerName ? { complaint_name: customerName } : {}),
-                }))}
-                placeholder="Ketik sebagian / 6 digit terakhir nota..."
-                error={errors.nota_number}
-              />
-              <TextField
-                label="Nama Pelapor / Pelanggan"
-                required
-                value={form.complaint_name}
-                onChange={(e) => setForm((f) => ({ ...f, complaint_name: e.target.value }))}
-                placeholder="Auto-isi dari nota, atau ketik manual"
-                error={errors.complaint_name}
-              />
-              <TextField label="Qty" type="number" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} placeholder="1" hint="Jumlah item" />
-            </div>
-          </FormSection>
-
-          {/* Section 3: Detail & Penanganan */}
-          <FormSection title="Detail & Penanganan" icon={HiOutlineClipboardDocumentList}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <SelectField label="Deduction" value={form.deduction} onChange={(e) => setForm((f) => ({ ...f, deduction: e.target.value }))}>
-                {DEDUCTION_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-              </SelectField>
-              <SearchableField
-                label="Nama PIC"
-                value={form.pic_name}
-                onChange={(v) => setForm((f) => ({ ...f, pic_name: v }))}
-                fetchUrl="/complaints/employees"
-                placeholder="Ketik untuk cari karyawan..."
-              />
-            </div>
-            <TextField label="Deskripsi / Kronologi" required as="textarea" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} error={errors.description} placeholder="Ceritakan kronologi komplain secara detail..." />
-          </FormSection>
-
-          {/* Section 4: Dokumentasi */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-fuchsia-100">
-                <HiOutlinePaperClip className="h-3.5 w-3.5 text-fuchsia-700" />
+            {errors._ && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-800">
+                <HiOutlineExclamationCircle className="h-4 w-4 shrink-0" />
+                {errors._}
               </div>
-              <span className="text-[11px] font-bold uppercase tracking-widest text-fuchsia-700">Dokumentasi</span>
-            </div>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
-              className={cn(
-                "cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition",
-                formFiles.length > 0
-                  ? "border-fuchsia-400 bg-fuchsia-100/60"
-                  : "border-slate-200 bg-slate-50/70 hover:border-fuchsia-400 hover:bg-fuchsia-100/30",
+            )}
+
+            {/* Section 1: Klasifikasi */}
+            <FormSection title="Klasifikasi Komplain" icon={HiOutlineTag}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <SelectField label="Tipe" required value={form.type_id} onChange={(e) => setForm((f) => ({ ...f, type_id: e.target.value }))} error={errors.type_id}>
+                  <option value="">— Pilih Tipe —</option>
+                  {meta.types.map((t) => <option key={t.type_id} value={t.type_id}>{t.type_name}</option>)}
+                </SelectField>
+                <SelectField label="Kategori Bahan" required value={form.category_id} onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))} error={errors.category_id}>
+                  <option value="">— Pilih Kategori —</option>
+                  {meta.categories.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
+                </SelectField>
+                <SelectField label="Topik" required value={form.topic_id} onChange={(e) => setForm((f) => ({ ...f, topic_id: e.target.value }))} error={errors.topic_id}>
+                  <option value="">— Pilih Topik —</option>
+                  {meta.topics.map((t) => <option key={t.topic_id} value={t.topic_id}>{t.topic_name}</option>)}
+                </SelectField>
+                <TextField label="Tanggal Diajukan" type="datetime-local" value={form.submitted_at} onChange={(e) => setForm((f) => ({ ...f, submitted_at: e.target.value }))} hint="Opsional" />
+              </div>
+            </FormSection>
+
+            {/* Section 2: Informasi Pelanggan */}
+            <FormSection title="Informasi Pelanggan & Transaksi" icon={HiOutlineUser}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <SelectField label="Outlet" required value={form.outlet_id} onChange={(e) => setForm((f) => ({ ...f, outlet_id: e.target.value }))} error={errors.outlet_id}>
+                  <option value="">— Pilih Outlet —</option>
+                  {meta.outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </SelectField>
+                <NotaSearchField
+                  label="Nomor Nota"
+                  required
+                  notaValue={form.nota_number}
+                  onPick={(nota, customerName) => setForm((f) => ({
+                    ...f,
+                    nota_number: nota,
+                    // hanya auto-fill nama jika customerName tidak kosong
+                    ...(customerName ? { complaint_name: customerName } : {}),
+                  }))}
+                  placeholder="Ketik sebagian / 6 digit terakhir nota..."
+                  error={errors.nota_number}
+                />
+                <TextField
+                  label="Nama Pelapor / Pelanggan"
+                  required
+                  value={form.complaint_name}
+                  onChange={(e) => setForm((f) => ({ ...f, complaint_name: e.target.value }))}
+                  placeholder="Auto-isi dari nota, atau ketik manual"
+                  error={errors.complaint_name}
+                />
+                <TextField label="Qty" type="number" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} placeholder="1" hint="Jumlah item" />
+              </div>
+            </FormSection>
+
+            {/* Section 3: Detail & Penanganan */}
+            <FormSection title="Detail & Penanganan" icon={HiOutlineClipboardDocumentList}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <SelectField label="Deduction" value={form.deduction} onChange={(e) => setForm((f) => ({ ...f, deduction: e.target.value }))}>
+                  {DEDUCTION_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </SelectField>
+                <SearchableField
+                  label="Nama PIC"
+                  value={form.pic_name}
+                  onChange={(v) => setForm((f) => ({ ...f, pic_name: v }))}
+                  fetchUrl="/complaints/employees"
+                  placeholder="Ketik untuk cari karyawan..."
+                />
+              </div>
+              <TextField label="Deskripsi / Kronologi" required as="textarea" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} error={errors.description} placeholder="Ceritakan kronologi komplain secara detail..." />
+            </FormSection>
+
+            {/* Section 4: Dokumentasi */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-fuchsia-100">
+                  <HiOutlinePaperClip className="h-3.5 w-3.5 text-fuchsia-700" />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-fuchsia-700">Dokumentasi</span>
+              </div>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+                className={cn(
+                  "cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition",
+                  formFiles.length > 0
+                    ? "border-fuchsia-400 bg-fuchsia-100/60"
+                    : "border-slate-200 bg-slate-50/70 hover:border-fuchsia-400 hover:bg-fuchsia-100/30",
+                )}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const newFiles = Array.from(e.target.files);
+                    setFormFiles((prev) => {
+                      const existing = prev.map((f) => f.name + f.size);
+                      const unique = newFiles.filter((f) => !existing.includes(f.name + f.size));
+                      return [...prev, ...unique];
+                    });
+                    e.target.value = "";
+                  }}
+                />
+                <HiOutlinePaperClip className="mx-auto mb-2 h-7 w-7 text-slate-300" />
+                <p className="text-sm font-medium text-slate-500">Klik untuk upload dokumentasi</p>
+                <p className="mt-0.5 text-xs text-slate-400">Foto, PDF, atau dokumen lainnya · Maks. 5 MB per file</p>
+              </div>
+
+              {/* New file preview grid */}
+              {fileUrls.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    {fileUrls.length} File Dipilih — Klik untuk preview
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {fileUrls.map(({ url, name }, i) => {
+                      const isImg = /\.(jpe?g|png|gif|webp)$/i.test(name);
+                      return (
+                        <div
+                          key={i}
+                          className="group relative h-24 w-24 overflow-hidden rounded-xl border border-fuchsia-300 bg-slate-50 shadow-sm"
+                        >
+                          {isImg ? (
+                            <img src={url} alt={name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
+                              <HiOutlinePaperClip className="mb-1 h-6 w-6 text-slate-400" />
+                              <span className="line-clamp-2 text-[9px] text-slate-500">{name}</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 rounded-xl">
+                            <button
+                              type="button"
+                              onClick={() => setLightbox({ src: url, name })}
+                              className="rounded-lg bg-white/20 p-1.5 text-white hover:bg-white/40"
+                              title="Lihat"
+                            >
+                              <HiOutlineMagnifyingGlass className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                              className="rounded-lg bg-red-500/80 p-1.5 text-white hover:bg-red-600"
+                              title="Hapus"
+                            >
+                              <HiOutlineTrash className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const newFiles = Array.from(e.target.files);
-                  setFormFiles((prev) => {
-                    const existing = prev.map((f) => f.name + f.size);
-                    const unique = newFiles.filter((f) => !existing.includes(f.name + f.size));
-                    return [...prev, ...unique];
-                  });
-                  e.target.value = "";
-                }}
-              />
-              <HiOutlinePaperClip className="mx-auto mb-2 h-7 w-7 text-slate-300" />
-              <p className="text-sm font-medium text-slate-500">Klik untuk upload dokumentasi</p>
-              <p className="mt-0.5 text-xs text-slate-400">Foto, PDF, atau dokumen lainnya · Maks. 5 MB per file</p>
+
+              {/* Existing Documents Preview */}
+              {existingDocs.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">Dokumen Tersimpan</p>
+                  <div className="flex flex-wrap gap-3">
+                    {existingDocs.map((d) => {
+                      const isDeleted = deletedDocIds.includes(d.doc_id);
+                      if (isDeleted) return null; // hide if marked for deletion
+
+                      const url = assetUrl(d.file_path);
+                      const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
+                      return (
+                        <div key={d.doc_id} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                          {isImg ? (
+                            <img src={url} alt={d.original_name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
+                              <HiOutlinePaperClip className="mb-1 h-6 w-6 text-slate-400" />
+                              <span className="text-[9px] text-slate-500 line-clamp-2">{d.original_name}</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={() => setLightbox({ src: url, name: d.original_name })}
+                              className="rounded-lg bg-white/20 p-1.5 text-white hover:bg-white/40"
+                              title="Lihat"
+                            >
+                              <HiOutlineMagnifyingGlass className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletedDocIds([...deletedDocIds, d.doc_id])}
+                              className="rounded-lg bg-red-500/80 p-1.5 text-white hover:bg-red-600"
+                              title="Hapus"
+                            >
+                              <HiOutlineTrash className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* New file preview grid */}
-            {fileUrls.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                  {fileUrls.length} File Dipilih — Klik untuk preview
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {fileUrls.map(({ url, name }, i) => {
-                    const isImg = /\.(jpe?g|png|gif|webp)$/i.test(name);
-                    return (
-                      <div
-                        key={i}
-                        className="group relative h-24 w-24 overflow-hidden rounded-xl border border-fuchsia-300 bg-slate-50 shadow-sm"
-                      >
-                        {isImg ? (
-                          <img src={url} alt={name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
-                            <HiOutlinePaperClip className="mb-1 h-6 w-6 text-slate-400" />
-                            <span className="line-clamp-2 text-[9px] text-slate-500">{name}</span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 rounded-xl">
-                          <button
-                            type="button"
-                            onClick={() => setLightbox({ src: url, name })}
-                            className="rounded-lg bg-white/20 p-1.5 text-white hover:bg-white/40"
-                            title="Lihat"
-                          >
-                            <HiOutlineMagnifyingGlass className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="rounded-lg bg-red-500/80 p-1.5 text-white hover:bg-red-600"
-                            title="Hapus"
-                          >
-                            <HiOutlineTrash className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Existing Documents Preview */}
-            {existingDocs.length > 0 && (
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">Dokumen Tersimpan</p>
-                <div className="flex flex-wrap gap-3">
-                  {existingDocs.map((d) => {
-                    const isDeleted = deletedDocIds.includes(d.doc_id);
-                    if (isDeleted) return null; // hide if marked for deletion
-                    
-                    const url = assetUrl(d.file_path);
-                    const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
-                    return (
-                      <div key={d.doc_id} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-                        {isImg ? (
-                          <img src={url} alt={d.original_name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
-                            <HiOutlinePaperClip className="mb-1 h-6 w-6 text-slate-400" />
-                            <span className="text-[9px] text-slate-500 line-clamp-2">{d.original_name}</span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-                          <button
-                            type="button"
-                            onClick={() => setLightbox({ src: url, name: d.original_name })}
-                            className="rounded-lg bg-white/20 p-1.5 text-white hover:bg-white/40"
-                            title="Lihat"
-                          >
-                            <HiOutlineMagnifyingGlass className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletedDocIds([...deletedDocIds, d.doc_id])}
-                            className="rounded-lg bg-red-500/80 p-1.5 text-white hover:bg-red-600"
-                            title="Hapus"
-                          >
-                            <HiOutlineTrash className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-6">
-            <button type="button" onClick={() => navigate("/complaint-list")} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-xl bg-gradient-to-r from-fuchsia-700 to-pink-700 px-8 py-2.5 text-sm font-semibold text-white shadow-md shadow-fuchsia-300/50 transition hover:from-fuchsia-800 hover:to-pink-700 disabled:opacity-50"
-            >
-              {saving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Simpan Komplain"}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 pt-6">
+              <button type="button" onClick={() => navigate("/complaint-list")} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-gradient-to-r from-fuchsia-700 to-pink-700 px-8 py-2.5 text-sm font-semibold text-white shadow-md shadow-fuchsia-300/50 transition hover:from-fuchsia-800 hover:to-pink-700 disabled:opacity-50"
+              >
+                {saving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Simpan Komplain"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
       <Lightbox src={lightbox.src} name={lightbox.name} onClose={() => setLightbox({ src: null, name: null })} />
     </div>

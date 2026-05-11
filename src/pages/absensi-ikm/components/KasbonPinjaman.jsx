@@ -21,6 +21,9 @@ import {
   HiOutlineBanknotes,
   HiOutlineClipboardDocumentCheck,
   HiOutlineCreditCard,
+  HiOutlinePrinter,
+  HiOutlineUserGroup,
+  HiOutlineDocumentText,
 } from "react-icons/hi2";
 import { api, apiUpload, BASE_URL } from "../../../lib/api";
 
@@ -458,7 +461,7 @@ function EmployeeSelector({ employees, value, onChange, disabled }) {
         )}
       >
         <span className={selected ? "text-slate-800 font-medium" : "text-slate-400"}>
-          {selected ? `${selected.full_name} (${selected.employee_code || selected.employee_id})` : "Pilih karyawan..."}
+          {selected ? `${toTitleCase(selected.full_name)} (${selected.employee_code || selected.employee_id})` : "Pilih karyawan..."}
         </span>
         <HiOutlineChevronDown className={cn("h-4 w-4 text-slate-400 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
@@ -499,7 +502,7 @@ function EmployeeSelector({ employees, value, onChange, disabled }) {
                     {e.full_name[0]}
                   </div>
                   <div>
-                    <p className="font-medium leading-tight">{e.full_name}</p>
+                    <p className="font-medium leading-tight">{toTitleCase(e.full_name)}</p>
                     {e.employee_code && <p className="text-xs text-slate-400">{e.employee_code}</p>}
                   </div>
                 </button>
@@ -788,7 +791,7 @@ function StatusModal({ open, onClose, onSaved, row }) {
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <p className="font-bold text-slate-800">Update Status</p>
-            <p className="text-xs text-slate-400">{row.employee_name} — {row.type === "pinjaman" ? "Pinjaman" : "Kasbon"}</p>
+            <p className="text-xs text-slate-400">{toTitleCase(row.employee_name)} — {row.type === "pinjaman" ? "Pinjaman" : "Kasbon"}</p>
           </div>
           <button type="button" onClick={onClose}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition">
@@ -968,7 +971,7 @@ function DetailModal({ open, onClose, rowId, onRefresh }) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
             <div>
-              <p className="font-bold text-slate-800">{loading ? "Memuat..." : data?.employee_name || "Detail"}</p>
+              <p className="font-bold text-slate-800">{loading ? "Memuat..." : toTitleCase(data?.employee_name) || "Detail"}</p>
               {data && (
                 <div className="flex items-center gap-2 mt-0.5">
                   <TypeBadge type={data.type} />
@@ -1078,7 +1081,7 @@ function DetailModal({ open, onClose, rowId, onRefresh }) {
                               <p className="text-xs text-slate-400">{fmtDate(p.payment_date)} · {PAYMENT_METHOD_LABEL[p.payment_method] || p.payment_method}</p>
                               {p.notes && <p className="text-xs text-slate-500 truncate">{p.notes}</p>}
                             </div>
-                            {p.recorded_by_name && <p className="text-xs text-slate-400 shrink-0">{p.recorded_by_name}</p>}
+                            {p.recorded_by_name && <p className="text-xs text-slate-400 shrink-0">{toTitleCase(p.recorded_by_name)}</p>}
                             <button type="button" onClick={() => setDeletePayId(p.id)}
                               className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition">
                               <HiOutlineTrash className="h-4 w-4" />
@@ -1165,6 +1168,299 @@ function DetailModal({ open, onClose, rowId, onRefresh }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// EMPLOYEE REPORT MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function generatePrintHTML(employee, entries, startDate, endDate) {
+  const fmtR = (v) => v == null || v === "" ? "Rp 0" :
+    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(v));
+  const fmtD = (v) => v ? new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(v)) : "-";
+
+  const STATUS_LABEL = { pengajuan: "Pengajuan", proses: "Proses", disetujui: "Disetujui", ditolak: "Ditolak" };
+  const TYPE_LABEL   = { kasbon: "Kasbon", pinjaman: "Pinjaman" };
+
+  const kasbonEntries   = entries.filter((e) => e.type === "kasbon");
+  const pinjamanEntries = entries.filter((e) => e.type === "pinjaman");
+
+  const kasbonApproved   = kasbonEntries.filter((e) => e.status === "disetujui");
+  const pinjamanApproved = pinjamanEntries.filter((e) => e.status === "disetujui");
+  const kasbonTotal   = kasbonApproved.reduce((s, r)   => s + Number(r.amount_approved || 0), 0);
+  const pinjamanTotal = pinjamanApproved.reduce((s, r) => s + Number(r.amount_approved || 0), 0);
+  const totalAll      = kasbonTotal + pinjamanTotal;
+  const totalPaid     = pinjamanApproved.reduce((s, r) => s + Number(r.total_paid || 0), 0);
+  const sisa          = Math.max(0, pinjamanTotal - totalPaid);
+
+  const rowStyle = "border:1px solid #e2e8f0; padding:7px 10px; font-size:12px;";
+  const thStyle  = "border:1px solid #cbd5e1; padding:7px 10px; font-size:11px; background:#f1f5f9; font-weight:600; text-transform:uppercase; letter-spacing:.05em;";
+
+  const buildTable = (list, type) => {
+    if (!list.length) return `<p style="font-size:12px;color:#94a3b8;margin:6px 0;">Tidak ada data ${type}.</p>`;
+    return `
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        <thead><tr>
+          <th style="${thStyle}">Tgl Pengajuan</th>
+          <th style="${thStyle}">Jumlah Diajukan</th>
+          <th style="${thStyle}">Disetujui</th>
+          ${ type === "pinjaman" ? `<th style="${thStyle}">Terbayar</th><th style="${thStyle}">Sisa</th>` : "" }
+          <th style="${thStyle}">Status</th>
+          <th style="${thStyle}">Keperluan</th>
+        </tr></thead>
+        <tbody>
+          ${ list.map((r) => `<tr>
+            <td style="${rowStyle}">${fmtD(r.submission_date)}</td>
+            <td style="${rowStyle}">${fmtR(r.amount_requested)}</td>
+            <td style="${rowStyle};font-weight:600;color:${r.amount_approved ? "#047857" : "#94a3b8"}">${r.amount_approved ? fmtR(r.amount_approved) : "-"}</td>
+            ${ type === "pinjaman" ? `
+              <td style="${rowStyle}">${r.total_paid != null ? fmtR(r.total_paid) : "-"}</td>
+              <td style="${rowStyle};font-weight:600;color:${(r.remaining ?? 1) > 0 ? "#b45309" : "#047857"}">${
+                r.status === "disetujui" ? ((r.remaining ?? 1) <= 0 ? "LUNAS" : fmtR(r.remaining)) : "-"
+              }</td>` : "" }
+            <td style="${rowStyle}">${STATUS_LABEL[r.status] || r.status}</td>
+            <td style="${rowStyle}">${r.purpose || "-"}</td>
+          </tr>`).join("") }
+        </tbody>
+      </table>`;
+  };
+
+  return `<!DOCTYPE html><html lang="id"><head>
+    <meta charset="UTF-8">
+    <title>Laporan Kasbon & Pinjaman — ${toTitleCase(employee.employee_name)}</title>
+    <style>body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:24px;color:#1e293b}
+    @media print{@page{size:A4 landscape;margin:15mm}}</style>
+  </head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #0f172a;padding-bottom:10px;">
+      <div>
+        <h1 style="margin:0;font-size:18px;font-weight:700;">PT Waschen Alora Indonesia</h1>
+        <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Laporan Kasbon &amp; Pinjaman Karyawan</p>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#64748b;">
+        <p style="margin:0;">Periode: ${fmtD(startDate)} – ${fmtD(endDate)}</p>
+        <p style="margin:2px 0 0;">Dicetak: ${new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"long",year:"numeric"}).format(new Date())}</p>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr>
+        <td style="padding:4px 0;font-size:13px;"><strong>Nama Karyawan</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: ${toTitleCase(employee.employee_name)}</td>
+        <td style="padding:4px 0;font-size:13px;"><strong>Total Kasbon (disetujui)</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: ${fmtR(kasbonTotal)}</td>
+      </tr><tr>
+        <td style="padding:4px 0;font-size:13px;"><strong>Jumlah Pengajuan Kasbon</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: ${kasbonEntries.length}x</td>
+        <td style="padding:4px 0;font-size:13px;"><strong>Total Pinjaman (disetujui)</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: ${fmtR(pinjamanTotal)}</td>
+      </tr><tr>
+        <td style="padding:4px 0;font-size:13px;"><strong>Jumlah Pengajuan Pinjaman</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: ${pinjamanEntries.length}x</td>
+        <td style="padding:4px 0;font-size:13px;"><strong>Total Keseluruhan</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: <strong style="color:#0f172a">${fmtR(totalAll)}</strong></td>
+      </tr><tr>
+        <td></td><td></td>
+        <td style="padding:4px 0;font-size:13px;"><strong>Sisa Pinjaman</strong></td>
+        <td style="padding:4px 8px;font-size:13px;">: <strong style="color:${sisa > 0 ? "#b45309" : "#047857"}">${sisa > 0 ? fmtR(sisa) : "Nihil / Lunas"}</strong></td>
+      </tr>
+    </table>
+
+    <h3 style="margin:0 0 6px;font-size:13px;border-left:3px solid #7c3aed;padding-left:8px;">Detail Kasbon (${kasbonEntries.length} pengajuan)</h3>
+    ${buildTable(kasbonEntries, "kasbon")}
+
+    <h3 style="margin:12px 0 6px;font-size:13px;border-left:3px solid #0891b2;padding-left:8px;">Detail Pinjaman (${pinjamanEntries.length} pengajuan)</h3>
+    ${buildTable(pinjamanEntries, "pinjaman")}
+
+    <p style="margin-top:24px;font-size:10px;color:#94a3b8;text-align:center;">Dokumen ini dicetak secara otomatis oleh sistem Alora App.</p>
+  </body></html>`;
+}
+
+function EmployeeReportModal({ open, onClose, employee, startDate, endDate }) {
+  const [entries,  setEntries]  = useState([]);
+  const [loading,  setLoading]  = useState(false);
+
+  const fetchEntries = useCallback(async () => {
+    if (!employee) return;
+    setLoading(true);
+    const params = new URLSearchParams({ employeeId: employee.employee_id, limit: 9999 });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate)   params.set("endDate",   endDate);
+    try {
+      const d = await api(`/ikm/kasbon?${params}`);
+      setEntries(d.data || []);
+    } catch {
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [employee, startDate, endDate]);
+
+  useEffect(() => {
+    if (!open || !employee) return;
+    fetchEntries();
+  }, [open, employee, fetchEntries]);
+
+  const handlePrint = () => {
+    const html = generatePrintHTML(employee, entries, startDate, endDate);
+    const win = window.open("", "_blank", "width=1000,height=700");
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+  };
+
+  if (!open || !employee) return null;
+
+  const kasbonEntries   = entries.filter((e) => e.type === "kasbon");
+  const pinjamanEntries = entries.filter((e) => e.type === "pinjaman");
+  const kasbonApproved  = kasbonEntries.filter((e)   => e.status === "disetujui");
+  const pinjamanApproved = pinjamanEntries.filter((e) => e.status === "disetujui");
+  const kasbonTotal   = kasbonApproved.reduce((s, r)   => s + Number(r.amount_approved || 0), 0);
+  const pinjamanTotal = pinjamanApproved.reduce((s, r) => s + Number(r.amount_approved || 0), 0);
+  const totalAll      = kasbonTotal + pinjamanTotal;
+  const totalPaid     = pinjamanApproved.reduce((s, r) => s + Number(r.total_paid || 0), 0);
+  const sisa          = Math.max(0, pinjamanTotal - totalPaid);
+
+  return (
+    <div className="fixed inset-0 z-[85] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-6">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100">
+              <HiOutlineDocumentText className="h-5 w-5 text-violet-700" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">{toTitleCase(employee.employee_name)}</h3>
+              <p className="text-xs text-slate-400">
+                Periode: {fmtDate(startDate)} – {fmtDate(endDate)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={loading || entries.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition"
+            >
+              <HiOutlinePrinter className="h-4 w-4" /> Cetak / Unduh PDF
+            </button>
+            <button type="button" onClick={onClose}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition">
+              <HiOutlineXMark className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-3 lg:grid-cols-6 border-b border-slate-100">
+          {[
+            { label: "Kasbon",            value: `${kasbonEntries.length}x`,  sub: fmtRupiah(kasbonTotal),   cls: "bg-violet-50 text-violet-700" },
+            { label: "Pinjaman",          value: `${pinjamanEntries.length}x`, sub: fmtRupiah(pinjamanTotal), cls: "bg-cyan-50 text-cyan-700" },
+            { label: "Total Keseluruhan", value: fmtRupiah(totalAll),          sub: "kasbon + pinjaman",       cls: "bg-slate-50 text-slate-700" },
+            { label: "Terbayar",          value: fmtRupiah(totalPaid),         sub: "cicilan pinjaman",        cls: "bg-emerald-50 text-emerald-700" },
+            { label: "Sisa Pinjaman",     value: sisa > 0 ? fmtRupiah(sisa) : "Nihil", sub: "belum terbayar", cls: sisa > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700" },
+          ].map((c) => (
+            <div key={c.label} className={cn("rounded-xl border px-3 py-2.5 col-span-1", c.cls.replace("text-", "border-").replace("700","200").replace("50","100"), c.cls)}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">{c.label}</p>
+              <p className="mt-0.5 text-sm font-bold leading-tight">{c.value}</p>
+              <p className="text-[10px] opacity-60 mt-0.5">{c.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Entry tables */}
+        <div className="p-6 space-y-6">
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-violet-400 border-t-transparent" />
+            </div>
+          )}
+
+          {!loading && (
+            <>
+              {/* Kasbon table */}
+              <div>
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-violet-700">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold">{kasbonEntries.length}</span>
+                  Pengajuan Kasbon
+                </h4>
+                {kasbonEntries.length === 0 ? (
+                  <p className="text-sm text-slate-400">Tidak ada pengajuan kasbon pada periode ini.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full border-collapse text-xs">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          {["Tgl Pengajuan","Jumlah Diajukan","Disetujui","Status","Keperluan","Catatan"].map((h) => (
+                            <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kasbonEntries.map((r) => (
+                          <tr key={r.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{fmtDate(r.submission_date)}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">{fmtRupiah(r.amount_requested)}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-emerald-700">{r.amount_approved ? fmtRupiah(r.amount_approved) : <span className="text-slate-300">-</span>}</td>
+                            <td className="px-3 py-2.5"><StatusBadge status={r.status} /></td>
+                            <td className="px-3 py-2.5 text-slate-600">{r.purpose || "-"}</td>
+                            <td className="px-3 py-2.5 text-slate-400">{r.notes || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Pinjaman table */}
+              <div>
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-cyan-700">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-[10px] font-bold">{pinjamanEntries.length}</span>
+                  Pengajuan Pinjaman
+                </h4>
+                {pinjamanEntries.length === 0 ? (
+                  <p className="text-sm text-slate-400">Tidak ada pengajuan pinjaman pada periode ini.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full border-collapse text-xs">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          {["Tgl Pengajuan","Diajukan","Disetujui","Terbayar","Sisa","Status","Keperluan"].map((h) => (
+                            <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-slate-500">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pinjamanEntries.map((r) => (
+                          <tr key={r.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{fmtDate(r.submission_date)}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">{fmtRupiah(r.amount_requested)}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-emerald-700">{r.amount_approved ? fmtRupiah(r.amount_approved) : <span className="text-slate-300">-</span>}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{r.total_paid != null ? fmtRupiah(r.total_paid) : "-"}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              {r.status === "disetujui" ? (
+                                (r.remaining ?? 1) <= 0
+                                  ? <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">LUNAS</span>
+                                  : <span className="font-semibold text-amber-700">{fmtRupiah(r.remaining)}</span>
+                              ) : <span className="text-slate-300">-</span>}
+                            </td>
+                            <td className="px-3 py-2.5"><StatusBadge status={r.status} /></td>
+                            <td className="px-3 py-2.5 text-slate-600">{r.purpose || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function KasbonPinjaman() {
@@ -1192,6 +1488,13 @@ export default function KasbonPinjaman() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ── Employee summary state ──────────────────────────────────────────────────
+  const [summary, setSummary] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [employeeReport, setEmployeeReport] = useState({ open: false, employee: null });
+  const [summaryPage, setSummaryPage] = useState(1);
+  const [summaryLimit, setSummaryLimit] = useState("5");
+
   // ── Toast ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState(null);
   const showToast = (message, type = "success") => {
@@ -1212,7 +1515,7 @@ export default function KasbonPinjaman() {
 
   // ── Debounce search ────────────────────────────────────────────────────────
   useEffect(() => {
-    const t = setTimeout(() => setPage(1), 400);
+    const t = setTimeout(() => { setPage(1); setSummaryPage(1); }, 400);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -1239,6 +1542,18 @@ export default function KasbonPinjaman() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ── Fetch employee summary ─────────────────────────────────────────────────
+  useEffect(() => {
+    setSummaryLoading(true);
+    const params = new URLSearchParams();
+    if (filterStart) params.set("startDate", filterStart);
+    if (filterEnd)   params.set("endDate",   filterEnd);
+    api(`/ikm/kasbon/employee-summary?${params}`)
+      .then((d) => setSummary(d.data || []))
+      .catch(() => setSummary([]))
+      .finally(() => setSummaryLoading(false));
+  }, [filterStart, filterEnd]);
+
   // ── Client-side sort ───────────────────────────────────────────────────────
   const sortedRows = useMemo(() => {
     const { col, dir } = sort;
@@ -1262,6 +1577,8 @@ export default function KasbonPinjaman() {
     setSearch("");
     setPage(1);
     setLimit(25);
+    setSummaryPage(1);
+    setSummaryLimit("5");
   };
 
   const hasFilter = filterType || filterStatus || search ||
@@ -1291,6 +1608,40 @@ export default function KasbonPinjaman() {
     const approved = rows.filter((r) => r.status === "disetujui").length;
     return { totalKasbon, totalPinjaman, pending, approved };
   }, [rows]);
+
+  // ── Employee summary: client-side search + paginate ─────────────────────────
+  const filteredSummary = useMemo(() => {
+    const kw = search.trim().toLowerCase();
+    if (!kw) return summary;
+    return summary.filter((e) => (e.employee_name || "").toLowerCase().includes(kw));
+  }, [summary, search]);
+
+  const summaryPerPage = useMemo(() => {
+    if (summaryLimit === "all") return Math.max(filteredSummary.length, 1);
+    const n = Number(summaryLimit);
+    return Number.isFinite(n) && n > 0 ? n : 5;
+  }, [summaryLimit, filteredSummary.length]);
+
+  const summaryTotalPages = useMemo(() => {
+    if (filteredSummary.length === 0) return 1;
+    if (summaryLimit === "all") return 1;
+    return Math.max(1, Math.ceil(filteredSummary.length / summaryPerPage));
+  }, [filteredSummary.length, summaryLimit, summaryPerPage]);
+
+  const paginatedSummary = useMemo(() => {
+    if (summaryLimit === "all") return filteredSummary;
+    const start = (summaryPage - 1) * summaryPerPage;
+    return filteredSummary.slice(start, start + summaryPerPage);
+  }, [filteredSummary, summaryLimit, summaryPage, summaryPerPage]);
+
+  useEffect(() => {
+    setSummaryPage((p) => Math.max(1, Math.min(p, summaryTotalPages)));
+  }, [summaryTotalPages]);
+
+  const summaryFrom = filteredSummary.length === 0 ? 0 : (summaryPage - 1) * summaryPerPage + 1;
+  const summaryTo   = filteredSummary.length === 0 ? 0 : summaryLimit === "all"
+    ? filteredSummary.length
+    : Math.min(summaryPage * summaryPerPage, filteredSummary.length);
 
   return (
     <>
@@ -1416,6 +1767,136 @@ export default function KasbonPinjaman() {
             ))}
           </div>
 
+          {/* ── Ringkasan Per Karyawan ──────────────────────────────────── */}
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-slate-100 px-5 py-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <HiOutlineUserGroup className="h-5 w-5 text-emerald-500" />
+                <h2 className="text-base font-bold text-slate-800">Ringkasan Per Karyawan</h2>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
+                {filteredSummary.length.toLocaleString("id-ID")} karyawan
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-3">Karyawan</th>
+                    <th className="px-4 py-3 text-center">Kasbon</th>
+                    <th className="px-4 py-3">Total Kasbon</th>
+                    <th className="px-4 py-3 text-center">Pinjaman</th>
+                    <th className="px-4 py-3">Total Pinjaman</th>
+                    <th className="px-4 py-3">Total Keseluruhan</th>
+                    <th className="px-4 py-3">Sisa Hutang</th>
+                    <th className="px-4 py-3 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summaryLoading && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center">
+                        <div className="inline-flex items-center gap-2 text-sm text-slate-400">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                          Memuat data...
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {!summaryLoading && filteredSummary.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400">
+                        {search ? `Tidak ada karyawan yang cocok dengan pencarian "${search}".` : "Tidak ada data pada periode ini."}
+                      </td>
+                    </tr>
+                  )}
+                  {!summaryLoading && paginatedSummary.map((emp) => (
+                    <tr key={emp.employee_id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-800">{toTitleCase(emp.employee_name)}</td>
+                      <td className="px-4 py-3 text-center text-slate-600">{emp.kasbon_count}x</td>
+                      <td className="px-4 py-3 text-violet-700 font-medium">{fmtRupiah(emp.kasbon_total)}</td>
+                      <td className="px-4 py-3 text-center text-slate-600">{emp.pinjaman_count}x</td>
+                      <td className="px-4 py-3 text-cyan-700 font-medium">{fmtRupiah(emp.pinjaman_total)}</td>
+                      <td className="px-4 py-3 font-bold text-slate-800">{fmtRupiah(emp.total_all)}</td>
+                      <td className="px-4 py-3">
+                        {emp.sisa > 0 ? (
+                          <span className="font-semibold text-amber-700">{fmtRupiah(emp.sisa)}</span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                            Nihil
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setEmployeeReport({ open: true, employee: emp })}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition"
+                        >
+                          <HiOutlinePrinter className="h-3.5 w-3.5" /> Laporan
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination footer */}
+            {!summaryLoading && filteredSummary.length > 0 && (
+              <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="text-slate-500">
+                    Menampilkan <strong className="text-slate-700">{summaryFrom}–{summaryTo}</strong> dari{" "}
+                    <strong className="text-slate-700">{filteredSummary.length}</strong> karyawan
+                    {search && summary.length !== filteredSummary.length && (
+                      <span className="ml-1 text-slate-400">(difilter dari {summary.length})</span>
+                    )}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-400">
+                    Tampil:
+                    <select
+                      value={summaryLimit}
+                      onChange={(e) => { setSummaryLimit(e.target.value); setSummaryPage(1); }}
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 outline-none focus:border-emerald-400"
+                    >
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="all">Semua</option>
+                    </select>
+                  </label>
+                </div>
+
+                {summaryTotalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button type="button" disabled={summaryPage <= 1}
+                      onClick={() => setSummaryPage((p) => p - 1)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition">
+                      <HiOutlineChevronLeft className="h-4 w-4" />
+                    </button>
+                    {generatePages(summaryPage, summaryTotalPages).map((p, i) =>
+                      p === "..." ? (
+                        <span key={`se-${i}`} className="px-1 text-slate-400 text-xs select-none">…</span>
+                      ) : (
+                        <button key={p} type="button" onClick={() => setSummaryPage(p)}
+                          className={cn(
+                            "inline-flex h-8 min-w-8 px-2 items-center justify-center rounded-lg border text-xs font-semibold transition",
+                            p === summaryPage ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                          )}>{p}</button>
+                      )
+                    )}
+                    <button type="button" disabled={summaryPage >= summaryTotalPages}
+                      onClick={() => setSummaryPage((p) => p + 1)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition">
+                      <HiOutlineChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
           {/* ── Table ───────────────────────────────────────────────────── */}
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="border-b border-slate-100 px-5 py-4 flex items-center justify-between gap-3">
@@ -1455,7 +1936,7 @@ export default function KasbonPinjaman() {
                   {!loading && sortedRows.map((row) => (
                     <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3.5 text-xs text-slate-600 whitespace-nowrap">{fmtDate(row.submission_date)}</td>
-                      <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">{row.employee_name}</td>
+                      <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">{toTitleCase(row.employee_name)}</td>
                       <td className="px-4 py-3.5"><TypeBadge type={row.type} /></td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs font-medium text-slate-700">{fmtRupiah(row.amount_requested)}</td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs font-bold text-emerald-700">
@@ -1588,7 +2069,15 @@ export default function KasbonPinjaman() {
         onConfirm={handleDelete}
         loading={deleting}
         title="Hapus Pengajuan"
-        desc={deleteTarget ? `${deleteTarget.employee_name} — ${fmtRupiah(deleteTarget.amount_requested)}` : ""}
+        desc={deleteTarget ? `${toTitleCase(deleteTarget.employee_name)} — ${fmtRupiah(deleteTarget.amount_requested)}` : ""}
+      />
+
+      <EmployeeReportModal
+        open={employeeReport.open}
+        onClose={() => setEmployeeReport({ open: false, employee: null })}
+        employee={employeeReport.employee}
+        startDate={filterStart}
+        endDate={filterEnd}
       />
 
       </>
