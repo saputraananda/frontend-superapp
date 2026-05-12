@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineChevronDown, HiOutlineExclamationTriangle, HiOutlineFunnel, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlineRectangleGroup, HiOutlineTrash, HiOutlineXCircle, HiOutlineXMark } from "react-icons/hi2";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { api } from "../../../lib/api";
@@ -31,11 +31,10 @@ export default function MasterDepartment() {
 	useEffect(() => { const h = (e) => { if (statusRef.current && !statusRef.current.contains(e.target)) setStatusOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
 	useEffect(() => { document.title = "Master Departemen | Alora Group Indonesia"; }, []);
 
-	const fetchItems = async () => { setLoading(true); try { const r = await api("/departments"); setItems(r.departments || []); } catch { showToast("error", "Gagal memuat data departemen"); } finally { setLoading(false); } };
-	const fetchCompanies = async () => { try { const r = await api("/companies"); setCompanies((r.companies || []).filter(c => c.is_active)); } catch { /* silently fail */ } };
-	useEffect(() => { fetchItems(); fetchCompanies(); }, []);
-
-	const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
+	const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
+	const fetchItems = useCallback(async () => { setLoading(true); try { const r = await api("/departments"); setItems(r.departments || []); } catch { showToast("error", "Gagal memuat data departemen"); } finally { setLoading(false); } }, [showToast]);
+	const fetchCompanies = useCallback(async () => { try { const r = await api("/companies"); setCompanies((r.companies || []).filter(c => c.is_active)); } catch { /* silently fail */ } }, []);
+	useEffect(() => { fetchItems(); fetchCompanies(); }, [fetchItems, fetchCompanies]);
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
 	const openEdit = (item) => { setEditTarget(item); setForm({ company_code: item.company_code, department_name: item.department_name, is_active: Boolean(item.is_active) }); setErrors({}); setModalOpen(true); };
 	const closeModal = () => { setModalOpen(false); setEditTarget(null); };

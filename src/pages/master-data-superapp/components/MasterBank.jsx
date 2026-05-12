@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	HiOutlineBuildingLibrary,
 	HiOutlineCheckCircle,
@@ -83,15 +83,14 @@ export default function MasterBank() {
 
 	useEffect(() => { document.title = "Master Bank | Alora Group Indonesia"; }, []);
 
-	const fetchItems = async () => {
+	const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
+	const fetchItems = useCallback(async () => {
 		setLoading(true);
 		try { const r = await api("/banks"); setItems(r.banks || []); }
 		catch { showToast("error", "Gagal memuat data bank"); }
 		finally { setLoading(false); }
-	};
-	useEffect(() => { fetchItems(); }, []);
-
-	const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
+	}, [showToast]);
+	useEffect(() => { fetchItems(); }, [fetchItems]);
 
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
 	const openEdit = (item) => {

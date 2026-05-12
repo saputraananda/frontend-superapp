@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	HiOutlineCheckCircle,
 	HiOutlineChevronDown,
@@ -140,8 +140,14 @@ export default function MasterMenu() {
 		document.title = "Master Menu | Alora Group Indonesia";
 	}, []);
 
+	// ── Toast ──────────────────────────────────────────────────────────────
+	const showToast = useCallback((type, msg) => {
+		setToast({ type, msg });
+		setTimeout(() => setToast(null), 3500);
+	}, []);
+
 	// ── Fetch ──────────────────────────────────────────────────────────────
-	const fetchApps = async () => {
+	const fetchApps = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await api("/menus");
@@ -151,15 +157,9 @@ export default function MasterMenu() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [showToast]);
 
-	useEffect(() => { fetchApps(); }, []);
-
-	// ── Toast ──────────────────────────────────────────────────────────────
-	const showToast = (type, msg) => {
-		setToast({ type, msg });
-		setTimeout(() => setToast(null), 3500);
-	};
+	useEffect(() => { fetchApps(); }, [fetchApps]);
 
 	// ── Modal ──────────────────────────────────────────────────────────────
 	const openAdd = () => {

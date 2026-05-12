@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	HiOutlineBookOpen,
 	HiOutlineCheckCircle,
@@ -66,15 +66,14 @@ export default function MasterReligion() {
 	}, []);
 	useEffect(() => { document.title = "Master Agama | Alora Group Indonesia"; }, []);
 
-	const fetchItems = async () => {
+	const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
+	const fetchItems = useCallback(async () => {
 		setLoading(true);
 		try { const r = await api("/religions"); setItems(r.religions || []); }
 		catch { showToast("error", "Gagal memuat data agama"); }
 		finally { setLoading(false); }
-	};
-	useEffect(() => { fetchItems(); }, []);
-
-	const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
+	}, [showToast]);
+	useEffect(() => { fetchItems(); }, [fetchItems]);
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
 	const openEdit = (item) => { setEditTarget(item); setForm({ religion_name: item.religion_name, is_active: Boolean(item.is_active) }); setErrors({}); setModalOpen(true); };
 	const closeModal = () => { setModalOpen(false); setEditTarget(null); };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineExclamationTriangle, HiOutlineMapPin, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlineTrash, HiOutlineXMark } from "react-icons/hi2";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { api } from "../../../lib/api";
@@ -25,10 +25,9 @@ export default function MasterOutlet() {
 
 	useEffect(() => { document.title = "Master Outlet | Alora Group Indonesia"; }, []);
 
-	const fetchItems = async () => { setLoading(true); try { const r = await api("/outlets"); setItems(r.outlets || []); } catch { showToast("error", "Gagal memuat data outlet"); } finally { setLoading(false); } };
-	useEffect(() => { fetchItems(); }, []);
-
-	const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
+	const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
+	const fetchItems = useCallback(async () => { setLoading(true); try { const r = await api("/outlets"); setItems(r.outlets || []); } catch { showToast("error", "Gagal memuat data outlet"); } finally { setLoading(false); } }, [showToast]);
+	useEffect(() => { fetchItems(); }, [fetchItems]);
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
 	const openEdit = (item) => { setEditTarget(item); setForm({ name: item.name, full_name: item.full_name, lat: item.lat ?? "", lon: item.lon ?? "" }); setErrors({}); setModalOpen(true); };
 	const closeModal = () => { setModalOpen(false); setEditTarget(null); };

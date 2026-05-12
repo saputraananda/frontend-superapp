@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	HiOutlineCheckCircle,
 	HiOutlineChevronDown,
@@ -128,8 +128,14 @@ export default function MasterUser() {
 		document.title = "Master User | Alora Group Indonesia";
 	}, []);
 
+	// ── Toast ──────────────────────────────────────────────────────────────
+	const showToast = useCallback((type, msg) => {
+		setToast({ type, msg });
+		setTimeout(() => setToast(null), 3500);
+	}, []);
+
 	// ── Fetch ──────────────────────────────────────────────────────────────
-	const fetchUsers = async () => {
+	const fetchUsers = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await api("/users");
@@ -139,15 +145,9 @@ export default function MasterUser() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [showToast]);
 
-	useEffect(() => { fetchUsers(); }, []);
-
-	// ── Toast ──────────────────────────────────────────────────────────────
-	const showToast = (type, msg) => {
-		setToast({ type, msg });
-		setTimeout(() => setToast(null), 3500);
-	};
+	useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
 	// ── Modal ──────────────────────────────────────────────────────────────
 	const openAdd = () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HiOutlineBriefcase, HiOutlineCheckCircle, HiOutlineChevronDown, HiOutlineExclamationTriangle, HiOutlineFunnel, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlineTrash, HiOutlineXCircle, HiOutlineXMark } from "react-icons/hi2";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { api } from "../../../lib/api";
@@ -30,10 +30,9 @@ export default function MasterEmployeeStatus() {
 	useEffect(() => { const h = (e) => { if (statusRef.current && !statusRef.current.contains(e.target)) setStatusOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
 	useEffect(() => { document.title = "Master Status Karyawan | Alora Group Indonesia"; }, []);
 
-	const fetchItems = async () => { setLoading(true); try { const r = await api("/employment-statuses"); setItems(r.employeeStatuses || []); } catch { showToast("error", "Gagal memuat data status karyawan"); } finally { setLoading(false); } };
-	useEffect(() => { fetchItems(); }, []);
-
-	const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
+	const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
+	const fetchItems = useCallback(async () => { setLoading(true); try { const r = await api("/employment-statuses"); setItems(r.employeeStatuses || []); } catch { showToast("error", "Gagal memuat data status karyawan"); } finally { setLoading(false); } }, [showToast]);
+	useEffect(() => { fetchItems(); }, [fetchItems]);
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
 	const openEdit = (item) => { setEditTarget(item); setForm({ employment_status_name: item.employment_status_name, is_active: Boolean(item.is_active) }); setErrors({}); setModalOpen(true); };
 	const closeModal = () => { setModalOpen(false); setEditTarget(null); };
