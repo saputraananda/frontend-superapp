@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./lib/api";
-import AddUser from "./pages/add-user";
-import AddMenu from "./pages/add-menu";
+import MasterDataSuperApp from "./pages/master-data-superapp";
+import MasterUser from "./pages/master-data-superapp/components/MasterUser";
+import MasterMenu from "./pages/master-data-superapp/components/MasterMenu";
+import MasterBank from "./pages/master-data-superapp/components/MasterBank";
+import MasterCompany from "./pages/master-data-superapp/components/MasterCompany";
+import MasterDepartment from "./pages/master-data-superapp/components/MasterDepartment";
+import MasterEducationLevel from "./pages/master-data-superapp/components/MasterEducationLevel";
+import MasterEmployeeStatus from "./pages/master-data-superapp/components/MasterEmployeeStatus";
+import MasterJobLevel from "./pages/master-data-superapp/components/MasterJobLevel";
+import MasterOutlet from "./pages/master-data-superapp/components/MasterOutlet";
+import MasterPosition from "./pages/master-data-superapp/components/MasterPosition";
+import MasterReligion from "./pages/master-data-superapp/components/MasterReligion";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
@@ -107,25 +117,32 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ── Add User ── */}
+        {/* ── Master Data SuperApp ── */}
         <Route
-          path="/add-user"
+          path="/master-data-superapp"
           element={
-            <ProtectedRoute user={user} allowedRoles={appRoles["/add-user"]}>
-              <AddUser user={user} onLogout={handleLogout} />
+            <ProtectedRoute user={user} allowedRoles={appRoles["/master-data-superapp"]}>
+              <MasterDataSuperApp />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<Navigate to="/master-data-superapp/master-user" replace />} />
+          <Route path="master-user" element={<MasterUser />} />
+          <Route path="master-menu" element={<MasterMenu />} />
+          <Route path="master-bank" element={<MasterBank />} />
+          <Route path="master-company" element={<MasterCompany />} />
+          <Route path="master-department" element={<MasterDepartment />} />
+          <Route path="master-education-level" element={<MasterEducationLevel />} />
+          <Route path="master-employee-status" element={<MasterEmployeeStatus />} />
+          <Route path="master-job-level" element={<MasterJobLevel />} />
+          <Route path="master-outlet" element={<MasterOutlet />} />
+          <Route path="master-position" element={<MasterPosition />} />
+          <Route path="master-religion" element={<MasterReligion />} />
+        </Route>
 
-        {/* ── Add Menu ── */}
-        <Route
-          path="/add-menu"
-          element={
-            <ProtectedRoute user={user} allowedRoles={appRoles["/add-menu"]}>
-              <AddMenu user={user} onLogout={handleLogout} />
-            </ProtectedRoute>
-          }
-        />
+        {/* ── Legacy redirects ── */}
+        <Route path="/add-user" element={<Navigate to="/master-data-superapp/master-user" replace />} />
+        <Route path="/add-menu" element={<Navigate to="/master-data-superapp/master-menu" replace />} />
 
         {/* ── Login ── */}
         <Route

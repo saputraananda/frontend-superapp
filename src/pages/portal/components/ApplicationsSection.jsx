@@ -27,7 +27,19 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
         </svg>
       );
-    if (name.includes("master") || name.includes("karyawan"))
+    if (name.includes("karyawan"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+        </svg>
+      );
+    if (name.includes("master data") || name.includes("superapp"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 5a2 2 0 012-2h2.586A2 2 0 0110 3.586L10.414 4H18a2 2 0 012 2v1H4V5zM2 9a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V9zm7 2a1 1 0 000 2h6a1 1 0 100-2H9zm-1 4a1 1 0 011-1h4a1 1 0 110 2H9a1 1 0 01-1-1z" />
+        </svg>
+      );
+    if (name.includes("master"))
       return (
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
           <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
@@ -39,28 +51,10 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clipRule="evenodd" />
         </svg>
       );
-    if (name.includes("add-user") || name.includes("add user") || name.includes("user employee"))
-      return (
-        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-        </svg>
-      );
-    if (name.includes("add-menu") || name.includes("add menu") || name.includes("menu app"))
-      return (
-        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zm13-3a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1v-1z" clipRule="evenodd" />
-        </svg>
-      );
     if (name.includes("absensi") || name.includes("attendance"))
       return (
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
           <path d="M7 2a1 1 0 012 0v1h6V2a1 1 0 112 0v1h1.5A2.5 2.5 0 0121 5.5v14A2.5 2.5 0 0118.5 22h-13A2.5 2.5 0 013 19.5v-14A2.5 2.5 0 015.5 3H7V2zM5 9v10.5c0 .28.22.5.5.5h13a.5.5 0 00.5-.5V9H5zm10.7 3.3a1 1 0 10-1.4-1.42l-3.1 3.08-1.5-1.48a1 1 0 10-1.4 1.42l2.2 2.17a1 1 0 001.4 0l3.8-3.77z" />
-        </svg>
-      );
-    if (name.includes("weekly") || name.includes("leader") || name.includes("report"))
-      return (
-        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 10a1 1 0 10-2 0v3a1 1 0 102 0v-3zm2-3a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zm4-1a1 1 0 10-2 0v7a1 1 0 102 0V8z" clipRule="evenodd" />
         </svg>
       );
     if (name.includes("aset") || name.includes("asset"))
@@ -112,12 +106,11 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     const name = appName.toLowerCase();
     if (name.includes("project")) return "bg-blue-600";
     if (name.includes("sales")) return "bg-indigo-500";
-    if (name.includes("master") || name.includes("karyawan")) return "bg-cyan-500";
+    if (name.includes("karyawan")) return "bg-cyan-500";
+    if (name.includes("master data") || name.includes("superapp")) return "bg-violet-600";
+    if (name.includes("master")) return "bg-cyan-500";
     if (name.includes("satisfaction")) return "bg-rose-400";
-    if (name.includes("add-user") || name.includes("add user") || name.includes("user employee")) return "bg-violet-500";
-    if (name.includes("add-menu") || name.includes("add menu") || name.includes("menu app")) return "bg-teal-500";
     if (name.includes("absensi") || name.includes("attendance")) return "bg-emerald-500";
-    if (name.includes("weekly") || name.includes("leader") || name.includes("report")) return "bg-indigo-500";
     if (name.includes("aset") || name.includes("asset")) return "bg-amber-500";
     if (name.includes("rumah sakit") || name.includes("hospital") || name.includes("rs ikm")) return "bg-red-500";
     if (name.includes("target")) return "bg-orange-500";
