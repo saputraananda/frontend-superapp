@@ -602,6 +602,7 @@ export default function DaftarKomplain() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Nama / Nota</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Outlet</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Topik</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Bahan</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Tipe</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-500">Track Progress</th>
@@ -620,6 +621,7 @@ export default function DaftarKomplain() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{c.outlet_name}</td>
                   <td className="px-4 py-3 text-slate-600">{c.topic_name}</td>
+                  <td className="px-4 py-3 text-slate-600">{c.category_name || <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{c.type_name}</td>
                   <td className="px-4 py-3"><Badge progress={c.progress} /></td>
                   <td className="px-4 py-3">

@@ -9,7 +9,7 @@ import {
   HiOutlineMagnifyingGlass, HiOutlineClock, HiOutlineCheckCircle,
   HiOutlineEye, HiOutlinePrinter,
 } from "react-icons/hi2";
-import { api } from "../../../lib/api";
+import { api, apiUpload } from "../../../lib/api";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -213,7 +213,10 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [statusNote, setStatusNote] = useState("");
+  const [statusFile, setStatusFile] = useState(null);
+  const [statusFilePreview, setStatusFilePreview] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState(null); // { url, label }
 
   useEffect(() => {
     if (!open) return;
@@ -235,6 +238,8 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
     }
     setError("");
     setStatusNote("");
+    setStatusFile(null);
+    setStatusFilePreview(null);
   }, [open, editData]);
 
   const handleSubmit = async (e) => {
@@ -260,10 +265,12 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
     if (!editData || !nextStatus) return;
     setUpdatingStatus(true);
     try {
-      await api(`/ikm/linen-report/${editData.id}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status: nextStatus, note: statusNote, by_name: getCurrentUser().name }),
-      });
+      const fd = new FormData();
+      fd.append("status", nextStatus);
+      fd.append("note", statusNote);
+      fd.append("by_name", getCurrentUser().name);
+      if (statusFile) fd.append("attachment", statusFile);
+      await apiUpload(`/ikm/linen-report/${editData.id}/status`, { method: "PUT", body: fd });
       onSaved();
       onClose();
     } catch (err) {
@@ -282,29 +289,35 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
     {
       key: "terkirim",
       label: "Laporan Terkirim",
+      photoLabel: "Lihat Foto Laporan",
       icon: HiOutlineClipboardDocumentList,
       active: true,
       date: editData.created_at,
       by: editData.reporter_name,
       note: editData.sending_note,
+      photoUrl: editData.attachment_url,
     },
     {
       key: "proses",
       label: "Sedang Diproses",
+      photoLabel: "Lihat Foto Proses",
       icon: HiOutlineClock,
       active: ["proses", "selesai"].includes(editData.status),
       date: editData.process_at,
       by: editData.process_by_name,
       note: editData.process_note,
+      photoUrl: editData.process_path_url,
     },
     {
       key: "selesai",
       label: "Selesai",
+      photoLabel: "Lihat Foto Selesai",
       icon: HiOutlineCheckCircle,
       active: editData.status === "selesai",
       date: editData.completed_at,
       by: editData.completed_by_name,
       note: editData.completed_note,
+      photoUrl: editData.completed_path_url,
     },
   ] : [];
 
@@ -373,6 +386,16 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
                                   <p className="text-sm text-slate-700 leading-relaxed">{step.note}</p>
                                 </div>
                               )}
+                              {step.active && step.photoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPhotoViewer({ url: step.photoUrl, label: step.photoLabel })}
+                                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 active:scale-95"
+                                >
+                                  <HiOutlinePhoto className="h-3.5 w-3.5 shrink-0" />
+                                  {step.photoLabel}
+                                </button>
+                              )}
                               {!step.active && <p className="text-xs text-slate-300 mt-0.5">Belum ada aktivitas</p>}
                             </div>
                           </div>
@@ -406,6 +429,42 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
                         placeholder={editData.status === "terkirim" ? "Contoh: Baik, coba selesaikan ke Pak Heru untuk dijahit" : "Contoh: Baik sudah selesai dan sudah diberikan ke RS kembali"}
                         disabled={updatingStatus}
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                        Foto Bukti <span className="font-normal text-slate-400">(opsional)</span>
+                      </label>
+                      <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 transition ${
+                        statusFile ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/50"
+                      } ${updatingStatus ? "pointer-events-none opacity-50" : ""}`}>
+                        <HiOutlinePhoto className="h-5 w-5 shrink-0 text-slate-400" />
+                        <span className="text-xs text-slate-500 truncate">
+                          {statusFile ? statusFile.name : "Klik untuk upload foto bukti..."}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={updatingStatus}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] || null;
+                            setStatusFile(f);
+                            setStatusFilePreview(f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
+                          }}
+                        />
+                      </label>
+                      {statusFilePreview && (
+                        <div className="mt-2 relative inline-block">
+                          <img src={statusFilePreview} alt="preview" className="h-20 w-20 rounded-xl border border-slate-200 object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => { setStatusFile(null); setStatusFilePreview(null); }}
+                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow hover:bg-rose-600"
+                          >
+                            <HiOutlineXMark className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       {editData.status === "terkirim" && (
@@ -520,11 +579,56 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
           </div>
         </div>
       </div>
+
+      {/* Photo Lightbox — rendered inside the modal backdrop stack */}
+      {photoViewer && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setPhotoViewer(null)}
+        >
+          <div
+            className="relative flex max-h-[90vh] max-w-[94vw] flex-col overflow-hidden rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Lightbox header */}
+            <div className="flex items-center justify-between bg-slate-900/90 px-4 py-2.5">
+              <span className="text-sm font-semibold text-white">{photoViewer.label}</span>
+              <button
+                type="button"
+                onClick={() => setPhotoViewer(null)}
+                className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/25"
+                aria-label="Tutup foto"
+              >
+                <HiOutlineXMark className="h-5 w-5" />
+              </button>
+            </div>
+            {/* Image or PDF */}
+            {/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(photoViewer.url) ? (
+              <img
+                src={photoViewer.url}
+                alt={photoViewer.label}
+                className="max-h-[80vh] w-auto max-w-[94vw] object-contain bg-black"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4 bg-white px-8 py-10">
+                <HiOutlinePhoto className="h-14 w-14 text-slate-300" />
+                <p className="text-sm text-slate-600">{photoViewer.label}</p>
+                <a
+                  href={photoViewer.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                >
+                  <HiOutlineArrowDownTray className="h-4 w-4" /> Buka Dokumen
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-// ─── Delete Confirm ───────────────────────────────────────────────────────────
 function DeleteModal({ open, onClose, onConfirm, target, loading }) {
   if (!open) return null;
   return (
@@ -561,9 +665,6 @@ function printLinenReport(row) {
   const logoUrl = `${window.location.origin}/ikm.png`;
   const reportNo = `LR-${String(row.id).padStart(5, "0")}`;
 
-  const statusLabel = { terkirim: "Terkirim", proses: "Sedang Diproses", selesai: "Selesai" }[row.status] || row.status;
-  const statusCls = { terkirim: "badge-terkirim", proses: "badge-proses", selesai: "badge-selesai" }[row.status] || "badge-terkirim";
-
   const fmt = (v) => {
     if (!v) return "-";
     const d = new Date(v);
@@ -576,10 +677,6 @@ function printLinenReport(row) {
   const reporterName = (row.reporter_name || "")
     .replace(/\s*\(.*?\)\s*/g, "").trim()
     .toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) || "_______________";
-
-  const processRows = [];
-  if (row.process_by_name) processRows.push(`<tr><td>Diproses</td><td>${row.process_by_name}</td><td>${fmt(row.process_at)}</td><td>${row.process_note || "-"}</td></tr>`);
-  if (row.completed_by_name) processRows.push(`<tr><td>Diselesaikan</td><td>${row.completed_by_name}</td><td>${fmt(row.completed_at)}</td><td>${row.completed_note || "-"}</td></tr>`);
 
   const html = `<!DOCTYPE html>
 <html lang="id">
@@ -688,8 +785,7 @@ function printLinenReport(row) {
       <td class="lbl">Rumah Sakit</td><td class="col">:</td><td class="val">${row.hospital_name || "-"}</td>
     </tr>
     <tr>
-      <td class="lbl">Lokasi Temuan</td><td class="col">:</td><td class="val">${row.finding_location || "-"}</td>
-      <td class="lbl">Status</td><td class="col">:</td><td class="val"><span class="${statusCls}">${statusLabel}</span></td>
+      <td class="lbl">Lokasi Temuan</td><td class="col">:</td><td class="val" colspan="4">${row.finding_location || "-"}</td>
     </tr>
   </table>
 
@@ -701,14 +797,6 @@ function printLinenReport(row) {
     <tr><td class="lbl">Jumlah Temuan</td><td class="col">:</td><td class="val" colspan="3"><strong>${row.finding_qty || 0} pcs</strong></td></tr>
     ${row.sending_note ? `<tr><td class="lbl">Catatan Pengiriman</td><td class="col">:</td><td class="val" colspan="3">${row.sending_note}</td></tr>` : ""}
   </table>
-
-  ${processRows.length ? `
-  <!-- Riwayat Tindak Lanjut -->
-  <div class="sec-title">C. Riwayat Tindak Lanjut</div>
-  <table class="proc-table">
-    <thead><tr><th>Tahap</th><th>Oleh</th><th>Tanggal</th><th>Catatan</th></tr></thead>
-    <tbody>${processRows.join("")}</tbody>
-  </table>` : ""}
 
   <!-- Tanda Tangan -->
   <div class="sig-grid">

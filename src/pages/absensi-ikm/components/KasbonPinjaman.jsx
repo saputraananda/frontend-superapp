@@ -26,6 +26,7 @@ import {
   HiOutlineDocumentText,
 } from "react-icons/hi2";
 import { api, apiUpload, BASE_URL } from "../../../lib/api";
+import { exportKasbonExcel } from "../utils/exportKasbonExcel";
 
 function cn(...c) {
   return c.filter(Boolean).join(" ");
@@ -1584,6 +1585,43 @@ export default function KasbonPinjaman() {
   const hasFilter = filterType || filterStatus || search ||
     filterStart !== DEFAULT_CUTOFF.start || filterEnd !== DEFAULT_CUTOFF.end;
 
+  // ── Export Excel ──────────────────────────────────────────────────────────
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ page: 1, limit: 9999 });
+      if (filterType)   params.set("type",      filterType);
+      if (filterStatus) params.set("status",    filterStatus);
+      if (filterStart)  params.set("startDate", filterStart);
+      if (filterEnd)    params.set("endDate",   filterEnd);
+      if (search)       params.set("search",    search);
+
+      const [listRes, summaryRes] = await Promise.all([
+        api(`/ikm/kasbon?${params.toString()}`),
+        api(`/ikm/kasbon/employee-summary?${new URLSearchParams(
+          Object.fromEntries([
+            filterStart && ["startDate", filterStart],
+            filterEnd   && ["endDate",   filterEnd],
+          ].filter(Boolean))
+        ).toString()}`),
+      ]);
+
+      exportKasbonExcel({
+        rows:      listRes.data || [],
+        summary:   summaryRes.data || [],
+        startDate: filterStart,
+        endDate:   filterEnd,
+        filters:   { type: filterType, status: filterStatus, search },
+      });
+    } catch (e) {
+      showToast(e.message || "Gagal mengekspor Excel", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -1904,9 +1942,22 @@ export default function KasbonPinjaman() {
                 <HiOutlineBanknotes className="h-5 w-5 text-violet-500" />
                 <h2 className="text-base font-bold text-slate-800">Daftar Kasbon &amp; Pinjaman</h2>
               </div>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
-                {pagination.total.toLocaleString("id-ID")} data
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
+                  {pagination.total.toLocaleString("id-ID")} data
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
+                >
+                  {exporting
+                    ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-700" />
+                    : <HiOutlineArrowDownTray className="h-3.5 w-3.5" />}
+                  {exporting ? "Memproses..." : "Export Excel"}
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
