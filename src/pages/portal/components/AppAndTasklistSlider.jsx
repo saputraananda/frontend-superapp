@@ -6,7 +6,7 @@ const IconClipboard = () => (
 );
 
 const tabs = [
-  { id: "apps", label: "Aplikasi Untuk Kamu", icon: <HiOutlineSquares2X2 className="h-4 w-4" /> },
+  { id: "apps", label: "Menu Untuk Kamu", icon: <HiOutlineSquares2X2 className="h-4 w-4" /> },
   { id: "tasklist", label: "To Do List Kamu", icon: <IconClipboard /> },
 ];
 

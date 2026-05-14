@@ -14,6 +14,7 @@ import BroadcastBanner from "./components/BroadcastBanner";
 import AloraChatBot from "./components/AloraChatBot";
 import PersonalTasklistCard from "./components/PersonalTasklistCard";
 import AppAndTasklistSlider from "./components/AppAndTasklistSlider";
+import AppShortcutsCard from "./components/AppShortcutsCard";
 // import BirthdayPortalTheme from "./components/BirthdayPortalTheme";
 
 export default function Portal({ user, onLogout }) {
@@ -104,6 +105,7 @@ export default function Portal({ user, onLogout }) {
           <div className="flex-1 space-y-6">
             {/* <BroadcastBanner /> */}
             <StatsCards companyId={employeeData?.company_id} />
+            <AppShortcutsCard />
             <AppAndTasklistSlider>
               <ApplicationsSection
                 apps={apps}

@@ -454,7 +454,7 @@ export default function Login({ onLogin }) {
                                                 onFocus={() => setFocusedField("id")}
                                                 onBlur={() => setFocusedField(null)}
                                                 className="w-full rounded-2xl border border-white/60 bg-white/55 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm outline-none backdrop-blur-md transition-all duration-200 focus:border-indigo-300 focus:bg-white/80 focus:ring-4 focus:ring-indigo-200/50"
-                                                placeholder="contoh: nama@alora.id atau username"
+                                                placeholder="username"
                                                 autoComplete="username"
                                                 required
                                             />

@@ -124,7 +124,7 @@ export default function StatsCards({ companyId }) {
     }, [isIkm]);
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* ═══════════════════════════════════════════════════════════════════ */}
             {/* Total Karyawan (Data Sementara) */}
             {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -146,15 +146,15 @@ export default function StatsCards({ companyId }) {
                         </div>
                     </div>
 
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="text-3xl font-bold text-slate-800">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-2xl lg:text-3xl font-bold text-slate-800">
                             {currentEmployee.toLocaleString("id-ID")}
                         </span>
                         <span className="text-sm text-slate-500 font-medium">karyawan aktif</span>
                     </div>
 
                     <div className="space-y-1.5">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
                             {breakdown.map((b) => (
                                 <div key={b.label} className="flex items-center gap-1">
                                     <span className={`h-2 w-2 rounded-full ${b.color}`} />
@@ -227,16 +227,16 @@ export default function StatsCards({ companyId }) {
                     ) : (
                         <>
                             <div className="space-y-1">
-                                <div className="flex items-baseline justify-between">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-xs text-slate-500 font-medium">Rp</span>
-                                        <span className="text-2xl font-bold text-slate-800">
+                                <div className="flex items-baseline justify-between min-w-0 gap-1">
+                                    <div className="flex items-baseline gap-1 min-w-0 flex-1">
+                                        <span className="text-xs text-slate-500 font-medium flex-shrink-0">Rp</span>
+                                        <span className="text-xl lg:text-2xl font-bold text-slate-800 truncate">
                                             {formatNumber(salesData.actual_sales)}
                                         </span>
-                                        <span className="text-xs text-slate-500 font-medium">{salesUnit}</span>
+                                        <span className="text-xs text-slate-500 font-medium flex-shrink-0">{salesUnit}</span>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-lg font-bold text-blue-600">{salesData.percentage}%</span>
+                                    <div className="text-right flex-shrink-0">
+                                        <span className="text-base lg:text-lg font-bold text-blue-600">{salesData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
@@ -294,15 +294,15 @@ export default function StatsCards({ companyId }) {
                     ) : (
                         <>
                             <div className="space-y-1">
-                                <div className="flex items-baseline justify-between">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-2xl font-bold text-slate-800">
+                                <div className="flex items-baseline justify-between min-w-0 gap-1">
+                                    <div className="flex items-baseline gap-1 min-w-0 flex-1 flex-wrap">
+                                        <span className="text-xl lg:text-2xl font-bold text-slate-800">
                                             {customerData.actual_customer.toLocaleString('id-ID')}
                                         </span>
                                         <span className="text-xs text-slate-500 font-medium">{isIkm ? "RS aktif" : "pelanggan aktif"}</span>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-lg font-bold text-amber-600">{customerData.percentage}%</span>
+                                    <div className="text-right flex-shrink-0">
+                                        <span className="text-base lg:text-lg font-bold text-amber-600">{customerData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">

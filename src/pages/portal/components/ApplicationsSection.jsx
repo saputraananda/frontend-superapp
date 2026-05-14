@@ -127,7 +127,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-blue-100">
           <HiOutlineSquares2X2 className="h-4 w-4 text-blue-600" />
         </div>
-        <h2 className="text-base font-bold text-slate-800">Aplikasi Untuk Kamu</h2>
+        <h2 className="text-base font-bold text-slate-800">Menu Untuk Kamu</h2>
         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
           {apps.length}
         </span>
@@ -139,7 +139,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cari layanan atau aplikasi..."
+          placeholder="Cari layanan atau menu..."
           className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 pl-11 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
         />
         <svg className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,7 +150,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
       {/* Apps Grid */}
       {filteredApps.length === 0 ? (
         <div className="py-8 text-center">
-          <p className="text-slate-500 text-sm">Tidak ada aplikasi ditemukan.</p>
+          <p className="text-slate-500 text-sm">Tidak ada menu ditemukan.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -178,7 +178,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
       {/* Footer info */}
       {filteredApps.length > 0 && (
         <p className="mt-4 text-center text-xs text-slate-400">
-          Menampilkan <span className="font-semibold text-slate-600">{filteredApps.length}</span> aplikasi
+          Menampilkan <span className="font-semibold text-slate-600">{filteredApps.length}</span> menu
         </p>
       )}
     </div>
