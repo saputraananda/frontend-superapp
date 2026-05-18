@@ -215,8 +215,8 @@ export default function Profile() {
     if (!formData.employee_code?.trim()) errs.employee_code = "Nomor Induk Karyawan wajib diisi.";
     if (!formData.company_id) errs.company_id = "Perusahaan wajib diisi.";
     if (!formData.job_level_id) errs.job_level_id = "Jabatan wajib diisi.";
-    if (formData.phone_number && !/^[0-9+()\-\s]{6,}$/.test(formData.phone_number))
-      errs.phone_number = "Format nomor telepon tidak valid.";
+    if (formData.phone_number && !/^08[0-9]{7,11}$/.test(formData.phone_number))
+      errs.phone_number = "Format harus diawali 08, hanya angka, contoh: 087770597000";
     if (formData.ktp_number && formData.ktp_number.length < 10)
       errs.ktp_number = "No. KTP terlalu pendek.";
     if (formData.npwp_number && formData.npwp_number.length < 10)
@@ -621,7 +621,7 @@ export default function Profile() {
                           </Field>
                           <Field label="No. Telepon" error={fieldErrors.phone_number}>
                             <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange}
-                              className={inputCls(fieldErrors.phone_number)} placeholder="Contoh +6281234567890 (Format Indonesia)" />
+                              className={inputCls(fieldErrors.phone_number)} placeholder="Contoh: 087770597000" />
                           </Field>
                         </div>
                       </Panel>

@@ -63,3 +63,19 @@ export function assetUrl(p) {
 
   return `${BASE_URL}/${clean}`;
 }
+
+/**
+ * Build URL thumbnail WebP (420×315, q70) untuk aset photo.
+ * path_value harus berformat "aset_photos/filename.ext"
+ * Fallback ke assetUrl jika bukan aset_photos.
+ */
+export function thumbUrl(p) {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  const clean = String(p).replace(/^\/+/, "").replace(/^assets\//, "");
+  if (clean.startsWith("aset_photos/")) {
+    const filename = clean.replace("aset_photos/", "");
+    return `${BASE_URL}/aset/thumb/${encodeURIComponent(filename)}`;
+  }
+  return assetUrl(p);
+}

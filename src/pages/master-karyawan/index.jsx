@@ -38,28 +38,16 @@ function calcCompleteness(emp) {
     return Math.round((filled / COMPLETENESS_FIELDS.length) * 100);
 }
 
-/* ─── Completeness Bar ─── */
+/* ─── Completeness Badge ─── */
 function CompletenessBar({ pct }) {
-    const color =
-        pct >= 80 ? "bg-emerald-500" :
-            pct >= 50 ? "bg-amber-400" :
-                "bg-rose-500";
     const textColor =
-        pct >= 80 ? "text-emerald-700" :
-            pct >= 50 ? "text-amber-700" :
-                "text-rose-600";
+        pct >= 80 ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
+            pct >= 50 ? "text-amber-700 bg-amber-50 border-amber-200" :
+                "text-rose-600 bg-rose-50 border-rose-200";
     return (
-        <div className="flex items-center gap-2 min-w-[120px]">
-            <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                    className={cn("h-full rounded-full transition-all duration-500", color)}
-                    style={{ width: `${pct}%` }}
-                />
-            </div>
-            <span className={cn("text-xs font-bold tabular-nums w-8 shrink-0 text-right", textColor)}>
-                {pct}%
-            </span>
-        </div>
+        <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold tabular-nums", textColor)}>
+            {pct}%
+        </span>
     );
 }
 
@@ -175,7 +163,7 @@ function Avatar({ src, name, size = "md" }) {
     );
 }
 
-const LIMIT = 20;
+const LIMIT_OPTIONS = [10, 20, 50, 100, 0]; // 0 = Semua
 const selectCls = "rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition shadow-sm";
 
 export default function MasterKaryawan() {
@@ -194,7 +182,14 @@ export default function MasterKaryawan() {
     const [filterStatus, setFilterStatus] = useState("");
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
+    const [limit, setLimit] = useState(0); // 0 = Semua
     const [view, setView] = useState("dashboard");
+
+    // Auto-search dengan debounce 400ms
+    useEffect(() => {
+        const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
     useEffect(() => {
         document.title = "Master Karyawan | Alora Group Indonesia";
@@ -223,19 +218,18 @@ export default function MasterKaryawan() {
             if (filterStatus) params.set("status", filterStatus);
             if (search) params.set("search", search);
             params.set("page", page);
-            params.set("limit", LIMIT);
+            params.set("limit", limit === 0 ? 99999 : limit);
             const res = await api(`/hr/employees?${params}`);
             setEmployees(res.data || []);
             setTotal(res.total || 0);
         } catch (e) { console.error(e); }
         finally { setLoadingTable(false); }
-    }, [filterCompany, filterDept, filterStatus, search, page]);
+    }, [filterCompany, filterDept, filterStatus, search, page, limit]);
 
     useEffect(() => { loadSummary(); }, [loadSummary]);
     useEffect(() => { if (view === "list") loadTable(); }, [loadTable, view]);
 
-    const totalPages = Math.ceil(total / LIMIT);
-    const handleSearch = () => { setSearch(searchInput); setPage(1); };
+    const totalPages = limit === 0 ? 1 : Math.ceil(total / limit);
     const handleFilterChange = (setter) => (e) => { setter(e.target.value); setPage(1); };
 
     if (loadingSummary && view === "dashboard") return <LoadingScreen />;
@@ -397,15 +391,9 @@ export default function MasterKaryawan() {
                                     type="text"
                                     value={searchInput}
                                     onChange={(e) => setSearchInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                                     placeholder="Cari nama, email, NIK..."
                                     className="px-3 py-2.5 text-sm outline-none w-60 bg-transparent text-slate-700 placeholder:text-slate-300"
                                 />
-                                <button
-                                    onClick={handleSearch}
-                                    className="px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition">
-                                    Cari
-                                </button>
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap">
@@ -426,8 +414,24 @@ export default function MasterKaryawan() {
                             <p className="sm:ml-auto text-sm text-slate-500">
                                 <span className="font-bold text-slate-700 tabular-nums">{total}</span> karyawan ditemukan
                             </p>
+                            <div className="flex items-center gap-1.5 sm:ml-0">
+                                <span className="text-xs text-slate-400 shrink-0">Tampilkan:</span>
+                                {LIMIT_OPTIONS.map((n) => (
+                                    <button
+                                        key={n}
+                                        onClick={() => { setLimit(n); setPage(1); }}
+                                        className={cn(
+                                            "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
+                                            limit === n
+                                                ? "border-blue-500 bg-blue-600 text-white"
+                                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        {n === 0 ? "Semua" : n}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             {loadingTable ? (
                                 <div className="flex items-center justify-center py-20">
@@ -455,10 +459,10 @@ export default function MasterKaryawan() {
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Perusahaan</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Departemen</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Jabatan</th>
+                                                <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden xl:table-cell">No Telp</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden xl:table-cell">Bergabung</th>
                                                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                                                <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden xl:table-cell">Kelengkapan</th>
-                                                <th className="px-6 py-3.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest">Aksi</th>
+                                                <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden xl:table-cell">Kelengkapan</th>                                                <th className="px-6 py-3.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest">Aksi</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
@@ -470,7 +474,7 @@ export default function MasterKaryawan() {
                                                             <div className="flex items-center gap-3.5">
                                                                 <Avatar src={emp.profile_path ? assetUrl(emp.profile_path) : null} name={emp.full_name} />
                                                                 <div className="min-w-0">
-                                                                    <p className="font-semibold text-slate-800 truncate text-sm">{emp.full_name}</p>
+                                                                    <p className="font-semibold text-slate-800 truncate text-sm">{emp.full_name?.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) ?? "—"}</p>
                                                                     <p className="text-xs text-slate-400 truncate mt-0.5">{emp.email}</p>
                                                                     {emp.employee_code && (
                                                                         <p className="text-[11px] text-slate-400 font-mono mt-0.5">{emp.employee_code}</p>
@@ -489,9 +493,14 @@ export default function MasterKaryawan() {
                                                             {emp.job_level_name && <p className="text-xs text-slate-400 mt-0.5">{emp.job_level_name}</p>}
                                                         </td>
                                                         <td className="px-6 py-4 hidden xl:table-cell">
-                                                            <span className="text-sm text-slate-500 tabular-nums">{emp.join_date?.split("T")[0] ?? "—"}</span>
+                                                            {emp.phone_number
+                                                                ? <span className="text-sm text-slate-600 tabular-nums font-mono">{emp.phone_number}</span>
+                                                                : <span className="text-sm text-slate-300">—</span>
+                                                            }
                                                         </td>
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-6 py-4 hidden xl:table-cell">
+                                                            <span className="text-sm text-slate-500 tabular-nums">{emp.join_date?.split("T")[0] ?? "—"}</span>
+                                                        </td>                                                        <td className="px-6 py-4">
                                                             <StatusBadge exitDate={emp.exit_date} contractEnd={emp.contract_end_date} />
                                                         </td>
                                                         <td className="px-6 py-4 hidden xl:table-cell">
@@ -513,7 +522,7 @@ export default function MasterKaryawan() {
                                 </div>
                             )}
 
-                            {totalPages > 1 && (
+                            {totalPages > 1 && limit !== 0 && (
                                 <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-between bg-slate-50/50">
                                     <p className="text-xs text-slate-500">
                                         Halaman <span className="font-bold text-slate-700">{page}</span> dari <span className="font-bold text-slate-700">{totalPages}</span>

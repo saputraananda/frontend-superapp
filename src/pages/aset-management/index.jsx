@@ -1,7 +1,7 @@
 // frontend/src/pages/aset-management/index.jsx
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api, apiUpload, assetUrl } from "../../lib/api";
+import { api, apiUpload, assetUrl, thumbUrl } from "../../lib/api";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { QRCodeCanvas } from "qrcode.react";
 import Barcode from "react-barcode";
@@ -62,6 +62,7 @@ export default function AsetManagement() {
     const [filterCompany, setFilterCompany] = useState("");
     const [filterApproval, setFilterApproval] = useState("");
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const [stats, setStats] = useState(null);
@@ -150,17 +151,17 @@ export default function AsetManagement() {
             if (filterApproval) params.set("approval_status", filterApproval);
             if (filterOutlet) params.set("outlet_id", filterOutlet);
             params.set("page", page);
-            params.set("limit", 20);
+            params.set("limit", limit === 0 ? 99999 : limit);
             const d = await api(`/aset?${params}`);
             setAsets(d.asets || []);
             setTotal(d.total || 0);
-            setTotalPages(d.totalPages || 1);
+            setTotalPages(limit === 0 ? 1 : (d.totalPages || 1));
         } catch (err) {
             showToast("error", err.message || "Gagal memuat data aset");
         } finally {
             setLoading(false);
         }
-    }, [search, filterSub, filterKondisi, filterCompany, filterApproval, filterOutlet, page]);
+    }, [search, filterSub, filterKondisi, filterCompany, filterApproval, filterOutlet, page, limit]);
 
     useEffect(() => { loadAsets(); loadStats(); }, [loadAsets, loadStats]);
 
@@ -726,6 +727,23 @@ window.onload=function(){
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-sm text-slate-500">{total} aset ditemukan</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500">Tampilkan:</span>
+                            {[10, 20, 50, 100, 0].map((n) => (
+                                <button
+                                    key={n}
+                                    onClick={() => { setLimit(n); setPage(1); }}
+                                    className={cn(
+                                        "rounded-lg border px-2.5 py-1 text-xs font-medium transition",
+                                        limit === n
+                                            ? "border-blue-500 bg-blue-600 text-white"
+                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    )}
+                                >
+                                    {n === 0 ? "Semua" : n}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {loading ? (
@@ -743,7 +761,7 @@ window.onload=function(){
                                 <div key={aset.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onClick={() => openDetail(aset.id)}>                                    {/* Photo */}
                                     <div className="relative h-36 bg-slate-100 overflow-hidden">
                                         {aset.photos?.[0] ? (
-                                            <img src={assetUrl(aset.photos[0].photo_path)} alt={aset.nama_aset} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                            <img src={thumbUrl(aset.photos[0].photo_path)} alt={aset.nama_aset} loading="lazy" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                         ) : (
                                             <div className="h-full flex items-center justify-center">
                                                 <HiOutlinePhoto className="h-10 w-10 text-slate-300" />
@@ -811,8 +829,7 @@ window.onload=function(){
                                 <HiOutlineChevronRight className="h-4 w-4" />
                             </button>
                         </div>
-                    )}
-                </div>
+                    )}                </div>
             </div>
 
             {/* ════════════════════════════════════════════════════════════════════ */}
@@ -873,7 +890,7 @@ window.onload=function(){
                                                     <div key={p.id}
                                                         className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200 cursor-pointer"
                                                         onClick={() => { setPhotoPreviewIndex(idx); setPhotoPreviewOpen(true); }}>
-                                                        <img src={assetUrl(p.photo_path)} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                                                        <img src={thumbUrl(p.photo_path)} alt="" loading="lazy" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
                                                         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                                                             <HiOutlineEye className="h-5 w-5 text-white" />
                                                         </div>
