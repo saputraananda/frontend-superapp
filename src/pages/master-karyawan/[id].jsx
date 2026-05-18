@@ -613,7 +613,7 @@ export default function EmployeeDetail() {
                       <Panel title="Identitas Diri">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                           <Field label="Nama Lengkap" required error={fieldErrors.full_name}>
-                            <input type="text" name="full_name" value={formData.full_name || ""} onChange={handleChange} className={inputCls(fieldErrors.full_name)} />
+                            <input type="text" name="full_name" value={formData.full_name || ""} onChange={handleChange} className={inputCls(fieldErrors.full_name)} placeholder="Nama lengkap sesuai KTP" />
                           </Field>
                           <Field label="Email">
                             <input type="email" value={formData.email || ""} className={cn(inputCls(false), "bg-slate-50 text-slate-400 cursor-not-allowed")} disabled />
@@ -656,7 +656,7 @@ export default function EmployeeDetail() {
                             </select>
                           </Field>
                           <Field label="Tempat Lahir">
-                            <input type="text" name="birth_place" value={formData.birth_place || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="birth_place" value={formData.birth_place || ""} onChange={handleChange} className={inputCls(false)} placeholder="Contoh: Jakarta" />
                           </Field>
                           <Field label="Tanggal Lahir">
                             <input type="date" name="birth_date" value={formData.birth_date || ""} onChange={handleChange} className={inputCls(false)} />
@@ -668,21 +668,24 @@ export default function EmployeeDetail() {
                             </select>
                           </Field>
                           <Field label="No. Telepon">
-                            <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="Contoh: 087770597000" />
                           </Field>
                         </div>
                       </Panel>
                       <Panel title="Dokumen Identitas">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                           <Field label="No. KTP">
-                            <input type="text" name="ktp_number" autoComplete="off" value={formData.ktp_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="ktp_number" autoComplete="off" value={formData.ktp_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="16 digit NIK" />
                           </Field>
                           <Field label="No. Kartu Keluarga">
-                            <input type="text" name="family_card_number" value={formData.family_card_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="family_card_number" value={formData.family_card_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="16 digit No. KK" />
+                          </Field>
+                          <Field label="Nama Ibu Kandung">
+                            <input type="text" name="mother_name" value={formData.mother_name || ""} onChange={handleChange} className={inputCls(false)} placeholder="Nama ibu kandung sesuai KTP" />
                           </Field>
                           <div className="sm:col-span-2 xl:col-span-3">
                             <Field label="Alamat Lengkap">
-                              <textarea name="address" rows={3} value={formData.address || ""} onChange={handleChange} className={cn(inputCls(false), "resize-none")} />
+                              <textarea name="address" rows={3} value={formData.address || ""} onChange={handleChange} className={cn(inputCls(false), "resize-none")} placeholder="Alamat lengkap sesuai KTP" />
                             </Field>
                           </div>
                         </div>
@@ -800,7 +803,7 @@ export default function EmployeeDetail() {
                             </select>
                           </Field>
                           <Field label="Nama Institusi">
-                            <input type="text" name="school_name" value={formData.school_name || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="school_name" value={formData.school_name || ""} onChange={handleChange} className={inputCls(false)} placeholder="Universitas / Sekolah" />
                           </Field>
                         </div>
                       </Panel>
@@ -811,7 +814,7 @@ export default function EmployeeDetail() {
                               <input type="date" name="exit_date" value={formData.exit_date || ""} onChange={handleChange} className={inputCls(false)} />
                             </Field>
                             <Field label="Alasan Keluar">
-                              <input type="text" name="exit_reason" value={formData.exit_reason || ""} onChange={handleChange} className={inputCls(false)} />
+                              <input type="text" name="exit_reason" value={formData.exit_reason || ""} onChange={handleChange} className={inputCls(false)} placeholder="Contoh: Mengundurkan diri, kontrak habis, PHK" />
                             </Field>
                           </div>
                         </Panel>
@@ -831,20 +834,20 @@ export default function EmployeeDetail() {
                             </select>
                           </Field>
                           <Field label="Nomor Rekening">
-                            <input type="text" name="bank_account_number" autoComplete="off" value={formData.bank_account_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="bank_account_number" autoComplete="off" value={formData.bank_account_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="Nomor rekening aktif" />
                           </Field>
                         </div>
                       </Panel>
                       <Panel title="Identitas Perpajakan & Jaminan">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                           <Field label="No. BPJS Kesehatan">
-                            <input type="text" name="bpjs_health_number" autoComplete="off" value={formData.bpjs_health_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="bpjs_health_number" autoComplete="off" value={formData.bpjs_health_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="13 digit" />
                           </Field>
                           <Field label="No. BPJS Ketenagakerjaan">
-                            <input type="text" name="bpjs_employment_number" autoComplete="off" value={formData.bpjs_employment_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="bpjs_employment_number" autoComplete="off" value={formData.bpjs_employment_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="11 digit" />
                           </Field>
                           <Field label="No. NPWP">
-                            <input type="text" name="npwp_number" autoComplete="off" value={formData.npwp_number || ""} onChange={handleChange} className={inputCls(false)} />
+                            <input type="text" name="npwp_number" autoComplete="off" value={formData.npwp_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="12.345.678.9-012.345" />
                           </Field>
                         </div>
                       </Panel>
@@ -890,7 +893,7 @@ export default function EmployeeDetail() {
                       <Field label="Catatan">
                         <textarea name="notes" rows={8} value={formData.notes || ""} onChange={handleChange}
                           className={cn(inputCls(false), "resize-y")}
-                          placeholder="Riwayat pekerjaan, catatan kinerja, dll." />
+                          placeholder="Riwayat pekerjaan, catatan kinerja, pengalaman sebelumnya, dll." />
                       </Field>
                     </Panel>
                   )}

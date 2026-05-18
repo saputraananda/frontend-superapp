@@ -636,6 +636,10 @@ export default function Profile() {
                             <input type="text" name="family_card_number" value={formData.family_card_number || ""} onChange={handleChange}
                               className={inputCls(false)} placeholder="16 digit No. KK" />
                           </Field>
+                          <Field label="Nama Ibu Kandung">
+                            <input type="text" name="mother_name" value={formData.mother_name || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="Nama ibu kandung sesuai KTP" />
+                          </Field>
                           <div className="sm:col-span-2 xl:col-span-3">
                             <Field label="Alamat Lengkap">
                               <textarea name="address" rows={3} value={formData.address || ""} onChange={handleChange}

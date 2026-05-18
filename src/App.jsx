@@ -47,6 +47,9 @@ import ComplaintManagement from "./pages/complaint-management";
 import DashboardKomplain from "./pages/complaint-management/components/DashboardKomplain";
 import DaftarKomplain from "./pages/complaint-management/components/DaftarKomplain";
 import FormKomplain from "./pages/complaint-management/components/FormKomplain";
+import PengajuanAlora from "./pages/pengajuan-alora";
+import PengajuanBarang from "./pages/pengajuan-alora/components/PengajuanBarang";
+import Reimburse from "./pages/pengajuan-alora/components/Reimburse";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -362,6 +365,18 @@ export default function App() {
           <Route path="/complaint-management-system" element={<DashboardKomplain />} />
           <Route path="/complaint-list" element={<DaftarKomplain />} />
           <Route path="/complaint-form" element={<FormKomplain />} />
+        </Route>
+
+        {/* ── Pengajuan Alora ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/pengajuan-alora"]}>
+              <PengajuanAlora />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/pengajuan-alora" element={<PengajuanBarang />} />
+          <Route path="/pengajuan-reimburse" element={<Reimburse />} />
         </Route>
       </Routes>
     </BrowserRouter>

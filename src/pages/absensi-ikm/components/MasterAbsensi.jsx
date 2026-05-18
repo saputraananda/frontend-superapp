@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
 	HiOutlineCheckCircle,
 	HiOutlineClock,
@@ -133,17 +134,17 @@ function ShiftFormModal({ mode, item, tableLabel, onClose, onSave, busy }) {
 	const inputClass =
 		"w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-50";
 
-	return (
+	return createPortal(
 		<div
-			className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+			className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
 			onClick={onClose}
 		>
 			<div
-				className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl"
+				className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{/* Header */}
-				<div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+				<div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 flex-shrink-0 bg-white">
 					<div className="flex items-center gap-3">
 						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
 							<HiOutlineCog6Tooth className="h-5 w-5" />
@@ -161,86 +162,88 @@ function ShiftFormModal({ mode, item, tableLabel, onClose, onSave, busy }) {
 				</div>
 
 				{/* Form */}
-				<form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-					<div>
-						<label className={labelClass}>Nama Shift <span className="text-rose-500">*</span></label>
-						<input
-							type="text"
-							required
-							maxLength={50}
-							className={inputClass}
-							placeholder="Contoh: Pagi, Siang, Sore..."
-							value={form.shift_name}
-							onChange={(e) => handleChange("shift_name", e.target.value)}
-							disabled={busy}
-						/>
+				<form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+					<div className="overflow-y-auto flex-1 px-6 py-5 space-y-4 bg-slate-50/40">
+						<div>
+							<label className={labelClass}>Nama Shift <span className="text-rose-500">*</span></label>
+							<input
+								type="text"
+								required
+								maxLength={50}
+								className={inputClass}
+								placeholder="Contoh: Pagi, Siang, Sore..."
+								value={form.shift_name}
+								onChange={(e) => handleChange("shift_name", e.target.value)}
+								disabled={busy}
+							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-3">
+							<div>
+								<label className={labelClass}>Check-in Mulai <span className="text-rose-500">*</span></label>
+								<input
+									type="time"
+									required
+									className={inputClass}
+									value={form.check_in_start}
+									onChange={(e) => handleChange("check_in_start", e.target.value)}
+									disabled={busy}
+								/>
+							</div>
+							<div>
+								<label className={labelClass}>Check-in Sampai <span className="text-rose-500">*</span></label>
+								<input
+									type="time"
+									required
+									className={inputClass}
+									value={form.check_in_end}
+									onChange={(e) => handleChange("check_in_end", e.target.value)}
+									disabled={busy}
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-2 gap-3">
+							<div>
+								<label className={labelClass}>Check-out Mulai <span className="text-rose-500">*</span></label>
+								<input
+									type="time"
+									required
+									className={inputClass}
+									value={form.check_out_start}
+									onChange={(e) => handleChange("check_out_start", e.target.value)}
+									disabled={busy}
+								/>
+							</div>
+							<div>
+								<label className={labelClass}>Check-out Sampai <span className="text-rose-500">*</span></label>
+								<input
+									type="time"
+									required
+									className={inputClass}
+									value={form.check_out_end}
+									onChange={(e) => handleChange("check_out_end", e.target.value)}
+									disabled={busy}
+								/>
+							</div>
+						</div>
+
+						<label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 cursor-pointer hover:bg-slate-100 transition">
+							<input
+								type="checkbox"
+								className="h-4 w-4 rounded accent-blue-600"
+								checked={form.is_overnight}
+								onChange={(e) => handleChange("is_overnight", e.target.checked)}
+								disabled={busy}
+							/>
+							<div>
+								<p className="text-sm font-semibold text-slate-700">Melewati Tengah Malam (Overnight)</p>
+								<p className="text-xs text-slate-500">Centang jika checkout melewati pukul 00:00</p>
+							</div>
+						</label>
 					</div>
 
-					<div className="grid grid-cols-2 gap-3">
-						<div>
-							<label className={labelClass}>Check-in Mulai <span className="text-rose-500">*</span></label>
-							<input
-								type="time"
-								required
-								className={inputClass}
-								value={form.check_in_start}
-								onChange={(e) => handleChange("check_in_start", e.target.value)}
-								disabled={busy}
-							/>
-						</div>
-						<div>
-							<label className={labelClass}>Check-in Sampai <span className="text-rose-500">*</span></label>
-							<input
-								type="time"
-								required
-								className={inputClass}
-								value={form.check_in_end}
-								onChange={(e) => handleChange("check_in_end", e.target.value)}
-								disabled={busy}
-							/>
-						</div>
-					</div>
-
-					<div className="grid grid-cols-2 gap-3">
-						<div>
-							<label className={labelClass}>Check-out Mulai <span className="text-rose-500">*</span></label>
-							<input
-								type="time"
-								required
-								className={inputClass}
-								value={form.check_out_start}
-								onChange={(e) => handleChange("check_out_start", e.target.value)}
-								disabled={busy}
-							/>
-						</div>
-						<div>
-							<label className={labelClass}>Check-out Sampai <span className="text-rose-500">*</span></label>
-							<input
-								type="time"
-								required
-								className={inputClass}
-								value={form.check_out_end}
-								onChange={(e) => handleChange("check_out_end", e.target.value)}
-								disabled={busy}
-							/>
-						</div>
-					</div>
-
-					<label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 cursor-pointer hover:bg-slate-100 transition">
-						<input
-							type="checkbox"
-							className="h-4 w-4 rounded accent-blue-600"
-							checked={form.is_overnight}
-							onChange={(e) => handleChange("is_overnight", e.target.checked)}
-							disabled={busy}
-						/>
-						<div>
-							<p className="text-sm font-semibold text-slate-700">Melewati Tengah Malam (Overnight)</p>
-							<p className="text-xs text-slate-500">Centang jika checkout melewati pukul 00:00</p>
-						</div>
-					</label>
-
-					<div className="flex justify-end gap-2 pt-1">
+					<div className="border-t border-slate-200 px-6 py-4 flex-shrink-0 bg-white flex justify-end gap-2">
 						<button
 							type="button"
 							onClick={onClose}
@@ -260,7 +263,8 @@ function ShiftFormModal({ mode, item, tableLabel, onClose, onSave, busy }) {
 					</div>
 				</form>
 			</div>
-		</div>
+		</div>,
+		document.body
 	);
 }
 
@@ -268,9 +272,9 @@ function ShiftFormModal({ mode, item, tableLabel, onClose, onSave, busy }) {
 
 function DeleteConfirmModal({ item, tableLabel, onClose, onConfirm, busy }) {
 	if (!item) return null;
-	return (
+	return createPortal(
 		<div
-			className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+			className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
 			onClick={onClose}
 		>
 			<div
@@ -305,7 +309,8 @@ function DeleteConfirmModal({ item, tableLabel, onClose, onConfirm, busy }) {
 					</button>
 				</div>
 			</div>
-		</div>
+		</div>,
+		document.body
 	);
 }
 

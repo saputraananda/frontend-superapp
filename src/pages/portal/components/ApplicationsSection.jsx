@@ -6,15 +6,16 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const statusUI = (is_active) =>
-    is_active === 1
-      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-      : "text-rose-700 bg-rose-50 border-rose-200";
-
-  const statusText = (is_active) => (is_active === 1 ? "Aktif" : "Perbaikan");
 
   const getAppIcon = (appName) => {
     const name = appName.toLowerCase();
+    if (name.includes("pengajuan") || name.includes("request") || name.includes("reimburse") || name.includes("pengadaan"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+          <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+        </svg>
+      );
     if (name.includes("project"))
       return (
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -104,6 +105,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
 
   const getAppIconBg = (appName) => {
     const name = appName.toLowerCase();
+    if (name.includes("pengajuan") || name.includes("request") || name.includes("reimburse") || name.includes("pengadaan")) return "bg-emerald-600";
     if (name.includes("project")) return "bg-blue-600";
     if (name.includes("sales")) return "bg-indigo-500";
     if (name.includes("karyawan")) return "bg-cyan-500";
@@ -166,10 +168,11 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-slate-800 truncate">{app.name}</h3>
                 <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{app.description}</p>
-                <span className={`inline-block mt-2 rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusUI(app.is_active)}`}>
-                  {statusText(app.is_active)}
-                </span>
-              </div>
+                {app.is_active !== 1 && (
+                  <span className="inline-block mt-2 rounded-full border px-2 py-0.5 text-[10px] font-medium text-rose-700 bg-rose-50 border-rose-200">
+                    Perbaikan
+                  </span>
+                )}              </div>
             </a>
           ))}
         </div>
