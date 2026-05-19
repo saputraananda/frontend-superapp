@@ -561,10 +561,17 @@ export default function Profile() {
                               className={inputCls(fieldErrors.full_name)} placeholder="Masukkan nama lengkap" />
                           </Field>
 
-                          {/* Email - readonly */}
-                          <Field label="Email">
-                            <input type="email" value={formData.email || ""}
-                              className={cn(inputCls(false), "bg-slate-50 text-slate-400 cursor-not-allowed")} disabled />
+                          {/* Email - bisa diubah */}
+                          <Field label="Email" error={fieldErrors.email}>
+                            <input
+                              type="email"
+                              name="email"
+                              value={formData.email || ""}
+                              onChange={handleChange}
+                              className={inputCls(fieldErrors.email)}
+                              placeholder="email@perusahaan.com"
+                              autoComplete="off"
+                            />
                           </Field>
 
                           {/* ← Username - bisa diubah */}

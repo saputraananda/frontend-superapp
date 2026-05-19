@@ -615,8 +615,16 @@ export default function EmployeeDetail() {
                           <Field label="Nama Lengkap" required error={fieldErrors.full_name}>
                             <input type="text" name="full_name" value={formData.full_name || ""} onChange={handleChange} className={inputCls(fieldErrors.full_name)} placeholder="Nama lengkap sesuai KTP" />
                           </Field>
-                          <Field label="Email">
-                            <input type="email" value={formData.email || ""} className={cn(inputCls(false), "bg-slate-50 text-slate-400 cursor-not-allowed")} disabled />
+                          <Field label="Email" error={fieldErrors.email}>
+                            <input
+                              type="email"
+                              name="email"
+                              value={formData.email || ""}
+                              onChange={handleChange}
+                              className={inputCls(fieldErrors.email)}
+                              placeholder="email@perusahaan.com"
+                              autoComplete="off"
+                            />
                           </Field>
 
                           {/* ← Tambah field username */}
