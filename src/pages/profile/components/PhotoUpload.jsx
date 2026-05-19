@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { apiUpload, assetUrl } from "../../../lib/api";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import DocViewerModal from "./DocViewerModal";
+import { HiOutlineEye } from "react-icons/hi2";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -8,18 +10,20 @@ function cn(...classes) {
 
 // PhotoUpload hanya untuk Pas Foto (type="profile")
 // KTP sudah pindah ke tab Dokumen via DocumentUpload
-export default function PhotoUpload({ currentPath, currentName, onUploaded, onDeleted }) {
+export default function PhotoUpload({ currentPath, currentName, baseUrl, onUploaded, onDeleted }) {
   const inputRef                       = useRef(null);
   const [uploading,   setUploading]   = useState(false);
   const [deleting,    setDeleting]    = useState(false);
   const [preview,     setPreview]     = useState(null);
   const [error,       setError]       = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [modalOpen,   setModalOpen]   = useState(false);
 
   const apiPath  = "/employees/profile/photo";
   const fieldKey = "profile_photo";
 
-  const displaySrc = preview || assetUrl(currentPath);
+  const displaySrc = preview
+    || (baseUrl && currentName ? `${baseUrl.replace(/\/$/, "")}/${currentName}` : assetUrl(currentPath));
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -135,6 +139,17 @@ export default function PhotoUpload({ currentPath, currentName, onUploaded, onDe
             {displaySrc ? "Ganti" : "Upload"}
           </button>
 
+          {displaySrc && !preview && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 transition flex items-center gap-1"
+            >
+              <HiOutlineEye className="w-3.5 h-3.5" />
+              Lihat
+            </button>
+          )}
+
           {(displaySrc || currentPath) && (
             <button
               type="button"
@@ -157,6 +172,15 @@ export default function PhotoUpload({ currentPath, currentName, onUploaded, onDe
           onChange={handleFileChange}
         />
       </div>
+
+      {/* ── Photo Viewer Modal ── */}
+      <DocViewerModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        fileUrl={displaySrc}
+        fileName={currentName}
+        label="Pas Foto"
+      />
     </>
   );
 }

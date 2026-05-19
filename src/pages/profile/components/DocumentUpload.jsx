@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { apiUpload, assetUrl } from "../../../lib/api";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import DocViewerModal from "./DocViewerModal";
 import {
   HiOutlineDocumentText,
   HiOutlineArrowUpTray,
@@ -20,6 +21,7 @@ export default function DocumentUpload({
   hint,
   currentPath,
   currentName,
+  baseUrl,
   onUploaded,
   onDeleted,
 }) {
@@ -28,11 +30,14 @@ export default function DocumentUpload({
   const [deleting,     setDeleting]     = useState(false);
   const [error,        setError]        = useState("");
   const [confirmOpen,  setConfirmOpen]  = useState(false);
+  const [modalOpen,    setModalOpen]    = useState(false);
 
   const apiPath = `/employees/profile/document/${docType}`;
   const isPdf   = currentName?.toLowerCase().endsWith(".pdf");
-  const fileUrl = assetUrl(currentPath);
-  const hasDoc  = !!currentPath;
+  const fileUrl = baseUrl && currentName
+    ? `${baseUrl.replace(/\/$/, "")}/${currentName}`
+    : assetUrl(currentPath);
+  const hasDoc  = !!(currentPath || (baseUrl && currentName));
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -176,16 +181,14 @@ export default function DocumentUpload({
 
           {hasDoc && (
             <>
-              <a
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
                 className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
               >
                 <HiOutlineEye className="w-3.5 h-3.5" />
                 Lihat
-              </a>
+              </button>
               <button
                 type="button"
                 disabled={uploading || deleting}
@@ -214,6 +217,15 @@ export default function DocumentUpload({
           onChange={handleFileChange}
         />
       </div>
+
+      {/* ── Doc Viewer Modal ── */}
+      <DocViewerModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        fileUrl={fileUrl}
+        fileName={currentName}
+        label={label}
+      />
     </>
   );
 }

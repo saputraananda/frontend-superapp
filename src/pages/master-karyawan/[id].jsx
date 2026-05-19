@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api, assetUrl } from "../../lib/api";
 import LoadingScreen from "../../components/LoadingScreen";
 import AlertSuccess from "../../components/AlertSuccess";
+import JSZip from "jszip";
 import {
   HiOutlineUser, HiOutlineBriefcase, HiOutlineBanknotes,
   HiOutlinePhone, HiOutlineDocumentText, HiOutlinePhoto,
@@ -10,15 +11,132 @@ import {
   HiOutlineArrowLeft, HiOutlineExclamationTriangle,
   HiOutlineXMark, HiOutlineCheckCircle, HiOutlineExclamationCircle,
   HiOutlineArrowTopRightOnSquare, HiOutlineArrowDownTray,
-  HiOutlineBars3,
+  HiOutlineBars3, HiOutlineArchiveBoxArrowDown,
+  HiOutlineMagnifyingGlassPlus,
 } from "react-icons/hi2";
 import { FiSave } from "react-icons/fi";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
+// ── DocPreviewModal ───────────────────────────────────────────────────────
+function DocPreviewModal({ url, fileName, label, onClose }) {
+  const isPdf = fileName?.toLowerCase().endsWith(".pdf") || url?.toLowerCase().endsWith(".pdf");
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    // Freeze scroll background
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 pointer-events-none">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-auto"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div className="relative z-[9999] pointer-events-auto w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-2xl ring-1 ring-black/10 flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-100 bg-white shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={cn(
+              "flex items-center justify-center h-8 w-8 rounded-lg shrink-0",
+              isPdf ? "bg-red-100" : "bg-blue-100"
+            )}>
+              <HiOutlineDocumentText className={cn("w-4 h-4", isPdf ? "text-red-600" : "text-blue-600")} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</p>
+              {fileName && (
+                <p className="text-sm font-semibold text-slate-800 truncate" title={fileName}>{fileName}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Tombol Unduh */}
+            <a
+              href={url}
+              download={fileName}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+            >
+              <HiOutlineArrowDownTray className="w-3.5 h-3.5" />
+              Unduh
+            </a>
+
+            {/* Tombol Tutup */}
+            <button
+              onClick={onClose}
+              className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
+              aria-label="Tutup"
+            >
+              <HiOutlineXMark className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-auto bg-slate-50 flex items-center justify-center min-h-0">
+          {isPdf ? (
+            <iframe
+              src={url}
+              title={label}
+              className="w-full h-full min-h-[60vh]"
+              style={{ border: "none" }}
+            />
+          ) : (
+            <div className="p-4 flex items-center justify-center w-full">
+              <img
+                src={url}
+                alt={label}
+                className="max-w-full max-h-[70vh] rounded-xl object-contain shadow-md"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.nextSibling.style.display = "flex";
+                }}
+              />
+              {/* Fallback */}
+              <div className="hidden flex-col items-center gap-3 text-slate-400 py-12">
+                <HiOutlineDocumentText className="w-12 h-12" />
+                <p className="text-sm">Gagal memuat gambar</p>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 underline"
+                >
+                  Buka di tab baru
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── PhotoCard — support gambar & PDF ──────────────────────────────────────
-function PhotoCard({ label, filePath, fileName }) {
-  const url = assetUrl(filePath);
+function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPreview }) {
+  let url;
+  // avatarBaseUrl dipakai khusus untuk pas foto (profile)
+  const effectiveBase = avatarBaseUrl || baseUrl;
+  if (effectiveBase) {
+    url = fileName ? `${effectiveBase.replace(/\/$/, "")}/${fileName}` : null;
+  } else if (filePath) {
+    url = assetUrl(filePath);
+  } else {
+    url = null;
+  }
   const isPdf = fileName?.toLowerCase().endsWith(".pdf") || filePath?.toLowerCase().endsWith(".pdf");
   const [imgError, setImgError] = useState(false);
 
@@ -61,34 +179,46 @@ function PhotoCard({ label, filePath, fileName }) {
         <p className="text-[11px] text-slate-400 -mt-1 truncate" title={fileName}>{fileName}</p>
       )}
 
-      {/* Preview area */}
+      {/* Preview area — klik untuk buka modal */}
       {url ? (
         isPdf ? (
-          // PDF preview
-          <div className="h-36 w-full rounded-lg border border-red-100 bg-red-50 flex flex-col items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => onPreview({ url, fileName, label })}
+            className="h-36 w-full rounded-lg border border-red-100 bg-red-50 flex flex-col items-center justify-center gap-2 hover:bg-red-100 transition group"
+          >
             <HiOutlineDocumentText className="w-10 h-10 text-red-400" />
             <p className="text-xs font-medium text-red-600">Dokumen PDF</p>
             <p className="text-[10px] text-red-400 max-w-[80%] truncate text-center">{fileName}</p>
-          </div>
+            <span className="text-[10px] text-red-300 group-hover:text-red-500 transition flex items-center gap-1">
+              <HiOutlineMagnifyingGlassPlus className="w-3 h-3" />Klik untuk preview
+            </span>
+          </button>
         ) : !imgError ? (
-          // Gambar preview
-          <div className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center min-h-[9rem]">
+          <button
+            type="button"
+            onClick={() => onPreview({ url, fileName, label })}
+            className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center min-h-[9rem] hover:opacity-90 transition relative group"
+          >
             <img
               src={url}
               alt={label}
               className="w-full max-h-60 object-contain"
               onError={() => setImgError(true)}
             />
-          </div>
+            <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
+              <span className="opacity-0 group-hover:opacity-100 transition bg-white/90 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-700 flex items-center gap-1">
+                <HiOutlineMagnifyingGlassPlus className="w-3.5 h-3.5" />Preview
+              </span>
+            </span>
+          </button>
         ) : (
-          // Gambar gagal dimuat
           <div className="h-36 w-full rounded-lg border border-dashed border-rose-200 bg-rose-50 flex flex-col items-center justify-center gap-2">
             <HiOutlineExclamationTriangle className="w-7 h-7 text-rose-300" />
             <p className="text-xs text-rose-400">Gagal memuat gambar</p>
           </div>
         )
       ) : (
-        // Belum ada file
         <div className="h-36 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2">
           <HiOutlinePhoto className="w-8 h-8 text-slate-300" />
           <p className="text-xs text-slate-400">Belum ada dokumen</p>
@@ -98,15 +228,14 @@ function PhotoCard({ label, filePath, fileName }) {
       {/* Action buttons */}
       {url && (
         <div className="flex gap-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={() => onPreview({ url, fileName, label })}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
           >
-            <HiOutlineArrowTopRightOnSquare className="w-3.5 h-3.5" />
+            <HiOutlineMagnifyingGlassPlus className="w-3.5 h-3.5" />
             Buka
-          </a>
+          </button>
           <button
             type="button"
             onClick={handleDownload}
@@ -121,7 +250,7 @@ function PhotoCard({ label, filePath, fileName }) {
   );
 }
 
-// ── Daftar dokumen untuk tab Docs ─────────────────────────────────────────
+// ── Daftar dokumen untuk tab Docs ──────────────────────────────────────
 const EMPLOYEE_DOCS = [
   { key: "profile", label: "Pas Foto", pathKey: "profile_path", nameKey: "profile_name" },
   { key: "ktp", label: "KTP", pathKey: "ktp_path", nameKey: "ktp_name" },
@@ -209,6 +338,60 @@ export default function EmployeeDetail() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const topRef = useRef(null);
+
+  // ── Preview modal state ──
+  const [previewDoc, setPreviewDoc] = useState(null); // { url, fileName, label }
+
+  // ── ZIP download ──
+  const [zipping, setZipping] = useState(false);
+  const handleDownloadZip = async () => {
+    if (zipping) return;
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      const docs = EMPLOYEE_DOCS.map(({ label, pathKey, nameKey }) => {
+        const baseUrl = employee?.documents_base_url;
+        const filePath = employee?.[pathKey];
+        const fileName = employee?.[nameKey];
+        let url;
+        if (baseUrl) {
+          url = fileName ? `${baseUrl.replace(/\/$/, "")}/${fileName}` : null;
+        } else if (filePath) {
+          url = assetUrl(filePath);
+        } else {
+          url = null;
+        }
+        const name = fileName || (filePath ? filePath.split("/").pop() : null);
+        return { label, url, name };
+      }).filter((d) => d.url && d.name);
+
+      await Promise.all(
+        docs.map(async ({ url, name }) => {
+          try {
+            const res = await fetch(url, { credentials: "include" });
+            if (!res.ok) return;
+            const blob = await res.blob();
+            zip.file(name, blob);
+          } catch {
+            // skip file yang gagal
+          }
+        })
+      );
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(content);
+      a.download = `dokumen_${employee?.employee_code || employee?.full_name || "karyawan"}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      console.error("ZIP error:", e);
+    } finally {
+      setZipping(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -315,6 +498,16 @@ export default function EmployeeDetail() {
     <div className="min-h-screen bg-[#f4f6f9]" ref={topRef}>
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
+      {/* ── Doc Preview Modal ── */}
+      {previewDoc && (
+        <DocPreviewModal
+          url={previewDoc.url}
+          fileName={previewDoc.fileName}
+          label={previewDoc.label}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
+
       {/* ── Resign Modal ── */}
       {showResignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -362,7 +555,7 @@ export default function EmployeeDetail() {
               >
                 <HiOutlineBars3 className="h-5 w-5 text-slate-600" />
               </button>
-              <button onClick={() => navigate("/master-karyawan")}
+              <button onClick={() => navigate(-1)}
                 className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 transition shrink-0">
                 <HiOutlineArrowLeft className="w-4 h-4 text-slate-600" />
               </button>
@@ -477,7 +670,7 @@ export default function EmployeeDetail() {
                     <FiSave className="w-4 h-4" />
                     {saving ? "Menyimpan..." : "Simpan"}
                   </button>
-                  <button type="button" onClick={() => navigate("/master-karyawan")}
+                  <button type="button" onClick={() => navigate(-1)}
                     className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
                     <HiOutlineArrowLeft className="w-4 h-4" />Kembali
                   </button>
@@ -877,11 +1070,33 @@ export default function EmployeeDetail() {
                   {/* ── DOCS ── */}
                   {activeTab === "docs" && (
                     <div className="space-y-4">
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Dokumen yang telah diupload oleh karyawan. Klik{" "}
-                        <span className="font-semibold text-slate-600">Buka</span> untuk melihat, atau{" "}
-                        <span className="font-semibold text-slate-600">Download</span> untuk mengunduh file.
-                      </p>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Dokumen yang telah diupload oleh karyawan. Klik{" "}
+                          <span className="font-semibold text-slate-600">Buka</span> untuk preview, atau{" "}
+                          <span className="font-semibold text-slate-600">Download</span> untuk mengunduh file.
+                        </p>
+                        {uploadedDocCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleDownloadZip}
+                            disabled={zipping}
+                            className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 transition shrink-0"
+                          >
+                            {zipping ? (
+                              <>
+                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                                Menyiapkan ZIP...
+                              </>
+                            ) : (
+                              <>
+                                <HiOutlineArchiveBoxArrowDown className="w-3.5 h-3.5" />
+                                Unduh Semua ({uploadedDocCount} file)
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         {EMPLOYEE_DOCS.map(({ key, label, pathKey, nameKey }) => (
                           <PhotoCard
@@ -889,6 +1104,9 @@ export default function EmployeeDetail() {
                             label={label}
                             filePath={employee?.[pathKey]}
                             fileName={employee?.[nameKey]}
+                            baseUrl={employee?.documents_base_url}
+                            avatarBaseUrl={key === "profile" ? employee?.avatars_base_url : undefined}
+                            onPreview={setPreviewDoc}
                           />
                         ))}
                       </div>

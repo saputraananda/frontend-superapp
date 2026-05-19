@@ -24,8 +24,10 @@ import {
 	HiOutlineChevronDown,
 	HiOutlineArrowsUpDown,
 	HiOutlineCalendarDays,
+	HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { api } from "../../lib/api";
+import { exportKaryawanIKMToExcel } from "./utils/exportKaryawanIKM";
 
 // Helpers
 
@@ -250,7 +252,296 @@ function PaginationBar({ page, totalPages, total, limit, onPage, onLimitChange, 
 	);
 }
 
-function MobileCard({ item, idx, startItem, onDetail, onLeaderRoleChange }) {
+// ─── Print/PDF Employee Profile ───────────────────────────────────────────────
+function printEmployeeProfile(emp) {
+	const logoUrl = `${window.location.origin}/ikm.png`;
+	const docNo = `EMP-${String(emp.employee_id || emp.employee_code || "").padStart(5, "0").slice(-5)}`;
+
+	const fmt = (v) => {
+		if (!v) return "-";
+		const d = new Date(v);
+		if (isNaN(d.getTime())) return String(v);
+		return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric" }).format(d);
+	};
+	const safe = (v) => {
+		if (v === null || v === undefined) return "-";
+		const s = String(v).trim();
+		return s ? s : "-";
+	};
+	const cap = (v) => {
+		const s = String(v ?? "").trim();
+		if (!s) return "-";
+		return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+	};
+	const today = fmt(new Date().toISOString());
+
+	const genderText = emp.gender === "L" ? "Laki-laki" : emp.gender === "P" ? "Perempuan" : "-";
+	const maritalMap = { Single: "Lajang", Married: "Menikah", Divorced: "Cerai", Widowed: "Duda/Janda" };
+	const maritalText = maritalMap[emp.marital_status] || safe(emp.marital_status);
+
+	const employmentBadge = emp.exit_date
+		? `<span class="badge-resign">Resign</span>`
+		: `<span class="badge-active">Aktif</span>`;
+
+	const photoUrl = emp.profile_path && emp.avatars_base_url
+		? `${emp.avatars_base_url.replace(/\/$/, "")}/${(emp.profile_name || emp.profile_path).replace(/^\/+/, "")}`
+		: null;
+
+	const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+	<meta charset="UTF-8" />
+	<title>Ringkasan Profil Karyawan — ${safe(emp.full_name)}</title>
+	<style>
+		@page { size: A4 portrait; margin: 0; }
+		@media print {
+			body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+			.no-print { display: none !important; }
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body { font-family: "Times New Roman", Times, serif; font-size: 10.5pt; color: #1a1a1a; background: #fff; }
+		.page { padding: 18mm 18mm; min-height: 297mm; page-break-after: always; }
+		.page:last-of-type { page-break-after: auto; }
+
+		/* HEADER */
+		.doc-header { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 10px; border-bottom: 3px double #1e3a5f; margin-bottom: 14px; }
+		.doc-header img { height: 60px; width: auto; }
+		.doc-header-info { flex: 1; }
+		.doc-header-info .co-name { font-size: 13pt; font-weight: bold; text-transform: uppercase; color: #1e3a5f; letter-spacing: 0.4px; }
+		.doc-header-info .co-sub { font-size: 9pt; color: #555; margin-top: 2px; }
+		.doc-header-badge { text-align: right; }
+		.doc-no-box { font-size: 9pt; font-weight: bold; color: #1e3a5f; border: 1.5px solid #1e3a5f; padding: 4px 12px; display: inline-block; }
+		.print-date { font-size: 8pt; color: #777; margin-top: 4px; }
+
+		/* TITLE */
+		.doc-title { text-align: center; margin: 12px 0 14px; }
+		.doc-title h1 { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #1e3a5f; text-decoration: underline; }
+		.doc-title p { font-size: 9.5pt; color: #555; margin-top: 4px; font-style: italic; }
+
+		/* IDENTITY BAR */
+		.id-bar { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #f3f6fb; border: 1px solid #c8d0db; border-left: 4px solid #1e3a5f; margin-bottom: 14px; }
+		.id-photo { width: 78px; height: 78px; flex-shrink: 0; border: 1.5px solid #c8d0db; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+		.id-photo img { width: 100%; height: 100%; object-fit: cover; }
+		.id-photo .ph-fallback { font-size: 22pt; font-weight: bold; color: #94a3b8; }
+		.id-meta { flex: 1; }
+		.id-name { font-size: 13pt; font-weight: bold; color: #1e3a5f; text-transform: capitalize; }
+		.id-code { font-size: 9.5pt; color: #555; margin-top: 2px; }
+		.id-position { font-size: 10pt; color: #333; margin-top: 4px; font-weight: 600; }
+		.id-status { margin-top: 6px; }
+		.badge-active { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 3px; padding: 1px 10px; font-size: 9pt; font-weight: bold; }
+		.badge-resign { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: 3px; padding: 1px 10px; font-size: 9pt; font-weight: bold; }
+
+		/* SECTION */
+		.sec-title { font-size: 10.5pt; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1.5px solid #1e3a5f; padding-bottom: 3px; margin: 12px 0 7px; }
+
+		/* INFO TABLE */
+		.info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+		.info-table td { padding: 4px 8px; font-size: 10pt; border: 1px solid #c8d0db; vertical-align: top; }
+		.info-table .lbl { font-weight: bold; background: #eef2f7; color: #1e3a5f; width: 28%; }
+		.info-table .col { background: #eef2f7; width: 2%; text-align: center; font-weight: bold; }
+		.info-table .val { background: #fff; }
+		.info-table .val.notes { white-space: pre-wrap; }
+
+		/* SIGNATURE */
+		.sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 22px; }
+		.sig-box { text-align: center; }
+		.sig-label { font-size: 9.5pt; font-weight: bold; color: #1e3a5f; }
+		.sig-line { height: 58px; border-bottom: 1px solid #555; margin: 8px 4px 4px; }
+		.sig-name { font-size: 9pt; color: #333; }
+
+		/* FOOTER */
+		.doc-footer { margin-top: 14px; padding-top: 6px; border-top: 1px solid #c8d0db; font-size: 8pt; color: #888; text-align: center; }
+
+		/* CONFIDENTIAL */
+		.confidential { font-size: 8pt; color: #b91c1c; font-style: italic; text-align: center; margin-top: 8px; }
+
+		/* PRINT BUTTON */
+		.print-btn { display: block; margin: 20px auto 30px; padding: 10px 28px; background: #1e3a5f; color: #fff; border: none; border-radius: 8px; font-size: 12pt; cursor: pointer; font-family: sans-serif; }
+		.print-btn:hover { background: #162d4c; }
+	</style>
+</head>
+<body>
+	<button class="print-btn no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+
+	<div class="page">
+		<div class="doc-header">
+			<img src="${logoUrl}" alt="Logo IKM" onerror="this.style.display='none'" />
+			<div class="doc-header-info">
+				<div class="co-name">PT Intersolusi Karya Mandiri</div>
+				<div class="co-sub">Alora Group Indonesia</div>
+				<div class="co-sub">Departemen Sumber Daya Manusia</div>
+			</div>
+			<div class="doc-header-badge">
+				<div class="doc-no-box">${docNo}</div>
+				<div class="print-date">Dicetak: ${today}</div>
+			</div>
+		</div>
+
+		<div class="doc-title">
+			<h1>Ringkasan Profil Karyawan</h1>
+			<p>Dokumen ini berisi data administratif karyawan untuk keperluan internal HR.</p>
+		</div>
+
+		<!-- IDENTITY BAR -->
+		<div class="id-bar">
+			<div class="id-photo">
+				${photoUrl
+					? `<img src="${photoUrl}" alt="Foto" onerror="this.outerHTML='<span class=ph-fallback>${(emp.full_name || '?').charAt(0).toUpperCase()}</span>'" />`
+					: `<span class="ph-fallback">${(emp.full_name || '?').charAt(0).toUpperCase()}</span>`}
+			</div>
+			<div class="id-meta">
+				<div class="id-name">${cap(emp.full_name)}</div>
+				<div class="id-code">NIK: <strong>${safe(emp.employee_code)}</strong> &nbsp;·&nbsp; Email: ${safe(emp.email)}</div>
+				<div class="id-position">${[emp.job_level_name, emp.position_name].filter(Boolean).join(" — ") || "-"}</div>
+				<div class="id-status">${employmentBadge}</div>
+			</div>
+		</div>
+
+		<!-- A. DATA PRIBADI -->
+		<div class="sec-title">A. Data Pribadi</div>
+		<table class="info-table">
+			<tr>
+				<td class="lbl">Nama Lengkap</td><td class="col">:</td><td class="val">${cap(emp.full_name)}</td>
+				<td class="lbl">Jenis Kelamin</td><td class="col">:</td><td class="val">${genderText}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Tempat Lahir</td><td class="col">:</td><td class="val">${safe(emp.birth_place)}</td>
+				<td class="lbl">Tanggal Lahir</td><td class="col">:</td><td class="val">${fmt(emp.birth_date)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Agama</td><td class="col">:</td><td class="val">${safe(emp.religion_name)}</td>
+				<td class="lbl">Status Pernikahan</td><td class="col">:</td><td class="val">${maritalText}</td>
+			</tr>
+			<tr>
+				<td class="lbl">No. KTP (NIK)</td><td class="col">:</td><td class="val">${safe(emp.ktp_number)}</td>
+				<td class="lbl">No. Kartu Keluarga</td><td class="col">:</td><td class="val">${safe(emp.family_card_number)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">No. Telepon</td><td class="col">:</td><td class="val">${safe(emp.phone_number)}</td>
+				<td class="lbl">Email</td><td class="col">:</td><td class="val">${safe(emp.email)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Nama Ibu Kandung</td><td class="col">:</td><td class="val" colspan="4">${cap(emp.mother_name)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Alamat</td><td class="col">:</td><td class="val notes" colspan="4">${safe(emp.address)}</td>
+			</tr>
+		</table>
+
+		<!-- B. DATA PEKERJAAN -->
+		<div class="sec-title">B. Data Pekerjaan</div>
+		<table class="info-table">
+			<tr>
+				<td class="lbl">NIK Karyawan</td><td class="col">:</td><td class="val"><strong>${safe(emp.employee_code)}</strong></td>
+				<td class="lbl">Username</td><td class="col">:</td><td class="val">${safe(emp.username)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Perusahaan</td><td class="col">:</td><td class="val">${safe(emp.company_name)}</td>
+				<td class="lbl">Departemen</td><td class="col">:</td><td class="val">${safe(emp.department_name)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Jabatan</td><td class="col">:</td><td class="val">${safe(emp.position_name)}</td>
+				<td class="lbl">Jenjang Jabatan</td><td class="col">:</td><td class="val">${safe(emp.job_level_name)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Status Kepegawaian</td><td class="col">:</td><td class="val">${safe(emp.employment_status_name)}</td>
+				<td class="lbl">Atasan Langsung</td><td class="col">:</td><td class="val">${safe(emp.supervisor)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">Tanggal Bergabung</td><td class="col">:</td><td class="val">${fmt(emp.join_date)}</td>
+				<td class="lbl">Akhir Kontrak</td><td class="col">:</td><td class="val">${fmt(emp.contract_end_date)}</td>
+			</tr>
+			${emp.exit_date ? `
+			<tr>
+				<td class="lbl">Tanggal Keluar</td><td class="col">:</td><td class="val">${fmt(emp.exit_date)}</td>
+				<td class="lbl">Status</td><td class="col">:</td><td class="val">Resign</td>
+			</tr>
+			<tr>
+				<td class="lbl">Alasan Keluar</td><td class="col">:</td><td class="val notes" colspan="4">${safe(emp.exit_reason)}</td>
+			</tr>` : ""}
+		</table>
+
+		<!-- C. PENDIDIKAN -->
+		<div class="sec-title">C. Pendidikan Terakhir</div>
+		<table class="info-table">
+			<tr>
+				<td class="lbl">Jenjang Pendidikan</td><td class="col">:</td><td class="val">${safe(emp.education_level_name)}</td>
+				<td class="lbl">Nama Sekolah/Institusi</td><td class="col">:</td><td class="val">${safe(emp.school_name)}</td>
+			</tr>
+		</table>
+
+		<!-- D. DATA KEUANGAN -->
+		<div class="sec-title">D. Data Keuangan &amp; Administrasi</div>
+		<table class="info-table">
+			<tr>
+				<td class="lbl">Bank</td><td class="col">:</td><td class="val">${safe(emp.bank_name)}</td>
+				<td class="lbl">No. Rekening</td><td class="col">:</td><td class="val">${safe(emp.bank_account_number)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">No. NPWP</td><td class="col">:</td><td class="val">${safe(emp.npwp_number)}</td>
+				<td class="lbl">No. BPJS Kesehatan</td><td class="col">:</td><td class="val">${safe(emp.bpjs_health_number)}</td>
+			</tr>
+			<tr>
+				<td class="lbl">No. BPJS Ketenagakerjaan</td><td class="col">:</td><td class="val" colspan="4">${safe(emp.bpjs_employment_number)}</td>
+			</tr>
+		</table>
+
+		<!-- E. KONTAK DARURAT -->
+		<div class="sec-title">E. Kontak Darurat</div>
+		<table class="info-table">
+			<tr>
+				<td class="lbl">Nama / Hubungan / Telepon</td><td class="col">:</td><td class="val notes" colspan="4">${safe(emp.emergency_contact)}</td>
+			</tr>
+		</table>
+
+		${emp.notes ? `
+		<!-- F. CATATAN -->
+		<div class="sec-title">F. Catatan</div>
+		<table class="info-table">
+			<tr>
+				<td class="val notes" colspan="6" style="background:#fffbeb;">${safe(emp.notes)}</td>
+			</tr>
+		</table>` : ""}
+
+		<!-- SIGNATURE -->
+		<div class="sig-grid">
+			<div class="sig-box">
+				<div class="sig-label">Karyawan</div>
+				<div class="sig-line"></div>
+				<div class="sig-name" style="text-transform:capitalize;">${cap(emp.full_name)}</div>
+				<div class="sig-name" style="font-size:8.5pt;color:#555;">${safe(emp.position_name)}</div>
+			</div>
+			<div class="sig-box">
+				<div class="sig-label">Diketahui Oleh</div>
+				<div class="sig-line"></div>
+				<div class="sig-name">Siswati</div>
+				<div class="sig-name" style="font-size:8.5pt;color:#555;">Supervisor HR &amp; GA</div>
+			</div>
+			<div class="sig-box">
+				<div class="sig-label">Disetujui Oleh</div>
+				<div class="sig-line"></div>
+				<div class="sig-name">Rahmi Solehah</div>
+				<div class="sig-name" style="font-size:8.5pt;color:#555;">Direktur</div>
+			</div>
+		</div>
+
+		<p class="confidential">— RAHASIA — Dokumen ini bersifat internal dan hanya untuk keperluan administrasi HR.</p>
+
+		<div class="doc-footer">
+			Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;·&nbsp; ${docNo} &nbsp;·&nbsp; Dicetak: ${today} &nbsp;·&nbsp; Halaman 1 dari 1
+		</div>
+	</div>
+</body>
+</html>`;
+
+	const win = window.open("", "_blank", "width=860,height=1100");
+	if (!win) { alert("Popup diblokir browser. Izinkan popup untuk halaman ini."); return; }
+	win.document.write(html);
+	win.document.close();
+	win.onload = () => win.print();
+}
+
+function MobileCard({ item, idx, startItem, onDetail, onPrint, onLeaderRoleChange }) {
 	return (
 		<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
 			<div className="flex items-start justify-between gap-2">
@@ -263,13 +554,26 @@ function MobileCard({ item, idx, startItem, onDetail, onLeaderRoleChange }) {
 						<span className="font-medium text-slate-500">{item.employee_code || "Tanpa kode"}</span>
 					</p>
 				</div>
-				<button
-					type="button"
-					onClick={() => onDetail(item.employee_id)}
-					className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-				>
-					Detail
-				</button>
+				<div className="flex shrink-0 items-center gap-1.5">
+					<button
+						type="button"
+						onClick={() => onDetail(item.employee_id)}
+						title="Lihat detail karyawan"
+						aria-label="Lihat detail karyawan"
+						className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+					>
+						<HiOutlineEye className="h-4 w-4" />
+					</button>
+					<button
+						type="button"
+						onClick={() => onPrint(item.employee_id)}
+						title="Unduh ringkasan profil (PDF)"
+						aria-label="Unduh ringkasan profil"
+						className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+					>
+						<HiOutlineArrowDownTray className="h-4 w-4" />
+					</button>
+				</div>
 			</div>
 
 			<div className="flex flex-wrap gap-1.5">
@@ -468,6 +772,50 @@ export default function KaryawanIKM() {
 		);
 	};
 
+	const handlePrintEmployee = async (employeeId) => {
+		try {
+			setError("");
+			const res = await api(`/hr/employees/${employeeId}`);
+			const emp = res?.employee;
+			if (!emp) {
+				setError("Data karyawan tidak ditemukan.");
+				return;
+			}
+			printEmployeeProfile(emp);
+		} catch (e) {
+			setError(e?.message || "Gagal memuat data karyawan untuk dicetak.");
+		}
+	};
+
+	// ── Export Excel: semua karyawan + embed KTP/NPWP ─────────────────────────
+	const [exporting, setExporting] = useState(false);
+	const [exportProgress, setExportProgress] = useState("");
+
+	const handleExportExcel = async () => {
+		if (exporting) return;
+		setError("");
+		setExporting(true);
+		setExportProgress("Menyiapkan...");
+		try {
+			const result = await exportKaryawanIKMToExcel({
+				onProgress: ({ message, current, total }) => {
+					if (current && total) {
+						setExportProgress(`${message} (${current}/${total})`);
+					} else {
+						setExportProgress(message);
+					}
+				},
+			});
+			setExportProgress(`Berhasil mengunduh ${result.total} karyawan.`);
+			setTimeout(() => setExportProgress(""), 3000);
+		} catch (e) {
+			setError(e?.message || "Gagal mengunduh data karyawan.");
+			setExportProgress("");
+		} finally {
+			setExporting(false);
+		}
+	};
+
 	// Handlers
 	const handleSort = (col) => {
 		if (sortBy === col) {
@@ -648,6 +996,16 @@ export default function KaryawanIKM() {
 								)}
 								<button
 									type="button"
+									onClick={handleExportExcel}
+									disabled={exporting}
+									title="Unduh seluruh data karyawan IKM dalam format Excel beserta dokumen KTP & NPWP"
+									className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+								>
+									<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
+									{exporting ? "Mengunduh..." : "Unduh Excel"}
+								</button>
+								<button
+									type="button"
 									onClick={openAdd}
 									className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
 								>
@@ -656,6 +1014,18 @@ export default function KaryawanIKM() {
 								</button>
 							</div>
 						</div>
+
+						{exportProgress && (
+							<div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+								{exporting && (
+									<svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+										<circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+										<path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+									</svg>
+								)}
+								<span>{exportProgress}</span>
+							</div>
+						)}
 
 						<div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
 							<div className="relative" ref={searchContainerRef}>
@@ -883,14 +1253,26 @@ export default function KaryawanIKM() {
 												</div>
 											</td>
 											<td className="whitespace-nowrap px-4 py-3">
-												<button
-													type="button"
-													onClick={() => navigate(`/karyawan-ikm/${item.employee_id}`, { state: { backTo: "/karyawan-ikm" } })}
-													className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-												>
-													<HiOutlineEye className="h-3.5 w-3.5" />
-													Detail
-												</button>
+												<div className="flex items-center gap-1.5">
+													<button
+														type="button"
+														onClick={() => navigate(`/karyawan-ikm/${item.employee_id}`, { state: { backTo: "/karyawan-ikm" } })}
+														title="Lihat detail karyawan"
+														aria-label="Lihat detail karyawan"
+														className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+													>
+														<HiOutlineEye className="h-4 w-4" />
+													</button>
+													<button
+														type="button"
+														onClick={() => handlePrintEmployee(item.employee_id)}
+														title="Unduh ringkasan profil (PDF)"
+														aria-label="Unduh ringkasan profil"
+														className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+													>
+														<HiOutlineArrowDownTray className="h-4 w-4" />
+													</button>
+												</div>
 											</td>
 										</tr>
 									))}
@@ -937,6 +1319,7 @@ export default function KaryawanIKM() {
 											idx={idx}
 											startItem={startItem}
 											onDetail={(id) => navigate(`/karyawan-ikm/${id}`, { state: { backTo: "/karyawan-ikm" } })}
+											onPrint={(id) => handlePrintEmployee(id)}
 											onLeaderRoleChange={handleLeaderRoleChange}
 										/>
 									))}

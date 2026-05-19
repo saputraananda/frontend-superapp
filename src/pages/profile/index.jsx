@@ -136,6 +136,9 @@ export default function Profile() {
   // Pas foto (hanya gambar)
   const [profilePhoto, setProfilePhoto] = useState({ path: null, name: null });
 
+  // Base URLs untuk IKM (company_id=2)
+  const [baseUrls, setBaseUrls] = useState({ documents: null, avatars: null });
+
   // Semua dokumen (gambar + PDF) — KTP masuk sini
   const [docs, setDocs] = useState({
     ktp: { path: null, name: null },
@@ -167,6 +170,12 @@ export default function Profile() {
         });
 
         setProfilePhoto({ path: employee.profile_path || null, name: employee.profile_name || null });
+
+        // Simpan base URLs dari response (hanya ada untuk company_id=2)
+        setBaseUrls({
+          documents: employee.documents_base_url || null,
+          avatars:   employee.avatars_base_url   || null,
+        });
 
         // Load semua dokumen sekaligus
         setDocs({
@@ -512,6 +521,7 @@ export default function Profile() {
                           type="profile"
                           currentPath={profilePhoto.path}
                           currentName={profilePhoto.name}
+                          baseUrl={baseUrls.avatars}
                           onUploaded={({ path, name }) => { setProfilePhoto({ path, name }); setSuccess("Pas foto berhasil diupload."); setTimeout(() => setSuccess(""), 3000); }}
                           onDeleted={() => { setProfilePhoto({ path: null, name: null }); setSuccess("Pas foto berhasil dihapus."); setTimeout(() => setSuccess(""), 3000); }}
                         />
@@ -535,6 +545,7 @@ export default function Profile() {
                             hint={hint}
                             currentPath={docs[docType].path}
                             currentName={docs[docType].name}
+                            baseUrl={baseUrls.documents}
                             onUploaded={({ path, name }) => {
                               setDoc(docType, { path, name });
                               setSuccess(`${label} berhasil diupload.`);
