@@ -48,8 +48,9 @@ import DashboardKomplain from "./pages/complaint-management/components/Dashboard
 import DaftarKomplain from "./pages/complaint-management/components/DaftarKomplain";
 import FormKomplain from "./pages/complaint-management/components/FormKomplain";
 import PengajuanAlora from "./pages/pengajuan-alora";
+import DashboardPengajuan from "./pages/pengajuan-alora/components/DashboardPengajuan";
 import PengajuanBarang from "./pages/pengajuan-alora/components/PengajuanBarang";
-import Reimburse from "./pages/pengajuan-alora/components/Reimburse";
+import FormPengajuan from "./pages/pengajuan-alora/components/FormPengajuan";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -375,8 +376,9 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/pengajuan-alora" element={<PengajuanBarang />} />
-          <Route path="/pengajuan-reimburse" element={<Reimburse />} />
+          <Route path="/pengajuan-alora" element={<DashboardPengajuan />} />
+          <Route path="/pengajuan-alora/list" element={<PengajuanBarang />} />
+          <Route path="/pengajuan-alora/form" element={<FormPengajuan />} />
         </Route>
       </Routes>
     </BrowserRouter>
