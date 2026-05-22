@@ -96,6 +96,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 5a1 1 0 011 1v4a1 1 0 11-2 0V8a1 1 0 011-1zm0 8a1 1 0 100 2 1 1 0 000-2z" />
         </svg>
       );
+    if (name.includes("document") || name.includes("dokumen"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zm-5 9h8v2H8v-2zm0 4h5v2H8v-2zm0-8h3v2H8V9z" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -119,6 +125,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("monitoring") || name.includes("waschen monitoring")) return "bg-sky-600";
     if (name.includes("operational") || name.includes("control")) return "bg-violet-600";
     if (name.includes("complaint") || name.includes("komplain")) return "bg-rose-600";
+    if (name.includes("document") || name.includes("dokumen")) return "bg-blue-900";
     return "bg-blue-600";
   };
 

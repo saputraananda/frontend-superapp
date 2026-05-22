@@ -51,6 +51,9 @@ import PengajuanAlora from "./pages/pengajuan-alora";
 import DashboardPengajuan from "./pages/pengajuan-alora/components/DashboardPengajuan";
 import PengajuanBarang from "./pages/pengajuan-alora/components/PengajuanBarang";
 import FormPengajuan from "./pages/pengajuan-alora/components/FormPengajuan";
+import DocumentAlora from "./pages/document-alora";
+import MasterDocument from "./pages/document-alora/components/MasterDocument";
+import TransDocument from "./pages/document-alora/components/TransDocument";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -379,6 +382,18 @@ export default function App() {
           <Route path="/pengajuan-alora" element={<DashboardPengajuan />} />
           <Route path="/pengajuan-alora/list" element={<PengajuanBarang />} />
           <Route path="/pengajuan-alora/form" element={<FormPengajuan />} />
+        </Route>
+
+        {/* ── Document Alora ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/document-alora"]}>
+              <DocumentAlora />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/document-alora" element={<MasterDocument />} />
+          <Route path="/document-alora/transactions" element={<TransDocument />} />
         </Route>
       </Routes>
     </BrowserRouter>
