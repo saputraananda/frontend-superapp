@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const WEBHOOK_URL = "https://n8n.awancode.com/webhook/9f3a2574-73db-494d-b1b4-8d26b9a7967b/chat";
+const WEBHOOK_URL = "https://n8n-khz43b9d6ywk.jkt2.sumopod.my.id/webhook/f8bf5dc5-a684-42c5-9a96-8ebe22bf4dab/chat";
 const SESSION_KEY = "alora_chatbot_session";
 
 function getSessionId(employeeId) {
