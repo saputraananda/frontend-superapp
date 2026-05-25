@@ -82,7 +82,7 @@ const FINDING_LOCATIONS = ["Rumah Sakit", "IKM"];
 const EMPTY_FORM = {
   reporter_name: "", report_date: todayISO(), area_id: "",
   hospital_id: "", finding_location: "IKM", linen_type: "",
-  finding_type: "", finding_qty: 1, sending_note: "",
+  ownership_type: "", finding_type: "", finding_qty: 1, sending_note: "",
 };
 
 const LOCATION_META = {
@@ -228,6 +228,7 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
         hospital_id: String(editData.hospital_id || ""),
         finding_location: editData.finding_location || "IKM",
         linen_type: editData.linen_type || "",
+        ownership_type: editData.ownership_type || "",
         finding_type: editData.finding_type || "",
         finding_qty: editData.finding_qty ?? 1,
         sending_note: editData.sending_note || "",
@@ -535,6 +536,14 @@ function FormModal({ open, onClose, onSaved, editData, areas, hospitals }) {
                         <input className={inputClass} value={form.linen_type} onChange={(e) => setForm({ ...form, linen_type: e.target.value })} placeholder="Contoh: Sprei, Handuk..." required disabled={saving} />
                       </div>
                       <div>
+                        <label className={labelClass}>Kepemilikan Linen</label>
+                        <select className={inputClass} value={form.ownership_type} onChange={(e) => setForm({ ...form, ownership_type: e.target.value })} disabled={saving}>
+                          <option value="">-- Pilih --</option>
+                          <option value="rental">Sewa</option>
+                          <option value="hospital">Rumah Sakit</option>
+                        </select>
+                      </div>
+                      <div>
                         <label className={labelClass}>Jenis Temuan <span className="text-rose-500">*</span></label>
                         <input className={inputClass} value={form.finding_type} onChange={(e) => setForm({ ...form, finding_type: e.target.value })} placeholder="Contoh: Robek, Kotor, Hilang..." required disabled={saving} />
                       </div>
@@ -793,6 +802,7 @@ function printLinenReport(row) {
   <div class="sec-title">B. Detail Temuan Linen</div>
   <table class="info-table">
     <tr><td class="lbl">Jenis Linen</td><td class="col">:</td><td class="val" colspan="3">${row.linen_type || "-"}</td></tr>
+    <tr><td class="lbl">Kepemilikan</td><td class="col">:</td><td class="val" colspan="3">${row.ownership_type ? (row.ownership_type === "rental" ? "Sewa" : "Rumah Sakit") : "-"}</td></tr>
     <tr><td class="lbl">Jenis Temuan</td><td class="col">:</td><td class="val" colspan="3">${row.finding_type || "-"}</td></tr>
     <tr><td class="lbl">Jumlah Temuan</td><td class="col">:</td><td class="val" colspan="3"><strong>${row.finding_qty || 0} pcs</strong></td></tr>
     ${row.sending_note ? `<tr><td class="lbl">Catatan Pengiriman</td><td class="col">:</td><td class="val" colspan="3">${row.sending_note}</td></tr>` : ""}
@@ -1104,6 +1114,7 @@ export default function LinenReport() {
                     <SortTh col="area_name" label="Area" sort={sort} onSort={handleSort} />
                     <SortTh col="hospital_name" label="Rumah Sakit" sort={sort} onSort={handleSort} />
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Lokasi</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Kepemilikan</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Status</th>
                     <SortTh col="linen_type" label="Jenis Linen" sort={sort} onSort={handleSort} />
                     <SortTh col="finding_type" label="Temuan" sort={sort} onSort={handleSort} />
@@ -1114,11 +1125,11 @@ export default function LinenReport() {
                 </thead>
                 <tbody>
                   {loading
-                    ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={12} />)
+                    ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={13} />)
                     : sortedRecords.length === 0
                       ? (
                         <tr>
-                          <td colSpan={12} className="px-4 py-12 text-center text-sm text-slate-400">
+                          <td colSpan={13} className="px-4 py-12 text-center text-sm text-slate-400">
                             Tidak ada data laporan linen
                           </td>
                         </tr>
@@ -1141,6 +1152,17 @@ export default function LinenReport() {
                               <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", locMeta.cls)}>
                                 {r.finding_location}
                               </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {r.ownership_type ? (
+                                <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider",
+                                  r.ownership_type === "rental"
+                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                    : "bg-teal-50 text-teal-700 border-teal-200"
+                                )}>
+                                  {r.ownership_type === "rental" ? "Sewa" : "RS"}
+                                </span>
+                              ) : <span className="text-xs text-slate-300">-</span>}
                             </td>
                             <td className="px-4 py-3.5">
                               <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider", stMeta.cls)}>
@@ -1222,6 +1244,7 @@ export default function LinenReport() {
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
                           <span>📍 {r.area_name || "-"}</span>
                           <span>🏥 {r.hospital_name || "-"}</span>
+                          {r.ownership_type && <span>🏷️ {r.ownership_type === "rental" ? "Sewa" : "RS"}</span>}
                           <span>📦 Qty: <strong>{r.finding_qty}</strong></span>
                         </div>
                         {r.attachment_url && <PhotoThumb url={r.attachment_url} label={`Linen ${r.linen_type}`} />}
