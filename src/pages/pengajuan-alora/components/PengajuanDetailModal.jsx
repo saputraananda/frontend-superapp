@@ -140,6 +140,8 @@ export default function PengajuanDetailModal({
     const [acting, setActing]             = useState(false);
     const [toast, setToast]               = useState(null);
     const [preview, setPreview]           = useState(null); // { kind, name, src, downloadUrl }
+    const [spvNote, setSpvNote]           = useState("");
+    const [spvNoteOpen, setSpvNoteOpen]   = useState(false);
 
     // GA review state
     const [gaOpen, setGaOpen]         = useState(false);
@@ -147,6 +149,11 @@ export default function PengajuanDetailModal({
     const [gaMerk, setGaMerk]         = useState("");
     const [gaVendor, setGaVendor]     = useState("");
     const [gaNote, setGaNote]         = useState("");
+    const [gaVendorMode, setGaVendorMode] = useState(""); // 'vendor' | 'link'
+    const [gaVendorId, setGaVendorId]     = useState("");
+    const [gaLinkUrl, setGaLinkUrl]       = useState("");
+    const [gaLinkTitle, setGaLinkTitle]   = useState("");
+    const [vendorList, setVendorList]     = useState([]);
 
     // Finance review state
     const [finOpen, setFinOpen]       = useState(false);
@@ -157,6 +164,9 @@ export default function PengajuanDetailModal({
     const [payClassification, setPayClass]  = useState("");
     const [payNote, setPayNote]             = useState("");
     const [payFile, setPayFile]             = useState(null);
+    const [payMethod, setPayMethod]         = useState(""); // 'cash' | 'kredit'
+    const [payTerminValue, setPayTV]        = useState("");
+    const [payTerminUnit, setPayTU]         = useState(""); // 'hari' | 'bulan' | 'tahun'
 
     // Complete state (karyawan upload invoice)
     const [completeOpen, setCompleteOpen]   = useState(false);
@@ -185,8 +195,11 @@ export default function PengajuanDetailModal({
             setPreview(null);
             setGaOpen(false);
             setGaQty(""); setGaMerk(""); setGaVendor(""); setGaNote("");
+            setGaVendorMode(""); setGaVendorId(""); setGaLinkUrl(""); setGaLinkTitle("");
+            setVendorList([]);
             setFinOpen(false); setFinNote("");
             setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null);
+            setPayMethod(""); setPayTV(""); setPayTU("");
             setCompleteOpen(false); setInvoiceFile(null);
         }
     }, [open, load]);
@@ -234,13 +247,16 @@ export default function PengajuanDetailModal({
     const canPayment        = !readOnly && myIsFinance && status === 5;
 
     // Karyawan pengaju bisa complete (upload invoice) saat status 6
+    // GA juga bisa complete
     const myEmployeeId  = currentEmployee?.employee_id;
-    const canComplete   = !readOnly && status === 6 && data?.employee_id === myEmployeeId;
+    const canComplete   = !readOnly && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
 
     const doApprove = async () => {
         setActing(true);
         try {
-            await api(`/pengajuan/${prId}/approve`, { method: "POST" });
+            const body = {};
+            if (spvNote.trim()) body.spv_note = spvNote.trim();
+            await api(`/pengajuan/${prId}/approve`, { method: "POST", body: JSON.stringify(body) });
             showToast("success", "Pengajuan disetujui");
             onChanged?.();
             setTimeout(onClose, 600);
@@ -265,14 +281,22 @@ export default function PengajuanDetailModal({
     const doApproveGA = async () => {
         setActing(true);
         try {
+            const body = {
+                ga_qty:       gaQty   ? Number(gaQty)    : undefined,
+                ga_merk:      gaMerk  || undefined,
+                ga_note:      gaNote  || undefined,
+                vendor_mode:  gaVendorMode || undefined,
+            };
+            if (gaVendorMode === "vendor") {
+                body.vendor_id = gaVendorId ? Number(gaVendorId) : undefined;
+                body.vendor    = gaVendor || undefined;
+            } else if (gaVendorMode === "link") {
+                body.link_url   = gaLinkUrl || undefined;
+                body.link_title = gaLinkTitle || undefined;
+            }
             await api(`/pengajuan/${prId}/approve-ga`, {
                 method: "POST",
-                body: JSON.stringify({
-                    ga_qty:   gaQty   ? Number(gaQty)    : undefined,
-                    ga_merk:  gaMerk  || undefined,
-                    vendor:   gaVendor || undefined,
-                    ga_note:  gaNote  || undefined,
-                }),
+                body: JSON.stringify(body),
             });
             showToast("success", "Disetujui GA — PO siap");
             onChanged?.();
@@ -325,11 +349,18 @@ export default function PengajuanDetailModal({
 
     const doPayment = async () => {
         if (!payClassification) return showToast("error", "Klasifikasi wajib dipilih");
+        if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
+        if (payMethod === "kredit" && (!payTerminValue || !payTerminUnit)) return showToast("error", "Termin wajib diisi untuk kredit");
         if (!payFile) return showToast("error", "Bukti pembayaran wajib dilampirkan");
         setActing(true);
         try {
             const fd = new FormData();
             fd.append("classification", payClassification);
+            fd.append("payment_method", payMethod);
+            if (payMethod === "kredit") {
+                fd.append("termin_value", payTerminValue);
+                fd.append("termin_unit", payTerminUnit);
+            }
             if (payNote.trim()) fd.append("payment_note", payNote.trim());
             fd.append("attachments", payFile);
             await fetch(`${import.meta.env.VITE_API_URL || ""}/pengajuan/${prId}/pay`, {
@@ -556,6 +587,14 @@ export default function PengajuanDetailModal({
                                 </div>
                             )}
 
+                            {/* spv note */}
+                            {data.spv_note && (
+                                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide mb-1">Catatan Supervisor</p>
+                                    <p>{data.spv_note}</p>
+                                </div>
+                            )}
+
                             {/* rejection */}
                             {status === 9 && data.rejection_reason && (
                                 <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -565,11 +604,28 @@ export default function PengajuanDetailModal({
                             )}
 
                             {/* GA info — tampil jika sudah status 4 */}
-                            {status === 4 && (
+                            {status >= 4 && status !== 9 && (
                                 <div className="bg-violet-50 rounded-xl border border-violet-200 p-4 space-y-3 text-sm">
                                     <p className="text-[11px] font-bold text-violet-600 uppercase tracking-widest">Hasil Review GA / PO</p>
                                     <div className="grid grid-cols-2 gap-3">
-                                        {data.vendor && (
+                                        {data.vendor_mode === "vendor" && data.vendor && (
+                                            <div className="col-span-2">
+                                                <p className="text-[11px] text-slate-400 uppercase">Vendor / Supplier</p>
+                                                <p className="font-semibold text-slate-800">{toTitleCase(data.vendor)}</p>
+                                            </div>
+                                        )}
+                                        {data.vendor_mode === "link" && (
+                                            <div className="col-span-2">
+                                                <p className="text-[11px] text-slate-400 uppercase">Sumber (Link)</p>
+                                                <p className="font-semibold text-slate-800">{data.link_title || "—"}</p>
+                                                {data.link_url && (
+                                                    <a href={data.link_url} target="_blank" rel="noopener noreferrer"
+                                                        className="text-xs text-violet-600 hover:underline break-all">{data.link_url}</a>
+                                                )}
+                                            </div>
+                                        )}
+                                        {/* Fallback for old data without vendor_mode */}
+                                        {!data.vendor_mode && data.vendor && (
                                             <div className="col-span-2">
                                                 <p className="text-[11px] text-slate-400 uppercase">Vendor / Supplier</p>
                                                 <p className="font-semibold text-slate-800">{toTitleCase(data.vendor)}</p>
@@ -601,26 +657,85 @@ export default function PengajuanDetailModal({
                             {gaOpen && (
                                 <div className="rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40 p-4 space-y-3">
                                     <p className="text-sm font-bold text-violet-700">Review & Approve GA</p>
-                                    <p className="text-[11px] text-slate-500">Kosongkan field yang tidak perlu direvisi.</p>
+                                    <p className="text-[11px] text-slate-500">Qty dan Merk sudah terisi dari pengajuan. Ubah jika diperlukan.</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Vendor / Supplier <span className="text-rose-500">*</span></label>
-                                            <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
-                                                value={gaVendor} onChange={e => setGaVendor(e.target.value)}
-                                                placeholder="Nama vendor / toko" />
+                                        {/* Vendor Mode */}
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Vendor atau Link <span className="text-rose-500">*</span></label>
+                                            <div className="flex gap-3">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" name="vendor_mode" value="vendor"
+                                                        checked={gaVendorMode === "vendor"}
+                                                        onChange={() => { setGaVendorMode("vendor"); setGaLinkUrl(""); setGaLinkTitle(""); }}
+                                                        className="accent-violet-600" />
+                                                    <span className="text-sm text-slate-700 font-medium">Vendor</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" name="vendor_mode" value="link"
+                                                        checked={gaVendorMode === "link"}
+                                                        onChange={() => { setGaVendorMode("link"); setGaVendor(""); setGaVendorId(""); }}
+                                                        className="accent-violet-600" />
+                                                    <span className="text-sm text-slate-700 font-medium">Link</span>
+                                                </label>
+                                            </div>
                                         </div>
+
+                                        {/* Vendor fields */}
+                                        {gaVendorMode === "vendor" && (
+                                            <div className="sm:col-span-2 space-y-2">
+                                                <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Pilih atau Tulis Vendor</label>
+                                                <select
+                                                    className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                    value={gaVendorId}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        setGaVendorId(val);
+                                                        if (val) {
+                                                            const found = vendorList.find(v => String(v.vendor_id) === val);
+                                                            if (found) setGaVendor(found.nama_vendor);
+                                                        } else {
+                                                            setGaVendor("");
+                                                        }
+                                                    }}>
+                                                    <option value="">— Pilih dari daftar (opsional) —</option>
+                                                    {vendorList.map(v => (
+                                                        <option key={v.vendor_id} value={v.vendor_id}>{v.nama_vendor} ({v.kategori})</option>
+                                                    ))}
+                                                </select>
+                                                <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                    value={gaVendor} onChange={e => { setGaVendor(e.target.value); if (gaVendorId) setGaVendorId(""); }}
+                                                    placeholder="Atau tulis nama vendor custom..." />
+                                            </div>
+                                        )}
+
+                                        {/* Link fields */}
+                                        {gaVendorMode === "link" && (
+                                            <>
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Judul Link <span className="text-rose-500">*</span></label>
+                                                    <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                        value={gaLinkTitle} onChange={e => setGaLinkTitle(e.target.value)}
+                                                        placeholder="Contoh: Shopee, Tokopedia, Astro" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">URL Link <span className="text-rose-500">*</span></label>
+                                                    <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                        value={gaLinkUrl} onChange={e => setGaLinkUrl(e.target.value)}
+                                                        placeholder="https://..." />
+                                                </div>
+                                            </>
+                                        )}
+
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Qty Disetujui</label>
                                             <input type="number" min={1} step="0.01"
                                                 className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
-                                                value={gaQty} onChange={e => setGaQty(e.target.value)}
-                                                placeholder={`Default: ${data.qty}`} />
+                                                value={gaQty} onChange={e => setGaQty(e.target.value)} />
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Merk Dikonfirmasi</label>
                                             <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
-                                                value={gaMerk} onChange={e => setGaMerk(e.target.value)}
-                                                placeholder={`Default: ${data.merk || "—"}`} />
+                                                value={gaMerk} onChange={e => setGaMerk(e.target.value)} />
                                         </div>
                                         <div className="sm:col-span-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan</label>
@@ -634,9 +749,9 @@ export default function PengajuanDetailModal({
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
-                                        <button onClick={doApproveGA} disabled={acting || !gaVendor.trim()}
+                                        <button onClick={doApproveGA} disabled={acting || !gaVendorMode || (gaVendorMode === "vendor" && !gaVendor.trim()) || (gaVendorMode === "link" && (!gaLinkUrl.trim() || !gaLinkTitle.trim()))}
                                             className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition">
-                                            {acting ? "Memproses..." : "Approve & Terbitkan PO"}
+                                            {acting ? "Memproses..." : "Approve & Terbitkan PR"}
                                         </button>
                                     </div>
                                 </div>
@@ -670,7 +785,7 @@ export default function PengajuanDetailModal({
                             {payOpen && (
                                 <div className="rounded-xl border-2 border-dashed border-cyan-200 bg-cyan-50/40 p-4 space-y-3">
                                     <p className="text-sm font-bold text-cyan-700">Proses Pembayaran</p>
-                                    <p className="text-[11px] text-slate-500">Isi klasifikasi, catatan, dan lampirkan bukti pembayaran.</p>
+                                    <p className="text-[11px] text-slate-500">Isi klasifikasi, metode pembayaran, catatan, dan lampirkan bukti pembayaran.</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
@@ -682,6 +797,38 @@ export default function PengajuanDetailModal({
                                                 <option value="expense">Expense</option>
                                             </select>
                                         </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Metode Pembayaran <span className="text-rose-500">*</span></label>
+                                            <select
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
+                                                value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                                                <option value="">— Pilih —</option>
+                                                <option value="cash">Cash</option>
+                                                <option value="kredit">Kredit</option>
+                                            </select>
+                                        </div>
+                                        {payMethod === "kredit" && (
+                                            <>
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Termin (Nilai) <span className="text-rose-500">*</span></label>
+                                                    <input type="number" min={1}
+                                                        className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
+                                                        value={payTerminValue} onChange={e => setPayTV(e.target.value)}
+                                                        placeholder="Contoh: 30" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Satuan Termin <span className="text-rose-500">*</span></label>
+                                                    <select
+                                                        className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
+                                                        value={payTerminUnit} onChange={e => setPayTU(e.target.value)}>
+                                                        <option value="">— Pilih —</option>
+                                                        <option value="hari">Hari</option>
+                                                        <option value="bulan">Bulan</option>
+                                                        <option value="tahun">Tahun</option>
+                                                    </select>
+                                                </div>
+                                            </>
+                                        )}
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Bukti Pembayaran <span className="text-rose-500">*</span></label>
                                             <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf"
@@ -696,11 +843,11 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null); setPayMethod(""); setPayTV(""); setPayTU(""); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
-                                        <button onClick={doPayment} disabled={acting || !payClassification || !payFile}
+                                        <button onClick={doPayment} disabled={acting || !payClassification || !payMethod || !payFile || (payMethod === "kredit" && (!payTerminValue || !payTerminUnit))}
                                             className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition">
                                             {acting ? "Memproses..." : "Konfirmasi Pembayaran"}
                                         </button>
@@ -800,6 +947,30 @@ export default function PengajuanDetailModal({
                                 </div>
                             )}
 
+                            {/* SPV approval note panel */}
+                            {spvNoteOpen && (
+                                <div className="rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
+                                    <p className="text-sm font-bold text-emerald-700">Approve Supervisor</p>
+                                    <p className="text-[11px] text-slate-500">Tambahkan catatan jika diperlukan (opsional).</p>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan Supervisor</label>
+                                        <textarea rows={3} value={spvNote} onChange={e => setSpvNote(e.target.value)}
+                                            className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-200 resize-none"
+                                            placeholder="Catatan persetujuan (opsional)..." />
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => { setSpvNoteOpen(false); setSpvNote(""); }}
+                                            className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
+                                            Batal
+                                        </button>
+                                        <button onClick={() => { doApprove(); setSpvNoteOpen(false); }} disabled={acting}
+                                            className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition">
+                                            {acting ? "Memproses..." : "Approve"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* reject panel (shared for SPV/BOD and GA) */}
                             {rejectOpen && (
                                 <div className="rounded-xl border-2 border-dashed border-rose-200 bg-rose-50/40 p-4 space-y-3">
@@ -822,7 +993,7 @@ export default function PengajuanDetailModal({
                         </div>
                     )}
 
-                    {data && !rejectOpen && !gaOpen && !finOpen && !payOpen && !completeOpen && (canApproveSpv || canApproveBod || canReject || canApproveGA || canRejectGA || canApproveFinance || canRejectFinance || canPayment || canComplete) && (
+                    {data && !rejectOpen && !gaOpen && !finOpen && !payOpen && !completeOpen && !spvNoteOpen && (canApproveSpv || canApproveBod || canReject || canApproveGA || canRejectGA || canApproveFinance || canRejectFinance || canPayment || canComplete) && (
                         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-2 bg-white flex-wrap">
                             {(canReject || canRejectGA || canRejectFinance) && (
                                 <button onClick={() => setRejectOpen(true)}
@@ -849,15 +1020,28 @@ export default function PengajuanDetailModal({
                                 </button>
                             )}
                             {canApproveGA && (
-                                <button onClick={() => setGaOpen(true)}
+                                <button onClick={() => {
+                                    setGaOpen(true);
+                                    // Pre-fill qty dan merk dari data pengajuan
+                                    setGaQty(data.qty ? String(Number(data.qty)) : "");
+                                    setGaMerk(data.merk || "");
+                                    // Load vendor list
+                                    api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => {});
+                                }}
                                     className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
                                     Review & Approve GA
                                 </button>
                             )}
-                            {(canApproveSpv || canApproveBod) && (
+                            {canApproveSpv && (
+                                <button onClick={() => setSpvNoteOpen(true)}
+                                    className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">
+                                    Approve Supervisor
+                                </button>
+                            )}
+                            {canApproveBod && (
                                 <button onClick={doApprove} disabled={acting}
                                     className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition">
-                                    {acting ? "Memproses..." : canApproveBod ? "Approve Direktur" : "Approve Supervisor"}
+                                    {acting ? "Memproses..." : "Approve Direktur"}
                                 </button>
                             )}
                         </div>

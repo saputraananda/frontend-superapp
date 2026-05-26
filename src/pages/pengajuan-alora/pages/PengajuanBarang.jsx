@@ -21,12 +21,14 @@ import {
     HiOutlineGlobeAlt,
     HiOutlineDocumentText,
     HiOutlineReceiptRefund,
+    HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { canSupervisorUp } from "../../project-management/role";
-import PengajuanDetailModal from "./PengajuanDetailModal";
-import PRModal from "./PRModal";
-import POModal from "./POModal";
-import useCutoffPeriod from "./useCutoffPeriod";
+import PengajuanDetailModal from "../components/PengajuanDetailModal";
+import PRModal from "../components/PRModal";
+import POModal from "../components/POModal";
+import useCutoffPeriod from "../utils/useCutoffPeriod";
+import { exportPengajuanExcel } from "../utils/exportPengajuanExcel";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -46,6 +48,25 @@ const STATUS_CONFIG = {
     9: { label: "Ditolak",              cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 
+// Status badge logic: jika status 6 + kredit + belum jatuh tempo → "Belum Terbayar"
+const getStatusDisplay = (row) => {
+    const status = Number(row.status);
+    if (status === 6 && row.payment_method === "kredit") {
+        // Kredit: cek jatuh tempo
+        if (row.jatuh_tempo) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const jt = new Date(row.jatuh_tempo);
+            jt.setHours(0, 0, 0, 0);
+            if (jt >= today) {
+                return { label: "Belum Terbayar", cls: "bg-amber-50 text-amber-700 border-amber-200" };
+            }
+        }
+        return { label: "Terbayar (Kredit)", cls: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+    }
+    return STATUS_CONFIG[status] ?? STATUS_CONFIG[1];
+};
+
 const formatRp = (v) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
         .format(Number(v) || 0);
@@ -57,8 +78,8 @@ const formatDate = (s) => {
     return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-function StatusBadge({ status }) {
-    const c = STATUS_CONFIG[status] ?? STATUS_CONFIG[1];
+function StatusBadge({ status, row }) {
+    const c = row ? getStatusDisplay(row) : (STATUS_CONFIG[status] ?? STATUS_CONFIG[1]);
     return (
         <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap", c.cls)}>
             {c.label}
@@ -145,6 +166,8 @@ export default function PengajuanBarang() {
     const [search, setSearch]     = useState("");
     const [filterStatus, setFS]   = useState("");
     const [filterType, setFT]     = useState("");
+    const [filterMethod, setFM]   = useState("");
+    const [showAllDates, setShowAllDates] = useState(false);
     const [toast, setToast]       = useState(null);
     const [detailId, setDetailId] = useState(null);
     const [prDocId, setPrDocId]   = useState(null);
@@ -154,7 +177,7 @@ export default function PengajuanBarang() {
     const LIMIT = 10;
 
     // period hook — scope sesuai mode (approval & all & ga-review & finance-review & payment tidak pakai period)
-    const periodScope = (mode === "approval" || mode === "all" || mode === "ga-review" || mode === "finance-review" || mode === "payment") ? "me" : mode;
+    const periodScope = (mode === "approval" || mode === "ga-review" || mode === "finance-review" || mode === "payment") ? "me" : (mode === "all" ? "all" : mode);
     const period      = useCutoffPeriod(periodScope);
     const usePeriod   = mode !== "approval" && mode !== "ga-review" && mode !== "finance-review" && mode !== "payment";
 
@@ -167,23 +190,20 @@ export default function PengajuanBarang() {
     }, [searchInput]);
 
     // reset page saat mode / period berubah
-    useEffect(() => { setPage(1); }, [mode, period.dateFrom, period.dateTo]);
+    useEffect(() => { setPage(1); setShowAllDates(false); }, [mode]);
+    useEffect(() => { if (!showAllDates) setPage(1); }, [period.dateFrom, period.dateTo]);
 
     // ── load list ────────────────────────────────────────────────────────────
     const loadList = useCallback(async (silent = false) => {
-        if (usePeriod && !period.dateFrom) return;
+        if (usePeriod && !showAllDates && !period.dateFrom) return;
         if (!silent) setLoading(true);
         try {
             const params = new URLSearchParams({ page, limit: LIMIT });
             if (search)       params.set("search",    search);
             if (filterStatus) params.set("status",    filterStatus);
             if (filterType)   params.set("type",      filterType);
-            if (usePeriod && mode !== "all") {
-                params.set("date_from", period.dateFrom);
-                params.set("date_to",   period.dateTo);
-            }
-            // "all" mode pakai period filter juga
-            if (mode === "all" && period.dateFrom) {
+            if (filterMethod) params.set("payment_method", filterMethod);
+            if (usePeriod && !showAllDates) {
                 params.set("date_from", period.dateFrom);
                 params.set("date_to",   period.dateTo);
             }
@@ -205,7 +225,7 @@ export default function PengajuanBarang() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [mode, page, search, filterStatus, filterType, usePeriod, period.dateFrom, period.dateTo]);
+    }, [mode, page, search, filterStatus, filterType, filterMethod, usePeriod, showAllDates, period.dateFrom, period.dateTo]);
 
     useEffect(() => { loadList(); }, [loadList]);
 
@@ -264,6 +284,20 @@ export default function PengajuanBarang() {
         } catch (err) { showToast("error", err.message); }
     };
 
+    const handleExportExcel = () => {
+        if (!data.length) return showToast("error", "Tidak ada data untuk diexport");
+        exportPengajuanExcel({
+            records: data,
+            periodLabel: period.periodLabel || "",
+            filters: {
+                type: filterType || null,
+                status: filterStatus || null,
+                payment_method: filterMethod || null,
+            },
+        });
+        showToast("success", "File Excel berhasil diunduh");
+    };
+
     const totalPages  = Math.ceil(total / LIMIT) || 1;
     const isDept      = mode === "department";
     const isMe        = mode === "me";
@@ -294,11 +328,20 @@ export default function PengajuanBarang() {
                     <h1 className="text-lg font-bold text-slate-800">{modeLabels[mode].title}</h1>
                     <p className="text-xs text-slate-500 mt-0.5">{modeLabels[mode].desc}</p>
                 </div>
-                <button onClick={() => navigate("/pengajuan-alora/form")}
-                    className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-sm">
-                    <HiOutlinePlus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Buat Pengajuan</span>
-                </button>
+                <div className="flex items-center gap-2">
+                    {isAll && (
+                        <button onClick={handleExportExcel}
+                            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition">
+                            <HiOutlineArrowDownTray className="h-4 w-4" />
+                            <span className="hidden sm:inline">Export Excel</span>
+                        </button>
+                    )}
+                    <button onClick={() => navigate("/pengajuan-alora/form")}
+                        className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-sm">
+                        <HiOutlinePlus className="h-4 w-4" />
+                        <span className="hidden sm:inline">Buat Pengajuan</span>
+                    </button>
+                </div>
             </div>
 
             {/* ── Mode tabs ── */}
@@ -420,7 +463,20 @@ export default function PengajuanBarang() {
             </div>
 
             {/* ── Period filter (tidak tampil untuk approval & ga-review & finance-review & payment) ── */}
-            {!isApproval && !isGaReview && !isFinReview && !isPayment && <PeriodFilter period={period} />}
+            {!isApproval && !isGaReview && !isFinReview && !isPayment && (
+                <div className="flex items-center gap-3 flex-wrap">
+                    {!showAllDates && <PeriodFilter period={period} />}
+                    <button onClick={() => { setShowAllDates(prev => !prev); setPage(1); }}
+                        className={cn(
+                            "rounded-xl border px-3.5 py-2 text-xs font-semibold transition",
+                            showAllDates
+                                ? "bg-emerald-600 border-emerald-600 text-white"
+                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        )}>
+                        {showAllDates ? "✓ Semua Periode" : "Tampilkan Semua"}
+                    </button>
+                </div>
+            )}
 
             {/* ── Search + filters ── */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -443,6 +499,14 @@ export default function PengajuanBarang() {
                         <option key={k} value={k}>{v.label}</option>
                     )}
                 </select>
+                {isAll && (
+                    <select value={filterMethod} onChange={e => { setFM(e.target.value); setPage(1); }}
+                        className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
+                        <option value="">Semua Metode</option>
+                        <option value="cash">Cash</option>
+                        <option value="kredit">Kredit</option>
+                    </select>
+                )}
             </div>
 
             {/* ── Table ── */}
@@ -478,6 +542,7 @@ export default function PengajuanBarang() {
                                     <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:table-cell">Tipe</th>
                                     <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Estimasi</th>
                                     <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Metode</th>
                                     <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">Tanggal</th>
                                     <th className="px-5 py-3.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest">Aksi</th>
                                 </tr>
@@ -532,7 +597,27 @@ export default function PengajuanBarang() {
                                             </td>
 
                                             <td className="px-5 py-4">
-                                                <StatusBadge status={Number(row.status)} />
+                                                <StatusBadge status={Number(row.status)} row={row} />
+                                            </td>
+
+                                            <td className="px-5 py-4 hidden lg:table-cell">
+                                                {row.payment_method ? (
+                                                    <div>
+                                                        <span className={cn(
+                                                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold border",
+                                                            row.payment_method === "kredit"
+                                                                ? "bg-violet-50 text-violet-700 border-violet-200"
+                                                                : "bg-slate-50 text-slate-600 border-slate-200"
+                                                        )}>
+                                                            {row.payment_method === "kredit" ? "Kredit" : "Cash"}
+                                                        </span>
+                                                        {row.payment_method === "kredit" && row.jatuh_tempo && (
+                                                            <p className="text-[10px] text-slate-400 mt-0.5">JT: {formatDate(row.jatuh_tempo)}</p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[11px] text-slate-300">—</span>
+                                                )}
                                             </td>
 
                                             <td className="px-5 py-4 hidden lg:table-cell">

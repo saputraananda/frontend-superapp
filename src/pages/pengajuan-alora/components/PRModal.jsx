@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../../lib/api";
 import { HiOutlineXMark, HiOutlinePrinter, HiOutlineExclamationTriangle } from "react-icons/hi2";
-import { buildPrintWindow } from "./printStyles";
+import { buildPrintWindow } from "../utils/printStyles";
 
 const toTitleCase = (str) => {
     if (!str) return "—";

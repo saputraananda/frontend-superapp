@@ -48,9 +48,9 @@ import DashboardKomplain from "./pages/complaint-management/components/Dashboard
 import DaftarKomplain from "./pages/complaint-management/components/DaftarKomplain";
 import FormKomplain from "./pages/complaint-management/components/FormKomplain";
 import PengajuanAlora from "./pages/pengajuan-alora";
-import DashboardPengajuan from "./pages/pengajuan-alora/components/DashboardPengajuan";
-import PengajuanBarang from "./pages/pengajuan-alora/components/PengajuanBarang";
-import FormPengajuan from "./pages/pengajuan-alora/components/FormPengajuan";
+import DashboardPengajuan from "./pages/pengajuan-alora/pages/DashboardPengajuan";
+import PengajuanBarang from "./pages/pengajuan-alora/pages/PengajuanBarang";
+import FormPengajuan from "./pages/pengajuan-alora/pages/FormPengajuan";
 import DocumentAlora from "./pages/document-alora";
 import MasterDocument from "./pages/document-alora/components/MasterDocument";
 import TransDocument from "./pages/document-alora/components/TransDocument";

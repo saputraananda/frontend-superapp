@@ -15,8 +15,8 @@ import {
     HiOutlineClipboardDocumentList,
     HiOutlineCalendarDays,
 } from "react-icons/hi2";
-import PengajuanDetailModal from "./PengajuanDetailModal";
-import useCutoffPeriod from "./useCutoffPeriod";
+import PengajuanDetailModal from "../components/PengajuanDetailModal";
+import useCutoffPeriod from "../utils/useCutoffPeriod";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 

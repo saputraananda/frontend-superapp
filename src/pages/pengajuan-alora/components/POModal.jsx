@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../../lib/api";
 import { HiOutlineXMark, HiOutlinePrinter, HiOutlineExclamationTriangle } from "react-icons/hi2";
-import { buildPrintWindow } from "./printStyles";
+import { buildPrintWindow } from "../utils/printStyles";
 
 const toTitleCase = (str) => {
     if (!str) return "—";
@@ -17,6 +17,11 @@ function POPreview({ data: d }) {
     const finalQty  = d.ga_qty  ? Number(d.ga_qty)       : Number(d.qty);
     const finalMerk = d.ga_merk ? toTitleCase(d.ga_merk) : (d.merk ? toTitleCase(d.merk) : "—");
     const totalEst  = d.estimasi_harga ? Number(d.estimasi_harga) * finalQty : null;
+
+    // Vendor display: jika mode link, tampilkan judul link saja
+    const vendorDisplay = d.vendor_mode === "link"
+        ? (d.link_title || "—")
+        : (d.vendor ? toTitleCase(d.vendor) : "—");
 
     return (
         <div className="bg-white text-slate-800 font-sans">
@@ -33,19 +38,27 @@ function POPreview({ data: d }) {
                 </div>
             </div>
 
-            {/* Info */}
+            {/* Info — PO format: perusahaan ke vendor/link */}
             <div className="grid grid-cols-2 gap-8 mb-6">
                 <div className="space-y-3">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diajukan Oleh</div>
-                    <div><div className="text-[10px] text-slate-400 uppercase">Nama</div><div className="text-base font-bold text-slate-800">{toTitleCase(d.pengaju_name)}</div>{d.employee_code && <div className="text-xs text-slate-400">{d.employee_code}</div>}</div>
-                    <div><div className="text-[10px] text-slate-400 uppercase">Departemen</div><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.department_name)}</div></div>
-                    <div><div className="text-[10px] text-slate-400 uppercase">Kategori</div><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.company_name)}</div>{d.outlet_name && <div className="text-xs text-slate-500">Outlet: {d.outlet_name}</div>}</div>
-                    <div><div className="text-[10px] text-slate-400 uppercase">Tanggal Pengajuan</div><div className="text-sm font-semibold text-slate-700">{formatDate(d.tanggal_pengajuan)}</div></div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dari</div>
+                    <div><div className="text-base font-bold text-slate-800">PT Waschen Alora Indonesia</div><div className="text-xs text-slate-500">Alora Group Indonesia</div></div>
+                    <div><div className="text-[10px] text-slate-400 uppercase">Kategori</div><div className="text-sm font-semibold text-slate-700">{d.company_name || "—"}</div>{d.outlet_name && <div className="text-xs text-slate-500">Outlet: {d.outlet_name}</div>}</div>
+                    <div><div className="text-[10px] text-slate-400 uppercase">Tanggal PO</div><div className="text-sm font-semibold text-slate-700">{formatDate(d.approved_finance_at || d.approved_ga_at)}</div></div>
                 </div>
                 <div className="space-y-3">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kepada</div>
+                    <div>
+                        <div className="text-[10px] text-slate-400 uppercase">{d.vendor_mode === "link" ? "Sumber" : "Vendor"}</div>
+                        <div className="text-base font-bold text-slate-800">{vendorDisplay}</div>
+                    </div>
+                    {d.vendor_mode !== "link" && d.vendor_alamat && (
+                        <div><div className="text-[10px] text-slate-400 uppercase">Alamat</div><div className="text-sm text-slate-700">{d.vendor_alamat}</div></div>
+                    )}
+                    {d.vendor_mode !== "link" && d.vendor_telepon && (
+                        <div><div className="text-[10px] text-slate-400 uppercase">Telepon</div><div className="text-sm text-slate-700">{d.vendor_telepon}</div></div>
+                    )}
                     <div><div className="text-[10px] text-slate-400 uppercase">Tipe</div><div className="text-sm font-semibold text-slate-700">{d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>
-                    {d.vendor && <div><div className="text-[10px] text-slate-400 uppercase">Vendor</div><div className="text-sm font-bold text-slate-800">{toTitleCase(d.vendor)}</div></div>}
                     {d.type === "reimburse" && (<><div><div className="text-[10px] text-slate-400 uppercase">Bank</div><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.bank_name)}</div></div><div><div className="text-[10px] text-slate-400 uppercase">No. Rekening</div><div className="text-sm font-mono font-semibold text-slate-700">{d.nomor_rekening || "—"}</div></div><div><div className="text-[10px] text-slate-400 uppercase">Atas Nama</div><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.atas_nama)}</div></div></>)}
                 </div>
             </div>
@@ -59,7 +72,7 @@ function POPreview({ data: d }) {
                 </table>
             </div>
 
-            {/* Notes — style Info box */}
+            {/* Notes */}
             {d.alasan_pembelian && (
                 <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 mb-4">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Alasan Pembelian</p>
@@ -79,25 +92,39 @@ function POPreview({ data: d }) {
                 </div>
             )}
 
-            {/* Tanda Tangan: Menyetujui (kiri) — Mengetahui (kanan) */}
-            <div className="mt-6 grid grid-cols-2 gap-4">
-                {/* Menyetujui - SPV Finance */}
+            {/* Tanda Tangan: GA (Mengajukan) — SPV Finance (Mengetahui) — Direktur (Menyetujui) */}
+            <div className="mt-6 grid grid-cols-3 gap-4">
+                {/* GA - Mengajukan */}
                 <div className="border border-slate-200 rounded-xl p-4 text-center">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Menyetujui</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Mengajukan</div>
+                    <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
+                    {d.ga_name ? (
+                        <>
+                            <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.ga_name)}</div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">General Affair</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_ga_at)}</div>
+                        </>
+                    ) : (
+                        <div className="text-[11px] text-slate-300 italic">—</div>
+                    )}
+                </div>
+                {/* SPV Finance - Mengetahui */}
+                <div className="border border-slate-200 rounded-xl p-4 text-center">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Mengetahui</div>
                     <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
                     {d.finance_spv_name ? (
                         <>
                             <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.finance_spv_name)}</div>
-                            <div className="text-[11px] text-slate-500 mt-0.5">Supervisor Finance Alora</div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">Supervisor Finance</div>
                             <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_finance_at)}</div>
                         </>
                     ) : (
                         <div className="text-[11px] text-slate-300 italic">—</div>
                     )}
                 </div>
-                {/* Mengetahui - Direktur (employee_id = 2) */}
+                {/* Direktur - Menyetujui */}
                 <div className="border border-slate-200 rounded-xl p-4 text-center">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Mengetahui</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Menyetujui</div>
                     <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
                     <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.director_name)}</div>
                     <div className="text-[11px] text-slate-500 mt-0.5">Direktur Alora Group</div>
@@ -134,13 +161,16 @@ export default function POModal({ open, prId, onClose }) {
         const finalQty  = d.ga_qty  ? Number(d.ga_qty) : Number(d.qty);
         const finalMerk = d.ga_merk ? toTitleCase(d.ga_merk) : (d.merk ? toTitleCase(d.merk) : "—");
         const totalEst  = d.estimasi_harga ? Number(d.estimasi_harga) * finalQty : null;
+        const vendorDisplay = d.vendor_mode === "link"
+            ? (d.link_title || "—")
+            : (d.vendor ? toTitleCase(d.vendor) : "—");
 
         const html = `
 <div class="kop"><div><div class="text-2xl text-900">PT WASCHEN ALORA INDONESIA</div><div class="text-xs text-400" style="margin-top:4px">Alora Group Indonesia</div></div><div class="text-right"><div class="text-xl text-emerald tracking-widest uppercase">Purchase Order</div><div class="text-base text-700" style="margin-top:4px">${d.pr_code}</div><div class="text-xs text-400" style="margin-top:2px">${formatDate(d.approved_finance_at || d.approved_ga_at || d.created_at)}</div></div></div>
 
 <div class="grid-2">
-  <div class="space-y"><div class="section-title">Diajukan Oleh</div><div class="info-item"><div class="info-label">Nama</div><div class="info-value">${toTitleCase(d.pengaju_name)}</div>${d.employee_code ? `<div class="info-code">${d.employee_code}</div>` : ""}</div><div class="info-item"><div class="info-label">Departemen</div><div class="info-value">${toTitleCase(d.department_name)}</div></div><div class="info-item"><div class="info-label">Kategori</div><div class="info-value">${toTitleCase(d.company_name)}</div>${d.outlet_name ? `<div class="info-sub">Outlet: ${d.outlet_name}</div>` : ""}</div><div class="info-item"><div class="info-label">Tanggal Pengajuan</div><div class="info-value">${formatDate(d.tanggal_pengajuan)}</div></div></div>
-  <div class="space-y"><div class="section-title">Detail</div><div class="info-item"><div class="info-label">Tipe</div><div class="info-value">${d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>${d.vendor ? `<div class="info-item"><div class="info-label">Vendor</div><div class="info-value">${toTitleCase(d.vendor)}</div></div>` : ""}${d.type === "reimburse" ? `<div class="info-item"><div class="info-label">Bank</div><div class="info-value">${toTitleCase(d.bank_name)}</div></div><div class="info-item"><div class="info-label">No. Rekening</div><div class="info-value mono">${d.nomor_rekening || "—"}</div></div><div class="info-item"><div class="info-label">Atas Nama</div><div class="info-value">${toTitleCase(d.atas_nama)}</div></div>` : ""}</div>
+  <div class="space-y"><div class="section-title">Dari</div><div class="info-item"><div class="info-value" style="font-size:14px;font-weight:700">PT Waschen Alora Indonesia</div><div class="info-sub">Alora Group Indonesia</div></div><div class="info-item"><div class="info-label">Kategori</div><div class="info-value">${d.company_name || "—"}</div>${d.outlet_name ? `<div class="info-sub">Outlet: ${d.outlet_name}</div>` : ""}</div><div class="info-item"><div class="info-label">Tanggal PO</div><div class="info-value">${formatDate(d.approved_finance_at || d.approved_ga_at)}</div></div></div>
+  <div class="space-y"><div class="section-title">Kepada</div><div class="info-item"><div class="info-label">${d.vendor_mode === "link" ? "Sumber" : "Vendor"}</div><div class="info-value" style="font-size:14px;font-weight:700">${vendorDisplay}</div></div>${d.vendor_mode !== "link" && d.vendor_alamat ? `<div class="info-item"><div class="info-label">Alamat</div><div class="info-value" style="font-weight:400">${d.vendor_alamat}</div></div>` : ""}${d.vendor_mode !== "link" && d.vendor_telepon ? `<div class="info-item"><div class="info-label">Telepon</div><div class="info-value" style="font-weight:400">${d.vendor_telepon}</div></div>` : ""}<div class="info-item"><div class="info-label">Tipe</div><div class="info-value">${d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>${d.type === "reimburse" ? `<div class="info-item"><div class="info-label">Bank</div><div class="info-value">${toTitleCase(d.bank_name)}</div></div><div class="info-item"><div class="info-label">No. Rekening</div><div class="info-value mono">${d.nomor_rekening || "—"}</div></div><div class="info-item"><div class="info-label">Atas Nama</div><div class="info-value">${toTitleCase(d.atas_nama)}</div></div>` : ""}</div>
 </div>
 
 <table class="item-table"><thead><tr><th class="c" style="width:32px">#</th><th>Nama Barang</th><th>Merk</th><th class="r" style="width:50px">Qty</th><th style="width:60px">Satuan</th><th class="r" style="width:110px">Harga</th><th class="r" style="width:120px">Subtotal</th></tr></thead><tbody><tr><td class="c no">1</td><td><div class="item-name">${toTitleCase(d.nama_barang)}</div>${d.deskripsi ? `<div class="item-desc">${d.deskripsi}</div>` : ""}</td><td>${finalMerk}</td><td class="r" style="font-weight:700">${finalQty}</td><td>${d.satuan_name || "—"}</td><td class="r">${d.estimasi_harga ? formatRp(d.estimasi_harga) : "—"}</td><td class="r item-total">${totalEst ? formatRp(totalEst) : "—"}</td></tr></tbody><tfoot><tr><td colspan="6" class="r">Total Estimasi</td><td class="r total-amount">${totalEst ? formatRp(totalEst) : "—"}</td></tr></tfoot></table>
@@ -149,7 +179,7 @@ ${d.alasan_pembelian ? `<div class="note-box"><div class="note-label">Alasan Pem
 ${d.ga_note ? `<div class="note-box"><div class="note-label">Catatan General Affair</div><div class="note-text">${d.ga_note}</div></div>` : ""}
 ${d.finance_note ? `<div class="note-box"><div class="note-label">Catatan Finance</div><div class="note-text">${d.finance_note}</div></div>` : ""}
 
-<div class="grid-2" style="margin-top:24px;margin-bottom:0"><div class="sig-box"><div class="sig-label">Menyetujui</div><div class="sig-space"></div>${d.finance_spv_name ? `<div class="sig-name">${toTitleCase(d.finance_spv_name)}</div><div class="sig-role">Supervisor Finance Alora</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div><div class="sig-box"><div class="sig-label">Mengetahui</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.director_name)}</div><div class="sig-role">Direktur Alora Group</div></div></div>
+<div class="grid-3" style="margin-top:24px;margin-bottom:0"><div class="sig-box"><div class="sig-label">Mengajukan</div><div class="sig-space"></div>${d.ga_name ? `<div class="sig-name">${toTitleCase(d.ga_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div><div class="sig-box"><div class="sig-label">Mengetahui</div><div class="sig-space"></div>${d.finance_spv_name ? `<div class="sig-name">${toTitleCase(d.finance_spv_name)}</div><div class="sig-role">Supervisor Finance</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div><div class="sig-box"><div class="sig-label">Menyetujui</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.director_name)}</div><div class="sig-role">Direktur Alora Group</div></div></div>
 
 <div class="doc-footer"><span>Dicetak: ${new Date().toLocaleString("id-ID")}</span><span>${d.pr_code} · PT Waschen Alora Indonesia</span></div>`;
 
