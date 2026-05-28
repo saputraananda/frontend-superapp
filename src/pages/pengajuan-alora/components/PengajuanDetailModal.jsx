@@ -538,7 +538,9 @@ export default function PengajuanDetailModal({
                                 {/* Nominal Bayar (tampil setelah pembayaran) */}
                                 {status >= 6 && status !== 9 && data.nominal_bayar && (
                                     <div className="border-t border-slate-100 pt-3">
-                                        <p className="text-[11px] text-slate-400 uppercase">Nominal Bayar (Aktual)</p>
+                                        <p className="text-[11px] text-slate-400 uppercase">
+                                            {data.payment_method === "kredit" ? "Total Tagihan Kredit" : "Nominal Bayar (Aktual)"}
+                                        </p>
                                         <p className="font-bold text-cyan-700">{formatRp(data.nominal_bayar)}</p>
                                     </div>
                                 )}
@@ -789,7 +791,7 @@ export default function PengajuanDetailModal({
                                         </button>
                                         <button onClick={doApproveGA} disabled={acting || !gaVendorMode || (gaVendorMode === "vendor" && !gaVendor.trim()) || (gaVendorMode === "link" && (!gaLinkUrl.trim() || !gaLinkTitle.trim()))}
                                             className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition">
-                                            {acting ? "Memproses..." : "Approve & Terbitkan PR"}
+                                            {acting ? "Memproses..." : "Approve & Terbitkan PO"}
                                         </button>
                                     </div>
                                 </div>
@@ -868,13 +870,22 @@ export default function PengajuanDetailModal({
                                             </>
                                         )}
                                         <div>
-                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Bukti Pembayaran <span className="text-rose-500">*</span></label>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                {payMethod === "kredit" ? "Bukti PR / Invoice Awal" : "Bukti Pembayaran"} <span className="text-rose-500">*</span>
+                                            </label>
                                             <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf"
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-2 file:rounded file:border-0 file:bg-cyan-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-cyan-700"
                                                 onChange={e => setPayFile(e.target.files?.[0] || null)} />
+                                            {payMethod === "kredit" && (
+                                                <p className="text-[10px] text-amber-600 mt-0.5">
+                                                    Lampirkan dokumen pengakuan utang (invoice/PO supplier). Pembayaran aktual dicatat via menu Pelunasan.
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Nominal Bayar (Aktual)</label>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                {payMethod === "kredit" ? "Total Tagihan Kredit" : "Nominal Bayar (Aktual)"}
+                                            </label>
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
                                                 <input
@@ -884,7 +895,11 @@ export default function PengajuanDetailModal({
                                                     onChange={e => setPayNB(formatRupiah(e.target.value))}
                                                     placeholder="0" />
                                             </div>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">Default dari estimasi harga. Ubah jika berbeda.</p>
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                                {payMethod === "kredit"
+                                                    ? "Total yang harus dibayar (target). Cicilan dicatat di menu Pelunasan."
+                                                    : "Default dari estimasi harga. Ubah jika berbeda."}
+                                            </p>
                                         </div>
                                         <div className="sm:col-span-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan Pembayaran</label>

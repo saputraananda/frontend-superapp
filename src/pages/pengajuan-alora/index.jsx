@@ -128,7 +128,6 @@ function Sidebar({ collapsed = false, onClose }) {
 
 function ActiveMenuTitle() {
     const { pathname } = useLocation();
-    // Special-case form page
     if (pathname.startsWith("/pengajuan-alora/form")) {
         return (
             <div className="flex items-center gap-2.5">

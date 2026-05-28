@@ -50,9 +50,13 @@ export function cutoffRange(year, month) {
 }
 
 /**
- * @param {"me"|"department"|"approval"} scope
+ * @param {"me"|"department"|"approval"|"all"} scope
+ * @param {{ departmentId?: string|number|null }} [options]
+ *   departmentId — diteruskan sebagai ?department_id=<value> ke backend.
+ *   Khusus Finance/GA: nilai "all" untuk semua departemen.
  */
-export default function useCutoffPeriod(scope = "department") {
+export default function useCutoffPeriod(scope = "department", options = {}) {
+    const { departmentId } = options;
     const defaultPeriod = useMemo(() => currentCutoffPeriod(), []);
 
     const [periods, setPeriods] = useState([]);
@@ -66,7 +70,10 @@ export default function useCutoffPeriod(scope = "department") {
         (async () => {
             setLoading(true);
             try {
-                const d = await api(`/pengajuan/periods?scope=${scope}`);
+                const params = new URLSearchParams({ scope });
+                if (departmentId != null && departmentId !== "")
+                    params.set("department_id", String(departmentId));
+                const d = await api(`/pengajuan/periods?${params}`);
                 if (!cancel) {
                     const list = (d.periods || []).map(p => ({
                         year:  Number(p.year),
@@ -93,7 +100,7 @@ export default function useCutoffPeriod(scope = "department") {
         })();
         return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scope]);
+    }, [scope, departmentId]);
 
     // Tahun unik, urut descending
     const years = useMemo(() =>

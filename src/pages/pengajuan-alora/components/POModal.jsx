@@ -140,7 +140,10 @@ function POPreview({ data: d }) {
                             <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_finance_at)}</div>
                         </>
                     ) : (
-                        <div className="text-[11px] text-amber-500 italic font-medium">Belum Menyetujui</div>
+                        <>
+                            <div className="text-[11px] text-slate-500 mt-0.5">Supervisor Finance</div>
+                            <div className="text-[11px] text-amber-500 mt-0.5 italic font-medium">Belum Menyetujui</div>
+                        </>
                     )}
                 </div>
                 {/* Direktur - Menyetujui */}
@@ -154,7 +157,10 @@ function POPreview({ data: d }) {
                             <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_finance_at)}</div>
                         </>
                     ) : (
-                        <div className="text-[11px] text-amber-500 italic font-medium">Belum Menyetujui</div>
+                        <>
+                            <div className="text-[11px] text-slate-500 mt-0.5">Direktur Alora Group</div>
+                            <div className="text-[11px] text-amber-500 mt-0.5 italic font-medium">Belum Menyetujui</div>
+                        </>
                     )}
                 </div>
             </div>
@@ -215,7 +221,7 @@ ${d.alasan_pembelian ? `<div class="note-box"><div class="note-label">Alasan Pem
 ${d.ga_note ? `<div class="note-box"><div class="note-label">Catatan General Affair</div><div class="note-text">${d.ga_note}</div></div>` : ""}
 ${d.finance_note ? `<div class="note-box"><div class="note-label">Catatan Finance</div><div class="note-text">${d.finance_note}</div></div>` : ""}
 
-<div class="grid-3" style="margin-top:24px;margin-bottom:0"><div class="sig-box"><div class="sig-label">Mengajukan</div><div class="sig-space"></div>${d.ga_name ? `<div class="sig-name">${toTitleCase(d.ga_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div><div class="sig-box"><div class="sig-label">Mengetahui</div><div class="sig-space"></div>${hasFinanceApproval ? `<div class="sig-name">${toTitleCase(d.finance_spv_name)}</div><div class="sig-role">Supervisor Finance</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Menyetujui</div><div class="sig-space"></div>${hasDirectorApproval ? `<div class="sig-name">${toTitleCase(d.director_name)}</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div></div>
+<div class="grid-3" style="margin-top:24px;margin-bottom:0"><div class="sig-box"><div class="sig-label">Mengajukan</div><div class="sig-space"></div>${d.ga_name ? `<div class="sig-name">${toTitleCase(d.ga_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">General Affair</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Mengetahui</div><div class="sig-space"></div>${hasFinanceApproval ? `<div class="sig-name">${toTitleCase(d.finance_spv_name)}</div><div class="sig-role">Supervisor Finance</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">Supervisor Finance</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Menyetujui</div><div class="sig-space"></div>${hasDirectorApproval ? `<div class="sig-name">${toTitleCase(d.director_name)}</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div></div>
 
 <div class="doc-footer"><span>Dicetak: ${new Date().toLocaleString("id-ID")}</span><span>${d.pr_code} · PT Waschen Alora Indonesia</span></div>`;
 
