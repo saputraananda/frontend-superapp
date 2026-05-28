@@ -124,6 +124,12 @@ export default function InstallmentPaymentModal({
     const [nominal, setNominal]   = useState("");
     const [note, setNote]         = useState("");
     const [file, setFile]         = useState(null);
+    const [paidAt, setPaidAt]     = useState(""); // YYYY-MM-DD; default: hari ini
+
+    const todayISO = useMemo(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }, []);
 
     const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3000); };
 
@@ -136,6 +142,9 @@ export default function InstallmentPaymentModal({
             // Default nominal = sisa hutang (boleh diubah user)
             const sisa = Number(d?.summary?.sisa) || 0;
             setNominal(sisa > 0 ? formatRupiah(String(Math.round(sisa))) : "");
+            // Default tanggal bayar = hari ini
+            const t = new Date();
+            setPaidAt(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`);
         } catch (err) {
             showToast("error", err.message || "Gagal memuat riwayat pembayaran");
         } finally {
@@ -151,6 +160,7 @@ export default function InstallmentPaymentModal({
             setNominal("");
             setNote("");
             setFile(null);
+            setPaidAt("");
             setPreview(null);
         }
     }, [open, load]);
@@ -163,11 +173,17 @@ export default function InstallmentPaymentModal({
         const sisa = Number(data?.summary?.sisa) || 0;
         if (nom > sisa + 0.01) return showToast("error", `Nominal bayar melebihi sisa hutang (${formatRp(sisa)})`);
 
+        // Validasi tanggal bayar (jika diisi) tidak boleh masa depan
+        if (paidAt && paidAt > todayISO) {
+            return showToast("error", "Tanggal bayar tidak boleh di masa depan");
+        }
+
         setActing(true);
         try {
             const fd = new FormData();
             fd.append("nominal_bayar", String(nom));
             if (note.trim()) fd.append("note", note.trim());
+            if (paidAt) fd.append("paid_at", paidAt);
             fd.append("attachments", file);
             const res = await fetch(`${BASE_URL}/pengajuan/${prId}/installment`, {
                 method: "POST",
@@ -181,6 +197,7 @@ export default function InstallmentPaymentModal({
             setNominal("");
             setNote("");
             setFile(null);
+            // paidAt akan di-reset oleh load() ke hari ini
             await load();
             onChanged?.();
         } catch (err) {
@@ -341,6 +358,20 @@ export default function InstallmentPaymentModal({
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                Tanggal Bayar <span className="text-rose-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={paidAt}
+                                                max={todayISO}
+                                                onChange={e => setPaidAt(e.target.value)}
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200" />
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                                Default: hari ini. Ubah jika pembayaran sudah lewat.
+                                            </p>
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
                                                 Bukti Bayar <span className="text-rose-500">*</span>
                                             </label>
                                             <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf"
@@ -356,7 +387,7 @@ export default function InstallmentPaymentModal({
                                     </div>
 
                                     <div className="flex justify-end gap-2 pt-1">
-                                        <button onClick={submitInstallment} disabled={acting || !nominal || !file}
+                                        <button onClick={submitInstallment} disabled={acting || !nominal || !file || !paidAt}
                                             className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition flex items-center gap-1.5">
                                             <HiOutlineBanknotes className="h-4 w-4" />
                                             {acting ? "Memproses..." : "Catat Pembayaran"}

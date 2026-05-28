@@ -48,21 +48,21 @@ const STATUS_CONFIG = {
     9: { label: "Ditolak",              cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 
-// Status badge logic: jika status 6 + kredit + belum jatuh tempo → "Belum Terbayar"
+// Status badge logic untuk PR di status 6 (Terbayar):
+//   - Cash → langsung "Terbayar"
+//   - Kredit → cek apakah sudah lunas (total_paid >= nominal_bayar)
+//        Lunas         → "Lunas (Kredit)"
+//        Belum lunas   → "Belum Terbayar"
 const getStatusDisplay = (row) => {
     const status = Number(row.status);
     if (status === 6 && row.payment_method === "kredit") {
-        // Kredit: cek jatuh tempo
-        if (row.jatuh_tempo) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const jt = new Date(row.jatuh_tempo);
-            jt.setHours(0, 0, 0, 0);
-            if (jt >= today) {
-                return { label: "Belum Terbayar", cls: "bg-amber-50 text-amber-700 border-amber-200" };
-            }
+        const target    = Number(row.nominal_bayar) || 0;
+        const totalPaid = Number(row.total_paid)    || 0;
+        const isLunas   = (target > 0 || totalPaid > 0) && totalPaid >= target && target > 0;
+        if (isLunas) {
+            return { label: "Lunas (Kredit)", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
         }
-        return { label: "Terbayar (Kredit)", cls: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+        return { label: "Belum Terbayar", cls: "bg-amber-50 text-amber-700 border-amber-200" };
     }
     return STATUS_CONFIG[status] ?? STATUS_CONFIG[1];
 };
