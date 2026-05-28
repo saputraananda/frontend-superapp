@@ -509,7 +509,7 @@ export default function FormKomplain() {
                   <option value="">— Pilih Topik —</option>
                   {meta.topics.map((t) => <option key={t.topic_id} value={t.topic_id}>{t.topic_name}</option>)}
                 </SelectField>
-                <TextField label="Tanggal Diajukan" type="datetime-local" value={form.submitted_at} onChange={(e) => setForm((f) => ({ ...f, submitted_at: e.target.value }))} hint="Opsional" />
+                <TextField label="Tanggal Temuan" type="datetime-local" value={form.submitted_at} onChange={(e) => setForm((f) => ({ ...f, submitted_at: e.target.value }))} />
               </div>
             </FormSection>
 

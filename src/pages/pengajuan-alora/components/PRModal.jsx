@@ -29,7 +29,7 @@ function PRPreview({ data: d }) {
                 <div className="text-right">
                     <div className="text-xl font-extrabold text-emerald-700 tracking-widest uppercase">Purchase Request</div>
                     <div className="text-base font-bold text-slate-700 mt-1">{d.pr_code}</div>
-                    <div className="text-sm text-slate-400">{formatDate(d.approved_ga_at || d.created_at)}</div>
+                    <div className="text-sm text-slate-400">{formatDate(d.approved_spv_at || d.created_at)}</div>
                 </div>
             </div>
 
@@ -45,8 +45,9 @@ function PRPreview({ data: d }) {
                 <div className="space-y-3">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail</div>
                     <div><div className="text-[10px] text-slate-400 uppercase">Tipe</div><div className="text-sm font-semibold text-slate-700">{d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>
-                    {d.vendor && <div><div className="text-[10px] text-slate-400 uppercase">Vendor</div><div className="text-sm font-bold text-slate-800">{toTitleCase(d.vendor)}</div></div>}
                     {d.type === "reimburse" && (<><div><div className="text-[10px] text-slate-400 uppercase">Bank</div><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.bank_name)}</div></div><div><div className="text-[10px] text-slate-400 uppercase">No. Rekening</div><div className="text-sm font-mono font-semibold text-slate-700">{d.nomor_rekening || "—"}</div></div><div><div className="text-[10px] text-slate-400 uppercase">Atas Nama</div><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.atas_nama)}</div></div></>)}
+                    {/* Link referensi jika ada */}
+                    {d.link_title && <div><div className="text-[10px] text-slate-400 uppercase">Link Referensi</div><div className="text-sm font-semibold text-slate-700">{d.link_title}</div>{d.link_url && <a href={d.link_url.trim().match(/^https?:\/\//i) ? d.link_url.trim() : `https://${d.link_url.trim()}`} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 hover:underline break-all">{d.link_url}</a>}</div>}
                 </div>
             </div>
 
@@ -60,10 +61,9 @@ function PRPreview({ data: d }) {
             </div>
 
             {d.alasan_pembelian && <div className="mb-5"><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Alasan Pembelian</div><div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600">{d.alasan_pembelian}</div></div>}
-            {d.ga_note && <div className="mb-6"><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Catatan GA</div><div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600">{d.ga_note}</div></div>}
 
-            {/* Tanda Tangan: Pengaju — SPV — GA */}
-            <div className="mt-6 grid grid-cols-3 gap-4">
+            {/* Tanda Tangan: Diajukan Oleh — Disetujui Supervisor */}
+            <div className="mt-6 grid grid-cols-2 gap-4">
                 <div className="border border-slate-200 rounded-xl p-4 text-center">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Diajukan Oleh</div>
                     <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
@@ -74,11 +74,6 @@ function PRPreview({ data: d }) {
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Disetujui Supervisor</div>
                     <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
                     {d.spv_name ? <><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.spv_name)}</div><div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_spv_at)}</div></> : <div className="text-[11px] text-slate-300 italic">—</div>}
-                </div>
-                <div className="border border-slate-200 rounded-xl p-4 text-center">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Disetujui GA</div>
-                    <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
-                    {d.ga_name ? <><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.ga_name)}</div><div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_ga_at)}</div></> : <div className="text-[11px] text-slate-300 italic">—</div>}
                 </div>
             </div>
 
@@ -114,19 +109,18 @@ export default function PRModal({ open, prId, onClose }) {
         const totalEst  = d.estimasi_harga ? Number(d.estimasi_harga) * finalQty : null;
 
         const html = `
-<div class="kop"><div><div class="text-2xl text-900">PT WASCHEN ALORA INDONESIA</div><div class="text-xs text-400" style="margin-top:4px">Alora Group Indonesia</div></div><div class="text-right"><div class="text-xl text-emerald tracking-widest uppercase">Purchase Request</div><div class="text-base text-700" style="margin-top:4px">${d.pr_code}</div><div class="text-xs text-400" style="margin-top:2px">${formatDate(d.approved_ga_at || d.created_at)}</div></div></div>
+<div class="kop"><div><div class="text-2xl text-900">PT WASCHEN ALORA INDONESIA</div><div class="text-xs text-400" style="margin-top:4px">Alora Group Indonesia</div></div><div class="text-right"><div class="text-xl text-emerald tracking-widest uppercase">Purchase Request</div><div class="text-base text-700" style="margin-top:4px">${d.pr_code}</div><div class="text-xs text-400" style="margin-top:2px">${formatDate(d.approved_spv_at || d.created_at)}</div></div></div>
 
 <div class="grid-2">
   <div class="space-y"><div class="section-title">Diajukan Oleh</div><div class="info-item"><div class="info-label">Nama</div><div class="info-value">${toTitleCase(d.pengaju_name)}</div>${d.employee_code ? `<div class="info-code">${d.employee_code}</div>` : ""}</div><div class="info-item"><div class="info-label">Departemen</div><div class="info-value">${toTitleCase(d.department_name)}</div></div><div class="info-item"><div class="info-label">Kategori</div><div class="info-value">${toTitleCase(d.company_name)}</div>${d.outlet_name ? `<div class="info-sub">Outlet: ${d.outlet_name}</div>` : ""}</div><div class="info-item"><div class="info-label">Tanggal Pengajuan</div><div class="info-value">${formatDate(d.tanggal_pengajuan)}</div></div></div>
-  <div class="space-y"><div class="section-title">Detail</div><div class="info-item"><div class="info-label">Tipe</div><div class="info-value">${d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>${d.vendor ? `<div class="info-item"><div class="info-label">Vendor</div><div class="info-value">${toTitleCase(d.vendor)}</div></div>` : ""}${d.type === "reimburse" ? `<div class="info-item"><div class="info-label">Bank</div><div class="info-value">${toTitleCase(d.bank_name)}</div></div><div class="info-item"><div class="info-label">No. Rekening</div><div class="info-value mono">${d.nomor_rekening || "—"}</div></div><div class="info-item"><div class="info-label">Atas Nama</div><div class="info-value">${toTitleCase(d.atas_nama)}</div></div>` : ""}</div>
+  <div class="space-y"><div class="section-title">Detail</div><div class="info-item"><div class="info-label">Tipe</div><div class="info-value">${d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>${d.type === "reimburse" ? `<div class="info-item"><div class="info-label">Bank</div><div class="info-value">${toTitleCase(d.bank_name)}</div></div><div class="info-item"><div class="info-label">No. Rekening</div><div class="info-value mono">${d.nomor_rekening || "—"}</div></div><div class="info-item"><div class="info-label">Atas Nama</div><div class="info-value">${toTitleCase(d.atas_nama)}</div></div>` : ""}${d.link_title ? `<div class="info-item"><div class="info-label">Link Referensi</div><div class="info-value">${d.link_title}</div>${d.link_url ? `<div class="info-sub" style="color:#059669;word-break:break-all">${d.link_url}</div>` : ""}</div>` : ""}</div>
 </div>
 
 <table class="item-table"><thead><tr><th class="c" style="width:32px">#</th><th>Nama Barang</th><th>Merk</th><th class="r" style="width:50px">Qty</th><th style="width:60px">Satuan</th><th class="r" style="width:110px">Harga</th><th class="r" style="width:120px">Subtotal</th></tr></thead><tbody><tr><td class="c no">1</td><td><div class="item-name">${toTitleCase(d.nama_barang)}</div>${d.deskripsi ? `<div class="item-desc">${d.deskripsi}</div>` : ""}</td><td>${finalMerk}</td><td class="r" style="font-weight:700">${finalQty}</td><td>${d.satuan_name || "—"}</td><td class="r">${d.estimasi_harga ? formatRp(d.estimasi_harga) : "—"}</td><td class="r item-total">${totalEst ? formatRp(totalEst) : "—"}</td></tr></tbody><tfoot><tr><td colspan="6" class="r">Total Estimasi</td><td class="r total-amount">${totalEst ? formatRp(totalEst) : "—"}</td></tr></tfoot></table>
 
 ${d.alasan_pembelian ? `<div class="note-box"><div class="note-label">Alasan Pembelian</div><div class="note-text">${d.alasan_pembelian}</div></div>` : ""}
-${d.ga_note ? `<div class="note-box"><div class="note-label">Catatan GA</div><div class="note-text">${d.ga_note}</div></div>` : ""}
 
-<div class="grid-3"><div class="sig-box"><div class="sig-label">Diajukan Oleh</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-date">${formatDateShort(d.tanggal_pengajuan)}</div></div><div class="sig-box"><div class="sig-label">Disetujui Supervisor</div><div class="sig-space"></div>${d.spv_name ? `<div class="sig-name">${toTitleCase(d.spv_name)}</div><div class="sig-date">${formatDateShort(d.approved_spv_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div><div class="sig-box"><div class="sig-label">Disetujui GA</div><div class="sig-space"></div>${d.ga_name ? `<div class="sig-name">${toTitleCase(d.ga_name)}</div><div class="sig-date">${formatDateShort(d.approved_ga_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div></div>
+<div class="grid-2" style="margin-top:24px;gap:16px"><div class="sig-box"><div class="sig-label">Diajukan Oleh</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-date">${formatDateShort(d.tanggal_pengajuan)}</div></div><div class="sig-box"><div class="sig-label">Disetujui Supervisor</div><div class="sig-space"></div>${d.spv_name ? `<div class="sig-name">${toTitleCase(d.spv_name)}</div><div class="sig-date">${formatDateShort(d.approved_spv_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div></div>
 
 <div class="doc-footer"><span>Dicetak: ${new Date().toLocaleString("id-ID")}</span><span>${d.pr_code} · PT Waschen Alora Indonesia</span></div>`;
 

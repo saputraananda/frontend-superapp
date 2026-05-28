@@ -49,6 +49,20 @@ function getDefaultCutoff() {
 
 const DEFAULT_CUTOFF = getDefaultCutoff();
 
+// Compute cutoff range from a selected year+month (cutoff: 26 prev → 25 selected)
+function cutoffFromYearMonth(year, month) {
+  // month is 1-indexed
+  let startYear = year;
+  let startMonth = month - 1; // previous month
+  if (startMonth < 1) { startMonth = 12; startYear -= 1; }
+  return {
+    start: `${startYear}-${String(startMonth).padStart(2, "0")}-26`,
+    end:   `${year}-${String(month).padStart(2, "0")}-25`,
+  };
+}
+
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const PROGRESS_OPTIONS = ["Open", "On Progress", "Waiting Customer", "Resolved", "Closed"];
@@ -277,54 +291,61 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, children, wide, ful
 
 // ── Progress Timeline ──────────────────────────────────────────────────────────
 
-function ProgressTimeline({ logs, onPreviewDoc }) {
+function ProgressTimeline({ logs, complaint, onPreviewDoc }) {
   if (!logs?.length) return <p className="py-4 text-center text-sm text-slate-400">Belum ada log progress.</p>;
   return (
     <ol className="relative border-l border-slate-200 pl-6 space-y-6">
-      {logs.map((log) => (
-        <li key={log.log_id} className="relative">
-          <span className={cn(
-            "absolute -left-[25px] flex h-5 w-5 items-center justify-center rounded-full border-2 border-white",
-            PROGRESS_DOT[log.progress] || "bg-slate-300",
-          )} />
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <Badge progress={log.progress} />
-              <span className="text-[11px] text-slate-400">
-                {new Date(log.logged_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
-              </span>
-              {log.pic_name && (
-                <span className="text-[11px] text-slate-500">— PIC: <b>{log.pic_name}</b></span>
+      {logs.map((log) => {
+        // For the "created" log, show submitted_at if available
+        const isCreatedLog = log.note === "Komplain dibuat." || log.progress === "Open" && logs.indexOf(log) === 0;
+        const displayDate = isCreatedLog && complaint?.submitted_at
+          ? new Date(complaint.submitted_at)
+          : new Date(log.logged_at);
+        return (
+          <li key={log.log_id} className="relative">
+            <span className={cn(
+              "absolute -left-[25px] flex h-5 w-5 items-center justify-center rounded-full border-2 border-white",
+              PROGRESS_DOT[log.progress] || "bg-slate-300",
+            )} />
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <Badge progress={log.progress} />
+                <span className="text-[11px] text-slate-400">
+                  {displayDate.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+                {log.pic_name && (
+                  <span className="text-[11px] text-slate-500">— PIC: <b>{log.pic_name}</b></span>
+                )}
+              </div>
+              {log.note && <p className="text-sm text-slate-700 whitespace-pre-line">{log.note}</p>}
+              {log.documents?.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {log.documents.map((d) => {
+                    const url = assetUrl(d.file_path);
+                    const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
+                    return isImg ? (
+                      <div
+                        key={d.pdoc_id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onPreviewDoc?.({ src: url, name: d.original_name })}
+                        className="group relative h-16 w-16 cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm transition hover:shadow-md"
+                      >
+                        <img src={url} alt={d.original_name} className="h-full w-full object-cover" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                          <HiOutlineMagnifyingGlass className="h-3.5 w-3.5 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <FileChip key={d.pdoc_id} name={d.original_name} url={url} onClick={() => onPreviewDoc?.({ src: url, name: d.original_name })} />
+                    );
+                  })}
+                </div>
               )}
             </div>
-            {log.note && <p className="text-sm text-slate-700 whitespace-pre-line">{log.note}</p>}
-            {log.documents?.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {log.documents.map((d) => {
-                  const url = assetUrl(d.file_path);
-                  const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
-                  return isImg ? (
-                    <div
-                      key={d.pdoc_id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onPreviewDoc?.({ src: url, name: d.original_name })}
-                      className="group relative h-16 w-16 cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm transition hover:shadow-md"
-                    >
-                      <img src={url} alt={d.original_name} className="h-full w-full object-cover" />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                        <HiOutlineMagnifyingGlass className="h-3.5 w-3.5 text-white" />
-                      </div>
-                    </div>
-                  ) : (
-                    <FileChip key={d.pdoc_id} name={d.original_name} url={url} onClick={() => onPreviewDoc?.({ src: url, name: d.original_name })} />
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -336,6 +357,14 @@ export default function DaftarKomplain() {
 
   // Meta
   const [meta, setMeta] = useState({ types: [], categories: [], topics: [], outlets: [] });
+
+  // Periods from DB (for month/year picker)
+  const [periods, setPeriods] = useState([]); // [{ year, month }]
+  // Period picker mode: "range" | "month"
+  const [periodMode, setPeriodMode] = useState("month");
+  // Selected year+month (for "month" mode)
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   // List
   const [complaints, setComplaints] = useState([]);
@@ -375,6 +404,28 @@ export default function DaftarKomplain() {
   useEffect(() => {
     document.title = "Daftar Komplain | Alora App";
     api("/complaints/meta").then((d) => setMeta(d)).catch(() => {});
+    // Load available periods from DB
+    api("/complaints/periods").then((rows) => {
+      setPeriods(rows || []);
+      // Auto-select the most recent period that matches default cutoff
+      if (rows && rows.length > 0) {
+        // Find the period matching the default cutoff end month
+        const defEnd = new Date(DEFAULT_CUTOFF.end);
+        const defYear = defEnd.getFullYear();
+        const defMonth = defEnd.getMonth() + 1;
+        const match = rows.find((r) => Number(r.year) === defYear && Number(r.month) === defMonth);
+        if (match) {
+          setSelectedYear(Number(match.year));
+          setSelectedMonth(Number(match.month));
+        } else {
+          // fallback to first available
+          setSelectedYear(Number(rows[0].year));
+          setSelectedMonth(Number(rows[0].month));
+          const cutoff = cutoffFromYearMonth(Number(rows[0].year), Number(rows[0].month));
+          setFilter((f) => ({ ...f, startDate: cutoff.start, endDate: cutoff.end }));
+        }
+      }
+    }).catch(() => {});
   }, []);
 
   // ── Fetch list ────────────────────────────────────────────────────
@@ -504,21 +555,99 @@ export default function DaftarKomplain() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        {/* Date range filter */}
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={filter.startDate}
-            onChange={(e) => setFilter((f) => ({ ...f, startDate: e.target.value }))}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
-          />
-          <span className="text-xs text-slate-400">s/d</span>
-          <input
-            type="date"
-            value={filter.endDate}
-            onChange={(e) => setFilter((f) => ({ ...f, endDate: e.target.value }))}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
-          />
+        {/* Period picker */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Mode toggle */}
+          <div className="flex rounded-xl border border-slate-200 bg-white overflow-hidden text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setPeriodMode("month")}
+              className={cn("px-3 py-2 transition", periodMode === "month" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Per Bulan
+            </button>
+            <button
+              type="button"
+              onClick={() => setPeriodMode("range")}
+              className={cn("px-3 py-2 transition", periodMode === "range" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Range
+            </button>
+          </div>
+
+          {periodMode === "month" ? (
+            /* Month/Year picker from DB periods */
+            <div className="flex items-center gap-2">
+              {/* Year selector */}
+              {(() => {
+                const years = [...new Set(periods.map((p) => Number(p.year)))].sort((a, b) => b - a);
+                return (
+                  <select
+                    value={selectedYear ?? ""}
+                    onChange={(e) => {
+                      const yr = Number(e.target.value);
+                      setSelectedYear(yr);
+                      // pick first available month for that year
+                      const firstMonth = periods.find((p) => Number(p.year) === yr);
+                      if (firstMonth) {
+                        const mo = Number(firstMonth.month);
+                        setSelectedMonth(mo);
+                        const cutoff = cutoffFromYearMonth(yr, mo);
+                        setFilter((f) => ({ ...f, startDate: cutoff.start, endDate: cutoff.end }));
+                      }
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500"
+                  >
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                );
+              })()}
+              {/* Month selector — only months available for selected year */}
+              {(() => {
+                const months = periods
+                  .filter((p) => Number(p.year) === selectedYear)
+                  .map((p) => Number(p.month))
+                  .sort((a, b) => b - a);
+                return (
+                  <select
+                    value={selectedMonth ?? ""}
+                    onChange={(e) => {
+                      const mo = Number(e.target.value);
+                      setSelectedMonth(mo);
+                      const cutoff = cutoffFromYearMonth(selectedYear, mo);
+                      setFilter((f) => ({ ...f, startDate: cutoff.start, endDate: cutoff.end }));
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500"
+                  >
+                    {months.map((m) => <option key={m} value={m}>{MONTH_LABELS[m - 1]}</option>)}
+                  </select>
+                );
+              })()}
+              {/* Cutoff label */}
+              {filter.startDate && filter.endDate && (
+                <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5 hidden sm:inline">
+                  {filter.startDate} s/d {filter.endDate}
+                </span>
+              )}
+            </div>
+          ) : (
+            /* Manual date range */
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={filter.startDate}
+                onChange={(e) => setFilter((f) => ({ ...f, startDate: e.target.value }))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
+              />
+              <span className="text-xs text-slate-400">s/d</span>
+              <input
+                type="date"
+                value={filter.endDate}
+                onChange={(e) => setFilter((f) => ({ ...f, endDate: e.target.value }))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
+              />
+            </div>
+          )}
         </div>
 
         {/* Search */}
@@ -592,7 +721,7 @@ export default function DaftarKomplain() {
                     onClick={() => setDateOrder((d) => d === "desc" ? "asc" : "desc")}
                     className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition hover:bg-slate-100"
                   >
-                    Tanggal
+                    Tgl Temuan
                     {dateOrder === "desc"
                       ? <HiOutlineChevronDown className="h-3.5 w-3.5 text-fuchsia-500" />
                       : <HiOutlineChevronUp className="h-3.5 w-3.5 text-fuchsia-500" />
@@ -613,7 +742,12 @@ export default function DaftarKomplain() {
               {complaints.map((c) => (
                 <tr key={c.complaint_id} className="hover:bg-slate-50/50">
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
-                    {new Date(c.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                    {(() => {
+                      const d = c.submitted_at || c.created_at;
+                      return d
+                        ? new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+                        : <span className="text-slate-300">—</span>;
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-800">{c.complaint_name}</p>
@@ -766,11 +900,19 @@ export default function DaftarKomplain() {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Status Komplain</p>
                   <Badge progress={detailData.complaint.progress} />
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Tanggal</p>
-                  <p className="text-xs font-semibold text-slate-700">
-                    {new Date(detailData.complaint.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
-                  </p>
+                <div className="text-right space-y-1">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tanggal Temuan</p>
+                    <p className="text-xs font-semibold text-slate-700">
+                      {new Date(detailData.complaint.submitted_at || detailData.complaint.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tanggal Diajukan</p>
+                    <p className="text-xs font-semibold text-slate-700">
+                      {new Date(detailData.complaint.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -869,7 +1011,7 @@ export default function DaftarKomplain() {
               </div>
               {/* Timeline scrollable */}
               <div className="flex-1 overflow-y-auto p-5">
-                <ProgressTimeline logs={detailData.progressLogs} onPreviewDoc={setLightbox} />
+                <ProgressTimeline logs={detailData.progressLogs} complaint={detailData.complaint} onPreviewDoc={setLightbox} />
               </div>
             </div>
 

@@ -631,8 +631,8 @@ export default function PengajuanBarang() {
                                                         className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 transition">
                                                         <HiOutlineEye className="h-4 w-4" />
                                                     </button>
-                                                    {/* PR (Purchase Request) — hanya GA & Finance, status >= 4 (bukan 9) */}
-                                                    {isGAFinance && [4, 5, 6, 7].includes(Number(row.status)) && (
+                                                    {/* PR (Purchase Request) — hanya GA & Finance, status >= 2 (bukan 9) */}
+                                                    {isGAFinance && [2, 3, 4, 5, 6, 7].includes(Number(row.status)) && (
                                                         <button
                                                             onClick={() => setPrDocId(row.pr_id)}
                                                             title="Lihat / Cetak PR"
@@ -640,8 +640,8 @@ export default function PengajuanBarang() {
                                                             <HiOutlineDocumentText className="h-4 w-4" />
                                                         </button>
                                                     )}
-                                                    {/* PO (Purchase Order) — hanya GA & Finance, status 5/6/7 */}
-                                                    {isGAFinance && [5, 6, 7].includes(Number(row.status)) && (
+                                                    {/* PO (Purchase Order) — hanya GA & Finance, status >= 4 (bukan 9) */}
+                                                    {isGAFinance && [4, 5, 6, 7].includes(Number(row.status)) && (
                                                         <button
                                                             onClick={() => setPoId(row.pr_id)}
                                                             title="Lihat / Cetak PO"

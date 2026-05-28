@@ -36,6 +36,14 @@ const STATUS_CONFIG = {
 const formatRp = (v) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(v) || 0);
 
+const formatRupiah = (raw) => {
+    if (raw === "" || raw == null) return "";
+    const n = String(raw).replace(/\D/g, "");
+    if (!n) return "";
+    return new Intl.NumberFormat("id-ID").format(Number(n));
+};
+const stripRupiah = (s) => String(s || "").replace(/\D/g, "");
+
 const formatDate = (s) => {
     if (!s) return "—";
     const d = new Date(s);
@@ -47,6 +55,14 @@ const formatDate = (s) => {
 const getExt      = (name) => (String(name || "").split(".").pop() || "").toLowerCase();
 const isImageExt  = (ext)  => ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext);
 const isPdfExt    = (ext)  => ext === "pdf";
+
+// Pastikan URL selalu absolute (tambahkan https:// jika belum ada protocol)
+const ensureAbsoluteUrl = (url) => {
+    if (!url) return url;
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+};
 
 // ── PreviewModal (sama persis dengan FormPengajuan) ──────────────────────────
 function PreviewModal({ item, onClose }) {
@@ -167,6 +183,7 @@ export default function PengajuanDetailModal({
     const [payMethod, setPayMethod]         = useState(""); // 'cash' | 'kredit'
     const [payTerminValue, setPayTV]        = useState("");
     const [payTerminUnit, setPayTU]         = useState(""); // 'hari' | 'bulan' | 'tahun'
+    const [payNominalBayar, setPayNB]       = useState(""); // nominal bayar aktual (formatted)
 
     // Complete state (karyawan upload invoice)
     const [completeOpen, setCompleteOpen]   = useState(false);
@@ -199,7 +216,7 @@ export default function PengajuanDetailModal({
             setVendorList([]);
             setFinOpen(false); setFinNote("");
             setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null);
-            setPayMethod(""); setPayTV(""); setPayTU("");
+            setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB("");
             setCompleteOpen(false); setInvoiceFile(null);
         }
     }, [open, load]);
@@ -361,6 +378,9 @@ export default function PengajuanDetailModal({
                 fd.append("termin_value", payTerminValue);
                 fd.append("termin_unit", payTerminUnit);
             }
+            // Nominal bayar aktual
+            const nomBayar = stripRupiah(payNominalBayar);
+            if (nomBayar) fd.append("nominal_bayar", nomBayar);
             if (payNote.trim()) fd.append("payment_note", payNote.trim());
             fd.append("attachments", payFile);
             await fetch(`${import.meta.env.VITE_API_URL || ""}/pengajuan/${prId}/pay`, {
@@ -504,6 +524,24 @@ export default function PengajuanDetailModal({
                                     <p className="text-[11px] text-slate-400 uppercase">Alasan Pembelian</p>
                                     <p className="text-slate-600">{data.alasan_pembelian}</p>
                                 </div>
+                                {/* Link referensi dari karyawan (tampil sebelum GA approve) */}
+                                {status < 4 && (data.link_url || data.link_title) && (
+                                    <div className="border-t border-slate-100 pt-3">
+                                        <p className="text-[11px] text-slate-400 uppercase mb-1">Link Referensi (dari Pengaju)</p>
+                                        <p className="font-semibold text-slate-700">{data.link_title || "—"}</p>
+                                        {data.link_url && (
+                                            <a href={ensureAbsoluteUrl(data.link_url)} target="_blank" rel="noopener noreferrer"
+                                                className="text-xs text-emerald-600 hover:underline break-all">{data.link_url}</a>
+                                        )}
+                                    </div>
+                                )}
+                                {/* Nominal Bayar (tampil setelah pembayaran) */}
+                                {status >= 6 && status !== 9 && data.nominal_bayar && (
+                                    <div className="border-t border-slate-100 pt-3">
+                                        <p className="text-[11px] text-slate-400 uppercase">Nominal Bayar (Aktual)</p>
+                                        <p className="font-bold text-cyan-700">{formatRp(data.nominal_bayar)}</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* reimburse-only */}
@@ -619,7 +657,7 @@ export default function PengajuanDetailModal({
                                                 <p className="text-[11px] text-slate-400 uppercase">Sumber (Link)</p>
                                                 <p className="font-semibold text-slate-800">{data.link_title || "—"}</p>
                                                 {data.link_url && (
-                                                    <a href={data.link_url} target="_blank" rel="noopener noreferrer"
+                                                    <a href={ensureAbsoluteUrl(data.link_url)} target="_blank" rel="noopener noreferrer"
                                                         className="text-xs text-violet-600 hover:underline break-all">{data.link_url}</a>
                                                 )}
                                             </div>
@@ -835,6 +873,19 @@ export default function PengajuanDetailModal({
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-2 file:rounded file:border-0 file:bg-cyan-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-cyan-700"
                                                 onChange={e => setPayFile(e.target.files?.[0] || null)} />
                                         </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Nominal Bayar (Aktual)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
+                                                <input
+                                                    className="w-full rounded-lg border border-cyan-200 bg-white pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200 tabular-nums"
+                                                    value={payNominalBayar}
+                                                    inputMode="numeric"
+                                                    onChange={e => setPayNB(formatRupiah(e.target.value))}
+                                                    placeholder="0" />
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-0.5">Default dari estimasi harga. Ubah jika berbeda.</p>
+                                        </div>
                                         <div className="sm:col-span-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan Pembayaran</label>
                                             <textarea rows={2} value={payNote} onChange={e => setPayNote(e.target.value)}
@@ -843,7 +894,7 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null); setPayMethod(""); setPayTV(""); setPayTU(""); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
@@ -1008,7 +1059,13 @@ export default function PengajuanDetailModal({
                                 </button>
                             )}
                             {canPayment && (
-                                <button onClick={() => setPayOpen(true)}
+                                <button onClick={() => {
+                                    setPayOpen(true);
+                                    // Pre-fill nominal bayar dari estimasi harga * qty
+                                    const qty = data.ga_qty ? Number(data.ga_qty) : Number(data.qty);
+                                    const totalEst = data.estimasi_harga ? Number(data.estimasi_harga) * qty : 0;
+                                    if (totalEst) setPayNB(formatRupiah(String(totalEst)));
+                                }}
                                     className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
                                     Proses Pembayaran
                                 </button>
@@ -1025,6 +1082,12 @@ export default function PengajuanDetailModal({
                                     // Pre-fill qty dan merk dari data pengajuan
                                     setGaQty(data.qty ? String(Number(data.qty)) : "");
                                     setGaMerk(data.merk || "");
+                                    // Pre-fill link dari data pengajuan (jika karyawan sudah isi)
+                                    if (data.link_url || data.link_title) {
+                                        setGaVendorMode("link");
+                                        setGaLinkUrl(data.link_url || "");
+                                        setGaLinkTitle(data.link_title || "");
+                                    }
                                     // Load vendor list
                                     api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => {});
                                 }}

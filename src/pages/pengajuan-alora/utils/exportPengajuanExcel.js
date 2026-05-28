@@ -155,7 +155,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
     "Nama Barang", "Merk", "Qty", "Satuan", "Estimasi Harga", "Total Estimasi",
     "Alasan Pembelian", "Status", "Tgl Pengajuan",
     "Vendor/Link", "Vendor Mode",
-    "Metode Bayar", "Klasifikasi", "Termin", "Jatuh Tempo",
+    "Metode Bayar", "Klasifikasi", "Nominal Bayar", "Termin", "Jatuh Tempo",
     "Tgl Approve SPV", "Tgl Approve GA", "Tgl Approve Finance", "Tgl Bayar", "Tgl Selesai",
     "Aging (Hari)", "Aging Bucket",
   ];
@@ -214,6 +214,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
       cell(row.vendor_mode || "-", csC),
       cell(row.payment_method ? (row.payment_method === "kredit" ? "Kredit" : "Cash") : "-", csC),
       cell(row.classification || "-", csC),
+      cell(row.nominal_bayar ? fmtRp(row.nominal_bayar) : "-", csR),
       cell(terminDisplay, csC),
       cell(row.jatuh_tempo ? fmtDate(row.jatuh_tempo) : "-", csC),
       cell(fmtDate(row.approved_spv_at), csC),
@@ -232,9 +233,14 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
     return sum + (Number(r.estimasi_harga) || 0) * q;
   }, 0);
 
+  const totalNominalBayar = records.reduce((sum, r) => {
+    return sum + (Number(r.nominal_bayar) || 0);
+  }, 0);
+
   const summaryRow = Array.from({ length: TOTAL_COLS }, () => empty(summaryEmptyStyle));
   summaryRow[11] = cell("TOTAL:", summaryLabelStyle);
   summaryRow[12] = cell(fmtRp(totalNominal), summaryValueStyle);
+  summaryRow[20] = cell(fmtRp(totalNominalBayar), summaryValueStyle);
   summaryRow[0] = cell(`${records.length} data`, summaryValueStyle);
   wsData.push(summaryRow);
 
@@ -250,7 +256,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
     { wch: 24 }, { wch: 14 }, { wch: 7 }, { wch: 8 }, { wch: 16 }, { wch: 16 },
     { wch: 30 }, { wch: 16 }, { wch: 14 },
     { wch: 20 }, { wch: 10 },
-    { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 14 },
+    { wch: 11 }, { wch: 11 }, { wch: 16 }, { wch: 12 }, { wch: 14 },
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
     { wch: 10 }, { wch: 10 },
   ];

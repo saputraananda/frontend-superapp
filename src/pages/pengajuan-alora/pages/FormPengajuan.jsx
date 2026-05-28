@@ -119,6 +119,9 @@ const EMPTY = {
     satuan_id: "",
     estimasi_harga_str: "",
     alasan_pembelian: "",
+    // link referensi (opsional, bisa diisi karyawan)
+    link_url: "",
+    link_title: "",
     // reimburse — editable, pre-filled dari DB
     bank_name: "",
     bank_account_number: "",
@@ -224,6 +227,9 @@ export default function FormPengajuan() {
                     satuan_id: r.satuan_id || "",
                     estimasi_harga_str: r.estimasi_harga ? formatRupiah(r.estimasi_harga) : "",
                     alasan_pembelian: r.alasan_pembelian || "",
+                    // Link referensi
+                    link_url: r.link_url || "",
+                    link_title: r.link_title || "",
                     // Reimburse
                     bank_name: r.bank_name || emp?.bank_name || "",
                     bank_account_number: r.bank_account_number || emp?.bank_account_number || "",
@@ -320,6 +326,10 @@ export default function FormPengajuan() {
                 fd.append("bank_account_number", form.bank_account_number.trim());
                 fd.append("atas_nama", form.atas_nama.trim());
             }
+
+            // ── link referensi (opsional) ──
+            if (form.link_url.trim()) fd.append("link_url", form.link_url.trim());
+            if (form.link_title.trim()) fd.append("link_title", form.link_title.trim());
 
             files.forEach(f => fd.append("attachments", f));
 
@@ -522,6 +532,22 @@ export default function FormPengajuan() {
                         <textarea rows={3} className={cn(inputCls, "resize-none")} value={form.alasan_pembelian}
                             onChange={e => setForm(p => ({ ...p, alasan_pembelian: e.target.value }))}
                             placeholder="Tuliskan alasan kebutuhan ini..." />
+                    </div>
+
+                    {/* Link Referensi (opsional) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className={labelCls}>Judul Link / Sumber (opsional)</label>
+                            <input className={inputCls} value={form.link_title} maxLength={255}
+                                onChange={e => setForm(p => ({ ...p, link_title: e.target.value }))}
+                                placeholder="Contoh: Shopee, Tokopedia, Astro" />
+                        </div>
+                        <div>
+                            <label className={labelCls}>URL Link (opsional)</label>
+                            <input className={inputCls} value={form.link_url} maxLength={500}
+                                onChange={e => setForm(p => ({ ...p, link_url: e.target.value }))}
+                                placeholder="https://..." />
+                        </div>
                     </div>
 
                     {/* Lampiran */}
