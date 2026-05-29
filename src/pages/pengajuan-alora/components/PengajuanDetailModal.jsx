@@ -23,14 +23,14 @@ const toTitleCase = (str) => {
 };
 
 const STATUS_CONFIG = {
-    1: { label: "Telah Diajukan",       cls: "bg-amber-50 text-amber-700 border-amber-200" },
+    1: { label: "Telah Diajukan", cls: "bg-amber-50 text-amber-700 border-amber-200" },
     2: { label: "Disetujui Supervisor", cls: "bg-blue-50 text-blue-700 border-blue-200" },
-    3: { label: "Disetujui Direktur",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    4: { label: "PR Ready",             cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-    5: { label: "Menunggu Bayar",       cls: "bg-orange-50 text-orange-700 border-orange-200" },
-    6: { label: "Terbayar",             cls: "bg-cyan-50 text-cyan-700 border-cyan-200" },
-    7: { label: "Selesai",              cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    9: { label: "Ditolak",              cls: "bg-rose-50 text-rose-700 border-rose-200" },
+    3: { label: "Disetujui Direktur", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    4: { label: "PR Ready", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+    5: { label: "Menunggu Bayar", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+    6: { label: "Terbayar", cls: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+    7: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    9: { label: "Ditolak", cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 
 const formatRp = (v) =>
@@ -52,9 +52,9 @@ const formatDate = (s) => {
 };
 
 // ── attachment helpers (sama persis dengan FormPengajuan) ─────────────────────
-const getExt      = (name) => (String(name || "").split(".").pop() || "").toLowerCase();
-const isImageExt  = (ext)  => ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext);
-const isPdfExt    = (ext)  => ext === "pdf";
+const getExt = (name) => (String(name || "").split(".").pop() || "").toLowerCase();
+const isImageExt = (ext) => ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext);
+const isPdfExt = (ext) => ext === "pdf";
 
 // Pastikan URL selalu absolute (tambahkan https:// jika belum ada protocol)
 const ensureAbsoluteUrl = (url) => {
@@ -149,45 +149,45 @@ export default function PengajuanDetailModal({
     currentEmployee,
     readOnly = false,
 }) {
-    const [loading, setLoading]           = useState(false);
-    const [detail, setDetail]             = useState(null);
-    const [rejectOpen, setRejectOpen]     = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [detail, setDetail] = useState(null);
+    const [rejectOpen, setRejectOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
-    const [acting, setActing]             = useState(false);
-    const [toast, setToast]               = useState(null);
-    const [preview, setPreview]           = useState(null); // { kind, name, src, downloadUrl }
-    const [spvNote, setSpvNote]           = useState("");
-    const [spvNoteOpen, setSpvNoteOpen]   = useState(false);
+    const [acting, setActing] = useState(false);
+    const [toast, setToast] = useState(null);
+    const [preview, setPreview] = useState(null); // { kind, name, src, downloadUrl }
+    const [spvNote, setSpvNote] = useState("");
+    const [spvNoteOpen, setSpvNoteOpen] = useState(false);
 
     // GA review state
-    const [gaOpen, setGaOpen]         = useState(false);
-    const [gaQty, setGaQty]           = useState("");
-    const [gaMerk, setGaMerk]         = useState("");
-    const [gaVendor, setGaVendor]     = useState("");
-    const [gaNote, setGaNote]         = useState("");
+    const [gaOpen, setGaOpen] = useState(false);
+    const [gaQty, setGaQty] = useState("");
+    const [gaMerk, setGaMerk] = useState("");
+    const [gaVendor, setGaVendor] = useState("");
+    const [gaNote, setGaNote] = useState("");
     const [gaVendorMode, setGaVendorMode] = useState(""); // 'vendor' | 'link'
-    const [gaVendorId, setGaVendorId]     = useState("");
-    const [gaLinkUrl, setGaLinkUrl]       = useState("");
-    const [gaLinkTitle, setGaLinkTitle]   = useState("");
-    const [vendorList, setVendorList]     = useState([]);
+    const [gaVendorId, setGaVendorId] = useState("");
+    const [gaLinkUrl, setGaLinkUrl] = useState("");
+    const [gaLinkTitle, setGaLinkTitle] = useState("");
+    const [vendorList, setVendorList] = useState([]);
 
     // Finance review state
-    const [finOpen, setFinOpen]       = useState(false);
-    const [finNote, setFinNote]       = useState("");
+    const [finOpen, setFinOpen] = useState(false);
+    const [finNote, setFinNote] = useState("");
 
     // Payment state
-    const [payOpen, setPayOpen]             = useState(false);
-    const [payClassification, setPayClass]  = useState("");
-    const [payNote, setPayNote]             = useState("");
-    const [payFile, setPayFile]             = useState(null);
-    const [payMethod, setPayMethod]         = useState(""); // 'cash' | 'kredit'
-    const [payTerminValue, setPayTV]        = useState("");
-    const [payTerminUnit, setPayTU]         = useState(""); // 'hari' | 'bulan' | 'tahun'
-    const [payNominalBayar, setPayNB]       = useState(""); // nominal bayar aktual (formatted)
+    const [payOpen, setPayOpen] = useState(false);
+    const [payClassification, setPayClass] = useState("");
+    const [payNote, setPayNote] = useState("");
+    const [payFiles, setPayFiles] = useState([]); // multi-file array
+    const [payMethod, setPayMethod] = useState(""); // 'cash' | 'kredit'
+    const [payTerminValue, setPayTV] = useState("");
+    const [payTerminUnit, setPayTU] = useState(""); // 'hari' | 'bulan' | 'tahun'
+    const [payNominalBayar, setPayNB] = useState(""); // nominal bayar aktual (formatted)
 
     // Complete state (karyawan upload invoice)
-    const [completeOpen, setCompleteOpen]   = useState(false);
-    const [invoiceFile, setInvoiceFile]     = useState(null);
+    const [completeOpen, setCompleteOpen] = useState(false);
+    const [invoiceFile, setInvoiceFile] = useState(null);
 
     const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3000); };
 
@@ -215,7 +215,7 @@ export default function PengajuanDetailModal({
             setGaVendorMode(""); setGaVendorId(""); setGaLinkUrl(""); setGaLinkTitle("");
             setVendorList([]);
             setFinOpen(false); setFinNote("");
-            setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null);
+            setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]);
             setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB("");
             setCompleteOpen(false); setInvoiceFile(null);
         }
@@ -228,7 +228,7 @@ export default function PengajuanDetailModal({
         if (isImageExt(ext)) {
             setPreview({ kind: "image", name: att.original_name || att.file_path, src, downloadUrl: src });
         } else if (isPdfExt(ext)) {
-            setPreview({ kind: "pdf",   name: att.original_name || att.file_path, src, downloadUrl: src });
+            setPreview({ kind: "pdf", name: att.original_name || att.file_path, src, downloadUrl: src });
         } else {
             // tipe lain (doc, xls, dll) → buka di tab baru
             window.open(src, "_blank", "noopener");
@@ -237,36 +237,36 @@ export default function PengajuanDetailModal({
 
     if (!open) return null;
 
-    const data        = detail?.data;
+    const data = detail?.data;
     const attachments = detail?.attachments || [];
-    const logs        = detail?.logs || [];
+    const logs = detail?.logs || [];
 
     const myJobLevel = Number(currentEmployee?.job_level_id);
-    const myDeptId   = currentEmployee?.department_id;
+    const myDeptId = currentEmployee?.department_id;
     const myPosition = currentEmployee?.position_name || "";
-    const myIsGA     = myPosition.toLowerCase().includes("general affair");
-    const status     = Number(data?.status);
+    const myIsGA = myPosition.toLowerCase().includes("general affair");
+    const status = Number(data?.status);
 
     const canApproveSpv = !readOnly && myJobLevel === 3 && status === 1 && data?.department_id === myDeptId;
     const canApproveBod = !readOnly && (myJobLevel === 1 || myJobLevel === 2) && status === 2;
-    const canReject     = !readOnly && (
+    const canReject = !readOnly && (
         (myJobLevel === 3 && status === 1 && data?.department_id === myDeptId)
         || ((myJobLevel === 1 || myJobLevel === 2) && [1, 2].includes(status))
     );
-    const canApproveGA  = !readOnly && myIsGA && [2, 3].includes(status);
-    const canRejectGA   = !readOnly && myIsGA && [2, 3].includes(status);
+    const canApproveGA = !readOnly && myIsGA && [2, 3].includes(status);
+    const canRejectGA = !readOnly && myIsGA && [2, 3].includes(status);
 
     const myIsFinance = myPosition.toLowerCase().includes("finance")
-                     || myPosition.toLowerCase().includes("accounting")
-                     || myPosition.toLowerCase().includes("accountiing");
+        || myPosition.toLowerCase().includes("accounting")
+        || myPosition.toLowerCase().includes("accountiing");
     const canApproveFinance = !readOnly && myIsFinance && myJobLevel === 3 && status === 4;
-    const canRejectFinance  = !readOnly && myIsFinance && myJobLevel === 3 && status === 4;
-    const canPayment        = !readOnly && myIsFinance && status === 5;
+    const canRejectFinance = !readOnly && myIsFinance && myJobLevel === 3 && status === 4;
+    const canPayment = !readOnly && myIsFinance && status === 5;
 
     // Karyawan pengaju bisa complete (upload invoice) saat status 6
     // GA juga bisa complete
-    const myEmployeeId  = currentEmployee?.employee_id;
-    const canComplete   = !readOnly && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
+    const myEmployeeId = currentEmployee?.employee_id;
+    const canComplete = !readOnly && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
 
     const doApprove = async () => {
         setActing(true);
@@ -299,16 +299,16 @@ export default function PengajuanDetailModal({
         setActing(true);
         try {
             const body = {
-                ga_qty:       gaQty   ? Number(gaQty)    : undefined,
-                ga_merk:      gaMerk  || undefined,
-                ga_note:      gaNote  || undefined,
-                vendor_mode:  gaVendorMode || undefined,
+                ga_qty: gaQty ? Number(gaQty) : undefined,
+                ga_merk: gaMerk || undefined,
+                ga_note: gaNote || undefined,
+                vendor_mode: gaVendorMode || undefined,
             };
             if (gaVendorMode === "vendor") {
                 body.vendor_id = gaVendorId ? Number(gaVendorId) : undefined;
-                body.vendor    = gaVendor || undefined;
+                body.vendor = gaVendor || undefined;
             } else if (gaVendorMode === "link") {
-                body.link_url   = gaLinkUrl || undefined;
+                body.link_url = gaLinkUrl || undefined;
                 body.link_title = gaLinkTitle || undefined;
             }
             await api(`/pengajuan/${prId}/approve-ga`, {
@@ -368,7 +368,7 @@ export default function PengajuanDetailModal({
         if (!payClassification) return showToast("error", "Klasifikasi wajib dipilih");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
         if (payMethod === "kredit" && (!payTerminValue || !payTerminUnit)) return showToast("error", "Termin wajib diisi untuk kredit");
-        if (!payFile) return showToast("error", "Bukti pembayaran wajib dilampirkan");
+        if (!payFiles.length) return showToast("error", "Bukti pembayaran wajib dilampirkan");
         setActing(true);
         try {
             const fd = new FormData();
@@ -382,7 +382,7 @@ export default function PengajuanDetailModal({
             const nomBayar = stripRupiah(payNominalBayar);
             if (nomBayar) fd.append("nominal_bayar", nomBayar);
             if (payNote.trim()) fd.append("payment_note", payNote.trim());
-            fd.append("attachments", payFile);
+            payFiles.forEach(f => fd.append("attachments", f));
             await fetch(`${import.meta.env.VITE_API_URL || ""}/pengajuan/${prId}/pay`, {
                 method: "POST",
                 body: fd,
@@ -515,11 +515,23 @@ export default function PengajuanDetailModal({
                                     </div>
                                     {data.estimasi_harga && (
                                         <div>
-                                            <p className="text-[11px] text-slate-400 uppercase">Estimasi</p>
+                                            <p className="text-[11px] text-slate-400 uppercase">Harga Satuan</p>
                                             <p className="font-semibold text-emerald-700">{formatRp(data.estimasi_harga)}</p>
                                         </div>
                                     )}
                                 </div>
+                                {/* Total Estimasi — tampil jika qty > 1 dan ada harga */}
+                                {data.estimasi_harga && Number(data.qty) > 1 && (
+                                    <div className="bg-emerald-50 rounded-lg px-3 py-2 border border-emerald-100">
+                                        <p className="text-[11px] text-emerald-600 uppercase">Total Estimasi</p>
+                                        <p className="font-bold text-emerald-700 text-base">
+                                            {formatRp(Number(data.estimasi_harga) * Number(data.qty))}
+                                            <span className="text-[11px] text-emerald-500 font-normal ml-1.5">
+                                                ({Number(data.qty)} × {formatRp(data.estimasi_harga)})
+                                            </span>
+                                        </p>
+                                    </div>
+                                )}
                                 <div>
                                     <p className="text-[11px] text-slate-400 uppercase">Alasan Pembelian</p>
                                     <p className="text-slate-600">{data.alasan_pembelian}</p>
@@ -570,11 +582,11 @@ export default function PengajuanDetailModal({
                                     <p className="text-[11px] text-slate-400 uppercase mb-2">Lampiran ({attachments.length})</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         {attachments.map(a => {
-                                            const ext  = getExt(a.original_name || a.file_path);
+                                            const ext = getExt(a.original_name || a.file_path);
                                             const isImg = isImageExt(ext);
                                             const isPdf = isPdfExt(ext);
                                             const canPreview = isImg || isPdf;
-                                            const src  = assetUrl(a.file_path);
+                                            const src = assetUrl(a.file_path);
                                             return (
                                                 <div key={a.attachment_id}
                                                     className="rounded-lg border border-slate-200 overflow-hidden">
@@ -594,13 +606,13 @@ export default function PengajuanDetailModal({
                                                     <div className="flex items-center gap-2 px-3 py-2">
                                                         <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded",
                                                             isImg ? "bg-emerald-100 text-emerald-600" :
-                                                            isPdf ? "bg-rose-100 text-rose-600" :
+                                                                isPdf ? "bg-rose-100 text-rose-600" :
                                                                     "bg-slate-100 text-slate-500")}>
                                                             {isImg
                                                                 ? <HiOutlineEye className="h-3.5 w-3.5" />
                                                                 : isPdf
-                                                                ? <HiOutlineDocumentText className="h-3.5 w-3.5" />
-                                                                : <HiOutlineDocumentPlus className="h-3.5 w-3.5" />}
+                                                                    ? <HiOutlineDocumentText className="h-3.5 w-3.5" />
+                                                                    : <HiOutlineDocumentPlus className="h-3.5 w-3.5" />}
                                                         </div>
                                                         <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600 font-medium">
                                                             {a.original_name || a.file_path}
@@ -873,13 +885,49 @@ export default function PengajuanDetailModal({
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
                                                 {payMethod === "kredit" ? "Bukti PR / Invoice Awal" : "Bukti Pembayaran"} <span className="text-rose-500">*</span>
                                             </label>
-                                            <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                            <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf"
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-2 file:rounded file:border-0 file:bg-cyan-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-cyan-700"
-                                                onChange={e => setPayFile(e.target.files?.[0] || null)} />
+                                                onChange={e => {
+                                                    const incoming = Array.from(e.target.files || []);
+                                                    setPayFiles(prev => [...prev, ...incoming.filter(f => f.size <= 10 * 1024 * 1024)]);
+                                                    e.target.value = "";
+                                                }} />
                                             {payMethod === "kredit" && (
                                                 <p className="text-[10px] text-amber-600 mt-0.5">
                                                     Lampirkan dokumen pengakuan utang (invoice/PO supplier). Pembayaran aktual dicatat via menu Pelunasan.
                                                 </p>
+                                            )}
+                                            {/* Preview file yang dipilih */}
+                                            {payFiles.length > 0 && (
+                                                <div className="mt-2 space-y-1.5">
+                                                    {payFiles.map((f, idx) => {
+                                                        const ext = getExt(f.name);
+                                                        const isImg = isImageExt(ext);
+                                                        const url = isImg ? URL.createObjectURL(f) : null;
+                                                        return (
+                                                            <div key={idx} className="flex items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50/40 px-2.5 py-1.5">
+                                                                {isImg && url && (
+                                                                    <img src={url} alt={f.name} className="h-8 w-8 rounded object-cover shrink-0 cursor-pointer"
+                                                                        onClick={() => setPreview({ kind: "image", name: f.name, src: url, downloadUrl: url })} />
+                                                                )}
+                                                                {!isImg && (
+                                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-rose-100 text-rose-600 cursor-pointer"
+                                                                        onClick={() => {
+                                                                            const pdfUrl = URL.createObjectURL(f);
+                                                                            setPreview({ kind: "pdf", name: f.name, src: pdfUrl, downloadUrl: pdfUrl });
+                                                                        }}>
+                                                                        <HiOutlineDocumentText className="h-4 w-4" />
+                                                                    </div>
+                                                                )}
+                                                                <span className="flex-1 min-w-0 text-[11px] text-slate-600 font-medium truncate">{f.name}</span>
+                                                                <button type="button" onClick={() => setPayFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                                    className="rounded p-0.5 text-rose-500 hover:bg-rose-50 transition shrink-0">
+                                                                    <HiOutlineXMark className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             )}
                                         </div>
                                         <div>
@@ -909,11 +957,11 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFile(null); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
-                                        <button onClick={doPayment} disabled={acting || !payClassification || !payMethod || !payFile || (payMethod === "kredit" && (!payTerminValue || !payTerminUnit))}
+                                        <button onClick={doPayment} disabled={acting || !payClassification || !payMethod || !payFiles.length || (payMethod === "kredit" && (!payTerminValue || !payTerminUnit))}
                                             className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition">
                                             {acting ? "Memproses..." : "Konfirmasi Pembayaran"}
                                         </button>
@@ -1001,7 +1049,7 @@ export default function PengajuanDetailModal({
                                                                     }}
                                                                     className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 transition">
                                                                     <HiOutlineEye className="h-3 w-3" />
-                                                                    {l.action === "paid" ? "Bukti Bayar" : "Invoice"}
+                                                                    {l.action === "paid" ? "Lampiran" : "Invoice"}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -1104,7 +1152,7 @@ export default function PengajuanDetailModal({
                                         setGaLinkTitle(data.link_title || "");
                                     }
                                     // Load vendor list
-                                    api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => {});
+                                    api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => { });
                                 }}
                                     className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
                                     Review & Approve GA

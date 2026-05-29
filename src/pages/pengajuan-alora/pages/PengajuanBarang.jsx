@@ -592,8 +592,13 @@ export default function PengajuanBarang() {
 
                                             <td className="px-5 py-4 hidden md:table-cell">
                                                 <span className="text-sm font-semibold text-emerald-700">
-                                                    {row.estimasi_harga ? formatRp(row.estimasi_harga) : "—"}
+                                                    {row.estimasi_harga ? formatRp(Number(row.estimasi_harga) * (row.ga_qty ? Number(row.ga_qty) : Number(row.qty))) : "—"}
                                                 </span>
+                                                {row.estimasi_harga && Number(row.qty) > 1 && (
+                                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                                        {row.ga_qty ? Number(row.ga_qty) : Number(row.qty)} × {formatRp(row.estimasi_harga)}
+                                                    </p>
+                                                )}
                                             </td>
 
                                             <td className="px-5 py-4">

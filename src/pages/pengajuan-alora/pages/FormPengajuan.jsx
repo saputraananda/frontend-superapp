@@ -501,13 +501,28 @@ export default function FormPengajuan() {
                                 placeholder="Contoh: Canon, Epson" />
                         </div>
                         <div>
-                            <label className={labelCls}>Estimasi Harga (Rp)</label>
+                            <label className={labelCls}>Estimasi Harga Satuan (Rp)</label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
                                 <input className={cn(inputCls, "pl-9 tabular-nums")} value={form.estimasi_harga_str} inputMode="numeric"
                                     onChange={e => setForm(p => ({ ...p, estimasi_harga_str: formatRupiah(e.target.value) }))}
                                     placeholder="0" />
                             </div>
+                            {/* Estimasi Total otomatis */}
+                            {(() => {
+                                const harga = Number(stripRupiah(form.estimasi_harga_str)) || 0;
+                                const qty   = Number(form.qty) || 0;
+                                const total = harga * qty;
+                                if (harga > 0 && qty > 1) {
+                                    return (
+                                        <p className="text-[11px] text-emerald-600 font-semibold mt-1">
+                                            Estimasi Total: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(total)}
+                                            <span className="text-slate-400 font-normal"> ({qty} × {formatRupiah(String(harga))})</span>
+                                        </p>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
                     </div>
 
