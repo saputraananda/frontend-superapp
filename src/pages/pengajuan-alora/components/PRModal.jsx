@@ -63,19 +63,32 @@ function PRPreview({ data: d }) {
             {d.alasan_pembelian && <div className="mb-5"><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Alasan Pembelian</div><div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600">{d.alasan_pembelian}</div></div>}
 
             {/* Tanda Tangan: Diajukan Oleh — Disetujui Supervisor */}
-            <div className="mt-6 grid grid-cols-2 gap-4">
-                <div className="border border-slate-200 rounded-xl p-4 text-center">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Diajukan Oleh</div>
-                    <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
-                    <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.pengaju_name)}</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.tanggal_pengajuan)}</div>
+            {/* Jika GA fast-track (ga_name ada tapi spv_name kosong): hanya 1 kolom */}
+            {d.ga_name && !d.spv_name ? (
+                <div className="mt-6 flex justify-end">
+                    <div className="border border-slate-200 rounded-xl p-4 text-center w-64">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Diajukan & Disetujui GA</div>
+                        <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
+                        <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.pengaju_name)}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">General Affair</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_ga_at || d.tanggal_pengajuan)}</div>
+                    </div>
                 </div>
-                <div className="border border-slate-200 rounded-xl p-4 text-center">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Disetujui Supervisor</div>
-                    <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
-                    {d.spv_name ? <><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.spv_name)}</div><div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_spv_at)}</div></> : <div className="text-[11px] text-slate-300 italic">—</div>}
+            ) : (
+                <div className="mt-6 grid grid-cols-2 gap-4">
+                    <div className="border border-slate-200 rounded-xl p-4 text-center">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Diajukan Oleh</div>
+                        <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
+                        <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.pengaju_name)}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.tanggal_pengajuan)}</div>
+                    </div>
+                    <div className="border border-slate-200 rounded-xl p-4 text-center">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Disetujui Supervisor</div>
+                        <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
+                        {d.spv_name ? <><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.spv_name)}</div><div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_spv_at)}</div></> : <div className="text-[11px] text-slate-300 italic">—</div>}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="mt-8 pt-4 border-t border-slate-200 flex justify-between text-[10px] text-slate-400">
                 <span>Dicetak: {new Date().toLocaleString("id-ID")}</span>
@@ -120,7 +133,7 @@ export default function PRModal({ open, prId, onClose }) {
 
 ${d.alasan_pembelian ? `<div class="note-box"><div class="note-label">Alasan Pembelian</div><div class="note-text">${d.alasan_pembelian}</div></div>` : ""}
 
-<div class="grid-2" style="margin-top:24px;gap:16px"><div class="sig-box"><div class="sig-label">Diajukan Oleh</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-date">${formatDateShort(d.tanggal_pengajuan)}</div></div><div class="sig-box"><div class="sig-label">Disetujui Supervisor</div><div class="sig-space"></div>${d.spv_name ? `<div class="sig-name">${toTitleCase(d.spv_name)}</div><div class="sig-date">${formatDateShort(d.approved_spv_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div></div>
+<div class="grid-2" style="margin-top:24px;gap:16px">${d.ga_name && !d.spv_name ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end"><div class="sig-box" style="width:240px"><div class="sig-label">Diajukan & Disetujui GA</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at || d.tanggal_pengajuan)}</div></div></div>` : `<div class="sig-box"><div class="sig-label">Diajukan Oleh</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-date">${formatDateShort(d.tanggal_pengajuan)}</div></div><div class="sig-box"><div class="sig-label">Disetujui Supervisor</div><div class="sig-space"></div>${d.spv_name ? `<div class="sig-name">${toTitleCase(d.spv_name)}</div><div class="sig-date">${formatDateShort(d.approved_spv_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div>`}</div>
 
 <div class="doc-footer"><span>Dicetak: ${new Date().toLocaleString("id-ID")}</span><span>${d.pr_code} · PT Waschen Alora Indonesia</span></div>`;
 

@@ -122,6 +122,10 @@ const EMPTY = {
     // link referensi (opsional, bisa diisi karyawan)
     link_url: "",
     link_title: "",
+    // vendor info (khusus GA)
+    vendor_mode: "", // 'vendor' | 'link' | ''
+    vendor: "",
+    vendor_id: "",
     // reimburse — editable, pre-filled dari DB
     bank_name: "",
     bank_account_number: "",
@@ -138,10 +142,12 @@ export default function FormPengajuan() {
     const user = userRaw ? JSON.parse(userRaw) : null;
 
     const [emp, setEmp] = useState(user?.employee || null);
+    const isGAUser = emp?.position_name?.toLowerCase().includes("general affair");
 
     const [companies, setCompanies] = useState([]);
     const [outlets, setOutlets] = useState([]);
     const [satuan, setSatuan] = useState([]);
+    const [vendors, setVendors] = useState([]);
 
     const [form, setForm] = useState({
         ...EMPTY,
@@ -177,6 +183,11 @@ export default function FormPengajuan() {
                 if (me?.user?.employee) {
                     const e = me.user.employee;
                     setEmp(e);
+
+                    // Load vendors jika GA
+                    if (e.position_name?.toLowerCase().includes("general affair")) {
+                        api("/pengajuan/vendors").then(r => setVendors(r.data || [])).catch(() => {});
+                    }
 
                     // Pre-fill identitas & bank ke form state (editable)
                     // Hanya set jika bukan mode edit (mode edit akan di-override oleh useEffect berikutnya)
@@ -330,6 +341,16 @@ export default function FormPengajuan() {
             // ── link referensi (opsional) ──
             if (form.link_url.trim()) fd.append("link_url", form.link_url.trim());
             if (form.link_title.trim()) fd.append("link_title", form.link_title.trim());
+
+            // ── vendor info (khusus GA) ──
+            if (form.vendor_mode) {
+                fd.append("vendor_mode", form.vendor_mode);
+                if (form.vendor_mode === "vendor") {
+                    if (form.vendor_id) fd.append("vendor_id", form.vendor_id);
+                    if (form.vendor.trim()) fd.append("vendor", form.vendor.trim());
+                }
+                // link mode: link_url & link_title sudah di-append di atas
+            }
 
             files.forEach(f => fd.append("attachments", f));
 
@@ -564,6 +585,74 @@ export default function FormPengajuan() {
                                 placeholder="https://..." />
                         </div>
                     </div>
+
+                    {/* ── Info Vendor / Sumber (khusus GA) ─────────────────────────── */}
+                    {isGAUser && (
+                        <div className="border-t border-slate-100 pt-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Info Vendor / Sumber (Opsional)</p>
+                                <span className="text-[10px] text-slate-400 italic">Bisa dilengkapi nanti</span>
+                            </div>
+                            <div className="flex gap-3">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="form_vendor_mode" value=""
+                                        checked={!form.vendor_mode}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "", vendor: "", vendor_id: "" }))}
+                                        className="accent-violet-600" />
+                                    <span className="text-sm text-slate-600">Belum ada</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="form_vendor_mode" value="vendor"
+                                        checked={form.vendor_mode === "vendor"}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "vendor", link_url: p.link_url, link_title: p.link_title }))}
+                                        className="accent-violet-600" />
+                                    <span className="text-sm text-slate-700 font-medium">Vendor</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="form_vendor_mode" value="link"
+                                        checked={form.vendor_mode === "link"}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "link", vendor: "", vendor_id: "" }))}
+                                        className="accent-violet-600" />
+                                    <span className="text-sm text-slate-700 font-medium">Link</span>
+                                </label>
+                            </div>
+
+                            {form.vendor_mode === "vendor" && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="sm:col-span-2">
+                                        <label className={labelCls}>Pilih Vendor dari Daftar</label>
+                                        <select className={inputCls} value={form.vendor_id}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                const found = vendors.find(v => String(v.vendor_id) === val);
+                                                setForm(p => ({
+                                                    ...p,
+                                                    vendor_id: val,
+                                                    vendor: found ? found.nama_vendor : p.vendor,
+                                                }));
+                                            }}>
+                                            <option value="">— Pilih dari daftar (opsional) —</option>
+                                            {vendors.map(v => (
+                                                <option key={v.vendor_id} value={v.vendor_id}>{v.nama_vendor} ({v.kategori})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className={labelCls}>Atau Tulis Nama Vendor</label>
+                                        <input className={inputCls} value={form.vendor} maxLength={255}
+                                            onChange={e => setForm(p => ({ ...p, vendor: e.target.value, vendor_id: "" }))}
+                                            placeholder="Nama vendor / supplier..." />
+                                    </div>
+                                </div>
+                            )}
+
+                            {form.vendor_mode === "link" && (
+                                <p className="text-[11px] text-slate-400 italic">
+                                    Gunakan field "Judul Link" dan "URL Link" di atas sebagai sumber.
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Lampiran */}
                     <div>

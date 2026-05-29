@@ -255,6 +255,8 @@ export default function PengajuanDetailModal({
     );
     const canApproveGA = !readOnly && myIsGA && [2, 3].includes(status);
     const canRejectGA = !readOnly && myIsGA && [2, 3].includes(status);
+    // GA bisa lengkapi vendor pada PR fast-track (status 4, belum ada vendor_mode)
+    const canEditVendorGA = !readOnly && myIsGA && status === 4 && !data?.vendor_mode;
 
     const myIsFinance = myPosition.toLowerCase().includes("finance")
         || myPosition.toLowerCase().includes("accounting")
@@ -1107,7 +1109,7 @@ export default function PengajuanDetailModal({
                         </div>
                     )}
 
-                    {data && !rejectOpen && !gaOpen && !finOpen && !payOpen && !completeOpen && !spvNoteOpen && (canApproveSpv || canApproveBod || canReject || canApproveGA || canRejectGA || canApproveFinance || canRejectFinance || canPayment || canComplete) && (
+                    {data && !rejectOpen && !gaOpen && !finOpen && !payOpen && !completeOpen && !spvNoteOpen && (canApproveSpv || canApproveBod || canReject || canApproveGA || canRejectGA || canApproveFinance || canRejectFinance || canPayment || canComplete || canEditVendorGA) && (
                         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-2 bg-white flex-wrap">
                             {(canReject || canRejectGA || canRejectFinance) && (
                                 <button onClick={() => setRejectOpen(true)}
@@ -1137,6 +1139,22 @@ export default function PengajuanDetailModal({
                                 <button onClick={() => setFinOpen(true)}
                                     className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 transition">
                                     Approve Finance
+                                </button>
+                            )}
+                            {canEditVendorGA && (
+                                <button onClick={() => {
+                                    setGaOpen(true);
+                                    setGaQty(data.qty ? String(Number(data.qty)) : "");
+                                    setGaMerk(data.merk || "");
+                                    if (data.link_url || data.link_title) {
+                                        setGaVendorMode("link");
+                                        setGaLinkUrl(data.link_url || "");
+                                        setGaLinkTitle(data.link_title || "");
+                                    }
+                                    api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => { });
+                                }}
+                                    className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
+                                    Lengkapi Info Vendor
                                 </button>
                             )}
                             {canApproveGA && (
