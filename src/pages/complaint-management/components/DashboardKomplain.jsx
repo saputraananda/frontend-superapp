@@ -39,6 +39,18 @@ function getDefaultCutoff() {
 
 const DEFAULT_CUTOFF = getDefaultCutoff();
 
+// Compute cutoff range from a selected year+month (cutoff: 26 prev → 25 selected)
+function cutoffFromYearMonth(year, month) {
+  // month is 1-indexed
+  let startYear = year;
+  let startMonth = month - 1; // previous month
+  if (startMonth < 1) { startMonth = 12; startYear -= 1; }
+  return {
+    start: `${startYear}-${String(startMonth).padStart(2, "0")}-26`,
+    end:   `${year}-${String(month).padStart(2, "0")}-25`,
+  };
+}
+
 function StatCard({ label, value, icon: Icon, colorClass, loading }) {
   return (
     <div className={cn("flex items-center gap-4 rounded-2xl border p-5 shadow-[0_4px_16px_rgba(0,0,0,0.07)]", colorClass)}>
@@ -152,6 +164,59 @@ export default function DashboardKomplain() {
   const [dateStart, setDateStart] = useState(DEFAULT_CUTOFF.start);
   const [dateEnd,   setDateEnd]   = useState(DEFAULT_CUTOFF.end);
 
+  // Periods from DB (for month/year picker)
+  const [periods, setPeriods] = useState([]); // [{ year, month }]
+  const [periodMode, setPeriodMode] = useState("month"); // "month" | "range" | "all"
+  const [selectedYear, setSelectedYear]   = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+
+  // Load available periods from DB (bucketed by submitted_at cutoff)
+  useEffect(() => {
+    api("/complaints/periods").then((rows) => {
+      setPeriods(rows || []);
+      if (rows && rows.length > 0) {
+        const defEnd = new Date(DEFAULT_CUTOFF.end);
+        const defYear = defEnd.getFullYear();
+        const defMonth = defEnd.getMonth() + 1;
+        const match = rows.find((r) => Number(r.year) === defYear && Number(r.month) === defMonth);
+        if (match) {
+          setSelectedYear(Number(match.year));
+          setSelectedMonth(Number(match.month));
+        } else {
+          setSelectedYear(Number(rows[0].year));
+          setSelectedMonth(Number(rows[0].month));
+          const cutoff = cutoffFromYearMonth(Number(rows[0].year), Number(rows[0].month));
+          setDateStart(cutoff.start);
+          setDateEnd(cutoff.end);
+        }
+      }
+    }).catch(() => {});
+  }, []);
+
+  // ── Period mode switching ───────────────────────────────────────────
+  const switchToMonth = () => {
+    setPeriodMode("month");
+    if (selectedYear && selectedMonth) {
+      const cutoff = cutoffFromYearMonth(selectedYear, selectedMonth);
+      setDateStart(cutoff.start);
+      setDateEnd(cutoff.end);
+    }
+  };
+
+  const switchToRange = () => {
+    setPeriodMode("range");
+    if (!dateStart || !dateEnd) {
+      setDateStart(DEFAULT_CUTOFF.start);
+      setDateEnd(DEFAULT_CUTOFF.end);
+    }
+  };
+
+  const switchToAll = () => {
+    setPeriodMode("all");
+    setDateStart("");
+    setDateEnd("");
+  };
+
   const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
@@ -194,23 +259,112 @@ export default function DashboardKomplain() {
             Ringkasan dan statistik pengelolaan komplain pelanggan
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Date range filter */}
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={dateStart}
-              onChange={(e) => setDateStart(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
-            />
-            <span className="text-xs text-slate-400">s/d</span>
-            <input
-              type="date"
-              value={dateEnd}
-              onChange={(e) => setDateEnd(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
-            />
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period mode toggle */}
+          <div className="flex rounded-xl border border-slate-200 bg-white overflow-hidden text-xs font-semibold">
+            <button
+              type="button"
+              onClick={switchToMonth}
+              className={cn("px-3 py-2 transition", periodMode === "month" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Per Bulan
+            </button>
+            <button
+              type="button"
+              onClick={switchToRange}
+              className={cn("px-3 py-2 transition", periodMode === "range" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Range
+            </button>
+            <button
+              type="button"
+              onClick={switchToAll}
+              className={cn("px-3 py-2 transition", periodMode === "all" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Semua
+            </button>
           </div>
+
+          {periodMode === "month" ? (
+            /* Month/Year picker from DB periods */
+            <div className="flex items-center gap-2">
+              {/* Year selector */}
+              {(() => {
+                const years = [...new Set(periods.map((p) => Number(p.year)))].sort((a, b) => b - a);
+                return (
+                  <select
+                    value={selectedYear ?? ""}
+                    onChange={(e) => {
+                      const yr = Number(e.target.value);
+                      setSelectedYear(yr);
+                      const firstMonth = periods.find((p) => Number(p.year) === yr);
+                      if (firstMonth) {
+                        const mo = Number(firstMonth.month);
+                        setSelectedMonth(mo);
+                        const cutoff = cutoffFromYearMonth(yr, mo);
+                        setDateStart(cutoff.start);
+                        setDateEnd(cutoff.end);
+                      }
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500"
+                  >
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                );
+              })()}
+              {/* Month selector — only months available for selected year */}
+              {(() => {
+                const months = periods
+                  .filter((p) => Number(p.year) === selectedYear)
+                  .map((p) => Number(p.month))
+                  .sort((a, b) => b - a);
+                return (
+                  <select
+                    value={selectedMonth ?? ""}
+                    onChange={(e) => {
+                      const mo = Number(e.target.value);
+                      setSelectedMonth(mo);
+                      const cutoff = cutoffFromYearMonth(selectedYear, mo);
+                      setDateStart(cutoff.start);
+                      setDateEnd(cutoff.end);
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500"
+                  >
+                    {months.map((m) => <option key={m} value={m}>{MONTH_NAMES[m - 1]}</option>)}
+                  </select>
+                );
+              })()}
+              {/* Cutoff label */}
+              {dateStart && dateEnd && (
+                <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5 hidden sm:inline">
+                  {dateStart} s/d {dateEnd}
+                </span>
+              )}
+            </div>
+          ) : periodMode === "range" ? (
+            /* Manual date range */
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
+              />
+              <span className="text-xs text-slate-400">s/d</span>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => setDateEnd(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
+              />
+            </div>
+          ) : (
+            /* All periods — no date filter */
+            <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5">
+              Menampilkan semua periode
+            </span>
+          )}
+
           <button
             type="button"
             onClick={fetchSummary}

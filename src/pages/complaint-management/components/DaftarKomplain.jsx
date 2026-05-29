@@ -531,6 +531,33 @@ export default function DaftarKomplain() {
     }
   };
 
+  // ── Period mode switching ─────────────────────────────────────────
+  // "month" → cutoff from selected year/month
+  // "range" → manual date range
+  // "all"   → no date filter (clear start/end), but status & outlet still apply
+
+  const switchToMonth = () => {
+    setPeriodMode("month");
+    if (selectedYear && selectedMonth) {
+      const cutoff = cutoffFromYearMonth(selectedYear, selectedMonth);
+      setFilter((f) => ({ ...f, startDate: cutoff.start, endDate: cutoff.end }));
+    }
+  };
+
+  const switchToRange = () => {
+    setPeriodMode("range");
+    setFilter((f) =>
+      f.startDate && f.endDate
+        ? f
+        : { ...f, startDate: DEFAULT_CUTOFF.start, endDate: DEFAULT_CUTOFF.end }
+    );
+  };
+
+  const switchToAll = () => {
+    setPeriodMode("all");
+    setFilter((f) => ({ ...f, startDate: "", endDate: "" }));
+  };
+
   // ── Render ────────────────────────────────────────────────────────
 
   return (
@@ -561,17 +588,24 @@ export default function DaftarKomplain() {
           <div className="flex rounded-xl border border-slate-200 bg-white overflow-hidden text-xs font-semibold">
             <button
               type="button"
-              onClick={() => setPeriodMode("month")}
+              onClick={switchToMonth}
               className={cn("px-3 py-2 transition", periodMode === "month" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
             >
               Per Bulan
             </button>
             <button
               type="button"
-              onClick={() => setPeriodMode("range")}
+              onClick={switchToRange}
               className={cn("px-3 py-2 transition", periodMode === "range" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
             >
               Range
+            </button>
+            <button
+              type="button"
+              onClick={switchToAll}
+              className={cn("px-3 py-2 transition", periodMode === "all" ? "bg-fuchsia-700 text-white" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Semua
             </button>
           </div>
 
@@ -630,7 +664,7 @@ export default function DaftarKomplain() {
                 </span>
               )}
             </div>
-          ) : (
+          ) : periodMode === "range" ? (
             /* Manual date range */
             <div className="flex items-center gap-2">
               <input
@@ -647,6 +681,11 @@ export default function DaftarKomplain() {
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20"
               />
             </div>
+          ) : (
+            /* All periods — no date filter, status & outlet still apply */
+            <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5">
+              Menampilkan semua periode
+            </span>
           )}
         </div>
 
