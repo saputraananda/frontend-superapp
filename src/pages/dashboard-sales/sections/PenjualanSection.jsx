@@ -166,11 +166,20 @@ export default function PenjualanSection({ filters }) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.3)" />
-              <XAxis dataKey={isYearFilter ? "label" : "day"} tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+              <XAxis dataKey={isYearFilter ? "label" : "date"} tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                tickFormatter={isYearFilter ? undefined : (v) => String(parseInt(v?.split("-")[2] || v))}
                 label={{ value: isYearFilter ? "Bulan" : "Tanggal", position: "insideBottom", offset: -2, fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={45}
                 tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
-              <Tooltip formatter={(v) => [`Rp ${fmtIDR(v)}`, "Pendapatan"]} />
+              <Tooltip
+                formatter={(v) => [`Rp ${fmtIDR(v)}`, "Pendapatan"]}
+                labelFormatter={isYearFilter ? undefined : (label) => {
+                  if (!label) return "";
+                  const parts = label.split("-");
+                  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                  return label;
+                }}
+              />
               <Area type="monotone" dataKey="sales" stroke="#EC4899" strokeWidth={2.5} fill="url(#gSales2)" />
             </AreaChart>
           </ResponsiveContainer>
