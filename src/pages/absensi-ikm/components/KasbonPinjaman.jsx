@@ -71,25 +71,36 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// Cutoff: tgl 26 bulan lalu s/d tgl 25 bulan ini.
-// Jika hari ini sudah > 25, aktifkan cutoff bulan depan.
-function getDefaultCutoff() {
-  const now = new Date();
-  const CUTOFF_END_DAY = 25;
-  let month = now.getMonth() + 1;
-  let year = now.getFullYear();
-  if (now.getDate() > CUTOFF_END_DAY) {
-    month += 1;
-    if (month > 12) { month = 1; year += 1; }
-  }
-  const pad = (n) => String(n).padStart(2, "0");
-  const start = new Date(year, month - 2, 26);
-  const end   = new Date(year, month - 1, CUTOFF_END_DAY);
-  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  return { start: fmt(start), end: fmt(end) };
+// ── Period mode helpers ───────────────────────────────────────────────────────
+function toDateInput(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const DEFAULT_CUTOFF = getDefaultCutoff();
+const CUTOFF_START_DAY = 26;
+
+const PERIOD_MONTHS = [
+  { value: 1, label: "Januari" }, { value: 2, label: "Februari" },
+  { value: 3, label: "Maret" }, { value: 4, label: "April" },
+  { value: 5, label: "Mei" }, { value: 6, label: "Juni" },
+  { value: 7, label: "Juli" }, { value: 8, label: "Agustus" },
+  { value: 9, label: "September" }, { value: 10, label: "Oktober" },
+  { value: 11, label: "November" }, { value: 12, label: "Desember" },
+];
+
+function getDefaultCutoffSelection(now = new Date()) {
+  const endDay = CUTOFF_START_DAY - 1;
+  let cutoffMonth = now.getMonth() + 1;
+  let cutoffYear = now.getFullYear();
+  if (now.getDate() > endDay) {
+    cutoffMonth += 1;
+    if (cutoffMonth > 12) { cutoffMonth = 1; cutoffYear += 1; }
+  }
+  const start = new Date(cutoffYear, cutoffMonth - 2, CUTOFF_START_DAY);
+  const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
+  return { cutoffMonth, cutoffYear, startDate: toDateInput(start), endDate: toDateInput(end) };
+}
 
 function getCurrentUser() {
   try {
@@ -1474,12 +1485,35 @@ export default function KasbonPinjaman() {
   // ── Filter state ───────────────────────────────────────────────────────────
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterStart, setFilterStart] = useState(DEFAULT_CUTOFF.start);
-  const [filterEnd, setFilterEnd] = useState(DEFAULT_CUTOFF.end);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [sort, setSort] = useState({ col: "submission_date", dir: "desc" });
+
+  // ── Period mode ────────────────────────────────────────────────────────────
+  const todayStr = useMemo(() => toDateInput(new Date()), []);
+  const defaultCutoff = useMemo(() => getDefaultCutoffSelection(new Date()), []);
+  const [periodMode, setPeriodMode] = useState("cutoff");
+  const [cutoffMonth, setCutoffMonth] = useState(defaultCutoff.cutoffMonth);
+  const [cutoffYear, setCutoffYear] = useState(defaultCutoff.cutoffYear);
+  const [customStart, setCustomStart] = useState(defaultCutoff.startDate);
+  const [customEnd, setCustomEnd] = useState(defaultCutoff.endDate);
+
+  const yearOptions = useMemo(() => {
+    const base = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, i) => base - 3 + i);
+  }, []);
+
+  const activePeriod = useMemo(() => {
+    if (periodMode === "today") return { start: todayStr, end: todayStr };
+    if (periodMode === "custom") return { start: customStart || todayStr, end: customEnd || customStart || todayStr };
+    const start = new Date(cutoffYear, cutoffMonth - 2, CUTOFF_START_DAY);
+    const end = new Date(cutoffYear, cutoffMonth - 1, CUTOFF_START_DAY - 1);
+    return { start: toDateInput(start), end: toDateInput(end) };
+  }, [periodMode, todayStr, customStart, customEnd, cutoffMonth, cutoffYear]);
+
+  const filterStart = activePeriod.start;
+  const filterEnd = activePeriod.end;
 
   // ── Modal state ────────────────────────────────────────────────────────────
   const [formOpen, setFormOpen] = useState(false);
@@ -1574,7 +1608,11 @@ export default function KasbonPinjaman() {
 
   const resetFilter = () => {
     setFilterType(""); setFilterStatus("");
-    setFilterStart(DEFAULT_CUTOFF.start); setFilterEnd(DEFAULT_CUTOFF.end);
+    setPeriodMode("cutoff");
+    setCutoffMonth(defaultCutoff.cutoffMonth);
+    setCutoffYear(defaultCutoff.cutoffYear);
+    setCustomStart(defaultCutoff.startDate);
+    setCustomEnd(defaultCutoff.endDate);
     setSearch("");
     setPage(1);
     setLimit(25);
@@ -1582,8 +1620,7 @@ export default function KasbonPinjaman() {
     setSummaryLimit("5");
   };
 
-  const hasFilter = filterType || filterStatus || search ||
-    filterStart !== DEFAULT_CUTOFF.start || filterEnd !== DEFAULT_CUTOFF.end;
+  const hasFilter = filterType || filterStatus || search || periodMode !== "cutoff";
 
   // ── Export Excel ──────────────────────────────────────────────────────────
   const [exporting, setExporting] = useState(false);
@@ -1717,7 +1754,74 @@ export default function KasbonPinjaman() {
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <HiOutlineFunnel className="h-4 w-4 text-slate-400" /> Filter
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+            {/* ── Baris 1: Mode Periode + Bulan/Tahun/Custom ── */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {/* Kolom 1: Mode Periode */}
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Mode Periode</span>
+                <select
+                  value={periodMode}
+                  onChange={(e) => { setPeriodMode(e.target.value); setPage(1); }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                >
+                  <option value="cutoff">Periode Cutoff</option>
+                  <option value="today">Hari Ini</option>
+                  <option value="custom">Custom Tanggal</option>
+                </select>
+              </label>
+
+              {/* Kolom 2 */}
+              {periodMode === "cutoff" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Bulan Periode Cutoff</span>
+                  <select
+                    value={cutoffMonth}
+                    onChange={(e) => { setCutoffMonth(Number(e.target.value)); setPage(1); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  >
+                    {PERIOD_MONTHS.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+                  </select>
+                </label>
+              )}
+              {periodMode === "custom" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Mulai</span>
+                  <input type="date"
+                    value={customStart}
+                    onChange={(e) => { setCustomStart(e.target.value); setPage(1); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200" />
+                </label>
+              )}
+              {periodMode === "today" && <div />}
+
+              {/* Kolom 3 */}
+              {periodMode === "cutoff" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Tahun</span>
+                  <select
+                    value={cutoffYear}
+                    onChange={(e) => { setCutoffYear(Number(e.target.value)); setPage(1); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  >
+                    {yearOptions.map((y) => (<option key={y} value={y}>{y}</option>))}
+                  </select>
+                </label>
+              )}
+              {periodMode === "custom" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Akhir</span>
+                  <input type="date"
+                    value={customEnd}
+                    onChange={(e) => { setCustomEnd(e.target.value); setPage(1); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200" />
+                </label>
+              )}
+              {periodMode === "today" && <div />}
+            </div>
+
+            {/* ── Baris 2: Tipe · Status ── */}
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <label className="text-sm text-slate-600">
                 <span className="mb-1 block text-xs font-semibold text-slate-500">Tipe</span>
                 <select
@@ -1744,19 +1848,16 @@ export default function KasbonPinjaman() {
                   <option value="ditolak">Ditolak</option>
                 </select>
               </label>
-              <label className="text-sm text-slate-600">
-                <span className="mb-1 block text-xs font-semibold text-slate-500">Dari Tanggal</span>
-                <input type="date" value={filterStart}
-                  onChange={(e) => { setFilterStart(e.target.value); setPage(1); }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200" />
-              </label>
-              <label className="text-sm text-slate-600">
-                <span className="mb-1 block text-xs font-semibold text-slate-500">Sampai Tanggal</span>
-                <input type="date" value={filterEnd}
-                  onChange={(e) => { setFilterEnd(e.target.value); setPage(1); }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200" />
-              </label>
+              <div />
             </div>
+
+            {/* ── Info periode aktif ── */}
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+              <span className="font-semibold">Periode aktif:</span>
+              <span>{fmtDate(activePeriod.start)} — {fmtDate(activePeriod.end)}</span>
+            </div>
+
+            {/* ── Search + controls ── */}
             <div className="mt-3 flex gap-2 flex-1">
               <div className="flex gap-2 flex-1">
                 <div className="relative flex-1">

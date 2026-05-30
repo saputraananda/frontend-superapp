@@ -37,6 +37,7 @@ import MasterAbsensi from "./pages/absensi-ikm/components/MasterAbsensi";
 import LinenReport from "./pages/absensi-ikm/components/LinenReport";
 import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
 import KasbonPinjaman from "./pages/absensi-ikm/components/KasbonPinjaman";
+import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -291,6 +292,7 @@ export default function App() {
           <Route path="/linen-report-ikm" element={<LinenReport />} />
           <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
           <Route path="/kasbon-pinjaman" element={<KasbonPinjaman />} />
+          <Route path="/absensi-manajemen-ikm" element={<AbsensiManajemen />} />
         </Route>
 
         {/* ── Karyawan IKM ── */}

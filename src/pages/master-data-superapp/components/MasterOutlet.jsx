@@ -8,7 +8,7 @@ const inputCls = cn("w-full rounded-lg border border-slate-200 bg-white px-3.5 p
 function Field({ label, required, error, children }) { return (<div className="flex flex-col gap-1"><label className="text-xs font-semibold text-slate-600">{label}{required && <span className="ml-0.5 text-rose-500">*</span>}</label>{children}{error && <p className="text-xs text-rose-500">{error}</p>}</div>); }
 function Toast({ toast }) { if (!toast) return null; return (<div className={cn("fixed bottom-5 right-5 z-[80] flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl", toast.type === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>{toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" /> : <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />}{toast.msg}</div>); }
 
-const EMPTY = { name: "", full_name: "", lat: "", lon: "" };
+const EMPTY = { name: "", full_name: "", address: "", lat: "", lon: "" };
 
 export default function MasterOutlet() {
 	const [items, setItems] = useState([]);
@@ -29,7 +29,7 @@ export default function MasterOutlet() {
 	const fetchItems = useCallback(async () => { setLoading(true); try { const r = await api("/outlets"); setItems(r.outlets || []); } catch { showToast("error", "Gagal memuat data outlet"); } finally { setLoading(false); } }, [showToast]);
 	useEffect(() => { fetchItems(); }, [fetchItems]);
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
-	const openEdit = (item) => { setEditTarget(item); setForm({ name: item.name, full_name: item.full_name, lat: item.lat ?? "", lon: item.lon ?? "" }); setErrors({}); setModalOpen(true); };
+	const openEdit = (item) => { setEditTarget(item); setForm({ name: item.name, full_name: item.full_name, address: item.address || "", lat: item.lat ?? "", lon: item.lon ?? "" }); setErrors({}); setModalOpen(true); };
 	const closeModal = () => { setModalOpen(false); setEditTarget(null); };
 	const validate = () => {
 		const e = {};
@@ -42,7 +42,7 @@ export default function MasterOutlet() {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault(); if (!validate()) return; setSaving(true);
-		const payload = { name: form.name, full_name: form.full_name, lat: form.lat !== "" ? parseFloat(form.lat) : null, lon: form.lon !== "" ? parseFloat(form.lon) : null };
+		const payload = { name: form.name, full_name: form.full_name, address: form.address, lat: form.lat !== "" ? parseFloat(form.lat) : null, lon: form.lon !== "" ? parseFloat(form.lon) : null };
 		try {
 			if (editTarget) { await api(`/outlets/${editTarget.id}`, { method: "PUT", body: JSON.stringify(payload) }); showToast("success", "Outlet berhasil diperbarui"); }
 			else { await api("/outlets", { method: "POST", body: JSON.stringify(payload) }); showToast("success", "Outlet berhasil ditambahkan"); }
@@ -57,7 +57,7 @@ export default function MasterOutlet() {
 	};
 
 	const filtered = items.filter((a) => (a.name + a.full_name).toLowerCase().includes(search.toLowerCase()));
-	const SkeletonRows = () => (<>{Array.from({ length: 5 }).map((_, i) => (<tr key={i} className="border-t border-slate-100 animate-pulse">{[4, 24, 48, 16, 16, 20].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
+	const SkeletonRows = () => (<>{Array.from({ length: 5 }).map((_, i) => (<tr key={i} className="border-t border-slate-100 animate-pulse">{[4, 24, 48, 16, 16, 16, 20].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
 
 	return (
 		<div className="p-6 pb-14">
@@ -80,12 +80,13 @@ export default function MasterOutlet() {
 			<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 				{filtered.length === 0 && !loading ? (<div className="flex flex-col items-center justify-center py-20 gap-2"><HiOutlineMapPin className="h-10 w-10 text-slate-300" /><p className="text-sm text-slate-400">Tidak ada outlet ditemukan</p></div>) : (
 					<div className="overflow-x-auto"><table className="w-full text-sm">
-						<thead><tr className="border-b border-slate-100 bg-slate-50/80">{["No", "Nama", "Nama Lengkap", "Lat", "Lon", "Aksi"].map((h, i) => (<th key={h} className={cn("px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 5 ? "text-right" : "text-left")}>{h}</th>))}</tr></thead>
+						<thead><tr className="border-b border-slate-100 bg-slate-50/80">{["No", "Nama", "Nama Lengkap", "Alamat", "Lat", "Lon", "Aksi"].map((h, i) => (<th key={h} className={cn("px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 6 ? "text-right" : "text-left")}>{h}</th>))}</tr></thead>
 						<tbody className="divide-y divide-slate-100">{loading ? <SkeletonRows /> : filtered.map((a, i) => (
 							<tr key={a.id} className="hover:bg-slate-50/60 transition">
 								<td className="px-5 py-4 text-slate-400 text-xs">{i + 1}</td>
 								<td className="px-5 py-4 font-semibold text-slate-800">{a.name}</td>
 								<td className="px-5 py-4 text-slate-600">{a.full_name}</td>
+								<td className="px-5 py-4 text-slate-500 text-sm max-w-xs truncate">{a.address || <span className="text-slate-300">—</span>}</td>
 								<td className="px-5 py-4 text-slate-500 text-xs font-mono">{a.lat ?? <span className="text-slate-300">—</span>}</td>
 								<td className="px-5 py-4 text-slate-500 text-xs font-mono">{a.lon ?? <span className="text-slate-300">—</span>}</td>
 								<td className="px-5 py-4"><div className="flex items-center justify-end gap-2"><button onClick={() => openEdit(a)} className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-600 hover:bg-violet-100 transition"><HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit</button><button onClick={() => { setDeleteTarget(a); setConfirmOpen(true); }} className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition"><HiOutlineTrash className="h-3.5 w-3.5" /> Hapus</button></div></td>
@@ -106,6 +107,7 @@ export default function MasterOutlet() {
 						<form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
 							<Field label="Nama Outlet" required error={errors.name}><input className={inputCls} placeholder="SENEN" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
 							<Field label="Nama Lengkap" required error={errors.full_name}><input className={inputCls} placeholder="RS Senen Jakarta Pusat" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></Field>
+							<Field label="Alamat" error={errors.address}><textarea className={cn(inputCls, "resize-none")} rows={4} placeholder="Jl. Raya Senen No. 123, Jakarta Pusat" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
 							<div className="grid grid-cols-2 gap-3">
 								<Field label="Latitude" error={errors.lat}><input className={inputCls} type="number" step="any" placeholder="-6.123456" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} /></Field>
 								<Field label="Longitude" error={errors.lon}><input className={inputCls} type="number" step="any" placeholder="106.123456" value={form.lon} onChange={(e) => setForm({ ...form, lon: e.target.value })} /></Field>

@@ -8,7 +8,7 @@ const inputCls = cn("w-full rounded-lg border border-slate-200 bg-white px-3.5 p
 function Field({ label, required, error, children }) { return (<div className="flex flex-col gap-1"><label className="text-xs font-semibold text-slate-600">{label}{required && <span className="ml-0.5 text-rose-500">*</span>}</label>{children}{error && <p className="text-xs text-rose-500">{error}</p>}</div>); }
 function Toast({ toast }) { if (!toast) return null; return (<div className={cn("fixed bottom-5 right-5 z-[80] flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl", toast.type === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>{toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" /> : <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />}{toast.msg}</div>); }
 
-const EMPTY = { company_code: "", company_name: "", is_active: true };
+const EMPTY = { company_code: "", company_name: "", address: "", is_active: true };
 const STATUS_OPTS = [{ value: "", label: "Semua", dot: "bg-slate-300" }, { value: "active", label: "Aktif", dot: "bg-emerald-400" }, { value: "inactive", label: "Nonaktif", dot: "bg-rose-400" }];
 
 export default function MasterCompany() {
@@ -34,7 +34,7 @@ export default function MasterCompany() {
 	const fetchItems = useCallback(async () => { setLoading(true); try { const r = await api("/companies"); setItems(r.companies || []); } catch { showToast("error", "Gagal memuat data perusahaan"); } finally { setLoading(false); } }, [showToast]);
 	useEffect(() => { fetchItems(); }, [fetchItems]);
 	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
-	const openEdit = (item) => { setEditTarget(item); setForm({ company_code: item.company_code, company_name: item.company_name, is_active: Boolean(item.is_active) }); setErrors({}); setModalOpen(true); };
+	const openEdit = (item) => { setEditTarget(item); setForm({ company_code: item.company_code, company_name: item.company_name, address: item.address || "", is_active: Boolean(item.is_active) }); setErrors({}); setModalOpen(true); };
 	const closeModal = () => { setModalOpen(false); setEditTarget(null); };
 	const validate = () => {
 		const e = {};
@@ -95,12 +95,13 @@ export default function MasterCompany() {
 			<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 				{filtered.length === 0 && !loading ? (<div className="flex flex-col items-center justify-center py-20 gap-2"><HiOutlineBuildingOffice2 className="h-10 w-10 text-slate-300" /><p className="text-sm text-slate-400">Tidak ada data ditemukan</p></div>) : (
 					<div className="overflow-x-auto"><table className="w-full text-sm">
-						<thead><tr className="border-b border-slate-100 bg-slate-50/80">{["No", "Kode Company", "Nama Company", "Status", "Aksi"].map((h, i) => (<th key={h} className={cn("px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 4 ? "text-right" : "text-left")}>{h}</th>))}</tr></thead>
+						<thead><tr className="border-b border-slate-100 bg-slate-50/80">{["No", "Kode Company", "Nama Company", "Alamat", "Status", "Aksi"].map((h, i) => (<th key={h} className={cn("px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 5 ? "text-right" : "text-left")}>{h}</th>))}</tr></thead>
 						<tbody className="divide-y divide-slate-100">{loading ? <SkeletonRows /> : filtered.map((a, i) => (
 							<tr key={a.company_id} className="hover:bg-slate-50/60 transition">
 								<td className="px-5 py-4 text-slate-400 text-xs">{i + 1}</td>
 								<td className="px-5 py-4"><span className="inline-flex items-center rounded-md bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700 border border-violet-200 tracking-wide">{a.company_code}</span></td>
 								<td className="px-5 py-4 font-semibold text-slate-800">{a.company_name}</td>
+								<td className="px-5 py-4 text-slate-600 text-sm">{a.address || <span className="text-slate-300">—</span>}</td>
 								<td className="px-5 py-4">{a.is_active ? <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><HiOutlineCheckCircle className="h-4 w-4" /> Aktif</span> : <span className="flex items-center gap-1 text-xs font-semibold text-rose-500"><HiOutlineXCircle className="h-4 w-4" /> Nonaktif</span>}</td>
 								<td className="px-5 py-4"><div className="flex items-center justify-end gap-2"><button onClick={() => openEdit(a)} className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-600 hover:bg-violet-100 transition"><HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit</button><button onClick={() => { setDeleteTarget(a); setConfirmOpen(true); }} className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition"><HiOutlineTrash className="h-3.5 w-3.5" /> Hapus</button></div></td>
 							</tr>
@@ -122,6 +123,7 @@ export default function MasterCompany() {
 								<input className={inputCls} placeholder="WASCHEN" value={form.company_code} onChange={(e) => setForm({ ...form, company_code: e.target.value.toUpperCase() })} maxLength={20} />
 							</Field>
 							<Field label="Nama Company" required error={errors.company_name}><input className={inputCls} placeholder="PT Waschen Alora Indonesia" value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} /></Field>
+							<Field label="Alamat" error={errors.address}><textarea className={cn(inputCls, "resize-none")} rows={4} placeholder="Jl. Sudirman No. 123, Jakarta" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
 							<Field label="Status"><div className="flex items-center gap-3 h-[42px]"><button type="button" onClick={() => setForm({ ...form, is_active: !form.is_active })} className={cn("relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors", form.is_active ? "bg-emerald-500" : "bg-slate-200")}><span className={cn("inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform", form.is_active ? "translate-x-5" : "translate-x-0")} /></button><span className={cn("text-sm font-semibold", form.is_active ? "text-emerald-600" : "text-slate-400")}>{form.is_active ? "Aktif" : "Nonaktif"}</span></div></Field>
 							<div className="flex gap-3 pt-2"><button type="button" onClick={closeModal} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Batal</button><button type="submit" disabled={saving} className="flex-1 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 px-4 py-2.5 text-sm font-semibold text-white transition">{saving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Tambah Company"}</button></div>
 						</form>

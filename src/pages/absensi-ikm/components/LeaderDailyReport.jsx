@@ -35,24 +35,42 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-function getCutoffDates() {
-  const now = new Date();
-  const day = now.getDate();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  let start, end;
-  if (day <= 25) {
-    const s = new Date(year, month - 1, 26);
-    const e = new Date(year, month, 25);
-    start = `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,"0")}-26`;
-    end   = `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-25`;
-  } else {
-    const s = new Date(year, month, 26);
-    const e = new Date(year, month + 1, 25);
-    start = `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,"0")}-26`;
-    end   = `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-25`;
+function toDateInput(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const CUTOFF_START_DAY = 26;
+
+const PERIOD_MONTHS = [
+  { value: 1, label: "Januari" }, { value: 2, label: "Februari" },
+  { value: 3, label: "Maret" }, { value: 4, label: "April" },
+  { value: 5, label: "Mei" }, { value: 6, label: "Juni" },
+  { value: 7, label: "Juli" }, { value: 8, label: "Agustus" },
+  { value: 9, label: "September" }, { value: 10, label: "Oktober" },
+  { value: 11, label: "November" }, { value: 12, label: "Desember" },
+];
+
+function getDefaultCutoffSelection(now = new Date()) {
+  const startDay = CUTOFF_START_DAY;
+  const endDay = startDay - 1;
+  let cutoffMonth = now.getMonth() + 1;
+  let cutoffYear = now.getFullYear();
+  if (now.getDate() > endDay) {
+    cutoffMonth += 1;
+    if (cutoffMonth > 12) { cutoffMonth = 1; cutoffYear += 1; }
   }
-  return { start, end };
+  const start = new Date(cutoffYear, cutoffMonth - 2, startDay);
+  const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
+  return {
+    cutoffMonth, cutoffYear,
+    startDate: toDateInput(start),
+    endDate: toDateInput(end),
+  };
 }
 
 function generatePages(current, total) {
@@ -590,10 +608,31 @@ export default function LeaderDailyReport() {
   const [employees, setEmployees] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
-  const { start: cutoffStart, end: cutoffEnd } = getCutoffDates();
-  const [filters, setFilters] = useState({
-    startDate: cutoffStart, endDate: cutoffEnd, area_id: "",
-  });
+  const todayStr = useMemo(() => toDateInput(new Date()), []);
+  const defaultCutoff = useMemo(() => getDefaultCutoffSelection(new Date()), []);
+
+  const [periodMode, setPeriodMode] = useState("cutoff");
+  const [cutoffMonth, setCutoffMonth] = useState(defaultCutoff.cutoffMonth);
+  const [cutoffYear, setCutoffYear] = useState(defaultCutoff.cutoffYear);
+  const [customStartDate, setCustomStartDate] = useState(defaultCutoff.startDate);
+  const [customEndDate, setCustomEndDate] = useState(defaultCutoff.endDate);
+
+  const yearOptions = useMemo(() => {
+    const base = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, idx) => base - 3 + idx);
+  }, []);
+
+  const activePeriod = useMemo(() => {
+    if (periodMode === "today") return { startDate: todayStr, endDate: todayStr };
+    if (periodMode === "custom") return { startDate: customStartDate || todayStr, endDate: customEndDate || customStartDate || todayStr };
+    const startDay = CUTOFF_START_DAY;
+    const endDay = startDay - 1;
+    const start = new Date(cutoffYear, cutoffMonth - 2, startDay);
+    const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
+    return { startDate: toDateInput(start), endDate: toDateInput(end) };
+  }, [periodMode, todayStr, customStartDate, customEndDate, cutoffMonth, cutoffYear]);
+
+  const [filters, setFilters] = useState({ area_id: "" });
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [sort, setSort] = useState({ col: "report_date", dir: "desc" });
@@ -627,8 +666,8 @@ export default function LeaderDailyReport() {
     setLoading(true);
     try {
       const qs = new URLSearchParams({ page: String(pageToLoad), limit: String(pagination.limit) });
-      if (filters.startDate) qs.set("startDate", filters.startDate);
-      if (filters.endDate)   qs.set("endDate", filters.endDate);
+      if (activePeriod.startDate) qs.set("startDate", activePeriod.startDate);
+      if (activePeriod.endDate)   qs.set("endDate", activePeriod.endDate);
       if (filters.area_id)   qs.set("area_id", filters.area_id);
       if (search) qs.set("search", search);
 
@@ -641,7 +680,7 @@ export default function LeaderDailyReport() {
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.limit, pagination.page, search, showToast]);
+  }, [activePeriod.startDate, activePeriod.endDate, filters, pagination.limit, pagination.page, search, showToast]);
 
   useEffect(() => {
     Promise.all([
@@ -734,18 +773,73 @@ export default function LeaderDailyReport() {
               <HiOutlineFunnel className="h-4 w-4 text-slate-400" />
               Filter
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: "Dari Tanggal", field: "startDate", type: "date" },
-                { label: "Sampai Tanggal", field: "endDate", type: "date" },
-              ].map(({ label, field, type }) => (
-                <label key={field} className="text-sm text-slate-600">
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">{label}</span>
-                  <input type={type}
+            {/* ── Baris 1: Mode Periode + Bulan/Tahun/Custom ── */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {/* Kolom 1: Mode Periode */}
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Mode Periode</span>
+                <select
+                  value={periodMode}
+                  onChange={(e) => { setPeriodMode(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                >
+                  <option value="cutoff">Periode Cutoff</option>
+                  <option value="today">Hari Ini</option>
+                  <option value="custom">Custom Tanggal</option>
+                </select>
+              </label>
+
+              {/* Kolom 2 */}
+              {periodMode === "cutoff" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Bulan Periode Cutoff</span>
+                  <select
+                    value={cutoffMonth}
+                    onChange={(e) => { setCutoffMonth(Number(e.target.value)); setPagination((p) => ({ ...p, page: 1 })); }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                    value={filters[field]} onChange={(e) => setFilters({ ...filters, [field]: e.target.value })} />
+                  >
+                    {PERIOD_MONTHS.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+                  </select>
                 </label>
-              ))}
+              )}
+              {periodMode === "custom" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Mulai</span>
+                  <input type="date"
+                    value={customStartDate}
+                    onChange={(e) => { setCustomStartDate(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200" />
+                </label>
+              )}
+              {periodMode === "today" && <div />}
+
+              {/* Kolom 3 */}
+              {periodMode === "cutoff" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Tahun</span>
+                  <select
+                    value={cutoffYear}
+                    onChange={(e) => { setCutoffYear(Number(e.target.value)); setPagination((p) => ({ ...p, page: 1 })); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  >
+                    {yearOptions.map((y) => (<option key={y} value={y}>{y}</option>))}
+                  </select>
+                </label>
+              )}
+              {periodMode === "custom" && (
+                <label className="text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Akhir</span>
+                  <input type="date"
+                    value={customEndDate}
+                    onChange={(e) => { setCustomEndDate(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200" />
+                </label>
+              )}
+              {periodMode === "today" && <div />}
+            </div>
+
+            {/* ── Baris 2: Area ── */}
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <label className="text-sm text-slate-600">
                 <span className="mb-1 block text-xs font-semibold text-slate-500">Area</span>
                 <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
@@ -754,6 +848,14 @@ export default function LeaderDailyReport() {
                   {areas.map((a) => <option key={a.id} value={a.id}>{a.area_name}</option>)}
                 </select>
               </label>
+              <div />
+              <div />
+            </div>
+
+            {/* ── Info periode aktif ── */}
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+              <span className="font-semibold">Periode aktif:</span>
+              <span>{fmtDate(activePeriod.startDate)} — {fmtDate(activePeriod.endDate)}</span>
             </div>
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

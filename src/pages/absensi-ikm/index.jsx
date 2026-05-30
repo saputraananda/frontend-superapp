@@ -10,6 +10,7 @@ import {
 	HiOutlineDocumentText,
 	HiOutlineClipboardDocument,
 	HiOutlineBanknotes,
+	HiOutlineUserGroup,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -53,6 +54,16 @@ const MENU_ITEMS = [
 		icon: HiOutlineBanknotes,
 		label: "Kasbon & Pinjaman",
 		description: "Pengajuan dan cicilan karyawan",
+	},
+];
+
+const MANAGEMENT_MENU = [
+	{
+		to: "/absensi-manajemen-ikm",
+		icon: HiOutlineUserGroup,
+		label: "Dashboard Absen Manajemen",
+		description: "Absensi Manajemen",
+		end: true,
 	},
 ];
 
@@ -145,20 +156,38 @@ function Sidebar({ collapsed = false, onClose }) {
 				)}
 			</div>
 
-			{/* Menu label */}
+			{/* Menu label - Menu Karyawan */}
 			{!collapsed && (
 				<p className="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-					Menu
+					Menu Karyawan
 				</p>
 			)}
 			{collapsed && <div className="pt-3" />}
 
-			{/* Navigation */}
-			<nav className={cn("flex-1 overflow-y-auto space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
-				{MENU_ITEMS.map((item) => (
-					<NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
-				))}
-			</nav>
+			{/* Scrollable area containing both nav sections */}
+			<div className="flex-1 overflow-y-auto">
+				{/* Navigation - Menu Karyawan */}
+				<nav className={cn("space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
+					{MENU_ITEMS.map((item) => (
+						<NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+					))}
+				</nav>
+
+				{/* Menu label - Menu Manajemen */}
+				{!collapsed && (
+					<p className="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+						Menu Manajemen
+					</p>
+				)}
+				{collapsed && <div className="pt-3" />}
+
+				{/* Navigation - Menu Manajemen */}
+				<nav className={cn("space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
+					{MANAGEMENT_MENU.map((item) => (
+						<NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+					))}
+				</nav>
+			</div>
 
 			{/* Footer: back to portal */}
 			<div className={cn("border-t border-slate-100 py-3", collapsed ? "px-1.5" : "px-3")}>
@@ -188,9 +217,10 @@ function ActiveMenuTitle() {
 	const { pathname } = useLocation();
 
 	// Cari menu yang cocok: prioritaskan match exact dulu, lalu startsWith
+	const allMenuItems = [...MENU_ITEMS, ...MANAGEMENT_MENU];
 	const active =
-		MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
-		MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
+		allMenuItems.find((m) => m.end && pathname === m.to) ??
+		allMenuItems.find((m) => !m.end && pathname.startsWith(m.to));
 
 	const label = active?.label ?? "Absensi IKM";
 	const description = active?.description ?? "Navigasi modul absensi";
