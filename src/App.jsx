@@ -21,6 +21,8 @@ import Dashboard from "./pages/dashboard-sales";
 import ProjectManagement from "./pages/project-management";
 import EmployeeSatisfaction from "./pages/employee-satisfaction";
 import MasterKaryawan from "./pages/master-karyawan/index";
+import DashboardMaster from "./pages/master-karyawan/components/DashboardMaster";
+import DataKaryawan from "./pages/master-karyawan/components/DataKaryawan";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
@@ -216,13 +218,15 @@ export default function App() {
 
         {/* ── Master Karyawan ── */}
         <Route
-          path="/master-karyawan"
           element={
             <ProtectedRoute user={user} allowedRoles={appRoles["/master-karyawan"]}>
               <MasterKaryawan />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route path="/master-karyawan" element={<DashboardMaster />} />
+          <Route path="/master-karyawan/list" element={<DataKaryawan />} />
+        </Route>
 
         <Route
           path="/master-karyawan/:id"
