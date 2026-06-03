@@ -201,7 +201,7 @@ function FloorSelect({ employeeId, currentFloor, onFloorChange }) {
 function SkeletonRow() {
 	return (
 		<tr className="border-t border-slate-100 animate-pulse">
-			{[32, 24, 40, 28, 48, 28, 36, 20, 24, 20].map((w, i) => (
+			{[32, 24, 40, 28, 48, 28, 36, 20, 24, 20, 20].map((w, i) => (
 				<td key={i} className="px-4 py-4">
 					<div className={`h-3.5 rounded-md bg-slate-200`} style={{ width: `${w * 3}px` }} />
 				</td>
@@ -1220,9 +1220,12 @@ export default function KaryawanIKM() {
 											Role
 										</th>
 										<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+											Lantai
+										</th>
+										<th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
 											Status
 										</th>
-										<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+										<th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
 											Aksi
 										</th>
 									</tr>
@@ -1234,7 +1237,7 @@ export default function KaryawanIKM() {
 
 									{!loading && rows.length === 0 && (
 										<tr>
-											<td colSpan={10} className="px-4 py-14 text-center">
+											<td colSpan={11} className="px-4 py-14 text-center">
 												<div className="flex flex-col items-center gap-2 text-slate-400">
 													<HiOutlineUsers className="h-9 w-9 opacity-40" />
 													<p className="text-sm">
@@ -1328,12 +1331,12 @@ export default function KaryawanIKM() {
 													onFloorChange={handleFloorChange}
 												/>
 											</td>
-											<td className="whitespace-nowrap px-4 py-3">
+											<td className="w-28 whitespace-nowrap px-4 py-3">
 												<div className="flex flex-col gap-1">
 													<EmploymentBadge exitDate={item.exit_date} />
 												</div>
 											</td>
-											<td className="whitespace-nowrap px-4 py-3">
+											<td className="w-28 whitespace-nowrap px-4 py-3">
 												<div className="flex items-center gap-1.5">
 													<button
 														type="button"
