@@ -22,10 +22,10 @@ function cn(...c) { return c.filter(Boolean).join(" "); }
 
 // ── Field yang sama persis dengan ALL_FIELDS di profile/index.jsx ──────────
 const COMPLETENESS_FIELDS = [
-    "full_name", "email", "gender", "birth_place", "birth_date", "phone_number",
+    "full_name", "email", "private_email", "gender", "birth_place", "birth_date", "phone_number",
     "address", "ktp_number", "family_card_number", "religion_id", "marital_status",
     "company_id", "department_id", "position_id", "employment_status_id", "join_date",
-    "contract_end_date", "education_level_id", "school_name", "bank_id",
+    "contract_end_date", "education_level_id", "school_name", "major_name", "bank_id",
     "bank_account_number", "bpjs_health_number", "bpjs_employment_number",
     "npwp_number", "emergency_contact", "notes", "profile_path", "ktp_path",
     "username", // ← tambah

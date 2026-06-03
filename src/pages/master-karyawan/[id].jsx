@@ -808,7 +808,7 @@ export default function EmployeeDetail() {
                           <Field label="Nama Lengkap" required error={fieldErrors.full_name}>
                             <input type="text" name="full_name" value={formData.full_name || ""} onChange={handleChange} className={inputCls(fieldErrors.full_name)} placeholder="Nama lengkap sesuai KTP" />
                           </Field>
-                          <Field label="Email" error={fieldErrors.email}>
+                          <Field label="Email Perusahaan" error={fieldErrors.email}>
                             <input
                               type="email"
                               name="email"
@@ -816,6 +816,17 @@ export default function EmployeeDetail() {
                               onChange={handleChange}
                               className={inputCls(fieldErrors.email)}
                               placeholder="email@perusahaan.com"
+                              autoComplete="off"
+                            />
+                          </Field>
+                          <Field label="Email Pribadi" error={fieldErrors.private_email}>
+                            <input
+                              type="email"
+                              name="private_email"
+                              value={formData.private_email || ""}
+                              onChange={handleChange}
+                              className={inputCls(fieldErrors.private_email)}
+                              placeholder="email.pribadi@gmail.com"
                               autoComplete="off"
                             />
                           </Field>
@@ -996,7 +1007,7 @@ export default function EmployeeDetail() {
                         </div>
                       </Panel>
                       <Panel title="Riwayat Pendidikan">
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                           <Field label="Pendidikan Terakhir">
                             <select name="education_level_id" value={formData.education_level_id || ""} onChange={handleChange} className={selectCls()}>
                               <option value="">— Pilih —</option>
@@ -1005,6 +1016,9 @@ export default function EmployeeDetail() {
                           </Field>
                           <Field label="Nama Institusi">
                             <input type="text" name="school_name" value={formData.school_name || ""} onChange={handleChange} className={inputCls(false)} placeholder="Universitas / Sekolah" />
+                          </Field>
+                          <Field label="Jurusan">
+                            <input type="text" name="major_name" value={formData.major_name || ""} onChange={handleChange} className={inputCls(false)} placeholder="Contoh: Teknik Informatika" />
                           </Field>
                         </div>
                       </Panel>

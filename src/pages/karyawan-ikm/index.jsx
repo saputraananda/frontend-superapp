@@ -140,6 +140,64 @@ function LeaderRoleSelect({ employeeId, currentRole, onRoleChange }) {
 	);
 }
 
+
+// -- Floor Select Component --
+const FLOOR_META = {
+	"1": { label: "Lantai 1", cls: "border-cyan-300 bg-cyan-50 text-cyan-700 focus:ring-cyan-500/20" },
+	"2": { label: "Lantai 2", cls: "border-teal-300 bg-teal-50 text-teal-700 focus:ring-teal-500/20" },
+	"3": { label: "Lantai 3", cls: "border-sky-300 bg-sky-50 text-sky-700 focus:ring-sky-500/20" },
+	"4": { label: "Lantai 4", cls: "border-indigo-300 bg-indigo-50 text-indigo-700 focus:ring-indigo-500/20" },
+	"5": { label: "Lantai 5", cls: "border-purple-300 bg-purple-50 text-purple-700 focus:ring-purple-500/20" },
+	ALL: { label: "ALL", cls: "border-emerald-300 bg-emerald-50 text-emerald-700 focus:ring-emerald-500/20" },
+	null: { label: "-", cls: "border-slate-200 bg-slate-50 text-slate-400 focus:ring-slate-500/20" },
+};
+
+function FloorSelect({ employeeId, currentFloor, onFloorChange }) {
+	const [busy, setBusy] = useState(false);
+	const [localFloor, setLocalFloor] = useState(currentFloor ?? null);
+
+	const meta = FLOOR_META[localFloor] ?? FLOOR_META.null;
+
+	async function handleChange(e) {
+		const newFloor = e.target.value || null;
+		const prev = localFloor;
+		setLocalFloor(newFloor);
+		setBusy(true);
+		try {
+			await api(`/ikm/employees/${employeeId}/floor`, {
+				method: "PUT",
+				body: JSON.stringify({ floor: newFloor }),
+			});
+			onFloorChange(employeeId, newFloor);
+		} catch (err) {
+			console.error("[FloorSelect] Gagal update lantai:", err?.message);
+			setLocalFloor(prev);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<select
+			value={localFloor ?? ""}
+			onChange={handleChange}
+			disabled={busy}
+			className={cn(
+				"rounded-md border px-2 py-1 text-xs font-semibold outline-none transition focus:ring-2 cursor-pointer disabled:opacity-60",
+				meta.cls,
+			)}
+		>
+			<option value="">-</option>
+			<option value="1">Lantai 1</option>
+			<option value="2">Lantai 2</option>
+			<option value="3">Lantai 3</option>
+			<option value="4">Lantai 4</option>
+			<option value="5">Lantai 5</option>
+			<option value="ALL">ALL</option>
+		</select>
+	);
+}
+
 function SkeletonRow() {
 	return (
 		<tr className="border-t border-slate-100 animate-pulse">
@@ -217,7 +275,7 @@ function PaginationBar({ page, totalPages, total, limit, onPage, onLimitChange, 
 
 			<div className="flex items-center gap-1">
 				<button type="button" onClick={() => onPage(1)} disabled={page <= 1 || loading}
-					className="flex h-7 min-w-[28px] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="Halaman pertama">«
+					className="flex h-7 min-w-[28px] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="Halaman pertama">�
 				</button>
 				<button type="button" onClick={() => onPage(page - 1)} disabled={page <= 1 || loading}
 					className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -245,14 +303,14 @@ function PaginationBar({ page, totalPages, total, limit, onPage, onLimitChange, 
 					<HiOutlineChevronRight className="h-3.5 w-3.5" />
 				</button>
 				<button type="button" onClick={() => onPage(totalPages)} disabled={page >= totalPages || loading}
-					className="flex h-7 min-w-[28px] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="Halaman terakhir">»
+					className="flex h-7 min-w-[28px] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="Halaman terakhir">�
 				</button>
 			</div>
 		</div>
 	);
 }
 
-// ─── Print/PDF Employee Profile ───────────────────────────────────────────────
+// --- Print/PDF Employee Profile -----------------------------------------------
 function printEmployeeProfile(emp) {
 	const logoUrl = `${window.location.origin}/ikm.png`;
 	const docNo = `EMP-${String(emp.employee_id || emp.employee_code || "").padStart(5, "0").slice(-5)}`;
@@ -291,7 +349,7 @@ function printEmployeeProfile(emp) {
 <html lang="id">
 <head>
 	<meta charset="UTF-8" />
-	<title>Ringkasan Profil Karyawan — ${safe(emp.full_name)}</title>
+	<title>Ringkasan Profil Karyawan � ${safe(emp.full_name)}</title>
 	<style>
 		@page { size: A4 portrait; margin: 0; }
 		@media print {
@@ -361,7 +419,7 @@ function printEmployeeProfile(emp) {
 	</style>
 </head>
 <body>
-	<button class="print-btn no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+	<button class="print-btn no-print" onclick="window.print()">??? Cetak / Simpan PDF</button>
 
 	<div class="page">
 		<div class="doc-header">
@@ -391,8 +449,8 @@ function printEmployeeProfile(emp) {
 			</div>
 			<div class="id-meta">
 				<div class="id-name">${cap(emp.full_name)}</div>
-				<div class="id-code">NIK: <strong>${safe(emp.employee_code)}</strong> &nbsp;·&nbsp; Email: ${safe(emp.email)}</div>
-				<div class="id-position">${[emp.job_level_name, emp.position_name].filter(Boolean).join(" — ") || "-"}</div>
+				<div class="id-code">NIK: <strong>${safe(emp.employee_code)}</strong> &nbsp;�&nbsp; Email: ${safe(emp.email)}</div>
+				<div class="id-position">${[emp.job_level_name, emp.position_name].filter(Boolean).join(" � ") || "-"}</div>
 				<div class="id-status">${employmentBadge}</div>
 			</div>
 		</div>
@@ -525,10 +583,10 @@ function printEmployeeProfile(emp) {
 			</div>
 		</div>
 
-		<p class="confidential">— RAHASIA — Dokumen ini bersifat internal dan hanya untuk keperluan administrasi HR.</p>
+		<p class="confidential">� RAHASIA � Dokumen ini bersifat internal dan hanya untuk keperluan administrasi HR.</p>
 
 		<div class="doc-footer">
-			Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;·&nbsp; ${docNo} &nbsp;·&nbsp; Dicetak: ${today} &nbsp;·&nbsp; Halaman 1 dari 1
+			Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;�&nbsp; ${docNo} &nbsp;�&nbsp; Dicetak: ${today} &nbsp;�&nbsp; Halaman 1 dari 1
 		</div>
 	</div>
 </body>
@@ -541,7 +599,7 @@ function printEmployeeProfile(emp) {
 	win.onload = () => win.print();
 }
 
-function MobileCard({ item, idx, startItem, onDetail, onPrint, onLeaderRoleChange }) {
+function MobileCard({ item, idx, startItem, onDetail, onPrint, onLeaderRoleChange, onFloorChange }) {
 	return (
 		<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
 			<div className="flex items-start justify-between gap-2">
@@ -621,6 +679,14 @@ function MobileCard({ item, idx, startItem, onDetail, onPrint, onLeaderRoleChang
 					employeeId={item.employee_id}
 					currentRole={item.leader_role ?? null}
 					onRoleChange={onLeaderRoleChange}
+				/>
+			</div>
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-xs text-slate-400">Lantai:</span>
+				<FloorSelect
+					employeeId={item.employee_id}
+					currentFloor={item.employee_floor ?? null}
+					onFloorChange={onFloorChange}
 				/>
 			</div>
 		</div>
@@ -772,6 +838,14 @@ export default function KaryawanIKM() {
 		);
 	};
 
+	const handleFloorChange = (employeeId, newFloor) => {
+		setRows((prev) =>
+			prev.map((r) =>
+				r.employee_id === employeeId ? { ...r, employee_floor: newFloor } : r
+			)
+		);
+	};
+
 	const handlePrintEmployee = async (employeeId) => {
 		try {
 			setError("");
@@ -787,7 +861,7 @@ export default function KaryawanIKM() {
 		}
 	};
 
-	// ── Export Excel: semua karyawan + embed KTP/NPWP ─────────────────────────
+	// -- Export Excel: semua karyawan + embed KTP/NPWP -------------------------
 	const [exporting, setExporting] = useState(false);
 	const [exportProgress, setExportProgress] = useState("");
 
@@ -1072,7 +1146,7 @@ export default function KaryawanIKM() {
 												<div className="min-w-0">
 													<p className="truncate text-sm font-semibold text-slate-800">{emp.full_name || "-"}</p>
 													<p className="text-xs text-slate-400">
-														{[emp.employee_code, emp.job_level_name, emp.position_name].filter(Boolean).join(" · ")}
+														{[emp.employee_code, emp.job_level_name, emp.position_name].filter(Boolean).join(" � ")}
 													</p>
 												</div>
 												{emp.exit_date ? (
@@ -1084,7 +1158,7 @@ export default function KaryawanIKM() {
 										))}
 										{rows.length > 10 && (
 											<div className="border-t border-slate-100 px-4 py-2 text-center text-xs text-slate-400">
-												+{rows.length - 10} lainnya — lihat di tabel di bawah
+												+{rows.length - 10} lainnya � lihat di tabel di bawah
 											</div>
 										)}
 									</div>
@@ -1248,6 +1322,13 @@ export default function KaryawanIKM() {
 												/>
 											</td>
 											<td className="whitespace-nowrap px-4 py-3">
+												<FloorSelect
+													employeeId={item.employee_id}
+													currentFloor={item.employee_floor ?? null}
+													onFloorChange={handleFloorChange}
+												/>
+											</td>
+											<td className="whitespace-nowrap px-4 py-3">
 												<div className="flex flex-col gap-1">
 													<EmploymentBadge exitDate={item.exit_date} />
 												</div>
@@ -1321,12 +1402,13 @@ export default function KaryawanIKM() {
 											onDetail={(id) => navigate(`/karyawan-ikm/${id}`, { state: { backTo: "/karyawan-ikm" } })}
 											onPrint={(id) => handlePrintEmployee(id)}
 											onLeaderRoleChange={handleLeaderRoleChange}
+											onFloorChange={handleFloorChange}
 										/>
 									))}
 								</div>
-							)}
+							)
+							}
 						</div>
-
 						{/* Pagination */}
 						<PaginationBar
 							page={page}

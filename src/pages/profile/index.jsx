@@ -263,10 +263,10 @@ export default function Profile() {
   };
 
   const ALL_FIELDS = useMemo(() => [
-    "full_name", "email", "gender", "birth_place", "birth_date", "phone_number",
+    "full_name", "email", "private_email", "gender", "birth_place", "birth_date", "phone_number",
     "address", "ktp_number", "family_card_number", "religion_id", "marital_status",
     "company_id", "department_id", "position_id", "employment_status_id", "join_date",
-    "contract_end_date", "education_level_id", "school_name", "bank_id",
+    "contract_end_date", "education_level_id", "school_name", "major_name", "bank_id",
     "bank_account_number", "bpjs_health_number", "bpjs_employment_number",
     "npwp_number", "emergency_contact", "notes", "profile_path", "employee_code",
     // dokumen
@@ -573,7 +573,7 @@ export default function Profile() {
                           </Field>
 
                           {/* Email - bisa diubah */}
-                          <Field label="Email" error={fieldErrors.email}>
+                          <Field label="Email Perusahaan" error={fieldErrors.email}>
                             <input
                               type="email"
                               name="email"
@@ -581,6 +581,18 @@ export default function Profile() {
                               onChange={handleChange}
                               className={inputCls(fieldErrors.email)}
                               placeholder="email@perusahaan.com"
+                              autoComplete="off"
+                            />
+                          </Field>
+
+                          <Field label="Email Pribadi" error={fieldErrors.private_email}>
+                            <input
+                              type="email"
+                              name="private_email"
+                              value={formData.private_email || ""}
+                              onChange={handleChange}
+                              className={inputCls(fieldErrors.private_email)}
+                              placeholder="email.pribadi@gmail.com"
                               autoComplete="off"
                             />
                           </Field>
@@ -769,7 +781,7 @@ export default function Profile() {
                       </Panel>
 
                       <Panel title="Riwayat Pendidikan">
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                           <Field label="Pendidikan Terakhir">
                             <select name="education_level_id" value={formData.education_level_id || ""} onChange={handleChange} className={selectCls(false)}>
                               <option value="">— Pilih —</option>
@@ -781,6 +793,10 @@ export default function Profile() {
                           <Field label="Nama Institusi">
                             <input type="text" name="school_name" value={formData.school_name || ""} onChange={handleChange}
                               className={inputCls(false)} placeholder="Universitas / Sekolah" />
+                          </Field>
+                          <Field label="Jurusan">
+                            <input type="text" name="major_name" value={formData.major_name || ""} onChange={handleChange}
+                              className={inputCls(false)} placeholder="Contoh: Teknik Informatika" />
                           </Field>
                         </div>
                       </Panel>

@@ -900,6 +900,7 @@ export default function LinenReport() {
   const [records, setRecords] = useState([]);
   const [areas, setAreas] = useState([]);
   const [hospitals, setHospitals] = useState([]);
+  const [floors, setFloors] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const todayStr = useMemo(() => toDateInput(new Date()), []);
@@ -927,7 +928,7 @@ export default function LinenReport() {
   }, [periodMode, todayStr, customStartDate, customEndDate, cutoffMonth, cutoffYear]);
 
   const [filters, setFilters] = useState({
-    area_id: "", hospital_id: "", finding_location: "",
+    area_id: "", hospital_id: "", finding_location: "", floor: "",
   });
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -952,6 +953,7 @@ export default function LinenReport() {
       if (filters.area_id) qs.set("area_id", filters.area_id);
       if (filters.hospital_id) qs.set("hospital_id", filters.hospital_id);
       if (filters.finding_location) qs.set("finding_location", filters.finding_location);
+      if (filters.floor) qs.set("floor", filters.floor);
       if (search) qs.set("search", search);
 
       const res = await api(`/ikm/linen-report?${qs}`);
@@ -959,6 +961,7 @@ export default function LinenReport() {
       setPagination((p) => ({ ...p, page: pg, total: res.pagination?.total || 0, totalPages: res.pagination?.totalPages || 0 }));
       if (res.areas?.length) setAreas(res.areas);
       if (res.hospitals?.length) setHospitals(res.hospitals);
+      if (res.floors?.length) setFloors(res.floors);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -970,6 +973,7 @@ export default function LinenReport() {
     api("/ikm/linen-report/meta").then((r) => {
       if (r.areas?.length) setAreas(r.areas);
       if (r.hospitals?.length) setHospitals(r.hospitals);
+      if (r.floors?.length) setFloors(r.floors);
     }).catch(() => { });
   }, []);
 
@@ -1132,8 +1136,8 @@ export default function LinenReport() {
               {periodMode === "today" && <div />}
             </div>
 
-            {/* ── Baris 2: Area · RS · Lokasi Temuan ── */}
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* ── Baris 2: Area · RS · Lokasi Temuan · Lantai ── */}
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <label className="text-sm text-slate-600">
                 <span className="mb-1 block text-xs font-semibold text-slate-500">Area</span>
                 <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
@@ -1156,6 +1160,14 @@ export default function LinenReport() {
                   value={filters.finding_location} onChange={(e) => setFilters({ ...filters, finding_location: e.target.value })}>
                   <option value="">Semua Lokasi</option>
                   {FINDING_LOCATIONS.map((l) => <option key={l}>{l}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Lantai</span>
+                <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  value={filters.floor} onChange={(e) => setFilters({ ...filters, floor: e.target.value })}>
+                  <option value="">Semua Lantai</option>
+                  {floors.map((f) => <option key={f.floor} value={f.floor}>{f.floor}</option>)}
                 </select>
               </label>
             </div>
@@ -1247,7 +1259,14 @@ export default function LinenReport() {
                             <td className="px-4 py-3.5 whitespace-nowrap">
                               {(() => { const { date, time } = fmtDateTime(r.created_at); return (<><p className="text-xs text-slate-700 font-medium">{date}</p>{time && <p className="text-[10px] text-slate-400 tabular-nums mt-0.5">⏰ {time}</p>}</>); })()}
                             </td>
-                            <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">{r.reporter_name}</td>
+                            <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">
+                              {r.reporter_name}
+                              {r.floor && (
+                                <span className="block mt-0.5 text-[10px] text-slate-400 font-normal">
+                                  Lantai: {r.floor}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-3.5 text-xs text-slate-600">{r.area_name || "-"}</td>
                             <td className="px-4 py-3.5 text-xs text-slate-600">{r.hospital_name || "-"}</td>
                             <td className="px-4 py-3.5">
@@ -1331,6 +1350,7 @@ export default function LinenReport() {
                             <p className="text-xs text-slate-500">
                               {(() => { const { date, time } = fmtDateTime(r.created_at); return <>{date}{time && <span className="text-slate-400"> · ⏰{time}</span>}</>; })()}
                               {" · "}{r.reporter_name}
+                              {r.floor && ` (${r.floor})`}
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-1 shrink-0">
@@ -1347,6 +1367,7 @@ export default function LinenReport() {
                           <span>📍 {r.area_name || "-"}</span>
                           <span>🏥 {r.hospital_name || "-"}</span>
                           {r.ownership_type && <span>🏷️ {r.ownership_type === "rental" ? "Sewa" : "RS"}</span>}
+                          {r.floor && <span>🏢 {r.floor}</span>}
                           <span>📦 Qty: <strong>{r.finding_qty}</strong></span>
                         </div>
                         {r.attachment_url && <PhotoThumb url={r.attachment_url} label={`Linen ${r.linen_type}`} />}
