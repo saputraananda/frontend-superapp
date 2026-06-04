@@ -1,4 +1,5 @@
-﻿import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../../../lib/api";
 import {
   HiOutlineExclamationCircle,
@@ -12,6 +13,12 @@ import {
   HiOutlineSquares2X2,
   HiOutlineListBullet,
   HiOutlineBuildingStorefront,
+  HiOutlineCalendarDays,
+  HiOutlineClipboardDocumentList,
+  HiOutlineMagnifyingGlass,
+  HiOutlineMapPin,
+  HiOutlineUserCircle,
+  HiOutlineXMark,
 } from "react-icons/hi2";
 
 function cn(...c) {
@@ -51,9 +58,52 @@ function cutoffFromYearMonth(year, month) {
   };
 }
 
-function StatCard({ label, value, icon: Icon, colorClass, loading }) {
+function fmtDate(v) {
+  if (!v) return "-";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+}
+
+function fmtDateTime(v) {
+  if (!v) return { date: "-", time: null };
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return { date: v, time: null };
+  return {
+    date: new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d),
+    time: new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d),
+  };
+}
+
+function periodLabel(start, end) {
+  if (!start && !end) return "Semua periode";
+  if (start && end) return `${fmtDate(start)} s/d ${fmtDate(end)}`;
+  if (start) return `Mulai ${fmtDate(start)}`;
+  return `Sampai ${fmtDate(end)}`;
+}
+
+function buildQuery(params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") qs.set(key, value);
+  });
+  return qs.toString();
+}
+
+function StatCard({ label, value, icon: Icon, colorClass, loading, onClick }) {
+  const interactive = typeof onClick === "function" && !loading;
   return (
-    <div className={cn("flex items-center gap-4 rounded-2xl border p-5 shadow-[0_4px_16px_rgba(0,0,0,0.07)]", colorClass)}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!interactive}
+      className={cn(
+        "flex items-center gap-4 rounded-2xl border p-5 text-left shadow-[0_4px_16px_rgba(0,0,0,0.07)] transition",
+        interactive && "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)] focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30",
+        !interactive && "cursor-default",
+        colorClass,
+      )}
+    >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/60">
         <Icon className="h-6 w-6" />
       </div>
@@ -67,11 +117,11 @@ function StatCard({ label, value, icon: Icon, colorClass, loading }) {
         </p>
         <p className="mt-1 text-xs font-medium opacity-70">{label}</p>
       </div>
-    </div>
+    </button>
   );
 }
 
-function SimpleBarChart({ data, labelKey, valueKey, color = "bg-rose-500" }) {
+function SimpleBarChart({ data, labelKey, valueKey, color = "bg-rose-500", onItemClick }) {
   const [tooltip, setTooltip] = useState(null); // { x, y, label, value, pct }
 
   if (!data?.length)
@@ -96,9 +146,14 @@ function SimpleBarChart({ data, labelKey, valueKey, color = "bg-rose-500" }) {
       {data.map((item) => {
         const pct = total > 0 ? Math.round((item[valueKey] / total) * 100) : 0;
         return (
-          <div
+          <button
+            type="button"
             key={item[labelKey]}
-            className="group cursor-default"
+            className={cn(
+              "group block w-full rounded-xl p-1.5 text-left transition",
+              onItemClick ? "cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20" : "cursor-default",
+            )}
+            onClick={() => onItemClick?.(item)}
             onMouseMove={(e) =>
               setTooltip({ x: e.clientX, y: e.clientY, label: item[labelKey], value: item[valueKey], pct })
             }
@@ -119,7 +174,7 @@ function SimpleBarChart({ data, labelKey, valueKey, color = "bg-rose-500" }) {
                 style={{ width: `${(item[valueKey] / max) * 100}%` }}
               />
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -128,7 +183,7 @@ function SimpleBarChart({ data, labelKey, valueKey, color = "bg-rose-500" }) {
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
 
-function TrendChart({ data }) {
+function TrendChart({ data, onItemClick }) {
   if (!data?.length)
     return <p className="py-12 text-center text-sm text-slate-400">Tidak ada data tren</p>;
   const max = Math.max(...data.map((d) => d.total), 1);
@@ -140,7 +195,15 @@ function TrendChart({ data }) {
         const [yr, mo] = d.month.split("-");
         const label = `${MONTH_NAMES[Number(mo) - 1]} '${yr.slice(2)}`;
         return (
-          <div key={d.month} className="group flex flex-1 flex-col items-center gap-1">
+          <button
+            type="button"
+            key={d.month}
+            onClick={() => onItemClick?.(d)}
+            className={cn(
+              "group flex flex-1 flex-col items-center gap-1 rounded-xl p-1 transition",
+              onItemClick ? "cursor-pointer hover:bg-fuchsia-50/60 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20" : "cursor-default",
+            )}
+          >
             <span className="text-xs font-bold text-fuchsia-700 opacity-0 transition-opacity group-hover:opacity-100">
               {d.total}
             </span>
@@ -151,16 +214,231 @@ function TrendChart({ data }) {
               </div>
             </div>
             <span className="text-[10px] font-medium text-slate-500">{label}</span>
-          </div>
+          </button>
         );
       })}
     </div>
   );
 }
 
+const PROGRESS_META = {
+  Open: { cls: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+  "On Progress": { cls: "border-sky-200 bg-sky-50 text-sky-700", dot: "bg-sky-500" },
+  "Waiting Customer": { cls: "border-violet-200 bg-violet-50 text-violet-700", dot: "bg-violet-500" },
+  Resolved: { cls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  Closed: { cls: "border-slate-200 bg-slate-50 text-slate-600", dot: "bg-slate-400" },
+};
+
+function DetailModal({ open, config, onClose }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!open || !config) return;
+    const controller = new AbortController();
+
+    async function loadDetails() {
+      setLoading(true);
+      setError("");
+      setSearch("");
+      try {
+        const query = buildQuery({ ...config.params, limit: "all" });
+        const data = await api(`/complaints?${query}`, { signal: controller.signal });
+        setRows(data?.complaints || []);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          setError(err.message || "Gagal mengambil detail komplain.");
+          setRows([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDetails();
+    return () => controller.abort();
+  }, [open, config]);
+
+  // Lock body scroll saat modal terbuka
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  if (!open || !config) return null;
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredRows = normalizedSearch
+    ? rows.filter((row) => [
+      row.complaint_name,
+      row.nota_number,
+      row.outlet_name,
+      row.topic_name,
+      row.category_name,
+      row.type_name,
+      row.pic_name,
+      row.description,
+      row.progress,
+    ].some((value) => String(value || "").toLowerCase().includes(normalizedSearch)))
+    : rows;
+
+  const openCount = rows.filter((row) => !["Resolved", "Closed"].includes(row.progress)).length;
+  const resolvedCount = rows.length - openCount;
+
+  // Render via portal agar keluar dari overflow-y-auto container
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm", config.iconClass || "bg-gradient-to-br from-fuchsia-700 to-fuchsia-400")}>
+              <HiOutlineClipboardDocumentList className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-extrabold text-slate-800">{config.title}</h2>
+              <p className="truncate text-xs text-slate-500">{config.subtitle}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Tutup detail"
+          >
+            <HiOutlineXMark className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid gap-5 p-6 lg:grid-cols-[280px_1fr]">
+            <aside className="space-y-4">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ringkasan</p>
+                <p className="mt-3 text-4xl font-extrabold text-slate-800">{rows.length}</p>
+                <p className="text-xs text-slate-500">komplain pada filter ini</p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+                    <p className="text-lg font-extrabold text-amber-700">{openCount}</p>
+                    <p className="text-[11px] font-semibold text-amber-600">Belum selesai</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                    <p className="text-lg font-extrabold text-emerald-700">{resolvedCount}</p>
+                    <p className="text-[11px] font-semibold text-emerald-600">Selesai</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                  <HiOutlineCalendarDays className="h-4 w-4 text-fuchsia-500" />
+                  Periode
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{config.period}</p>
+              </div>
+            </aside>
+
+            <section className="min-w-0 space-y-4">
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Daftar Detail Komplain</p>
+                  <p className="text-xs text-slate-400">{filteredRows.length} dari {rows.length} data tampil</p>
+                </div>
+                <div className="relative w-full sm:w-80">
+                  <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari pelapor, nota, outlet, topik..."
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-100"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <div key={idx} className="h-28 animate-pulse rounded-2xl border border-slate-100 bg-slate-50" />
+                  ))
+                ) : filteredRows.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
+                    Tidak ada komplain yang cocok.
+                  </div>
+                ) : (
+                  filteredRows.map((row) => {
+                    const progressMeta = PROGRESS_META[row.progress] || PROGRESS_META.Open;
+                    const submitted = fmtDateTime(row.submitted_at || row.created_at);
+                    return (
+                      <article key={row.complaint_id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-fuchsia-100 hover:shadow-md">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold", progressMeta.cls)}>
+                                <span className={cn("mr-1.5 h-1.5 w-1.5 rounded-full", progressMeta.dot)} />
+                                {row.progress}
+                              </span>
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                Nota {row.nota_number}
+                              </span>
+                            </div>
+                            <h3 className="mt-2 text-base font-extrabold text-slate-800">{row.complaint_name}</h3>
+                            <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-500">{row.description}</p>
+                          </div>
+                          <div className="shrink-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-right">
+                            <p className="text-xs font-semibold text-slate-500">{submitted.date}</p>
+                            {submitted.time && <p className="text-[11px] text-slate-400">{submitted.time}</p>}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <HiOutlineMapPin className="h-4 w-4 shrink-0 text-sky-500" />
+                            <span className="truncate">{row.outlet_name || `Outlet #${row.outlet_id}`}</span>
+                          </div>
+                          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <HiOutlineTag className="h-4 w-4 shrink-0 text-amber-500" />
+                            <span className="truncate">{row.category_name || "-"}</span>
+                          </div>
+                          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <HiOutlineListBullet className="h-4 w-4 shrink-0 text-fuchsia-500" />
+                            <span className="truncate">{row.topic_name || "-"}</span>
+                          </div>
+                          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <HiOutlineUserCircle className="h-4 w-4 shrink-0 text-violet-500" />
+                            <span className="truncate">{row.pic_name || "PIC belum diisi"}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-500">
+                          <span className="rounded-full bg-violet-50 px-2.5 py-1 text-violet-600">{row.type_name}</span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1">Qty {row.qty}</span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1">Potongan: {row.deduction}</span>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function DashboardKomplain() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [detailModal, setDetailModal] = useState(null);
   const [dateStart, setDateStart] = useState(DEFAULT_CUTOFF.start);
   const [dateEnd,   setDateEnd]   = useState(DEFAULT_CUTOFF.end);
 
@@ -239,14 +517,39 @@ export default function DashboardKomplain() {
   }, [fetchSummary]);
 
   const t = summary?.totals;
+  const activeDateParams = periodMode === "all" ? {} : { start_date: dateStart, end_date: dateEnd };
+  const activePeriodLabel = periodLabel(dateStart, dateEnd);
+
+  const openDetail = useCallback((config) => {
+    setDetailModal({
+      period: config.period || activePeriodLabel,
+      iconClass: config.iconClass,
+      params: { ...activeDateParams, ...(config.params || {}) },
+      title: config.title,
+      subtitle: config.subtitle || activePeriodLabel,
+    });
+  }, [activeDateParams, activePeriodLabel]);
+
+  const openTrendDetail = (item) => {
+    const [year, month] = item.month.split("-").map(Number);
+    const cutoff = cutoffFromYearMonth(year, month);
+    const label = `${MONTH_NAMES[month - 1]} '${String(year).slice(2)}`;
+    openDetail({
+      title: `Trend Komplain: ${label}`,
+      subtitle: `${fmtDate(cutoff.start)} s/d ${fmtDate(cutoff.end)}`,
+      period: `${fmtDate(cutoff.start)} s/d ${fmtDate(cutoff.end)}`,
+      params: { start_date: cutoff.start, end_date: cutoff.end },
+      iconClass: "bg-gradient-to-br from-fuchsia-700 to-fuchsia-400",
+    });
+  };
 
   const statCards = [
-    { label: "Total Komplain",    value: t?.total             ?? 0, icon: HiOutlineExclamationCircle, colorClass: "bg-fuchsia-100/80 text-fuchsia-800 border-fuchsia-200" },
-    { label: "Open",              value: t?.open_count        ?? 0, icon: HiOutlineClock,             colorClass: "bg-amber-50 text-amber-600 border-amber-100" },
-    { label: "On Progress",       value: t?.on_progress_count ?? 0, icon: HiOutlineArrowPath,         colorClass: "bg-sky-50 text-sky-600 border-sky-100" },
-    { label: "Waiting Customer",  value: t?.waiting_count     ?? 0, icon: HiOutlineUserGroup,         colorClass: "bg-violet-50 text-violet-600 border-violet-100" },
-    { label: "Resolved",          value: t?.resolved_count    ?? 0, icon: HiOutlineCheckCircle,       colorClass: "bg-emerald-50 text-emerald-600 border-emerald-100" },
-    { label: "Closed",            value: t?.closed_count      ?? 0, icon: HiOutlineXCircle,           colorClass: "bg-slate-50 text-slate-500 border-slate-100" },
+    { label: "Total Komplain",    value: t?.total             ?? 0, icon: HiOutlineExclamationCircle, colorClass: "bg-fuchsia-100/80 text-fuchsia-800 border-fuchsia-200", detail: { title: "Semua Komplain", params: {}, iconClass: "bg-gradient-to-br from-fuchsia-700 to-fuchsia-400" } },
+    { label: "Open",              value: t?.open_count        ?? 0, icon: HiOutlineClock,             colorClass: "bg-amber-50 text-amber-600 border-amber-100", detail: { title: "Komplain Open", params: { progress: "Open" }, iconClass: "bg-gradient-to-br from-amber-500 to-orange-400" } },
+    { label: "On Progress",       value: t?.on_progress_count ?? 0, icon: HiOutlineArrowPath,         colorClass: "bg-sky-50 text-sky-600 border-sky-100", detail: { title: "Komplain On Progress", params: { progress: "On Progress" }, iconClass: "bg-gradient-to-br from-sky-600 to-cyan-400" } },
+    { label: "Waiting Customer",  value: t?.waiting_count     ?? 0, icon: HiOutlineUserGroup,         colorClass: "bg-violet-50 text-violet-600 border-violet-100", detail: { title: "Komplain Waiting Customer", params: { progress: "Waiting Customer" }, iconClass: "bg-gradient-to-br from-violet-600 to-fuchsia-400" } },
+    { label: "Resolved",          value: t?.resolved_count    ?? 0, icon: HiOutlineCheckCircle,       colorClass: "bg-emerald-50 text-emerald-600 border-emerald-100", detail: { title: "Komplain Resolved", params: { progress: "Resolved" }, iconClass: "bg-gradient-to-br from-emerald-600 to-teal-400" } },
+    { label: "Closed",            value: t?.closed_count      ?? 0, icon: HiOutlineXCircle,           colorClass: "bg-slate-50 text-slate-500 border-slate-100", detail: { title: "Komplain Closed", params: { progress: "Closed" }, iconClass: "bg-gradient-to-br from-slate-600 to-slate-400" } },
   ];
 
   return (
@@ -380,7 +683,12 @@ export default function DashboardKomplain() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {statCards.map((card) => (
-          <StatCard key={card.label} {...card} loading={loading} />
+          <StatCard
+            key={card.label}
+            {...card}
+            loading={loading}
+            onClick={() => openDetail({ ...card.detail, subtitle: activePeriodLabel })}
+          />
         ))}
       </div>
 
@@ -409,6 +717,12 @@ export default function DashboardKomplain() {
               labelKey="topic_name"
               valueKey="total"
               color="bg-fuchsia-500"
+              onItemClick={(item) => openDetail({
+                title: `Topik: ${item.topic_name}`,
+                subtitle: activePeriodLabel,
+                params: { topic_id: item.topic_id },
+                iconClass: "bg-gradient-to-br from-fuchsia-700 to-fuchsia-400",
+              })}
             />
           )}
         </div>
@@ -436,6 +750,12 @@ export default function DashboardKomplain() {
               labelKey="category_name"
               valueKey="total"
               color="bg-amber-400"
+              onItemClick={(item) => openDetail({
+                title: `Bahan: ${item.category_name}`,
+                subtitle: activePeriodLabel,
+                params: { category_id: item.category_id },
+                iconClass: "bg-gradient-to-br from-amber-500 to-yellow-400",
+              })}
             />
           )}
         </div>
@@ -463,6 +783,12 @@ export default function DashboardKomplain() {
               labelKey="type_name"
               valueKey="total"
               color="bg-violet-500"
+              onItemClick={(item) => openDetail({
+                title: `Tipe: ${item.type_name}`,
+                subtitle: activePeriodLabel,
+                params: { type_id: item.type_id },
+                iconClass: "bg-gradient-to-br from-violet-600 to-indigo-400",
+              })}
             />
           )}
         </div>
@@ -486,7 +812,7 @@ export default function DashboardKomplain() {
             ))}
           </div>
         ) : (
-          <TrendChart data={summary?.recentTrend || []} />
+          <TrendChart data={summary?.recentTrend || []} onItemClick={openTrendDetail} />
         )}
       </div>
 
@@ -521,7 +847,16 @@ export default function DashboardKomplain() {
                 {summary.byOutlet.map((row) => {
                   const resolvedPct = row.total > 0 ? Math.round(((row.total - row.open_total) / row.total) * 100) : 0;
                   return (
-                    <tr key={row.outlet_id} className="group transition hover:bg-slate-50/70">
+                    <tr
+                      key={row.outlet_id}
+                      onClick={() => openDetail({
+                        title: `Outlet: ${row.outlet_name || `Outlet #${row.outlet_id}`}`,
+                        subtitle: activePeriodLabel,
+                        params: { outlet_id: row.outlet_id },
+                        iconClass: "bg-gradient-to-br from-sky-600 to-blue-400",
+                      })}
+                      className="group cursor-pointer transition hover:bg-slate-50/70"
+                    >
                       <td className="py-3 font-medium text-slate-700">
                         {row.outlet_name || `Outlet #${row.outlet_id}`}
                       </td>
@@ -557,6 +892,12 @@ export default function DashboardKomplain() {
           </div>
         )}
       </div>
+
+      <DetailModal
+        open={Boolean(detailModal)}
+        config={detailModal}
+        onClose={() => setDetailModal(null)}
+      />
     </div>
   );
 }
