@@ -19,6 +19,7 @@ import {
   HiOutlineMapPin,
   HiOutlineUserCircle,
   HiOutlineXMark,
+  HiOutlineArrowTrendingUp,
 } from "react-icons/hi2";
 
 function cn(...c) {
@@ -437,6 +438,8 @@ function DetailModal({ open, config, onClose }) {
 
 export default function DashboardKomplain() {
   const [summary, setSummary] = useState(null);
+  const [sameDayData, setSameDayData] = useState(null);
+  const [sameDayLoading, setSameDayLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [detailModal, setDetailModal] = useState(null);
   const [dateStart, setDateStart] = useState(DEFAULT_CUTOFF.start);
@@ -511,10 +514,24 @@ export default function DashboardKomplain() {
     }
   }, [dateStart, dateEnd]);
 
+  const fetchSameDay = useCallback(async () => {
+    setSameDayLoading(true);
+    try {
+      const data = await api(`/complaints/same-day-comparison`);
+      setSameDayData(data);
+    } catch (error) {
+      console.error("Error fetching same-day comparison:", error);
+      setSameDayData(null);
+    } finally {
+      setSameDayLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     document.title = "Dashboard Komplain | Alora App";
     fetchSummary();
-  }, [fetchSummary]);
+    fetchSameDay();
+  }, [fetchSummary, fetchSameDay]);
 
   const t = summary?.totals;
   const activeDateParams = periodMode === "all" ? {} : { start_date: dateStart, end_date: dateEnd };
@@ -813,6 +830,74 @@ export default function DashboardKomplain() {
           </div>
         ) : (
           <TrendChart data={summary?.recentTrend || []} onItemClick={openTrendDetail} />
+        )}
+      </div>
+
+      {/* ── Cumulative period comparison (26th → today) ────────────── */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_4px_16px_rgba(0,0,0,0.07)]">
+        <div className="mb-5 flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50">
+            <HiOutlineArrowTrendingUp className="h-4 w-4 text-indigo-500" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">
+              Perbandingan Periode yg Sama
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Akumulasi komplain tanggal 26 sampai hari ini (Periode Cutoff)
+            </p>
+          </div>
+        </div>
+        {sameDayLoading ? (
+          <div className="flex items-end gap-3 px-2" style={{ height: 160 }}>
+            {[80, 100, 60, 120, 90, 110, 70].map((h, i) => (
+              <div key={i} className="flex-1 animate-pulse rounded-t-xl bg-indigo-100" style={{ height: h }} />
+            ))}
+          </div>
+        ) : !sameDayData?.data?.length ? (
+          <p className="py-12 text-center text-sm text-slate-400">Tidak ada data perbandingan</p>
+        ) : (
+          <div>
+            <div className="flex items-end gap-3 px-2" style={{ height: 160 }}>
+              {sameDayData.data.map((d) => {
+                const max = Math.max(...sameDayData.data.map((x) => x.total), 1);
+                const barH = Math.max((d.total / max) * 140, 10);
+                const isLast = d.label === sameDayData.data[sameDayData.data.length - 1]?.label;
+                const [yr, mo] = d.label.split("-");
+                return (
+                  <div
+                    key={d.label}
+                    className="group flex flex-1 flex-col items-center gap-1 rounded-xl p-1 transition hover:bg-indigo-50/60"
+                  >
+                    <span className="text-xs font-bold text-indigo-700 opacity-0 transition-opacity group-hover:opacity-100">
+                      {d.total}
+                    </span>
+                    <div className="relative w-full overflow-hidden rounded-t-xl" style={{ height: barH }}>
+                      <div
+                        className={cn(
+                          "absolute inset-0 transition-all",
+                          isLast
+                            ? "bg-gradient-to-t from-indigo-700 to-indigo-400"
+                            : "bg-gradient-to-t from-slate-400 to-slate-300"
+                        )}
+                      />
+                      <div className="absolute inset-0 flex items-end justify-center pb-1">
+                        <span className="text-[10px] font-extrabold text-white drop-shadow">{d.total}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-500">
+                      {MONTH_NAMES[Number(mo) - 1]} '{String(yr).slice(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {sameDayData.data[0] && (
+              <p className="mt-4 text-center text-[11px] text-slate-400">
+                Periode {fmtDate(sameDayData.data[0].start)} s/d {fmtDate(sameDayData.data[0].end)} — dst
+              </p>
+            )}
+          </div>
         )}
       </div>
 
