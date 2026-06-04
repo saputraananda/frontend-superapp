@@ -20,8 +20,33 @@ export default function StatsCards({ companyId }) {
     });
     const [customerLoading, setCustomerLoading] = useState(true);
 
-    // Data lain (masih dummy untuk sekarang)
-    const currentEmployee = 156;
+    // Data karyawan aktif — fetch real dari mst_employee
+    const [employeeData, setEmployeeData] = useState({
+        total: 0, alora: 0, ikm: 0, cleanox: 0, waschen: 0, new_this_month: 0,
+    });
+    const [employeeLoading, setEmployeeLoading] = useState(true);
+
+    const isIkm = Number(companyId) === 2;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Fetch employee stats
+    useEffect(() => {
+        const fetchEmployeeStats = async () => {
+            try {
+                setEmployeeLoading(true);
+                const res = await api("/apps/employee-stats");
+                if (res.success && res.data) {
+                    setEmployeeData(res.data);
+                }
+            } catch (error) {
+                console.error("Error fetching employee stats:", error);
+            } finally {
+                setEmployeeLoading(false);
+            }
+        };
+        fetchEmployeeStats();
+    }, []);
+
     const thisTime = (() => {
         const now = new Date();
         const d = now.getDate() >= 26
@@ -29,13 +54,12 @@ export default function StatsCards({ companyId }) {
             : now;
         return d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
     })();
-    const isIkm = Number(companyId) === 2;
 
-    const employeeGrowthMonitoring = 3.9;
     const breakdown = [
-        { label: "Alora Group", count: 20, color: "bg-emerald-500" },
-        { label: "IKM", count: 90, color: "bg-teal-400" },
-        { label: "Waschen", count: 46, color: "bg-cyan-300" },
+        { label: "Alora", count: employeeData.alora, color: "bg-emerald-500" },
+        { label: "IKM", count: employeeData.ikm, color: "bg-teal-400" },
+        { label: "Cleanox", count: employeeData.cleanox, color: "bg-violet-400" },
+        { label: "Waschen", count: employeeData.waschen, color: "bg-cyan-300" },
     ];
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -140,39 +164,48 @@ export default function StatsCards({ companyId }) {
                             <div>
                                 <p className="text-xs text-slate-600 font-semibold">Total Karyawan</p>
                                 <p className="text-[10px] text-slate-500">
-                                    Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} - Data Sementara
+                                    Per {new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · Data Real
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-2xl lg:text-3xl font-bold text-slate-800">
-                            {currentEmployee.toLocaleString("id-ID")}
-                        </span>
-                        <span className="text-sm text-slate-500 font-medium">karyawan aktif</span>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {breakdown.map((b) => (
-                                <div key={b.label} className="flex items-center gap-1">
-                                    <span className={`h-2 w-2 rounded-full ${b.color}`} />
-                                    <span className="text-[10px] text-slate-500">
-                                        {b.label}
-                                        <span className="font-semibold text-slate-700 ml-0.5">{b.count}</span>
-                                    </span>
-                                </div>
-                            ))}
+                    {employeeLoading ? (
+                        <div className="animate-pulse space-y-2">
+                            <div className="h-8 bg-slate-200 rounded w-1/2" />
+                            <div className="h-3 bg-slate-200 rounded w-3/4" />
                         </div>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="flex items-baseline gap-1.5 flex-wrap">
+                                <span className="text-2xl lg:text-3xl font-bold text-slate-800">
+                                    {employeeData.total.toLocaleString("id-ID")}
+                                </span>
+                                <span className="text-sm text-slate-500 font-medium">karyawan aktif</span>
+                            </div>
 
-                    <div className="flex items-center justify-between pt-1 border-t border-emerald-100">
-                        <p className="text-[10px] text-slate-500">
-                            Naik <span className="font-semibold text-emerald-600">+{Math.round(currentEmployee * employeeGrowthMonitoring / 100)} orang</span> dari bulan lalu
-                        </p>
-                        <span className="text-[10px] text-slate-400">👥 SDM</span>
-                    </div>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {breakdown.map((b) => (
+                                        <div key={b.label} className="flex items-center gap-1">
+                                            <span className={`h-2 w-2 rounded-full ${b.color}`} />
+                                            <span className="text-[10px] text-slate-500">
+                                                {b.label}{" "}
+                                                <span className="font-semibold text-slate-700">{b.count}</span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1 border-t border-emerald-100">
+                                <p className="text-[10px] text-slate-500">
+                                    <span className="font-semibold text-emerald-700">+{employeeData.new_this_month} Karyawan Bergabung Bulan Ini</span>
+                                </p>
+                                <span className="text-[10px] text-slate-400">👥 SDM</span>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
