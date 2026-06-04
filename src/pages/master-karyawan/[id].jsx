@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, assetUrl } from "../../lib/api";
+import { api, assetUrl, apiUpload } from "../../lib/api";
+import { createPortal } from "react-dom";
 import LoadingScreen from "../../components/LoadingScreen";
 import AlertSuccess from "../../components/AlertSuccess";
 import JSZip from "jszip";
@@ -34,7 +35,7 @@ function DocPreviewModal({ url, fileName, label, onClose }) {
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 pointer-events-none">
       {/* Backdrop */}
       <div
@@ -121,12 +122,16 @@ function DocPreviewModal({ url, fileName, label, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 // ── PhotoCard — support gambar & PDF ──────────────────────────────────────
-function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPreview }) {
+function PhotoCard({
+  label, filePath, fileName, baseUrl, avatarBaseUrl, onPreview,
+  onDelete, onUpload, isDeleting, isUploading
+}) {
   let url;
   // avatarBaseUrl dipakai khusus untuk pas foto (profile)
   const effectiveBase = avatarBaseUrl || baseUrl;
@@ -226,25 +231,68 @@ function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPrevie
       )}
 
       {/* Action buttons */}
-      {url && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onPreview({ url, fileName, label })}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
-          >
-            <HiOutlineMagnifyingGlassPlus className="w-3.5 h-3.5" />
-            Buka
-          </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
-          >
-            <HiOutlineArrowDownTray className="w-3.5 h-3.5" />
-            Download
-          </button>
+      {url ? (
+        <div className="flex flex-col gap-2 mt-auto">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => onPreview({ url, fileName, label })}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+            >
+              <HiOutlineMagnifyingGlassPlus className="w-3.5 h-3.5" />
+              Buka
+            </button>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+            >
+              <HiOutlineArrowDownTray className="w-3.5 h-3.5" />
+              Download
+            </button>
+          </div>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={isDeleting || isUploading}
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition"
+            >
+              {isDeleting ? (
+                <>
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-600 border-t-transparent mr-1" />
+                  Menghapus...
+                </>
+              ) : (
+                <>
+                  <HiOutlineXMark className="w-3.5 h-3.5" />
+                  Hapus Dokumen
+                </>
+              )}
+            </button>
+          )}
         </div>
+      ) : (
+        onUpload && (
+          <button
+            type="button"
+            onClick={onUpload}
+            disabled={isUploading || isDeleting}
+            className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition mt-auto"
+          >
+            {isUploading ? (
+              <>
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-600 border-t-transparent mr-1" />
+                Mengupload...
+              </>
+            ) : (
+              <>
+                <HiOutlineDocumentText className="w-3.5 h-3.5" />
+                Upload Dokumen
+              </>
+            )}
+          </button>
+        )
       )}
     </div>
   );
@@ -341,6 +389,113 @@ export default function EmployeeDetail() {
 
   // ── Preview modal state ──
   const [previewDoc, setPreviewDoc] = useState(null); // { url, fileName, label }
+
+  // ── Document delete / upload states ──
+  const [deleteTarget, setDeleteTarget] = useState(null); // { key, label, pathKey, nameKey }
+  const [deletingKey, setDeletingKey] = useState(null);
+  const [uploadingKey, setUploadingKey] = useState(null);
+  const [uploadTargetKey, setUploadTargetKey] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleDeleteDocClick = (doc) => {
+    setDeleteTarget(doc);
+  };
+
+  const confirmDeleteDoc = async () => {
+    if (!deleteTarget) return;
+    const { key, pathKey, nameKey } = deleteTarget;
+    setDeletingKey(key);
+    setError("");
+    try {
+      await api(`/hr/employees/${id}/document/${key}`, {
+        method: "DELETE",
+      });
+      
+      // Update local state immediately
+      setEmployee((p) => ({
+        ...p,
+        [pathKey]: null,
+        [nameKey]: null,
+      }));
+      setFormData((p) => ({
+        ...p,
+        [pathKey]: null,
+        [nameKey]: null,
+      }));
+      setInitialData((p) => ({
+        ...p,
+        [pathKey]: null,
+        [nameKey]: null,
+      }));
+
+      setSuccess(`Dokumen ${deleteTarget.label} berhasil dihapus.`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeletingKey(null);
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleUploadDocClick = (key) => {
+    setUploadTargetKey(key);
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 100);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTargetKey) return;
+
+    const selectedKey = uploadTargetKey;
+    setUploadTargetKey(null);
+    e.target.value = "";
+
+    const doc = EMPLOYEE_DOCS.find((d) => d.key === selectedKey);
+    if (!doc) return;
+
+    setUploadingKey(selectedKey);
+    setError("");
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+
+      const res = await apiUpload(`/hr/employees/${id}/document/${selectedKey}`, {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      // Update local state immediately
+      setEmployee((p) => ({
+        ...p,
+        [doc.pathKey]: res.path,
+        [doc.nameKey]: res.name,
+      }));
+      setFormData((p) => ({
+        ...p,
+        [doc.pathKey]: res.path,
+        [doc.nameKey]: res.name,
+      }));
+      setInitialData((p) => ({
+        ...p,
+        [doc.pathKey]: res.path,
+        [doc.nameKey]: res.name,
+      }));
+
+      setSuccess(`Dokumen ${doc.label} berhasil diupload.`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const fileAccept = uploadTargetKey === "profile"
+    ? ".jpg,.jpeg,.png,.webp"
+    : ".jpg,.jpeg,.png,.webp,.pdf";
 
   // ── ZIP download ──
   const [zipping, setZipping] = useState(false);
@@ -509,7 +664,7 @@ export default function EmployeeDetail() {
       )}
 
       {/* ── Resign Modal ── */}
-      {showResignModal && (
+      {showResignModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowResignModal(false)} />
           <div className="relative z-50 w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl p-6">
@@ -540,8 +695,54 @@ export default function EmployeeDetail() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+          <div className="relative z-50 w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-800">Hapus Dokumen</h2>
+              <button onClick={() => setDeleteTarget(null)} className="text-slate-400 hover:text-slate-600 transition">
+                <HiOutlineXMark className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 mb-5">
+              Apakah Anda yakin ingin menghapus dokumen <span className="font-semibold text-slate-800">{deleteTarget.label}</span>? File yang terhapus tidak dapat dikembalikan.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteTarget(null)}
+                className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
+                Batal
+              </button>
+              <button disabled={deletingKey !== null} onClick={confirmDeleteDoc}
+                className="flex-1 rounded-lg bg-rose-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 transition flex items-center justify-center gap-1.5">
+                {deletingKey !== null ? (
+                  <>
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
+                    Menghapus...
+                  </>
+                ) : (
+                  "Ya, Hapus"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Hidden file input for uploads */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileChange}
+        accept={fileAccept}
+      />
 
       {/* ── Top Banner ── */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
@@ -1121,6 +1322,10 @@ export default function EmployeeDetail() {
                             baseUrl={employee?.documents_base_url}
                             avatarBaseUrl={key === "profile" ? employee?.avatars_base_url : undefined}
                             onPreview={setPreviewDoc}
+                            onDelete={() => handleDeleteDocClick({ key, label, pathKey, nameKey })}
+                            onUpload={() => handleUploadDocClick(key)}
+                            isDeleting={deletingKey === key}
+                            isUploading={uploadingKey === key}
                           />
                         ))}
                       </div>
