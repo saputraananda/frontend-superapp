@@ -6,9 +6,12 @@ import { Card } from "../components/ui";
 import { fmtIDR } from "../utils/utils";
 import { api } from "../../../lib/api";
 
-function buildParams({ outlet, filterType, month, year, startDate, endDate }) {
+function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
   const p = new URLSearchParams();
-  if (outlet && outlet !== "all") p.set("outlet", outlet);
+  // outlets adalah array, kirim sebagai parameter berulang: outlets=...&outlets=...
+  if (outlets && outlets.length > 0) {
+    outlets.forEach(o => p.append("outlets", o));
+  }
 
   if (filterType === "month" && month) {
     // month = "2026-03" → billing cycle ends 25th of that month
@@ -41,6 +44,9 @@ export default function PenjualanSection({ filters }) {
   );
 
 
+  // Stable dependency for outlets array
+  const outletsKey = filters?.outlets ? JSON.stringify(filters.outlets) : null;
+
   useEffect(() => {
     let cancelled = false;
     const qs = filters ? buildParams(filters) : "";
@@ -49,7 +55,7 @@ export default function PenjualanSection({ filters }) {
       .catch((err) => { if (!cancelled) dispatch({ type: "error", payload: err.message }); });
     return () => { cancelled = true; };
   }, [
-    filters?.outlet, filters?.filterType, filters?.month,
+    outletsKey, filters?.filterType, filters?.month,
     filters?.year, filters?.startDate, filters?.endDate,
   ]);
 

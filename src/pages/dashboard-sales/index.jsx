@@ -9,6 +9,7 @@ import CustomerSection from "./sections/CustomerSection";
 import CleanoxByWaschenSection from "./sections/CleanoxByWaschenSection";
 import { getEmployeeFromLocal, canSupervisorUp } from "../project-management/role";
 import { api } from "../../lib/api";
+import { OUTLETS } from "./utils/constants";
 
 const SECTIONS = {
   pendapatan:          PenjualanSection,
@@ -39,6 +40,11 @@ const SECTION_LABELS = {
   customer:           "Dashboard Customer",
 };
 
+// Helper: get all outlet values (excluding "all")
+function getAllOutletValues() {
+  return OUTLETS.filter(o => o.value !== "all").map(o => o.value);
+}
+
 export default function Dashboard() {
   const [showDevDialog, setShowDevDialog] = useState(false);
   const [activeSection, setActiveSection] = useState("pendapatan");
@@ -52,7 +58,8 @@ export default function Dashboard() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  const [outlet, setOutlet] = useState("all");
+  // outlet sekarang array - kosong = semua outlet
+  const [outlet, setOutlet] = useState([]);
   const [filterType, setFilterType] = useState("month");
   const [month, setMonth] = useState(() => {
     const today = new Date();
@@ -104,7 +111,15 @@ export default function Dashboard() {
   }
 
   const ActiveSection = SECTIONS[activeSection];
-  const filters = { outlet, filterType, month, year, startDate, endDate };
+  // Build filters - outlet adalah array, kosong = semua outlet
+  const filters = {
+    outlets: outlet.length > 0 ? outlet : getAllOutletValues(),
+    filterType,
+    month,
+    year,
+    startDate,
+    endDate,
+  };
 
   return (
     <div className="flex min-h-screen bg-[#f4f6f9]">
