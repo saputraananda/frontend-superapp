@@ -388,8 +388,16 @@ export default function FormPengajuan() {
                     <HiOutlineArrowLeft className="h-5 w-5" />
                 </button>
                 <div>
-                    <h1 className="text-lg font-bold text-slate-800">{editId ? "Edit Pengajuan" : "Buat Pengajuan Baru"}</h1>
-                    <p className="text-xs text-slate-500 mt-0.5">Lengkapi data berikut untuk mengajukan kebutuhan</p>
+                    <h1 className="text-lg font-bold text-slate-800">
+                        {editId
+                            ? (form.type === "reimburse" ? "Edit Reimburse" : "Edit Pengajuan")
+                            : (form.type === "reimburse" ? "Buat Reimburse Baru" : "Buat Pengajuan Baru")}
+                    </h1>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                        {form.type === "reimburse"
+                            ? "Lengkapi data berikut untuk mengajukan penggantian biaya operasional"
+                            : "Lengkapi data berikut untuk mengajukan kebutuhan"}
+                    </p>
                 </div>
             </div>
 

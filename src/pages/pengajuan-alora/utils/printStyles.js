@@ -15,6 +15,7 @@ body {
 .justify-between { justify-content: space-between; } .text-right { text-align: right; } .text-center { text-align: center; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 24px; }
+.ttd-grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 28px; }
 .space-y > * + * { margin-top: 12px; }
 .mb-4 { margin-bottom: 16px; } .mb-5 { margin-bottom: 20px; } .mb-6 { margin-bottom: 24px; }
 .mt-6 { margin-top: 24px; } .mt-8 { margin-top: 32px; } .pt-4 { padding-top: 16px; }

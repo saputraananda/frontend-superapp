@@ -27,6 +27,7 @@ import { canSupervisorUp } from "../../project-management/role";
 import PengajuanDetailModal from "../components/PengajuanDetailModal";
 import PRModal from "../components/PRModal";
 import POModal from "../components/POModal";
+import ReimburseModal from "../components/ReimburseModal";
 import useCutoffPeriod from "../utils/useCutoffPeriod";
 import { exportPengajuanExcel } from "../utils/exportPengajuanExcel";
 
@@ -48,6 +49,14 @@ const STATUS_CONFIG = {
     9: { label: "Ditolak",              cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 
+const REIMBURSE_STATUS_CONFIG = {
+    1: { label: "Telah Diajukan", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+    2: { label: "Disetujui SPV Departemen", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    5: { label: "Disetujui SPV Finance / Menunggu Bayar", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+    7: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    9: { label: "Ditolak", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+};
+
 // Status badge logic untuk PR di status 6 (Terbayar):
 //   - Cash → langsung "Terbayar"
 //   - Kredit → cek apakah sudah lunas (total_paid >= nominal_bayar)
@@ -55,6 +64,9 @@ const STATUS_CONFIG = {
 //        Belum lunas   → "Belum Terbayar"
 const getStatusDisplay = (row) => {
     const status = Number(row.status);
+    if (row.type === "reimburse") {
+        return REIMBURSE_STATUS_CONFIG[status] ?? REIMBURSE_STATUS_CONFIG[1];
+    }
     if (status === 6 && row.payment_method === "kredit") {
         const target    = Number(row.nominal_bayar) || 0;
         const totalPaid = Number(row.total_paid)    || 0;
@@ -172,6 +184,7 @@ export default function PengajuanBarang() {
     const [detailId, setDetailId] = useState(null);
     const [prDocId, setPrDocId]   = useState(null);
     const [poId, setPoId]         = useState(null);
+    const [reimburseDocId, setReimburseDocId] = useState(null);
     const [approvalCount, setAC]  = useState(0);
 
     const LIMIT = 10;
@@ -636,8 +649,17 @@ export default function PengajuanBarang() {
                                                         className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 transition">
                                                         <HiOutlineEye className="h-4 w-4" />
                                                     </button>
-                                                    {/* PR (Purchase Request) — hanya GA & Finance, status >= 2 (bukan 9) */}
-                                                    {isGAFinance && [2, 3, 4, 5, 6, 7].includes(Number(row.status)) && (
+                                                    {/* Form Reimbursement — hanya untuk reimburse, status >= 2 */}
+                                                    {isGAFinance && row.type === "reimburse" && [2, 5, 7].includes(Number(row.status)) && (
+                                                        <button
+                                                            onClick={() => setReimburseDocId(row.pr_id)}
+                                                            title="Lihat / Cetak Form Reimbursement"
+                                                            className="rounded-lg border border-teal-200 bg-teal-50 p-1.5 text-teal-600 hover:bg-teal-100 transition">
+                                                            <HiOutlineReceiptRefund className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                    {/* PR (Purchase Request) — hanya untuk pengajuan biasa, status >= 2 (bukan 9) */}
+                                                    {isGAFinance && row.type !== "reimburse" && [2, 3, 4, 5, 6, 7].includes(Number(row.status)) && (
                                                         <button
                                                             onClick={() => setPrDocId(row.pr_id)}
                                                             title="Lihat / Cetak PR"
@@ -645,8 +667,8 @@ export default function PengajuanBarang() {
                                                             <HiOutlineDocumentText className="h-4 w-4" />
                                                         </button>
                                                     )}
-                                                    {/* PO (Purchase Order) — hanya GA & Finance, status >= 4 (bukan 9) */}
-                                                    {isGAFinance && [4, 5, 6, 7].includes(Number(row.status)) && (
+                                                    {/* PO (Purchase Order) — hanya untuk pengajuan biasa, status >= 4 (bukan 9) */}
+                                                    {isGAFinance && row.type !== "reimburse" && [4, 5, 6, 7].includes(Number(row.status)) && (
                                                         <button
                                                             onClick={() => setPoId(row.pr_id)}
                                                             title="Lihat / Cetak PO"
@@ -723,6 +745,13 @@ export default function PengajuanBarang() {
                 open={!!poId}
                 prId={poId}
                 onClose={() => setPoId(null)}
+            />
+
+            {/* Reimburse modal — cetak Form Pengajuan Reimbursement */}
+            <ReimburseModal
+                open={!!reimburseDocId}
+                prId={reimburseDocId}
+                onClose={() => setReimburseDocId(null)}
             />
         </div>
     );

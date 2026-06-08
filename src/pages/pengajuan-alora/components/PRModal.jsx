@@ -12,6 +12,14 @@ const formatRp = (v) => new Intl.NumberFormat("id-ID", { style: "currency", curr
 const formatDate = (s) => { if (!s) return "—"; const d = new Date(s); return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }); };
 const formatDateShort = (s) => { if (!s) return "—"; const d = new Date(s); return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }); };
 
+const getJobLabel = (level) => {
+    const lvl = Number(level);
+    if (lvl === 1) return "Direktur";
+    if (lvl === 2) return "Manager";
+    if (lvl === 3) return "Supervisor";
+    return "Staff";
+};
+
 // ── Preview ───────────────────────────────────────────────────────────────────
 function PRPreview({ data: d }) {
     const finalQty  = d.ga_qty  ? Number(d.ga_qty)       : Number(d.qty);
@@ -80,12 +88,13 @@ function PRPreview({ data: d }) {
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Diajukan Oleh</div>
                         <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
                         <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.pengaju_name)}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">{getJobLabel(d.pengaju_job_level)}</div>
                         <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.tanggal_pengajuan)}</div>
                     </div>
                     <div className="border border-slate-200 rounded-xl p-4 text-center">
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Disetujui Supervisor</div>
                         <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
-                        {d.spv_name ? <><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.spv_name)}</div><div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_spv_at)}</div></> : <div className="text-[11px] text-slate-300 italic">—</div>}
+                        {d.spv_name ? <><div className="text-sm font-semibold text-slate-700">{toTitleCase(d.spv_name)}</div><div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_spv_at)}</div></> : <div className="text-[11px] text-amber-500 italic font-medium">Menunggu</div>}
                     </div>
                 </div>
             )}
@@ -133,7 +142,7 @@ export default function PRModal({ open, prId, onClose }) {
 
 ${d.alasan_pembelian ? `<div class="note-box"><div class="note-label">Alasan Pembelian</div><div class="note-text">${d.alasan_pembelian}</div></div>` : ""}
 
-<div class="grid-2" style="margin-top:24px;gap:16px">${d.ga_name && !d.spv_name ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end"><div class="sig-box" style="width:240px"><div class="sig-label">Diajukan & Disetujui GA</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at || d.tanggal_pengajuan)}</div></div></div>` : `<div class="sig-box"><div class="sig-label">Diajukan Oleh</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-date">${formatDateShort(d.tanggal_pengajuan)}</div></div><div class="sig-box"><div class="sig-label">Disetujui Supervisor</div><div class="sig-space"></div>${d.spv_name ? `<div class="sig-name">${toTitleCase(d.spv_name)}</div><div class="sig-date">${formatDateShort(d.approved_spv_at)}</div>` : `<div class="sig-date" style="font-style:italic">—</div>`}</div>`}</div>
+<div class="grid-2" style="margin-top:24px;gap:16px">${d.ga_name && !d.spv_name ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end"><div class="sig-box" style="width:240px"><div class="sig-label">Diajukan & Disetujui GA</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at || d.tanggal_pengajuan)}</div></div></div>` : `<div class="sig-box"><div class="sig-label">Diajukan Oleh</div><div class="sig-space"></div><div class="sig-name">${toTitleCase(d.pengaju_name)}</div><div class="sig-role">${getJobLabel(d.pengaju_job_level)}</div><div class="sig-date">${formatDateShort(d.tanggal_pengajuan)}</div></div><div class="sig-box"><div class="sig-label">Disetujui Supervisor</div><div class="sig-space"></div>${d.spv_name ? `<div class="sig-name">${toTitleCase(d.spv_name)}</div><div class="sig-date">${formatDateShort(d.approved_spv_at)}</div>` : `<div class="sig-date" style="color:#d97706;font-style:italic">Menunggu</div>`}</div>`}</div>
 
 <div class="doc-footer"><span>Dicetak: ${new Date().toLocaleString("id-ID")}</span><span>${d.pr_code} · PT Waschen Alora Indonesia</span></div>`;
 

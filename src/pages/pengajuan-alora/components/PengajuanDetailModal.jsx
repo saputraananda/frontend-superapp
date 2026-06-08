@@ -24,11 +24,19 @@ const toTitleCase = (str) => {
 
 const STATUS_CONFIG = {
     1: { label: "Telah Diajukan", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-    2: { label: "Disetujui Supervisor", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    2: { label: "Disetujui SPV Departemen", cls: "bg-blue-50 text-blue-700 border-blue-200" },
     3: { label: "Disetujui Direktur", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     4: { label: "PR Ready", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
     5: { label: "Menunggu Bayar", cls: "bg-orange-50 text-orange-700 border-orange-200" },
     6: { label: "Terbayar", cls: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+    7: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    9: { label: "Ditolak", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+};
+
+const REIMBURSE_STATUS_CONFIG = {
+    1: { label: "Telah Diajukan", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+    2: { label: "Disetujui SPV Departemen", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    5: { label: "Disetujui SPV Finance", cls: "bg-orange-50 text-orange-700 border-orange-200" },
     7: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     9: { label: "Ditolak", cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
@@ -115,8 +123,9 @@ function PreviewModal({ item, onClose }) {
     );
 }
 
-function StatusBadge({ status }) {
-    const c = STATUS_CONFIG[status] ?? STATUS_CONFIG[1];
+function StatusBadge({ status, isReimburse }) {
+    const config = isReimburse ? REIMBURSE_STATUS_CONFIG : STATUS_CONFIG;
+    const c = config[status] ?? STATUS_CONFIG[1];
     return (
         <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap", c.cls)}>
             {c.label}
@@ -170,6 +179,21 @@ export default function PengajuanDetailModal({
     const [gaLinkUrl, setGaLinkUrl] = useState("");
     const [gaLinkTitle, setGaLinkTitle] = useState("");
     const [vendorList, setVendorList] = useState([]);
+
+    // ── derived data (di-declare di sini karena dipakai di hooks dan JSX) ────
+    const data = detail?.data;
+    const attachments = detail?.attachments || [];
+    const logs = detail?.logs || [];
+    const isReimburse = data?.type === "reimburse";
+    const myJobLevel = Number(currentEmployee?.job_level_id);
+    const myDeptId = currentEmployee?.department_id;
+    const myPosition = currentEmployee?.position_name || "";
+    const myIsGA = myPosition.toLowerCase().includes("general affair");
+    const myIsFinance = myPosition.toLowerCase().includes("finance")
+        || myPosition.toLowerCase().includes("accounting")
+        || myPosition.toLowerCase().includes("accountiing");
+    const status = Number(data?.status);
+    const myEmployeeId = currentEmployee?.employee_id;
 
     // Finance review state
     const [finOpen, setFinOpen] = useState(false);
@@ -237,38 +261,21 @@ export default function PengajuanDetailModal({
 
     if (!open) return null;
 
-    const data = detail?.data;
-    const attachments = detail?.attachments || [];
-    const logs = detail?.logs || [];
-
-    const myJobLevel = Number(currentEmployee?.job_level_id);
-    const myDeptId = currentEmployee?.department_id;
-    const myPosition = currentEmployee?.position_name || "";
-    const myIsGA = myPosition.toLowerCase().includes("general affair");
-    const status = Number(data?.status);
-
     const canApproveSpv = !readOnly && myJobLevel === 3 && status === 1 && data?.department_id === myDeptId;
-    const canApproveBod = !readOnly && (myJobLevel === 1 || myJobLevel === 2) && status === 2;
+    const canApproveBod = !readOnly && !isReimburse && (myJobLevel === 1 || myJobLevel === 2) && status === 2;
     const canReject = !readOnly && (
         (myJobLevel === 3 && status === 1 && data?.department_id === myDeptId)
-        || ((myJobLevel === 1 || myJobLevel === 2) && [1, 2].includes(status))
+        || (!isReimburse && (myJobLevel === 1 || myJobLevel === 2) && [1, 2].includes(status))
     );
-    const canApproveGA = !readOnly && myIsGA && [2, 3].includes(status);
-    const canRejectGA = !readOnly && myIsGA && [2, 3].includes(status);
-    // GA bisa lengkapi vendor pada PR fast-track (status 4, belum ada vendor_mode)
-    const canEditVendorGA = !readOnly && myIsGA && status === 4 && !data?.vendor_mode;
-
-    const myIsFinance = myPosition.toLowerCase().includes("finance")
-        || myPosition.toLowerCase().includes("accounting")
-        || myPosition.toLowerCase().includes("accountiing");
-    const canApproveFinance = !readOnly && myIsFinance && myJobLevel === 3 && status === 4;
-    const canRejectFinance = !readOnly && myIsFinance && myJobLevel === 3 && status === 4;
+    const canApproveGA = !readOnly && !isReimburse && myIsGA && [2, 3].includes(status);
+    const canRejectGA = !readOnly && !isReimburse && myIsGA && [2, 3].includes(status);
+    const canEditVendorGA = !readOnly && !isReimburse && myIsGA && status === 4 && !data?.vendor_mode;
+    const canApproveFinance = !readOnly && myIsFinance && myJobLevel === 3
+        && (isReimburse ? status === 2 : status === 4);
+    const canRejectFinance = !readOnly && myIsFinance && myJobLevel === 3
+        && (isReimburse ? status === 2 : status === 4);
     const canPayment = !readOnly && myIsFinance && status === 5;
-
-    // Karyawan pengaju bisa complete (upload invoice) saat status 6
-    // GA juga bisa complete
-    const myEmployeeId = currentEmployee?.employee_id;
-    const canComplete = !readOnly && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
+    const canComplete = !readOnly && !isReimburse && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
 
     const doApprove = async () => {
         setActing(true);
@@ -464,7 +471,7 @@ export default function PengajuanDetailModal({
 
                             {/* status & meta */}
                             <div className="flex items-center gap-3 flex-wrap">
-                                <StatusBadge status={status} />
+                                <StatusBadge status={status} isReimburse={isReimburse} />
                                 <span className="text-xs text-slate-500">
                                     {data.type === "reimburse" ? "Reimburse" : "Pengajuan"} · {formatDate(data.tanggal_pengajuan)}
                                 </span>
@@ -814,8 +821,14 @@ export default function PengajuanDetailModal({
                             {/* Finance review panel */}
                             {finOpen && (
                                 <div className="rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/40 p-4 space-y-3">
-                                    <p className="text-sm font-bold text-orange-700">Approve SPV Finance</p>
-                                    <p className="text-[11px] text-slate-500">Tambahkan catatan jika diperlukan sebelum approve.</p>
+                                    <p className="text-sm font-bold text-orange-700">
+                                        {isReimburse ? "Approve Reimburse (SPV Finance)" : "Approve SPV Finance"}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">
+                                        {isReimburse
+                                            ? "Setujui reimburse ini. BoD akan auto-approve. Setelah ini masuk antrian pembayaran."
+                                            : "Tambahkan catatan jika diperlukan sebelum approve."}
+                                    </p>
                                     <div>
                                         <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan Finance</label>
                                         <textarea rows={3} value={finNote} onChange={e => setFinNote(e.target.value)}
@@ -838,8 +851,14 @@ export default function PengajuanDetailModal({
                             {/* Payment panel — staff finance */}
                             {payOpen && (
                                 <div className="rounded-xl border-2 border-dashed border-cyan-200 bg-cyan-50/40 p-4 space-y-3">
-                                    <p className="text-sm font-bold text-cyan-700">Proses Pembayaran</p>
-                                    <p className="text-[11px] text-slate-500">Isi klasifikasi, metode pembayaran, catatan, dan lampirkan bukti pembayaran.</p>
+                                    <p className="text-sm font-bold text-cyan-700">
+                                        {isReimburse ? "Proses Pembayaran & Selesaikan Reimburse" : "Proses Pembayaran"}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">
+                                        {isReimburse
+                                            ? "Lampirkan bukti pembayaran untuk menyelesaikan reimburse. Pembayaran hanya cash (sekali bayar)."
+                                            : "Isi klasifikasi, metode pembayaran, catatan, dan lampirkan bukti pembayaran."}
+                                    </p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
@@ -855,11 +874,15 @@ export default function PengajuanDetailModal({
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Metode Pembayaran <span className="text-rose-500">*</span></label>
                                             <select
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
-                                                value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                                                value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                                                disabled={isReimburse}>
                                                 <option value="">— Pilih —</option>
                                                 <option value="cash">Cash</option>
-                                                <option value="kredit">Kredit</option>
+                                                {!isReimburse && <option value="kredit">Kredit</option>}
                                             </select>
+                                            {isReimburse && payMethod === "" && (
+                                                <p className="text-[10px] text-amber-600 mt-0.5">Reimburse hanya cash</p>
+                                            )}
                                         </div>
                                         {payMethod === "kredit" && (
                                             <>
@@ -965,7 +988,7 @@ export default function PengajuanDetailModal({
                                         </button>
                                         <button onClick={doPayment} disabled={acting || !payClassification || !payMethod || !payFiles.length || (payMethod === "kredit" && (!payTerminValue || !payTerminUnit))}
                                             className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition">
-                                            {acting ? "Memproses..." : "Konfirmasi Pembayaran"}
+                                            {acting ? "Memproses..." : isReimburse ? "Bayar & Selesaikan" : "Konfirmasi Pembayaran"}
                                         </button>
                                     </div>
                                 </div>
@@ -1002,13 +1025,13 @@ export default function PengajuanDetailModal({
                                     <div className="space-y-2.5">
                                         {logs.map(l => {
                                             const actionLabels = {
-                                                created: data.type === "reimburse" ? "Reimburse" : "Pengajuan",
-                                                approved_spv: "Persetujuan Supervisor Departemen",
+                                                created: isReimburse ? "Reimburse Dibuat" : "Pengajuan Dibuat",
+                                                approved_spv: "Persetujuan SPV Departemen",
                                                 approved_bod: "Persetujuan Direktur",
                                                 approved_ga: "Persetujuan General Affair",
-                                                approved_finance: "Persetujuan Supervisor Finance",
-                                                paid: "Proses Pembayaran",
-                                                completed: "Penyelesaian",
+                                                approved_finance: "Persetujuan SPV Finance",
+                                                paid: isReimburse ? "Pembayaran & Penyelesaian" : "Proses Pembayaran",
+                                                completed: isReimburse ? "Selesai" : "Penyelesaian",
                                                 rejected: "Ditolak",
                                                 rejected_ga: "Ditolak oleh GA",
                                                 rejected_finance: "Ditolak oleh Finance",
@@ -1130,15 +1153,17 @@ export default function PengajuanDetailModal({
                                     const qty = data.ga_qty ? Number(data.ga_qty) : Number(data.qty);
                                     const totalEst = data.estimasi_harga ? Number(data.estimasi_harga) * qty : 0;
                                     if (totalEst) setPayNB(formatRupiah(String(totalEst)));
+                                    // Reimburse: default classification = expense
+                                    if (isReimburse) { setPayClass("expense"); setPayMethod("cash"); }
                                 }}
                                     className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
-                                    Proses Pembayaran
+                                    {isReimburse ? "Bayar & Selesaikan" : "Proses Pembayaran"}
                                 </button>
                             )}
                             {canApproveFinance && (
                                 <button onClick={() => setFinOpen(true)}
                                     className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 transition">
-                                    Approve Finance
+                                    {isReimburse ? "Approve Reimburse" : "Approve Finance"}
                                 </button>
                             )}
                             {canEditVendorGA && (
