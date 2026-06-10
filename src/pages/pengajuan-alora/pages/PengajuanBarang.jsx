@@ -563,7 +563,12 @@ export default function PengajuanBarang() {
                             <tbody className="divide-y divide-slate-50">
                                 {data.map(row => {
                                     // edit/hapus hanya di mode "me" dan status yang boleh
-                                    const editable = isMe && [1, 2, 9].includes(Number(row.status));
+                                    // GA dapat edit/hapus kapan pun selama status < 5
+                                    const editable = isMe && (
+                                        isGAOnly
+                                            ? [1, 2, 3, 4].includes(Number(row.status))
+                                            : [1, 2, 9].includes(Number(row.status))
+                                    );
                                     return (
                                         <tr key={row.pr_id}
                                             onClick={() => setDetailId(row.pr_id)}

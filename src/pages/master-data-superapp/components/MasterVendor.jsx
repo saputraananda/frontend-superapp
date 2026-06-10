@@ -1,0 +1,275 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	HiOutlineBuildingOffice2,
+	HiOutlineCheckCircle,
+	HiOutlineChevronDown,
+	HiOutlineExclamationTriangle,
+	HiOutlineFunnel,
+	HiOutlineMagnifyingGlass,
+	HiOutlinePencilSquare,
+	HiOutlineTrash,
+	HiOutlineXCircle,
+	HiOutlineXMark,
+} from "react-icons/hi2";
+import ConfirmDialog from "../../../components/ConfirmDialog";
+import { api } from "../../../lib/api";
+
+function cn(...c) { return c.filter(Boolean).join(" "); }
+const inputCls = cn(
+	"w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800",
+	"outline-none transition-all placeholder:text-slate-300",
+	"focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400",
+	"hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed",
+);
+function Field({ label, required, error, children }) {
+	return (
+		<div className="flex flex-col gap-1">
+			<label className="text-xs font-semibold text-slate-600">{label}{required && <span className="ml-0.5 text-rose-500">*</span>}</label>
+			{children}
+			{error && <p className="text-xs text-rose-500">{error}</p>}
+		</div>
+	);
+}
+function Toast({ toast }) {
+	if (!toast) return null;
+	return (
+		<div className={cn("fixed bottom-5 right-5 z-[80] flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl",
+			toast.type === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>
+			{toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" /> : <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />}
+			{toast.msg}
+		</div>
+	);
+}
+
+const EMPTY = { nama_vendor: "", kategori: "", alamat: "", kontak_person: "", no_telepon_1: "", no_telepon_2: "", email: "", status: "AKTIF", catatan_tambahan: "", pengiriman: "" };
+const STATUS_OPTS = [
+	{ value: "", label: "Semua", dot: "bg-slate-300" },
+	{ value: "AKTIF", label: "Aktif", dot: "bg-emerald-400" },
+	{ value: "TIDAK AKTIF", label: "Tidak Aktif", dot: "bg-rose-400" },
+];
+
+export default function MasterVendor() {
+	const [items, setItems] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [search, setSearch] = useState("");
+	const [filterStatus, setFilterStatus] = useState("");
+	const [statusOpen, setStatusOpen] = useState(false);
+	const statusRef = useRef(null);
+	const [modalOpen, setModalOpen] = useState(false);
+	const [editTarget, setEditTarget] = useState(null);
+	const [form, setForm] = useState(EMPTY);
+	const [errors, setErrors] = useState({});
+	const [saving, setSaving] = useState(false);
+	const [toast, setToast] = useState(null);
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState(null);
+
+	useEffect(() => {
+		const h = (e) => { if (statusRef.current && !statusRef.current.contains(e.target)) setStatusOpen(false); };
+		document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+	}, []);
+	useEffect(() => { document.title = "Master Vendor | Alora Group Indonesia"; }, []);
+
+	const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
+	const fetchItems = useCallback(async () => {
+		setLoading(true);
+		try { const r = await api("/vendors"); setItems(r.vendors || []); }
+		catch { showToast("error", "Gagal memuat data vendor"); }
+		finally { setLoading(false); }
+	}, [showToast]);
+	useEffect(() => { fetchItems(); }, [fetchItems]);
+	const openAdd = () => { setEditTarget(null); setForm(EMPTY); setErrors({}); setModalOpen(true); };
+	const openEdit = (item) => {
+		setEditTarget(item);
+		setForm({
+			nama_vendor: item.nama_vendor,
+			kategori: item.kategori,
+			alamat: item.alamat || "",
+			kontak_person: item.kontak_person || "",
+			no_telepon_1: item.no_telepon_1 || "",
+			no_telepon_2: item.no_telepon_2 || "",
+			email: item.email || "",
+			status: item.status,
+			catatan_tambahan: item.catatan_tambahan || "",
+			pengiriman: item.pengiriman || "",
+		});
+		setErrors({}); setModalOpen(true);
+	};
+	const closeModal = () => { setModalOpen(false); setEditTarget(null); };
+
+	const validate = () => {
+		const e = {};
+		if (!form.nama_vendor?.trim()) e.nama_vendor = "Nama vendor wajib diisi";
+		if (!form.kategori?.trim()) e.kategori = "Kategori wajib diisi";
+		setErrors(e); return !Object.keys(e).length;
+	};
+
+	const handleSubmit = async (e) => {
+		e.preventDefault(); if (!validate()) return; setSaving(true);
+		try {
+			if (editTarget) { await api(`/vendors/${editTarget.id}`, { method: "PUT", body: JSON.stringify(form) }); showToast("success", "Vendor berhasil diperbarui"); }
+			else { await api("/vendors", { method: "POST", body: JSON.stringify(form) }); showToast("success", "Vendor berhasil ditambahkan"); }
+			closeModal(); fetchItems();
+		} catch (err) { showToast("error", err?.message || "Terjadi kesalahan"); }
+		finally { setSaving(false); }
+	};
+
+	const handleDeleteConfirm = async () => {
+		if (!deleteTarget) return;
+		try { await api(`/vendors/${deleteTarget.id}`, { method: "DELETE" }); showToast("success", "Vendor berhasil dihapus"); fetchItems(); }
+		catch (err) { showToast("error", err?.message || "Gagal menghapus"); }
+		finally { setConfirmOpen(false); setDeleteTarget(null); }
+	};
+
+	const filtered = items.filter((a) => {
+		const s = `${a.nama_vendor} ${a.kategori} ${a.kontak_person || ""}`.toLowerCase().includes(search.toLowerCase());
+		const st = filterStatus ? a.status === filterStatus : true;
+		return s && st;
+	});
+
+	const SkeletonRows = () => (<>{Array.from({ length: 5 }).map((_, i) => (<tr key={i} className="border-t border-slate-100 animate-pulse">{[4, 36, 20, 24, 20, 14, 20].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
+
+	const kategoriList = [
+		{ value: "", label: "Semua Kategori" },
+		{ value: "BAHAN BAKU", label: "Bahan Baku" },
+		{ value: "BAHAN KEMASAN", label: "Bahan Kemasan" },
+		{ value: "BAHAN PEMBANTU", label: "Bahan Pembantu" },
+		{ value: "JASA", label: "Jasa" },
+		{ value: "LAINNYA", label: "Lainnya" },
+	];
+
+	return (
+		<div className="p-6 pb-14">
+			<Toast toast={toast} />
+			<ConfirmDialog open={confirmOpen} title="Hapus Vendor"
+				message={`Yakin ingin menghapus vendor "${deleteTarget?.nama_vendor}"? Tindakan ini tidak dapat dibatalkan.`}
+				onConfirm={handleDeleteConfirm} onCancel={() => { setConfirmOpen(false); setDeleteTarget(null); }} />
+
+			<div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				<div className="flex items-center gap-3">
+					<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-700 to-violet-600 shadow-sm">
+						<HiOutlineBuildingOffice2 className="h-5 w-5 text-white" />
+					</div>
+					<div>
+						<h1 className="text-base font-bold text-slate-800 leading-tight">Master Vendor</h1>
+						<p className="text-xs text-slate-400 mt-0.5">{items.length} vendor terdaftar di sistem</p>
+					</div>
+				</div>
+				<button onClick={openAdd} className="flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow transition active:scale-95">
+					<HiOutlineBuildingOffice2 className="h-4 w-4" /> Tambah Vendor
+				</button>
+			</div>
+
+			<div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+				<div className="relative flex-1 max-w-sm">
+					<HiOutlineMagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+					<input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari vendor..." className={cn(inputCls, "pl-10")} />
+				</div>
+				<div className="relative" ref={statusRef}>
+					<button type="button" onClick={() => setStatusOpen(p => !p)}
+						className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition shadow-sm",
+							filterStatus === "AKTIF" && "bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-offset-1 ring-emerald-400/30",
+							filterStatus === "TIDAK AKTIF" && "bg-rose-50 border-rose-200 text-rose-700 ring-2 ring-offset-1 ring-rose-400/30",
+							!filterStatus && "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50")}>
+						<HiOutlineFunnel className="h-4 w-4 shrink-0" />
+						<span>{filterStatus === "AKTIF" ? "Aktif" : filterStatus === "TIDAK AKTIF" ? "Nonaktif" : "Filter Status"}</span>
+						{filterStatus && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setFilterStatus(""); }} onKeyDown={(e) => e.key === "Enter" && (e.stopPropagation(), setFilterStatus(""))} className="ml-1 flex items-center justify-center h-4 w-4 rounded-full bg-black/10 hover:bg-black/20 transition"><HiOutlineXMark className="h-3 w-3" /></span>)}
+						<HiOutlineChevronDown className={cn("h-4 w-4 shrink-0 transition-transform duration-200", statusOpen && "rotate-180")} />
+					</button>
+					{statusOpen && (
+						<div className="absolute left-0 top-full mt-2 z-50 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+							{STATUS_OPTS.map((opt) => (<button key={opt.value} type="button" onClick={() => { setFilterStatus(opt.value); setStatusOpen(false); }} className={cn("w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium transition", filterStatus === opt.value ? "bg-violet-50 text-violet-700" : "text-slate-600 hover:bg-slate-50")}><span className={cn("h-2 w-2 rounded-full shrink-0", opt.dot)} />{opt.label}{filterStatus === opt.value && <svg className="ml-auto h-3.5 w-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>}</button>))}
+						</div>
+					)}
+				</div>
+				<p className="text-sm text-slate-500 shrink-0 sm:ml-auto">Menampilkan <span className="font-semibold text-slate-700">{filtered.length}</span> dari <span className="font-semibold text-slate-700">{items.length}</span></p>
+			</div>
+
+			<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+				{filtered.length === 0 && !loading ? (
+					<div className="flex flex-col items-center justify-center py-20 gap-2"><HiOutlineBuildingOffice2 className="h-10 w-10 text-slate-300" /><p className="text-sm text-slate-400">Tidak ada vendor ditemukan</p></div>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full text-sm">
+							<thead><tr className="border-b border-slate-100 bg-slate-50/80">{["No", "Nama Vendor", "Kategori", "Kontak", "Telepon", "Status", "Aksi"].map((h, i) => (<th key={h} className={cn("px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 6 ? "text-right" : "text-left")}>{h}</th>))}</tr></thead>
+							<tbody className="divide-y divide-slate-100">
+								{loading ? <SkeletonRows /> : filtered.map((a, i) => (
+									<tr key={a.id} className="hover:bg-slate-50/60 transition">
+										<td className="px-5 py-4 text-slate-400 text-xs">{i + 1}</td>
+										<td className="px-5 py-4 font-semibold text-slate-800">{a.nama_vendor}</td>
+										<td className="px-5 py-4"><span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{a.kategori}</span></td>
+										<td className="px-5 py-4 text-slate-600">{a.kontak_person || <span className="text-slate-300">—</span>}</td>
+										<td className="px-5 py-4 text-slate-600">{a.no_telepon_1 || <span className="text-slate-300">—</span>}</td>
+										<td className="px-5 py-4">{a.status === "AKTIF" ? <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><HiOutlineCheckCircle className="h-4 w-4" /> Aktif</span> : <span className="flex items-center gap-1 text-xs font-semibold text-rose-500"><HiOutlineXCircle className="h-4 w-4" /> Nonaktif</span>}</td>
+										<td className="px-5 py-4"><div className="flex items-center justify-end gap-2">
+											<button onClick={() => openEdit(a)} className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-600 hover:bg-violet-100 transition"><HiOutlinePencilSquare className="h-3.5 w-3.5" /> Edit</button>
+											<button onClick={() => { setDeleteTarget(a); setConfirmOpen(true); }} className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition"><HiOutlineTrash className="h-3.5 w-3.5" /> Hapus</button>
+										</div></td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</div>
+
+			{modalOpen && (
+				<div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
+					<div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
+					<div className="relative z-10 w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+						<div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
+							<div className="flex items-center gap-2"><div className="flex items-center justify-center h-8 w-8 rounded-lg bg-violet-50"><HiOutlineBuildingOffice2 className="h-4 w-4 text-violet-600" /></div><h2 className="text-base font-bold text-slate-800">{editTarget ? "Edit Vendor" : "Tambah Vendor Baru"}</h2></div>
+							<button onClick={closeModal} className="flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"><HiOutlineXMark className="h-4 w-4" /></button>
+						</div>
+						<form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<Field label="Nama Vendor" required error={errors.nama_vendor}>
+									<input className={inputCls} placeholder="PT Supplier Bersama" value={form.nama_vendor} onChange={(e) => setForm({ ...form, nama_vendor: e.target.value })} />
+								</Field>
+								<Field label="Kategori" required error={errors.kategori}>
+									<select className={inputCls} value={form.kategori} onChange={(e) => setForm({ ...form, kategori: e.target.value })}>
+										<option value="">— Pilih Kategori —</option>
+										{kategoriList.filter(k => k.value).map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+									</select>
+								</Field>
+								<Field label="Kontak Person">
+									<input className={inputCls} placeholder="Bapak Andi" value={form.kontak_person} onChange={(e) => setForm({ ...form, kontak_person: e.target.value })} />
+								</Field>
+								<Field label="No. Telepon 1">
+									<input className={inputCls} placeholder="0812-3456-7890" value={form.no_telepon_1} onChange={(e) => setForm({ ...form, no_telepon_1: e.target.value })} />
+								</Field>
+								<Field label="No. Telepon 2">
+									<input className={inputCls} placeholder="(opsional)" value={form.no_telepon_2} onChange={(e) => setForm({ ...form, no_telepon_2: e.target.value })} />
+								</Field>
+								<Field label="Email">
+									<input className={inputCls} placeholder="vendor@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+								</Field>
+								<Field label="Status">
+									<div className="flex items-center gap-3 h-[42px]">
+										<select className={cn(inputCls, "w-auto")} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+											<option value="AKTIF">Aktif</option>
+											<option value="TIDAK AKTIF">Tidak Aktif</option>
+										</select>
+									</div>
+								</Field>
+								<Field label="Pengiriman">
+									<input className={inputCls} placeholder="JNE / J&T / dll" value={form.pengiriman} onChange={(e) => setForm({ ...form, pengiriman: e.target.value })} />
+								</Field>
+								<Field label="Alamat" className="md:col-span-2">
+									<textarea className={cn(inputCls, "resize-none")} rows={3} placeholder="Jl. Industri No. 456, Jakarta" value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} />
+								</Field>
+								<Field label="Catatan Tambahan" className="md:col-span-2">
+									<textarea className={cn(inputCls, "resize-none")} rows={2} placeholder="Catatan..." value={form.catatan_tambahan} onChange={(e) => setForm({ ...form, catatan_tambahan: e.target.value })} />
+								</Field>
+							</div>
+							<div className="flex gap-3 pt-2">
+								<button type="button" onClick={closeModal} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Batal</button>
+								<button type="submit" disabled={saving} className="flex-1 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 px-4 py-2.5 text-sm font-semibold text-white transition">{saving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Tambah Vendor"}</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}

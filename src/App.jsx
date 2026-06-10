@@ -13,6 +13,8 @@ import MasterJobLevel from "./pages/master-data-superapp/components/MasterJobLev
 import MasterOutlet from "./pages/master-data-superapp/components/MasterOutlet";
 import MasterPosition from "./pages/master-data-superapp/components/MasterPosition";
 import MasterReligion from "./pages/master-data-superapp/components/MasterReligion";
+import MasterSatuan from "./pages/master-data-superapp/components/MasterSatuan";
+import MasterVendor from "./pages/master-data-superapp/components/MasterVendor";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
@@ -148,6 +150,8 @@ export default function App() {
           <Route path="master-outlet" element={<MasterOutlet />} />
           <Route path="master-position" element={<MasterPosition />} />
           <Route path="master-religion" element={<MasterReligion />} />
+          <Route path="master-satuan" element={<MasterSatuan />} />
+          <Route path="master-vendor" element={<MasterVendor />} />
         </Route>
 
         {/* ── Legacy redirects ── */}

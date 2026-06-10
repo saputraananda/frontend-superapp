@@ -122,10 +122,16 @@ const EMPTY = {
     // link referensi (opsional, bisa diisi karyawan)
     link_url: "",
     link_title: "",
+    // GA-specific fields
+    is_routine: "", // 'rutin' | 'tidak_rutin' | ''
+    ga_qty: "",
+    ga_merk: "",
+    ga_note: "",
     // vendor info (khusus GA)
-    vendor_mode: "", // 'vendor' | 'link' | ''
+    vendor_mode: "", // 'vendor' | 'link' | 'offline' | ''
     vendor: "",
     vendor_id: "",
+    offline_desc: "",
     // reimburse — editable, pre-filled dari DB
     bank_name: "",
     bank_account_number: "",
@@ -241,6 +247,15 @@ export default function FormPengajuan() {
                     // Link referensi
                     link_url: r.link_url || "",
                     link_title: r.link_title || "",
+                    // GA fields
+                    is_routine: r.is_routine || "",
+                    ga_qty: r.ga_qty ? String(r.ga_qty) : "",
+                    ga_merk: r.ga_merk || "",
+                    ga_note: r.ga_note || "",
+                    vendor_mode: r.vendor_mode || "",
+                    vendor: r.vendor || "",
+                    vendor_id: r.vendor_id || "",
+                    offline_desc: r.vendor_mode === "offline" ? r.vendor : "",
                     // Reimburse
                     bank_name: r.bank_name || emp?.bank_name || "",
                     bank_account_number: r.bank_account_number || emp?.bank_account_number || "",
@@ -349,7 +364,18 @@ export default function FormPengajuan() {
                     if (form.vendor_id) fd.append("vendor_id", form.vendor_id);
                     if (form.vendor.trim()) fd.append("vendor", form.vendor.trim());
                 }
+                if (form.vendor_mode === "offline") {
+                    if (form.offline_desc.trim()) fd.append("offline_desc", form.offline_desc.trim());
+                }
                 // link mode: link_url & link_title sudah di-append di atas
+            }
+
+            // ── GA fields ──
+            if (isGAUser && form.type === "pengajuan") {
+                if (form.is_routine) fd.append("is_routine", form.is_routine);
+                if (form.ga_qty) fd.append("ga_qty", form.ga_qty);
+                if (form.ga_merk.trim()) fd.append("ga_merk", form.ga_merk.trim());
+                if (form.ga_note.trim()) fd.append("ga_note", form.ga_note.trim());
             }
 
             files.forEach(f => fd.append("attachments", f));
@@ -500,6 +526,35 @@ export default function FormPengajuan() {
                     </div>
                 </div>
 
+                {/* ── Jenis Pengajuan GA (hanya untuk GA) ──────────────────────────── */}
+                {isGAUser && form.type === "pengajuan" && (
+                    <div className="bg-white rounded-2xl border border-violet-200/80 shadow-lg shadow-violet-200/40 p-5 space-y-4">
+                        <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Jenis Pengajuan GA</p>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="is_routine" value="rutin"
+                                    checked={form.is_routine === "rutin"}
+                                    onChange={() => setForm(p => ({ ...p, is_routine: "rutin" }))}
+                                    className="accent-violet-600 h-4 w-4" />
+                                <div>
+                                    <span className="text-sm font-semibold text-slate-700">Rutin</span>
+                                    <p className="text-[11px] text-slate-400">Langsung ke Finance (skip SPV Departemen)</p>
+                                </div>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="is_routine" value="tidak_rutin"
+                                    checked={form.is_routine === "tidak_rutin"}
+                                    onChange={() => setForm(p => ({ ...p, is_routine: "tidak_rutin" }))}
+                                    className="accent-violet-600 h-4 w-4" />
+                                <div>
+                                    <span className="text-sm font-semibold text-slate-700">Tidak Rutin</span>
+                                    <p className="text-[11px] text-slate-400">Perlu approval SPV Departemen dulu</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Detail Barang ─────────────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 p-5 space-y-4">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -578,6 +633,33 @@ export default function FormPengajuan() {
                             placeholder="Tuliskan alasan kebutuhan ini..." />
                     </div>
 
+                    {/* ── GA Review Fields (hanya untuk GA) ──────────────────────────── */}
+                    {isGAUser && form.type === "pengajuan" && (
+                        <div className="border-t border-violet-100 pt-4 space-y-3">
+                            <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Review GA</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className={labelCls}>Qty Disetujui GA</label>
+                                    <input type="number" min={0.01} step="0.01" className={inputCls} value={form.ga_qty || form.qty}
+                                        onChange={e => setForm(p => ({ ...p, ga_qty: e.target.value }))} />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Merk (Revisi GA)</label>
+                                    <input className={inputCls} value={form.ga_merk || form.merk} maxLength={120}
+                                        style={{ textTransform: "capitalize" }}
+                                        onChange={e => setForm(p => ({ ...p, ga_merk: e.target.value }))}
+                                        placeholder="Merk hasil review GA" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Catatan GA</label>
+                                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.ga_note}
+                                    onChange={e => setForm(p => ({ ...p, ga_note: e.target.value }))}
+                                    placeholder="Catatan review GA..." />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Link Referensi (opsional) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -595,33 +677,40 @@ export default function FormPengajuan() {
                     </div>
 
                     {/* ── Info Vendor / Sumber (khusus GA) ─────────────────────────── */}
-                    {isGAUser && (
+                    {isGAUser && form.type === "pengajuan" && (
                         <div className="border-t border-slate-100 pt-4 space-y-3">
                             <div className="flex items-center justify-between">
                                 <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Info Vendor / Sumber (Opsional)</p>
                                 <span className="text-[10px] text-slate-400 italic">Bisa dilengkapi nanti</span>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 flex-wrap">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="form_vendor_mode" value=""
                                         checked={!form.vendor_mode}
-                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "", vendor: "", vendor_id: "" }))}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "", vendor: "", vendor_id: "", offline_desc: "" }))}
                                         className="accent-violet-600" />
                                     <span className="text-sm text-slate-600">Belum ada</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="form_vendor_mode" value="vendor"
                                         checked={form.vendor_mode === "vendor"}
-                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "vendor", link_url: p.link_url, link_title: p.link_title }))}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "vendor", offline_desc: "" }))}
                                         className="accent-violet-600" />
                                     <span className="text-sm text-slate-700 font-medium">Vendor</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="form_vendor_mode" value="link"
                                         checked={form.vendor_mode === "link"}
-                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "link", vendor: "", vendor_id: "" }))}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "link", vendor: "", vendor_id: "", offline_desc: "" }))}
                                         className="accent-violet-600" />
                                     <span className="text-sm text-slate-700 font-medium">Link</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="form_vendor_mode" value="offline"
+                                        checked={form.vendor_mode === "offline"}
+                                        onChange={() => setForm(p => ({ ...p, vendor_mode: "offline", vendor: "", vendor_id: "" }))}
+                                        className="accent-violet-600" />
+                                    <span className="text-sm text-slate-700 font-medium">Offline</span>
                                 </label>
                             </div>
 
@@ -658,6 +747,15 @@ export default function FormPengajuan() {
                                 <p className="text-[11px] text-slate-400 italic">
                                     Gunakan field "Judul Link" dan "URL Link" di atas sebagai sumber.
                                 </p>
+                            )}
+
+                            {form.vendor_mode === "offline" && (
+                                <div>
+                                    <label className={labelCls}>Keterangan Tempat <span className="text-rose-500">*</span></label>
+                                    <input className={inputCls} value={form.offline_desc} maxLength={255}
+                                        onChange={e => setForm(p => ({ ...p, offline_desc: e.target.value }))}
+                                        placeholder="Contoh: Supermarket, Foto Kopi Cendikia, Toko Alat Tulis..." />
+                                </div>
                             )}
                         </div>
                     )}

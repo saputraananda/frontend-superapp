@@ -48,6 +48,8 @@ const MENU_GROUPS = [
 		label: "Operasional",
 		items: [
 			{ to: "/master-data-superapp/master-outlet", icon: HiOutlineMapPin, label: "Master Outlet", description: "Kelola data outlet/lokasi" },
+			{ to: "/master-data-superapp/master-satuan", icon: HiOutlineRectangleGroup, label: "Master Satuan", description: "Kelola data satuan barang" },
+			{ to: "/master-data-superapp/master-vendor", icon: HiOutlineBuildingOffice2, label: "Master Vendor", description: "Kelola data vendor/pemasok" },
 		],
 	},
 ];
