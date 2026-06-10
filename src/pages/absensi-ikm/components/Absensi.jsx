@@ -1180,22 +1180,22 @@ function EmployeeResumeModal({ emp, activePeriod, activePeriodLabel, leaveResume
 			const isValet = r.is_valet === 1 || r.is_valet === "1" || r.is_valet === true;
 			const shiftLabel = String(r.shift_type || "").charAt(0).toUpperCase() + String(r.shift_type || "").slice(1);
 			const shiftColors = {
-				pagi:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
-				siang:  { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
-				sore:   { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+				pagi: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+				siang: { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+				sore: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
 				lembur: { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe" },
 			};
 			const sc = shiftColors[String(r.shift_type || "").toLowerCase()] || shiftColors.pagi;
-			const inTime  = r.check_in_time  ? new Intl.DateTimeFormat("id-ID", { day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(r.check_in_time))  : "–";
-			const outTime = r.check_out_time ? new Intl.DateTimeFormat("id-ID", { day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(r.check_out_time)) : "–";
-			const workDate = r.work_date ? new Intl.DateTimeFormat("id-ID", { day:"2-digit", month:"short", year:"numeric" }).format(new Date(String(r.work_date).slice(0,10))) : "–";
+			const inTime = r.check_in_time ? new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(r.check_in_time)) : "–";
+			const outTime = r.check_out_time ? new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(r.check_out_time)) : "–";
+			const workDate = r.work_date ? new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(String(r.work_date).slice(0, 10))) : "–";
 			const statusColors = {
-				"Lengkap":          { bg:"#f0fdf4", color:"#15803d", border:"#bbf7d0" },
-				"Belum check-in":   { bg:"#fff1f2", color:"#be123c", border:"#fecdd3" },
-				"Belum check-out":  { bg:"#fffbeb", color:"#b45309", border:"#fde68a" },
-				"Foto belum lengkap":{ bg:"#eff6ff", color:"#1d4ed8", border:"#bfdbfe" },
+				"Lengkap": { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" },
+				"Belum check-in": { bg: "#fff1f2", color: "#be123c", border: "#fecdd3" },
+				"Belum check-out": { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+				"Foto belum lengkap": { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
 			};
-			const ss = statusColors[r.status_label] || { bg:"#f8fafc", color:"#64748b", border:"#e2e8f0" };
+			const ss = statusColors[r.status_label] || { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" };
 			return `
 				<tr>
 					<td>${workDate}</td>
@@ -1209,9 +1209,9 @@ function EmployeeResumeModal({ emp, activePeriod, activePeriodLabel, leaveResume
 		}).join("");
 
 		const ketColors = {
-			"Normal":          { bg:"#eff6ff", color:"#1d4ed8", border:"#bfdbfe" },
-			"Valet":           { bg:"#fff1f2", color:"#be123c", border:"#fecdd3" },
-			"Normal + Valet":  { bg:"#f0fdf4", color:"#15803d", border:"#bbf7d0" },
+			"Normal": { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+			"Valet": { bg: "#fff1f2", color: "#be123c", border: "#fecdd3" },
+			"Normal + Valet": { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" },
 		};
 		const kc = ketColors[keterangan] || ketColors["Normal"];
 
@@ -1444,88 +1444,88 @@ function EmployeeResumeModal({ emp, activePeriod, activePeriodLabel, leaveResume
 						</div>
 					) : (
 						<>
-					<div>
-						<p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Ringkasan Periode</p>
-						<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-							<StatPill label="Total Hari Kerja" value={totalHariKerja} tone="slate" />
-							<StatPill label="Total Kehadiran" value={kehadiran} tone="sky" />
-							<StatPill label="Lembur Harian" value={lemburHarian} tone="amber" />
-							<StatPill label="Jam Kerja Wajib" value={fmtMin(jamKerjaWajibMin)} tone="indigo" />
-							<StatPill label="Jam Lembur" value={fmtMin(jamLemburMin)} tone="violet" />
-						</div>
-					</div>
+							<div>
+								<p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Ringkasan Periode</p>
+								<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+									<StatPill label="Total Hari Kerja" value={totalHariKerja} tone="slate" />
+									<StatPill label="Total Kehadiran" value={kehadiran} tone="sky" />
+									<StatPill label="Lembur Harian" value={lemburHarian} tone="amber" />
+									<StatPill label="Jam Kerja Wajib" value={fmtMin(jamKerjaWajibMin)} tone="indigo" />
+									<StatPill label="Jam Lembur" value={fmtMin(jamLemburMin)} tone="violet" />
+								</div>
+							</div>
 
-					{/* === Jam Kerja Per Shift === */}
-					<div>
-						<p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Jam Kerja Per Shift</p>
-						<div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-							<div className="flex flex-col items-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
-								<span className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">Pagi</span>
-								<span className="mt-0.5 text-base font-bold text-sky-700">{fmtMin(shiftMin.pagi)}</span>
+							{/* === Jam Kerja Per Shift === */}
+							<div>
+								<p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Jam Kerja Per Shift</p>
+								<div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+									<div className="flex flex-col items-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
+										<span className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">Pagi</span>
+										<span className="mt-0.5 text-base font-bold text-sky-700">{fmtMin(shiftMin.pagi)}</span>
+									</div>
+									<div className="flex flex-col items-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+										<span className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Siang</span>
+										<span className="mt-0.5 text-base font-bold text-amber-700">{fmtMin(shiftMin.siang)}</span>
+									</div>
+									<div className="flex flex-col items-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5">
+										<span className="text-[11px] font-semibold uppercase tracking-wide text-orange-600">Sore</span>
+										<span className="mt-0.5 text-base font-bold text-orange-700">{fmtMin(shiftMin.sore)}</span>
+									</div>
+									<div className="flex flex-col items-center rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5">
+										<span className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">Lembur</span>
+										<span className="mt-0.5 text-base font-bold text-violet-700">{fmtMin(shiftMin.lembur)}</span>
+									</div>
+									<div className="flex flex-col items-center rounded-xl border border-slate-300 bg-slate-100 px-3 py-2.5">
+										<span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Grand Total</span>
+										<span className="mt-0.5 text-base font-bold text-slate-800">{fmtMin(grandMin)}</span>
+									</div>
+								</div>
 							</div>
-							<div className="flex flex-col items-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-								<span className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Siang</span>
-								<span className="mt-0.5 text-base font-bold text-amber-700">{fmtMin(shiftMin.siang)}</span>
-							</div>
-							<div className="flex flex-col items-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5">
-								<span className="text-[11px] font-semibold uppercase tracking-wide text-orange-600">Sore</span>
-								<span className="mt-0.5 text-base font-bold text-orange-700">{fmtMin(shiftMin.sore)}</span>
-							</div>
-							<div className="flex flex-col items-center rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5">
-								<span className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">Lembur</span>
-								<span className="mt-0.5 text-base font-bold text-violet-700">{fmtMin(shiftMin.lembur)}</span>
-							</div>
-							<div className="flex flex-col items-center rounded-xl border border-slate-300 bg-slate-100 px-3 py-2.5">
-								<span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Grand Total</span>
-								<span className="mt-0.5 text-base font-bold text-slate-800">{fmtMin(grandMin)}</span>
-							</div>
-						</div>
-					</div>
 
-					{/* === Izin & Cuti === */}
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						{/* Pengajuan */}
-						<div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-							<p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Pengajuan</p>
-							<div className="grid grid-cols-3 gap-2">
-								<div className="flex flex-col items-center rounded-lg border border-rose-200 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-rose-500">Sakit</span>
-									<span className="mt-0.5 text-lg font-bold text-rose-700">{pSakit}</span>
+							{/* === Izin & Cuti === */}
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								{/* Pengajuan */}
+								<div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+									<p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Pengajuan</p>
+									<div className="grid grid-cols-3 gap-2">
+										<div className="flex flex-col items-center rounded-lg border border-rose-200 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-rose-500">Sakit</span>
+											<span className="mt-0.5 text-lg font-bold text-rose-700">{pSakit}</span>
+										</div>
+										<div className="flex flex-col items-center rounded-lg border border-amber-200 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Izin</span>
+											<span className="mt-0.5 text-lg font-bold text-amber-700">{pIzin}</span>
+										</div>
+										<div className="flex flex-col items-center rounded-lg border border-emerald-200 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-500">Cuti</span>
+											<span className="mt-0.5 text-lg font-bold text-emerald-700">{pCuti}</span>
+										</div>
+									</div>
 								</div>
-								<div className="flex flex-col items-center rounded-lg border border-amber-200 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Izin</span>
-									<span className="mt-0.5 text-lg font-bold text-amber-700">{pIzin}</span>
-								</div>
-								<div className="flex flex-col items-center rounded-lg border border-emerald-200 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-500">Cuti</span>
-									<span className="mt-0.5 text-lg font-bold text-emerald-700">{pCuti}</span>
+								{/* Laporan Leader */}
+								<div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+									<p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Laporan Leader</p>
+									<div className="grid grid-cols-4 gap-2">
+										<div className="flex flex-col items-center rounded-lg border border-rose-200 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-rose-500">Sakit</span>
+											<span className="mt-0.5 text-lg font-bold text-rose-700">{lSakit}</span>
+										</div>
+										<div className="flex flex-col items-center rounded-lg border border-amber-200 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Izin</span>
+											<span className="mt-0.5 text-lg font-bold text-amber-700">{lIzin}</span>
+										</div>
+										<div className="flex flex-col items-center rounded-lg border border-slate-300 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Alfa</span>
+											<span className="mt-0.5 text-lg font-bold text-slate-700">{lAlfa}</span>
+										</div>
+										<div className="flex flex-col items-center rounded-lg border border-orange-200 bg-white px-2 py-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wide text-orange-500">Telat</span>
+											<span className="mt-0.5 text-lg font-bold text-orange-700">{lTelat}</span>
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
-						{/* Laporan Leader */}
-						<div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-							<p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Laporan Leader</p>
-							<div className="grid grid-cols-4 gap-2">
-								<div className="flex flex-col items-center rounded-lg border border-rose-200 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-rose-500">Sakit</span>
-									<span className="mt-0.5 text-lg font-bold text-rose-700">{lSakit}</span>
-								</div>
-								<div className="flex flex-col items-center rounded-lg border border-amber-200 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Izin</span>
-									<span className="mt-0.5 text-lg font-bold text-amber-700">{lIzin}</span>
-								</div>
-								<div className="flex flex-col items-center rounded-lg border border-slate-300 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Alfa</span>
-									<span className="mt-0.5 text-lg font-bold text-slate-700">{lAlfa}</span>
-								</div>
-								<div className="flex flex-col items-center rounded-lg border border-orange-200 bg-white px-2 py-2">
-									<span className="text-[10px] font-semibold uppercase tracking-wide text-orange-500">Telat</span>
-									<span className="mt-0.5 text-lg font-bold text-orange-700">{lTelat}</span>
-								</div>
-							</div>
-						</div>
-					</div>
-					</>
+						</>
 					)}
 				</div>
 
@@ -1584,6 +1584,7 @@ export default function AbsensiIKM() {
 	const [employeeSummaryPage, setEmployeeSummaryPage] = useState(1);
 	const [employeeSummaryLimit, setEmployeeSummaryLimit] = useState("5");
 	const [records, setRecords] = useState([]);
+	const [absentRecords, setAbsentRecords] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [photoViewer, setPhotoViewer] = useState(null);
@@ -1595,6 +1596,8 @@ export default function AbsensiIKM() {
 	const [employeeResumeModal, setEmployeeResumeModal] = useState(null);
 	const [leaveResumeMap, setLeaveResumeMap] = useState(new Map());
 	const [statusFilter, setStatusFilter] = useState("");
+	const [absentPage, setAbsentPage] = useState(1);
+	const absentLimit = 8;
 	const [sort, setSort] = useState({ col: "check_in_time", dir: "desc" });
 
 	const yearOptions = useMemo(() => {
@@ -1685,6 +1688,8 @@ export default function AbsensiIKM() {
 				setLeaveSummary(response.summary?.leaveSummary ?? { izin: 0, sakit: 0, cuti: 0 });
 				setEmployeeSummary(response.employeeSummary ?? []);
 				setRecords(response.records ?? []);
+				setAbsentRecords(response.absentRecords ?? []);
+				setAbsentPage(1);
 				setEmployeeOptions(Array.isArray(response.employeeOptions) ? response.employeeOptions : []);
 				setPagination((prev) => ({
 					...prev,
@@ -2191,37 +2196,37 @@ export default function AbsensiIKM() {
 						</div>
 					</section>
 
-<section className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-					<StatCard
-						title="Total Absen"
-						value={summary?.totalRecords ?? 0}
-						subtitle="Total record absensi pada periode aktif"
-						tone="blue"
-						Icon={HiOutlineDocumentCheck}
-					/>
-					<StatCard
-						title="Total Sakit"
-						value={leaveSummary.sakit}
-						subtitle="Pengajuan izin sakit pada periode ini"
-						tone="rose"
-						Icon={HiOutlineExclamationTriangle}
-						onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "sakit", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
-					/>
-					<StatCard
-						title="Total Izin"
-						value={leaveSummary.izin}
-						subtitle="Pengajuan izin kepentingan pada periode ini"
-						tone="amber"
-						Icon={HiOutlineCalendarDays}
-						onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "izin", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
-					/>
-					<StatCard
-						title="Total Cuti"
-						value={leaveSummary.cuti}
-						subtitle="Pengajuan cuti tahunan pada periode ini"
-						tone="emerald"
-						Icon={HiOutlineClipboardDocumentList}
-						onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "cuti", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
+					<section className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+						<StatCard
+							title="Total Absen"
+							value={summary?.totalRecords ?? 0}
+							subtitle="Total record absensi pada periode aktif"
+							tone="blue"
+							Icon={HiOutlineDocumentCheck}
+						/>
+						<StatCard
+							title="Total Sakit"
+							value={leaveSummary.sakit}
+							subtitle="Pengajuan izin sakit pada periode ini"
+							tone="rose"
+							Icon={HiOutlineExclamationTriangle}
+							onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "sakit", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
+						/>
+						<StatCard
+							title="Total Izin"
+							value={leaveSummary.izin}
+							subtitle="Pengajuan izin kepentingan pada periode ini"
+							tone="amber"
+							Icon={HiOutlineCalendarDays}
+							onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "izin", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
+						/>
+						<StatCard
+							title="Total Cuti"
+							value={leaveSummary.cuti}
+							subtitle="Pengajuan cuti tahunan pada periode ini"
+							tone="emerald"
+							Icon={HiOutlineClipboardDocumentList}
+							onClick={() => navigate("/perizinan-ikm", { state: { leaveType: "cuti", startDate: activePeriod.startDate, endDate: activePeriod.endDate } })}
 						/>
 						<StatCard
 							title="Total Lembur"
@@ -2230,6 +2235,82 @@ export default function AbsensiIKM() {
 							tone="blue"
 							Icon={HiOutlineClock}
 						/>
+					</section>
+
+					{/* Section Monitor Karyawan Tidak Absen */}
+					<section className="rounded-2xl border border-rose-200 bg-white shadow-sm overflow-hidden">
+						<div className="flex flex-col gap-3 border-b border-rose-100 bg-rose-50/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+							<div className="flex items-center gap-2">
+								<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+									<HiOutlineExclamationTriangle className="h-5 w-5" />
+								</div>
+								<div>
+									<h2 className="text-base font-bold text-slate-800">Monitoring Karyawan Tidak Absen</h2>
+									<p className="text-xs text-slate-500">Daftar karyawan yang belum tercatat melakukan absensi pada shift wajib.</p>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-xs font-semibold text-rose-600 bg-rose-100 px-2 py-1 rounded-lg">
+									{absentRecords.length} Record Terdeteksi
+								</span>
+								<div className="flex items-center gap-1 ml-2">
+									<button
+										type="button"
+										onClick={() => setAbsentPage(p => Math.max(1, p - 1))}
+										disabled={absentPage <= 1}
+										className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+									>
+										<HiOutlineChevronLeft className="h-3.5 w-3.5" />
+									</button>
+									<span className="text-[11px] font-bold text-slate-500 min-w-[40px] text-center">
+										{absentPage} / {Math.max(1, Math.ceil(absentRecords.length / absentLimit))}
+									</span>
+									<button
+										type="button"
+										onClick={() => setAbsentPage(p => Math.min(Math.ceil(absentRecords.length / absentLimit), p + 1))}
+										disabled={absentPage >= Math.ceil(absentRecords.length / absentLimit)}
+										className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+									>
+										<HiOutlineChevronRight className="h-3.5 w-3.5" />
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<div className="p-4">
+							{absentRecords.length === 0 ? (
+								<div className="flex flex-col items-center justify-center py-10 text-slate-400">
+									<HiOutlineCheckCircle className="h-10 w-10 text-emerald-400 mb-2" />
+									<p className="text-sm font-medium">Semua karyawan sudah absen!</p>
+									<p className="text-xs mt-1">Tidak ditemukan data karyawan yang bolos pada filter ini.</p>
+								</div>
+							) : (
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+									{absentRecords
+										.slice((absentPage - 1) * absentLimit, absentPage * absentLimit)
+										.map((row, idx) => (
+											<div key={`absent-${idx}`} className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-3 transition hover:border-rose-200 hover:bg-rose-50/20">
+												<div className="flex items-start justify-between gap-2">
+													<div className="min-w-0 flex-1">
+														<p className="truncate text-sm font-bold text-slate-800">{row.employee_name}</p>
+														<p className="text-[10px] text-slate-400">{row.employee_code || "-"}</p>
+													</div>
+													<ShiftBadge type={row.shift_type} />
+												</div>
+												<div className="flex items-center justify-between mt-1">
+													<div className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
+														<HiOutlineCalendarDays className="h-3.5 w-3.5" />
+														{formatDateOnly(row.work_date)}
+													</div>
+													<span className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter bg-rose-100/50 px-1.5 py-0.5 rounded">
+														Belum Absen
+													</span>
+												</div>
+											</div>
+										))}
+								</div>
+							)}
+						</div>
 					</section>
 
 					<section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -2621,35 +2702,35 @@ export default function AbsensiIKM() {
 				deleting={Boolean(deletingId && deleteModal && deletingId === deleteModal.shift_record_id)}
 				error={deleteError}
 			/>
-		{editModal && (
-			<EditAttendanceModal
-				item={editModal}
-				onClose={() => setEditModal(null)}
-				onSaved={() => {
-					setEditModal(null);
-					fetchAbsensi({ silent: true });
-				}}
-			/>
-		)}
-		{addModal && (
-			<AddAttendanceModal
-				employeeOptions={employeeOptions}
-				onClose={() => setAddModal(false)}
-				onSaved={() => {
-					setAddModal(false);
-					fetchAbsensi({ silent: true });
-				}}
-			/>
-		)}
-		{employeeResumeModal && (
-			<EmployeeResumeModal
-				emp={employeeResumeModal}
-				activePeriod={activePeriod}
-				activePeriodLabel={activePeriodLabel}
-				leaveResumeMap={leaveResumeMap}
-				onClose={() => setEmployeeResumeModal(null)}
-			/>
-		)}
+			{editModal && (
+				<EditAttendanceModal
+					item={editModal}
+					onClose={() => setEditModal(null)}
+					onSaved={() => {
+						setEditModal(null);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
+			{addModal && (
+				<AddAttendanceModal
+					employeeOptions={employeeOptions}
+					onClose={() => setAddModal(false)}
+					onSaved={() => {
+						setAddModal(false);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
+			{employeeResumeModal && (
+				<EmployeeResumeModal
+					emp={employeeResumeModal}
+					activePeriod={activePeriod}
+					activePeriodLabel={activePeriodLabel}
+					leaveResumeMap={leaveResumeMap}
+					onClose={() => setEmployeeResumeModal(null)}
+				/>
+			)}
 		</>
 	);
 }
