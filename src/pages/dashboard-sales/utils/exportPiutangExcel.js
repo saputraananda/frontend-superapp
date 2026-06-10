@@ -1,5 +1,6 @@
 import XLSXStyle from "xlsx-js-style";
 import { saveAs } from "file-saver";
+import { OUTLETS } from "./constants";
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 const C = {
@@ -105,8 +106,10 @@ function fmtDate(d) {
 
 function buildFilterLabel(filters) {
   if (!filters) return "Semua data";
-  const { filterType, outlet, month, year, startDate, endDate } = filters;
-  const outletLabel = outlet && outlet !== "all" ? outlet : "Semua Outlet";
+  const { outlets, filterType, month, year, startDate, endDate } = filters;
+  const outletLabel = outlets && outlets.length > 0 && !outlets.includes("all")
+    ? outlets.map(o => (OUTLETS.find(x => x.value === o)?.label || o)).join(", ")
+    : "Semua Outlet";
   let periodLabel = "";
   if (filterType === "month" && month) periodLabel = `Bulan: ${month}`;
   else if (filterType === "year"  && year)  periodLabel = `Tahun: ${year}`;
@@ -116,7 +119,7 @@ function buildFilterLabel(filters) {
 }
 
 // ─── Main export function ─────────────────────────────────────────────────────
-export function exportPiutangExcel({ rows, meta, filters, summary, searchKeyword, statusFilter }) {
+export function exportPiutangExcel({ rows, meta, filters, searchKeyword, statusFilter }) {
   const TOTAL_COLS = 9;
 
   const periodStr = meta?.dateStart

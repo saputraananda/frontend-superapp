@@ -77,7 +77,9 @@ export default function CustomerSection({ filters }) {
     dispatch({ type: "loading" });
 
     const p = new URLSearchParams();
-    if (filters?.outlet && filters.outlet !== "all") p.set("outlet", filters.outlet);
+    if (filters?.outlets && filters.outlets.length > 0 && !filters.outlets.includes("all")) {
+      filters.outlets.forEach(o => p.append("outlet", o));
+    }
     if (filters?.filterType)                         p.set("filterType", filters.filterType);
     if (filters?.filterType === "month"  && filters.month)      p.set("month",     filters.month);
     if (filters?.filterType === "year"   && filters.year)       p.set("year",      filters.year);
@@ -89,7 +91,7 @@ export default function CustomerSection({ filters }) {
       .catch(err => { if (!cancelled) dispatch({ type: "error",   payload: err.message }); });
 
     return () => { cancelled = true; };
-  }, [filters?.outlet, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate]);
+  }, [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate]);
 
   if (loading) return <Skeleton />;
 

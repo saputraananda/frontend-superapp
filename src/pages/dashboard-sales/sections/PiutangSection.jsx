@@ -4,6 +4,7 @@ import { Card } from "../components/ui";
 import { fmtIDR } from "../utils/utils";
 import { api } from "../../../lib/api";
 import { exportPiutangExcel } from "../utils/exportPiutangExcel";
+import { OUTLETS } from "../utils/constants";
 
 function buildWhatsAppUrl(phone) {
   const digits = String(phone ?? "").replace(/\D/g, "");
@@ -14,9 +15,11 @@ function buildWhatsAppUrl(phone) {
   return `https://wa.me/${digits}`;
 }
 
-function buildParams({ outlet, filterType, month, year, startDate, endDate }) {
+function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
   const p = new URLSearchParams();
-  if (outlet && outlet !== "all") p.set("outlet", outlet);
+  if (outlets && outlets.length > 0 && outlets.length < OUTLETS.filter(o => o.value !== "all").length) {
+    outlets.forEach(o => p.append("outlet", o));
+  }
   if (filterType === "month" && month) {
     p.set("asOfDate", `${month}-25`);
   } else if (filterType === "year" && year) {
@@ -82,7 +85,6 @@ export default function PiutangSection({ filters }) {
         rows: filteredPiutang,
         meta: data?.meta ?? {},
         filters,
-        summary: data?.summary ?? {},
         searchKeyword: search,
         statusFilter,
       });
@@ -101,7 +103,7 @@ export default function PiutangSection({ filters }) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    filters?.outlet, filters?.filterType, filters?.month,
+    filters?.outlets, filters?.filterType, filters?.month,
     filters?.year, filters?.startDate, filters?.endDate,
   ]);
 

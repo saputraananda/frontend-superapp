@@ -29,12 +29,14 @@ export default function MembershipSection({ filters }) {
     let cancelled = false;
     dispatch({ type: "loading" });
     const p = new URLSearchParams();
-    if (filters?.outlet && filters.outlet !== "all") p.set("outlet", filters.outlet);
+    if (filters?.outlets && filters.outlets.length > 0 && !filters.outlets.includes("all")) {
+      filters.outlets.forEach(o => p.append("outlet", o));
+    }
     api(`/sales/membership${p.toString() ? `?${p}` : ""}`)
       .then(res => { if (!cancelled) dispatch({ type: "success", payload: res }); })
       .catch(err => { if (!cancelled) dispatch({ type: "error",   payload: err.message }); });
     return () => { cancelled = true; };
-  }, [filters?.outlet]);
+  }, [filters?.outlets]);
 
   if (loading) return (
     <div className="space-y-5 animate-pulse">

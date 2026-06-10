@@ -8,9 +8,11 @@ import { fmtIDR } from "../utils/utils";
 import { api } from "../../../lib/api";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-function buildParams({ outlet, filterType, month, year, startDate, endDate }) {
+function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
   const p = new URLSearchParams();
-  if (outlet && outlet !== "all") p.set("outlet", outlet);
+  if (outlets && outlets.length > 0 && !outlets.includes("all")) {
+    outlets.forEach(o => p.append("outlet", o));
+  }
   if (filterType === "month" && month)                        p.set("asOfDate",  `${month}-25`);
   else if (filterType === "year" && year) {
     const today   = new Date().toISOString().split("T")[0];
@@ -84,9 +86,9 @@ export default function CleanoxByWaschenSection({ filters }) {
 
   // Reset page when filters change — derived state during render (avoids setState-in-effect ESLint warning)
   const [prevFilterSig, setPrevFilterSig] = useState(() =>
-    [filters?.outlet, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate].join("|")
+    [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate].join("|")
   );
-  const currentFilterSig = [filters?.outlet, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate].join("|");
+  const currentFilterSig = [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate].join("|");
   if (currentFilterSig !== prevFilterSig) {
     setPrevFilterSig(currentFilterSig);
     setPage(1);
@@ -103,7 +105,7 @@ export default function CleanoxByWaschenSection({ filters }) {
       .catch(err => { if (!cancelled) dispatch({ type: "error",   payload: err.message }); });
     return () => { cancelled = true; };
   }, [
-    filters?.outlet, filters?.filterType, filters?.month,
+    filters?.outlets, filters?.filterType, filters?.month,
     filters?.year, filters?.startDate, filters?.endDate, page, pageSize,
   ]);
 
