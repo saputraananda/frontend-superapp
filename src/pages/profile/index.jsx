@@ -649,7 +649,7 @@ export default function Profile() {
                               ))}
                             </select>
                           </Field>
-                          <Field label="No. Telepon" error={fieldErrors.phone_number}>
+                          <Field label="No. Telepon (WA)" error={fieldErrors.phone_number}>
                             <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange}
                               className={inputCls(fieldErrors.phone_number)} placeholder="Contoh: 087770597000" />
                           </Field>

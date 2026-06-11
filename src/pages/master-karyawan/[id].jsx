@@ -1080,7 +1080,7 @@ export default function EmployeeDetail() {
                               {masterData.religions?.map((r) => <option key={r.religion_id} value={r.religion_id}>{r.religion_name}</option>)}
                             </select>
                           </Field>
-                          <Field label="No. Telepon">
+                          <Field label="No. Telepon (WA)">
                             <input type="text" name="phone_number" value={formData.phone_number || ""} onChange={handleChange} className={inputCls(false)} placeholder="Contoh: 087770597000" />
                           </Field>
                         </div>
