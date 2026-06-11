@@ -29,19 +29,31 @@ export const TaskCard = ({ task, selected, onSelect, onUpdated }) => {
                 {task.desc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
               </div>
             )}
-            {task.assignees?.length > 0 && (
-              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                {task.assignees.slice(0, 3).map((a) => (
-                  <div key={a.employee_id} className="flex items-center gap-1">
-                    <div className="h-5 w-5 rounded-md bg-blue-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
-                      {initials(a.full_name)}
+            {(() => {
+              const workers = task.assignees?.filter(a => a.role !== 'reviewer') || [];
+              const reviewers = task.assignees?.filter(a => a.role === 'reviewer') || [];
+              if (workers.length === 0 && reviewers.length === 0) return null;
+              return (
+                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                  {workers.slice(0, 3).map((a) => (
+                    <div key={a.employee_id} className="flex items-center gap-1">
+                      <div className={`h-5 w-5 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                        a.role === 'pic' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
+                      }`}>
+                        {initials(a.full_name)}
+                      </div>
+                      <span className="text-xs text-slate-500 truncate max-w-[80px]">{a.full_name}</span>
                     </div>
-                    <span className="text-xs text-slate-500 truncate max-w-[80px]">{a.full_name}</span>
-                  </div>
-                ))}
-                {task.assignees.length > 3 && <span className="text-[10px] text-slate-400 font-medium">+{task.assignees.length - 3}</span>}
-              </div>
-            )}
+                  ))}
+                  {workers.length > 3 && <span className="text-[10px] text-slate-400 font-medium">+{workers.length - 3}</span>}
+                  {reviewers.length > 0 && (
+                    <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded ml-auto">
+                      {reviewers.length} reviewer{reviewers.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <QuickStatusButton task={task} onUpdated={onUpdated} />
               <div className={["text-xs", over ? "text-rose-500 font-medium" : "text-slate-400"].join(" ")}>

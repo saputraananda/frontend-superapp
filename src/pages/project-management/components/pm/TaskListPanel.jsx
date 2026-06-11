@@ -65,7 +65,9 @@ export const TaskListPanel = ({
     ) : filteredTasks.length ? (
       <div className="space-y-2">
         {filteredTasks.map((t) => (
-          <TaskCard key={t.id} task={t} selected={selectedId} onSelect={onSelect} onUpdated={load} />
+          <div key={t.id} data-task-id={t.id}>
+            <TaskCard task={t} selected={selectedId} onSelect={onSelect} onUpdated={load} />
+          </div>
         ))}
       </div>
     ) : (

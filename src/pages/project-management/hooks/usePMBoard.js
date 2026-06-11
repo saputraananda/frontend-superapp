@@ -33,7 +33,9 @@ export function usePMBoard(monthlyId) {
   const [eEnd, setEEnd] = useState("");
   const [ePriority, setEPriority] = useState("medium");
   const [eStatus, setEStatus] = useState("assigned");
-  const [eAssignees, setEAssignees] = useState([]);
+  const [ePicId, setEPicId] = useState([]);         // single-select [id]
+  const [eCopicIds, setECopicIds] = useState([]);   // multi-select
+  const [eReviewerIds, setEReviewerIds] = useState([]); // multi-select
   const [updating, setUpdating] = useState(false);
 
   const [comments, setComments] = useState([]);
@@ -90,26 +92,30 @@ export function usePMBoard(monthlyId) {
     setEPriority(task?.priority ?? "medium");
     setEStart(task?.startdate ? String(task.startdate).slice(0, 10) : "");
     setEEnd(task?.enddate ? String(task.enddate).slice(0, 10) : "");
-    setEAssignees(task?.assignees?.map((a) => a.employee_id) ?? []);
-    // ✅ HAPUS: setComments([]) dan setCommentText("") dari sini
-    // Biarkan useEffect [selectedId] yang handle reset komentar
+    // Extract assignees by role
+    const pic = task?.assignees?.filter(a => a.role === 'pic').map(a => a.employee_id) ?? [];
+    const copic = task?.assignees?.filter(a => a.role === 'co_pic').map(a => a.employee_id) ?? [];
+    const reviewer = task?.assignees?.filter(a => a.role === 'reviewer').map(a => a.employee_id) ?? [];
+    setEPicId(pic);
+    setECopicIds(copic);
+    setEReviewerIds(reviewer);
   }
 
   async function updateTask() {
     if (!selectedId) return;
     if (!eTitle.trim()) { toast.error("Title tidak boleh kosong."); return; }
 
-    // Validasi: staff hanya bisa update task yang di-assign ke mereka
+    // Validasi: staff bisa update jika owner, PIC, atau CO-PIC (bukan reviewer)
     const currentTask = tasks.find((t) => t.id === selectedId);
+    const isOwner = currentTask?.owner_employee_id === employee?.employee_id;
     const isAssignedToMe = currentTask?.assignees?.some(
-      (a) => a.employee_id === employee?.employee_id
+      (a) => a.employee_id === employee?.employee_id && a.role !== 'reviewer'
     );
-    if (isStaff && !isAssignedToMe) {
+    if (isStaff && !isOwner && !isAssignedToMe) {
       toast.error("Kamu tidak memiliki akses untuk mengedit task ini.");
       return;
     }
 
-    // Staff assigned = akses penuh seperti supervisor
     const payload = {
       title: eTitle.trim(),
       desc: eDesc.replace(/<[^>]*>/g, "").trim() ? eDesc : null,
@@ -117,7 +123,9 @@ export function usePMBoard(monthlyId) {
       enddate: eEnd || null,
       status: eStatus,
       priority: ePriority,
-      assignee_ids: eAssignees,
+      pic_id: ePicId[0] || null,
+      copic_ids: eCopicIds,
+      reviewer_ids: eReviewerIds,
     };
 
     setUpdating(true);
@@ -134,12 +142,13 @@ export function usePMBoard(monthlyId) {
   async function deleteTask() {
     if (!selectedId) return;
 
-    // Validasi: staff hanya bisa hapus task yang di-assign ke mereka
+    // Validasi: staff bisa hapus jika owner, PIC, atau CO-PIC (bukan reviewer)
     const currentTask = tasks.find((t) => t.id === selectedId);
+    const isOwner = currentTask?.owner_employee_id === employee?.employee_id;
     const isAssignedToMe = currentTask?.assignees?.some(
-      (a) => a.employee_id === employee?.employee_id
+      (a) => a.employee_id === employee?.employee_id && a.role !== 'reviewer'
     );
-    if (isStaff && !isAssignedToMe) {
+    if (isStaff && !isOwner && !isAssignedToMe) {
       toast.error("Kamu tidak memiliki akses untuk menghapus task ini.");
       return;
     }
@@ -189,12 +198,20 @@ export function usePMBoard(monthlyId) {
     setEPriority(t.priority ?? "medium");
     setEStart(t.startdate ? String(t.startdate).slice(0, 10) : "");
     setEEnd(t.enddate ? String(t.enddate).slice(0, 10) : "");
-    setEAssignees(t.assignees?.map((a) => a.employee_id) ?? []);
+    const pic = t.assignees?.filter(a => a.role === 'pic').map(a => a.employee_id) ?? [];
+    const copic = t.assignees?.filter(a => a.role === 'co_pic').map(a => a.employee_id) ?? [];
+    const reviewer = t.assignees?.filter(a => a.role === 'reviewer').map(a => a.employee_id) ?? [];
+    setEPicId(pic);
+    setECopicIds(copic);
+    setEReviewerIds(reviewer);
   }, [tasks, selectedId]); // eslint-disable-line
 
+  // "Me Only" filter: exclude reviewer role — reviewers should NOT see tasks in their list
   const statsTasks = useMemo(() => {
     if (!meOnly) return tasks;
-    return tasks.filter((t) => t.assignees?.some((a) => a.employee_id === employee?.employee_id));
+    return tasks.filter((t) => t.assignees?.some(
+      (a) => a.employee_id === employee?.employee_id && a.role !== 'reviewer'
+    ));
   }, [tasks, meOnly, employee]);
 
   const progress = useMemo(() => computeProgress(statsTasks), [statsTasks]);
@@ -219,7 +236,9 @@ export function usePMBoard(monthlyId) {
         return m === Number(monthFilter);
       })
       .filter((t) => !q || t.title?.toLowerCase().includes(q))
-      .filter((t) => !meOnly || t.assignees?.some((a) => a.employee_id === employee?.employee_id));
+      .filter((t) => !meOnly || t.assignees?.some(
+        (a) => a.employee_id === employee?.employee_id && a.role !== 'reviewer'
+      ));
   }, [tasks, statusFilter, priorityFilter, monthFilter, query, meOnly, employee]);
 
   const selected = useMemo(() => tasks.find((t) => t.id === selectedId) || null, [tasks, selectedId]);
@@ -236,7 +255,7 @@ export function usePMBoard(monthlyId) {
     eTitle, setETitle, eDesc, setEDesc,
     eStart, setEStart, eEnd, setEEnd,
     ePriority, setEPriority, eStatus, setEStatus,
-    eAssignees, setEAssignees,
+    ePicId, setEPicId, eCopicIds, setECopicIds, eReviewerIds, setEReviewerIds,
     updating, comments, commentText, setCommentText, sendingComment,
     unreadCount, progress, taskStats, filteredTasks,
     // methods

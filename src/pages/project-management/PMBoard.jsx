@@ -67,13 +67,24 @@ export default function PMBoard() {
     nav("/projectmanagement");
   };
 
-  // Setelah board selesai load, auto-select task dari URL:
+  // Setelah board selesai load, auto-select task dari URL + scroll ke task tersebut:
   useEffect(() => {
     const taskId = searchParams.get("task");
     if (taskId && board.tasks.length > 0) {
       const numId = Number(taskId);
       const found = board.tasks.find(t => t.id === numId);
-      if (found) board.selectTask(found);
+      if (found) {
+        board.selectTask(found);
+        // Scroll ke task card setelah render selesai
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = document.querySelector(`[data-task-id="${numId}"]`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          });
+        });
+      }
     }
   }, [board.tasks, searchParams]);
 

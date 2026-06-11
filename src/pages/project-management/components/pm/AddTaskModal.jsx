@@ -40,9 +40,12 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
   const [tEnd, setTEnd] = useState("");
   const [tPriority, setTPriority] = useState("medium");
   const [tStatus, setTStatus] = useState("assigned");
-  const [tAssignees, setTAssignees] = useState(() =>
-    isStaff && employee?.employee_id ? [employee.employee_id] : []
-  );
+
+  // ── New role-based assignee states ──
+  const [tPicId, setTPicId] = useState([]);       // single-select as array [id]
+  const [tCopicIds, setTCopicIds] = useState([]);  // multi-select
+  const [tReviewerIds, setTReviewerIds] = useState([]); // multi-select
+
   const [tSubmitting, setTSubmitting] = useState(false);
 
   // ── File attachment state ──
@@ -91,18 +94,21 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
 
   async function addTask() {
     if (!tTitle.trim()) { toast.error("Judul task wajib diisi."); return; }
+    if (tPicId.length === 0) { toast.error("PIC wajib dipilih."); return; }
+
     setTSubmitting(true);
     try {
       const res = await pmApi.createTask(monthlyId, {
         title: tTitle.trim(), desc: tDesc.replace(/<[^>]*>/g, "").trim() ? tDesc : null,
         startdate: tStart || null, enddate: tEnd || null,
         status: tStatus, priority: tPriority,
-        assignee_ids: tAssignees,
+        pic_id: tPicId[0] || null,
+        copic_ids: tCopicIds,
+        reviewer_ids: tReviewerIds,
       });
 
       const newTaskId = res.id;
       if (newTaskId) {
-        // Upload pending files
         if (pendingFiles.length > 0) {
           try {
             await pmApi.uploadEvidence(newTaskId, pendingFiles);
@@ -110,7 +116,6 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
             toast.error(`Task ditambahkan, tapi gagal upload file: ${uploadErr.message}`);
           }
         }
-        // Save pending links
         for (const link of pendingLinks) {
           try {
             await pmApi.addEvidenceLink(newTaskId, link);
@@ -133,12 +138,12 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm sm:p-4"
     >
       <div
-        className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[95dvh] sm:max-h-[90vh] flex flex-col"
+        className="w-full sm:max-w-2xl lg:max-w-3xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[95dvh] sm:max-h-[90vh] flex flex-col"
       >
         <div className="h-1 w-10 bg-slate-200 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div className="px-6 sm:px-8 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
               <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,7 +168,7 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
         </div>
 
         {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div className="overflow-y-auto flex-1 px-6 sm:px-8 py-5 space-y-5">
 
           {/* Title */}
           <div>
@@ -261,24 +266,85 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
             </div>
           </div>
 
-          {/* Assignees */}
-          <div>
-            <FieldLabel>
-              PIC / Assigned To{" "}
-              {isStaff && (
-                <span className="text-slate-400 normal-case font-normal tracking-normal">
-                  (kamu otomatis termasuk)
+          {/* ── Role-Based Assignees ── */}
+          <div className="space-y-4">
+            {/* Creator info */}
+            <div className="flex items-center gap-2.5 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
+              <div className="h-7 w-7 rounded-lg bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                {(employee?.full_name || "?").split(" ").map((w, i) => i < 2 ? w[0] : "").join("").toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-slate-800 truncate">{employee?.full_name || "User"}</div>
+                <div className="text-[10px] text-slate-400">Owner (otomatis) — Anda yang membuat task ini</div>
+              </div>
+            </div>
+
+            {/* PIC */}
+            <div>
+              <FieldLabel>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  PIC (Penanggung Jawab) <span className="text-rose-400 normal-case font-normal tracking-normal">*</span>
                 </span>
-              )}
-            </FieldLabel>
-            <AssigneeMultiSelect
-              employees={employees}
-              selected={tAssignees}
-              onChange={setTAssignees}
-              disabled={tSubmitting}
-              selfId={employee?.employee_id}
-              isStaff={isStaff}
-            />
+              </FieldLabel>
+              <AssigneeMultiSelect
+                employees={employees}
+                selected={tPicId}
+                onChange={setTPicId}
+                disabled={tSubmitting}
+                selfId={employee?.employee_id}
+                isStaff={isStaff}
+                single
+                excludeIds={[...tCopicIds, ...tReviewerIds]}
+                placeholder="Pilih PIC..."
+                accentColor="blue"
+              />
+            </div>
+
+            {/* CO-PIC */}
+            <div>
+              <FieldLabel>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  CO-PIC <span className="text-slate-400 normal-case font-normal tracking-normal">(opsional)</span>
+                </span>
+              </FieldLabel>
+              <AssigneeMultiSelect
+                employees={employees}
+                selected={tCopicIds}
+                onChange={setTCopicIds}
+                disabled={tSubmitting}
+                selfId={employee?.employee_id}
+                isStaff={isStaff}
+                excludeIds={[...tPicId, ...tReviewerIds]}
+                placeholder="Pilih CO-PIC..."
+                accentColor="emerald"
+              />
+            </div>
+
+            {/* Reviewer / Stakeholder */}
+            <div>
+              <FieldLabel>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Reviewer / Stakeholder <span className="text-slate-400 normal-case font-normal tracking-normal">(opsional)</span>
+                </span>
+              </FieldLabel>
+              <AssigneeMultiSelect
+                employees={employees}
+                selected={tReviewerIds}
+                onChange={setTReviewerIds}
+                disabled={tSubmitting}
+                selfId={employee?.employee_id}
+                isStaff={isStaff}
+                excludeIds={[...tPicId, ...tCopicIds]}
+                placeholder="Pilih Reviewer..."
+                accentColor="amber"
+              />
+              <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                Reviewer hanya menerima notifikasi & bisa komentar, tidak masuk ke task list mereka.
+              </p>
+            </div>
           </div>
 
           {/* ── Evidence: Links + Files ── */}
@@ -320,7 +386,6 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
                   ))}
                 </div>
               )}
-              {/* Link input */}
               <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
                   <input
@@ -351,7 +416,6 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
               </div>
             </div>
 
-            {/* Divider */}
             <div className="border-t border-slate-200 mb-3" />
 
             {/* File drop zone */}
@@ -434,7 +498,7 @@ export const AddTaskModal = ({ monthlyId, employees, employee, isStaff, onClose,
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 border-t border-slate-100 bg-slate-50 px-6 py-4 flex items-center gap-3">
+        <div className="shrink-0 border-t border-slate-100 bg-slate-50 px-6 sm:px-8 py-4 flex items-center gap-3">
           <p className="flex-1 text-[10.5px] text-slate-400 hidden sm:block">
             Field bertanda <span className="text-rose-400">*</span> wajib diisi
           </p>

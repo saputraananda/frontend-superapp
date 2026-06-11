@@ -48,13 +48,15 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
   const priorityInfo = priorityOf(selected.priority);
   const over = isOverdue(selected.enddate, selected.status);
 
+  const isOwner = selected.owner_employee_id === board.employee?.employee_id;
   const isAssignedToMe = selected.assignees?.some(
-    (a) => a.employee_id === board.employee?.employee_id
+    (a) => a.employee_id === board.employee?.employee_id && a.role !== 'reviewer'
   );
 
-  // Staff yang di-assign ke task = punya akses penuh seperti supervisor
-  const canEdit = !board.isStaff || isAssignedToMe;
-  const canDelete = !board.isStaff || isAssignedToMe; // ← sama seperti canEdit
+  // Owner, PIC, dan CO-PIC punya akses edit/delete
+  // Reviewer TIDAK bisa edit/delete
+  const canEdit = !board.isStaff || isOwner || isAssignedToMe;
+  const canDelete = !board.isStaff || isOwner || isAssignedToMe;
 
   /** Render teks komentar, highlight @Nama */
   function renderCommentText(text = "") {
@@ -313,40 +315,140 @@ export const TaskDetailPanel = ({ board, EvidencePanel }) => {
             )}
           </div>
 
-          {/* Assignees */}
+          {/* ── PIC ── */}
           <div>
-            <SectionLabel>Assigned To</SectionLabel>
+            <SectionLabel>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                PIC (Penanggung Jawab)
+              </span>
+            </SectionLabel>
             {board.editMode ? (
               <AssigneeMultiSelect
                 employees={board.employees}
-                selected={board.eAssignees}
-                onChange={board.setEAssignees}
+                selected={board.ePicId}
+                onChange={board.setEPicId}
                 selfId={board.employee?.employee_id}
                 isStaff={board.isStaff}
+                single
+                excludeIds={[...board.eCopicIds, ...board.eReviewerIds]}
+                placeholder="Pilih PIC..."
+                accentColor="blue"
               />
-            ) : selected.assignees?.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2">
-                {selected.assignees.map((a) => (
-                  <div
-                    key={a.employee_id}
-                    className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2"
-                  >
-                    <div className="h-7 w-7 rounded-lg bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                      {initials(a.full_name)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 truncate leading-tight">
-                        {a.full_name?.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) || `#${a.employee_id}`}
-                      </div>
-                      {a.email && (
-                        <div className="text-[10px] text-slate-400 truncate leading-tight">{a.email}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
             ) : (
-              <div className="text-xs text-slate-400 italic">Belum ada assignee.</div>
+              (() => {
+                const pics = selected.assignees?.filter(a => a.role === 'pic') || [];
+                return pics.length > 0 ? (
+                  <div className="space-y-2">
+                    {pics.map((a) => (
+                      <div key={a.employee_id} className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-2.5 py-2">
+                        <div className="h-7 w-7 rounded-lg bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {initials(a.full_name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-blue-900 truncate leading-tight">
+                            {a.full_name?.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) || `#${a.employee_id}`}
+                          </div>
+                          {a.email && <div className="text-[10px] text-slate-400 truncate leading-tight">{a.email}</div>}
+                        </div>
+                        <span className="ml-auto shrink-0 text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded">PIC</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic">Belum ada PIC.</div>
+                );
+              })()
+            )}
+          </div>
+
+          {/* ── CO-PIC ── */}
+          <div>
+            <SectionLabel>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                CO-PIC
+              </span>
+            </SectionLabel>
+            {board.editMode ? (
+              <AssigneeMultiSelect
+                employees={board.employees}
+                selected={board.eCopicIds}
+                onChange={board.setECopicIds}
+                selfId={board.employee?.employee_id}
+                isStaff={board.isStaff}
+                excludeIds={[...board.ePicId, ...board.eReviewerIds]}
+                placeholder="Pilih CO-PIC..."
+                accentColor="emerald"
+              />
+            ) : (
+              (() => {
+                const copics = selected.assignees?.filter(a => a.role === 'co_pic') || [];
+                return copics.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {copics.map((a) => (
+                      <div key={a.employee_id} className="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 px-2.5 py-2">
+                        <div className="h-7 w-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {initials(a.full_name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-emerald-900 truncate leading-tight">
+                            {a.full_name?.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) || `#${a.employee_id}`}
+                          </div>
+                          {a.email && <div className="text-[10px] text-slate-400 truncate leading-tight">{a.email}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic">Tidak ada CO-PIC.</div>
+                );
+              })()
+            )}
+          </div>
+
+          {/* ── Reviewer / Stakeholder ── */}
+          <div>
+            <SectionLabel>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Reviewer / Stakeholder
+              </span>
+            </SectionLabel>
+            {board.editMode ? (
+              <AssigneeMultiSelect
+                employees={board.employees}
+                selected={board.eReviewerIds}
+                onChange={board.setEReviewerIds}
+                selfId={board.employee?.employee_id}
+                isStaff={board.isStaff}
+                excludeIds={[...board.ePicId, ...board.eCopicIds]}
+                placeholder="Pilih Reviewer..."
+                accentColor="amber"
+              />
+            ) : (
+              (() => {
+                const reviewers = selected.assignees?.filter(a => a.role === 'reviewer') || [];
+                return reviewers.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {reviewers.map((a) => (
+                      <div key={a.employee_id} className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-2.5 py-2">
+                        <div className="h-7 w-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {initials(a.full_name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-amber-900 truncate leading-tight">
+                            {a.full_name?.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) || `#${a.employee_id}`}
+                          </div>
+                          {a.email && <div className="text-[10px] text-slate-400 truncate leading-tight">{a.email}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic">Tidak ada reviewer.</div>
+                );
+              })()
             )}
           </div>
 

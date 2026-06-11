@@ -58,6 +58,9 @@ export default function PersonalTasksCard() {
   const [filterMonthNum, setFilterMonthNum] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
+  // ─── Role filter (multi-select, default all active) ──────────────────────
+  const [roleFilter, setRoleFilter] = useState({ owner: true, pic: true, reviewer: true });
+
   // Load employee id
   useEffect(() => {
     try {
@@ -112,7 +115,7 @@ export default function PersonalTasksCard() {
                     const tasksRes = await api(`/api/pm/monthlies/${monthly.id}/tasks`);
                     const tasks = tasksRes.data || [];
                     const myTasks = tasks
-                      .filter(t => t.assignees.some(a => a.employee_id === employeeId))
+                      .filter(t => t.owner_employee_id === employeeId || t.assignees.some(a => a.employee_id === employeeId))
                       .map(t => ({
                         ...t,
                         project_title: project.title,
@@ -172,6 +175,18 @@ export default function PersonalTasksCard() {
     return [...years].sort((a, b) => b - a);
   }, [allTasks]);
 
+  // ─── Helpers for role detection ───────────────────────────────────────────
+  function getMyRoles(task) {
+    const roles = [];
+    if (task.owner_employee_id === employeeId) roles.push('owner');
+    const myAssignee = task.assignees?.find(a => a.employee_id === employeeId);
+    if (myAssignee) {
+      if (myAssignee.role === 'pic' || myAssignee.role === 'co_pic') roles.push('pic');
+      if (myAssignee.role === 'reviewer') roles.push('reviewer');
+    }
+    return roles;
+  }
+
   // ─── Filtered tasks ────────────────────────────────────────────────────────
   const filteredTasks = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -179,6 +194,17 @@ export default function PersonalTasksCard() {
 
     return allTasks
       .filter(t => {
+        // ── Role filter ──
+        const myRoles = getMyRoles(t);
+        const anyRoleActive = roleFilter.owner || roleFilter.pic || roleFilter.reviewer;
+        if (anyRoleActive) {
+          const matchesRole =
+            (roleFilter.owner && myRoles.includes('owner')) ||
+            (roleFilter.pic && myRoles.includes('pic')) ||
+            (roleFilter.reviewer && myRoles.includes('reviewer'));
+          if (!matchesRole) return false;
+        }
+
         // Status
         if (filterStatus === "active" && t.status === "completed") return false;
         if (filterStatus !== "active" && filterStatus !== "all" && t.status !== filterStatus) return false;
@@ -217,10 +243,10 @@ export default function PersonalTasksCard() {
         if (!b.enddate) return -1;
         return new Date(a.enddate) - new Date(b.enddate);
       });
-  }, [allTasks, search, filterStatus, filterPriority, filterUrgency, filterYear, filterMonthNum]);
+  }, [allTasks, search, filterStatus, filterPriority, filterUrgency, filterYear, filterMonthNum, roleFilter, employeeId]);
 
   // Reset page saat filter berubah
-  useEffect(() => { setPage(1); }, [search, filterStatus, filterPriority, filterUrgency, filterYear, filterMonthNum]);
+  useEffect(() => { setPage(1); }, [search, filterStatus, filterPriority, filterUrgency, filterYear, filterMonthNum, roleFilter]);
 
   const isFiltered =
     !!search ||
@@ -228,7 +254,8 @@ export default function PersonalTasksCard() {
     filterPriority !== "all" ||
     filterUrgency !== "all" ||
     !!filterYear ||
-    !!filterMonthNum;
+    !!filterMonthNum ||
+    !(roleFilter.owner && roleFilter.pic && roleFilter.reviewer);
 
   const clearFilters = () => {
     setSearch("");
@@ -237,6 +264,7 @@ export default function PersonalTasksCard() {
     setFilterUrgency("all");
     setFilterYear("");
     setFilterMonthNum("");
+    setRoleFilter({ owner: true, pic: true, reviewer: true });
   };
 
   const activeFilterCount = [
@@ -246,6 +274,7 @@ export default function PersonalTasksCard() {
     filterUrgency !== "all",
     filterYear,
     filterMonthNum,
+    !(roleFilter.owner && roleFilter.pic && roleFilter.reviewer),
   ].filter(Boolean).length;
 
   const totalPages = Math.max(1, Math.ceil(filteredTasks.length / PER_PAGE));
@@ -327,6 +356,30 @@ export default function PersonalTasksCard() {
             )}
             <span className="text-slate-400 ml-auto">{stats.total} total task</span>
           </div>
+        </div>
+
+        {/* ── Role Filter Buttons ── */}
+        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-200/60">
+          <span className="text-[10px] font-semibold text-slate-400 mr-1">Peran:</span>
+          {[
+            { key: 'owner', label: 'Owner', icon: '👤', activeCls: 'bg-violet-600/90 border-violet-500 text-white shadow-sm' },
+            { key: 'pic', label: 'PIC - Pelaksana', icon: '🔧', activeCls: 'bg-indigo-600/90 border-indigo-500 text-white shadow-sm' },
+            { key: 'reviewer', label: 'Reviewer', icon: '👁', activeCls: 'bg-teal-600/90 border-teal-500 text-white shadow-sm' },
+          ].map(({ key, label, icon, activeCls }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setRoleFilter(prev => ({ ...prev, [key]: !prev[key] }))}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold rounded-lg border transition ${roleFilter[key]
+                  ? activeCls
+                  : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
+                }`}
+            >
+              <span>{icon}</span>
+              {label}
+              {roleFilter[key] && <span className="opacity-60">✓</span>}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -487,13 +540,16 @@ export default function PersonalTasksCard() {
           pagedTasks.map((task) => {
             const statusCfg = statusOf(task.status);
             const priorityCfg = priorityOf(task.priority);
-            const myRole = task.assignees.find(a => a.employee_id === employeeId)?.role || "assignee";
+            const myRoles = getMyRoles(task);
+            const myRole = task.assignees?.find(a => a.employee_id === employeeId)?.role || "assignee";
             const days = getDaysRemaining(task.enddate);
             const timeline = getTimelineProgress(task.startdate, task.enddate);
             const isDone = task.status === "completed";
             const isOverdue = !isDone && days !== null && days < 0;
             const isToday = !isDone && days === 0;
             const isThisWeek = !isDone && days !== null && days > 0 && days <= 7;
+            // Reviewer-only mode → compact card (no timeline)
+            const isReviewerOnly = myRoles.length === 1 && myRoles[0] === 'reviewer';
 
             return (
               <a
@@ -529,22 +585,34 @@ export default function PersonalTasksCard() {
                   📁 {task.project_title} › {task.monthly_title}
                 </p>
 
-                {/* Status + Role */}
-                <div className="flex items-center gap-1.5 mb-2.5">
+                {/* Status + Role badges */}
+                <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
                   <span className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${statusCfg.pill}`}>
                     <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${statusCfg.dot}`} />
                     {statusCfg.label}
                   </span>
-                  <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${myRole === "pic"
-                    ? "bg-purple-100 text-purple-700 border-purple-200"
-                    : "bg-slate-100 text-slate-600 border-slate-200"
-                    }`}>
-                    {myRole === "pic" ? "PIC" : "CO-PIC"}
-                  </span>
+                  {myRoles.includes('owner') && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded border bg-slate-100 text-slate-600 border-slate-200">
+                      👤 Owner
+                    </span>
+                  )}
+                  {myRoles.includes('pic') && (
+                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${myRole === "pic"
+                      ? "bg-purple-100 text-purple-700 border-purple-200"
+                      : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      }`}>
+                      {myRole === "pic" ? "🔧 PIC" : "🔧 CO-PIC"}
+                    </span>
+                  )}
+                  {myRoles.includes('reviewer') && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded border bg-amber-100 text-amber-700 border-amber-200">
+                      👁 Reviewer
+                    </span>
+                  )}
                 </div>
 
-                {/* Timeline progress bar */}
-                {timeline !== null ? (
+                {/* Timeline (hidden for reviewer-only tasks) */}
+                {!isReviewerOnly && (timeline !== null ? (
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-slate-400 truncate">
@@ -584,9 +652,23 @@ export default function PersonalTasksCard() {
                         d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     Deadline: {formatDateId(task.enddate)}
+                    {isOverdue && <span className="text-red-600 font-semibold ml-1">Lewat {Math.abs(days)} hari</span>}
                   </div>
                 ) : (
                   <p className="text-[10px] text-slate-400">Tidak ada deadline</p>
+                ))}
+
+                {/* Compact view for reviewer-only */}
+                {isReviewerOnly && task.enddate && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                    <svg className="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {formatDateId(task.startdate)} → {formatDateId(task.enddate)}
+                    {isOverdue && <span className="text-red-500 font-semibold">• Lewat {Math.abs(days)} hari</span>}
+                    {isToday && <span className="text-amber-500 font-semibold">• Hari ini</span>}
+                  </div>
                 )}
               </a>
             );
