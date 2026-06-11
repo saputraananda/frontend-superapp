@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HiOutlineAdjustmentsHorizontal,
+import {
+	HiOutlineAdjustmentsHorizontal,
 	HiOutlineArrowDownTray,
 	HiOutlineCalendarDays,
 	HiOutlineCheckCircle,
@@ -14,7 +15,9 @@ import { HiOutlineAdjustmentsHorizontal,
 	HiOutlineMapPin,
 	HiOutlinePencilSquare,
 	HiOutlinePhoto,
+	HiOutlinePlus,
 	HiOutlineTrash,
+	HiOutlineUser,
 	HiOutlineXMark,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
@@ -556,6 +559,272 @@ function DeleteAttendanceModal({ item, onClose, onConfirm, deleting, error }) {
 	);
 }
 
+function AddManagementAbsensiModal({ employeeOptions, onClose, onSaved }) {
+	const todayVal = toDateInput(new Date());
+	const [employeeId, setEmployeeId] = useState("");
+	const [workDate, setWorkDate] = useState(todayVal);
+	const [checkIn, setCheckIn] = useState("");
+	const [checkOut, setCheckOut] = useState("");
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState("");
+	const [empSearch, setEmpSearch] = useState("");
+	const [empDropOpen, setEmpDropOpen] = useState(false);
+	const empDropRef = useRef(null);
+
+	const filteredEmps = useMemo(() => {
+		const kw = empSearch.trim().toLowerCase();
+		if (!kw) return employeeOptions;
+		return employeeOptions.filter((e) =>
+			String(e.employee_name || "").toLowerCase().includes(kw) ||
+			String(e.employee_code || "").toLowerCase().includes(kw) ||
+			String(e.employee_id || "").includes(kw)
+		);
+	}, [employeeOptions, empSearch]);
+
+	const selectedEmp = useMemo(
+		() => employeeOptions.find((e) => String(e.employee_id) === String(employeeId)) || null,
+		[employeeOptions, employeeId]
+	);
+
+	useEffect(() => {
+		if (!empDropOpen) return;
+		const onDown = (e) => {
+			if (empDropRef.current && !empDropRef.current.contains(e.target)) setEmpDropOpen(false);
+		};
+		window.addEventListener("mousedown", onDown);
+		window.addEventListener("touchstart", onDown);
+		return () => { window.removeEventListener("mousedown", onDown); window.removeEventListener("touchstart", onDown); };
+	}, [empDropOpen]);
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		setError("");
+
+		if (!employeeId) { setError("Pilih karyawan terlebih dahulu"); return; }
+		if (!workDate) { setError("Tanggal kerja wajib diisi"); return; }
+		if (checkIn && checkOut && checkOut <= checkIn) {
+			setError("Jam keluar harus lebih besar dari jam masuk");
+			return;
+		}
+
+		try {
+			setSaving(true);
+			await api("/ikm/absensi-manajemen/management", {
+				method: "POST",
+				body: JSON.stringify({
+					employee_id: Number(employeeId),
+					work_date: workDate,
+					check_in_time: checkIn || null,
+					check_out_time: checkOut || null,
+				}),
+			});
+			onSaved();
+		} catch (err) {
+			setError(err.message || "Gagal menambahkan absensi");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	useEffect(() => {
+		const onKey = (e) => { if (e.key === "Escape") onClose(); };
+		document.body.style.overflow = "hidden";
+		window.addEventListener("keydown", onKey);
+		return () => {
+			document.body.style.overflow = "";
+			window.removeEventListener("keydown", onKey);
+		};
+	}, [onClose]);
+
+	return (
+		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+			<div className="w-full max-w-md rounded-2xl bg-white shadow-2xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+				{/* Header */}
+				<div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 shrink-0">
+					<div className="flex items-center gap-3">
+						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+							<HiOutlinePlus className="h-5 w-5" />
+						</div>
+						<div>
+							<h3 className="text-sm font-bold text-slate-800">Tambah Absensi Manajemen</h3>
+							<p className="text-[11px] text-slate-400">Input absensi manajemen manual oleh admin</p>
+						</div>
+					</div>
+					<button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+						<HiOutlineXMark className="h-5 w-5" />
+					</button>
+				</div>
+
+				{/* Body */}
+				<form onSubmit={handleSubmit} className="overflow-y-auto px-5 py-5 space-y-4">
+					{error && (
+						<div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">
+							<HiOutlineExclamationTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+							{error}
+						</div>
+					)}
+
+					{/* Employee picker */}
+					<div>
+						<span className="mb-1.5 block text-xs font-semibold text-slate-500">Pilih Karyawan Manajemen</span>
+						<div className="relative" ref={empDropRef}>
+							<button
+								type="button"
+								onClick={() => setEmpDropOpen((v) => !v)}
+								className={cn(
+									"flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm transition outline-none",
+									selectedEmp
+										? "border-purple-300 bg-purple-50/40 text-slate-800 ring-2 ring-purple-500/15"
+										: "border-slate-200 bg-white text-slate-400 hover:border-slate-300",
+								)}
+							>
+								{selectedEmp ? (
+									<span className="flex items-center gap-2 min-w-0">
+										<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-600">
+											{String(selectedEmp.employee_name || "?")[0].toUpperCase()}
+										</span>
+										<span className="min-w-0">
+											<span className="flex items-baseline gap-1.5 min-w-0">
+												<span className="truncate text-sm font-semibold text-slate-800">{selectedEmp.employee_name}</span>
+												<span className="shrink-0 text-[11px] text-slate-400">{selectedEmp.employee_code || `ID ${selectedEmp.employee_id}`}</span>
+											</span>
+										</span>
+									</span>
+								) : (
+									<span className="flex items-center gap-2 text-slate-400 text-sm">
+										<HiOutlineMagnifyingGlass className="h-4 w-4" />
+										Cari & pilih karyawan...
+									</span>
+								)}
+								<HiOutlineChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform", empDropOpen && "rotate-180")} />
+							</button>
+
+							{empDropOpen && (
+								<div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+									<div className="border-b border-slate-100 p-2">
+										<div className="relative">
+											<HiOutlineMagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+											<input
+												autoFocus
+												type="text"
+												value={empSearch}
+												onChange={(e) => setEmpSearch(e.target.value)}
+												placeholder="Ketik nama, kode NIK, atau ID..."
+												className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
+											/>
+										</div>
+									</div>
+									<ul className="max-h-52 overflow-y-auto py-1">
+										{filteredEmps.length === 0 ? (
+											<li className="px-4 py-6 text-center text-xs text-slate-400">Karyawan tidak ditemukan</li>
+										) : (
+											filteredEmps.map((emp) => {
+												const isSelected = String(emp.employee_id) === String(employeeId);
+												return (
+													<li key={emp.employee_id}>
+														<button
+															type="button"
+															onClick={() => { setEmployeeId(String(emp.employee_id)); setEmpDropOpen(false); setEmpSearch(""); }}
+															className={cn(
+																"flex w-full items-center gap-3 px-3 py-2.5 text-left text-xs transition",
+																isSelected
+																	? "bg-purple-50 text-purple-700"
+																	: "text-slate-700 hover:bg-slate-50",
+															)}
+														>
+															<span className={cn(
+																"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+																isSelected ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-500"
+															)}>
+																{String(emp.employee_name || "?")[0].toUpperCase()}
+															</span>
+															<span className="min-w-0">
+																<span className="block truncate font-semibold">{emp.employee_name}</span>
+																<span className="block text-[11px] text-slate-400">{emp.employee_code || `ID ${emp.employee_id}`}</span>
+															</span>
+															{isSelected && <HiOutlineCheckCircle className="ml-auto h-4 w-4 shrink-0 text-purple-500" />}
+														</button>
+													</li>
+												);
+											})
+										)
+										}
+									</ul>
+								</div>
+							)}
+						</div>
+					</div>
+
+
+					{/* Work date */}
+					<div>
+						<span className="mb-1.5 block text-xs font-semibold text-slate-500">Tanggal Kerja</span>
+						<input
+							type="date"
+							value={workDate}
+							onChange={(e) => setWorkDate(e.target.value)}
+							required
+							className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+						/>
+					</div>
+
+					{/* Info box */}
+					<div className="rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-xs text-purple-700">
+						<div className="flex items-start gap-2">
+							<HiOutlineUser className="mt-0.5 h-4 w-4 shrink-0" />
+							<p>Absensi manajemen tidak menggunakan shift. Cukup isi tanggal dan jam absen in/out.</p>
+						</div>
+					</div>
+
+					{/* Time inputs */}
+					<div className="grid grid-cols-2 gap-3">
+						<div>
+							<span className="mb-1.5 block text-xs font-semibold text-slate-500">
+								Jam Absen In <span className="font-normal text-slate-400">(opsional)</span>
+							</span>
+							<input
+								type="datetime-local"
+								value={checkIn}
+								onChange={(e) => setCheckIn(e.target.value)}
+								className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+							/>
+						</div>
+						<div>
+							<span className="mb-1.5 block text-xs font-semibold text-slate-500">
+								Jam Absen Out <span className="font-normal text-slate-400">(opsional)</span>
+							</span>
+							<input
+								type="datetime-local"
+								value={checkOut}
+								onChange={(e) => setCheckOut(e.target.value)}
+								className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+							/>
+						</div>
+					</div>
+
+					{/* Actions */}
+					<div className="flex gap-2 pt-1">
+						<button
+							type="button"
+							onClick={onClose}
+							className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+						>
+							Batal
+						</button>
+						<button
+							type="submit"
+							disabled={saving}
+							className="flex-1 rounded-xl bg-purple-600 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+						>
+							{saving ? "Menyimpan..." : "Tambah Absensi"}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
+}
+
 export default function AbsensiManajemenIKM() {
 	const todayStr = useMemo(() => toDateInput(new Date()), []);
 	const defaultCutoff = useMemo(() => getDefaultCutoffSelection(new Date(), 26), []);
@@ -588,6 +857,7 @@ export default function AbsensiManajemenIKM() {
 	const [deleteError, setDeleteError] = useState("");
 	const [statusFilter, setStatusFilter] = useState("");
 	const [sort, setSort] = useState({ col: "check_in_time", dir: "desc" });
+	const [addModal, setAddModal] = useState(false);
 
 	const yearOptions = useMemo(() => {
 		const base = new Date().getFullYear();
@@ -1228,6 +1498,14 @@ export default function AbsensiManajemenIKM() {
 								<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
 								Download Excel
 							</button>
+							<button
+								type="button"
+								onClick={() => setAddModal(true)}
+								className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+							>
+								<HiOutlinePlus className="h-3.5 w-3.5" />
+								Tambah Absensi
+							</button>
 						</div>
 					</div>
 
@@ -1389,6 +1667,16 @@ export default function AbsensiManajemenIKM() {
 					onClose={() => setEditModal(null)}
 					onSaved={() => {
 						setEditModal(null);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
+			{addModal && (
+				<AddManagementAbsensiModal
+					employeeOptions={employeeOptions}
+					onClose={() => setAddModal(false)}
+					onSaved={() => {
+						setAddModal(false);
 						fetchAbsensi({ silent: true });
 					}}
 				/>
