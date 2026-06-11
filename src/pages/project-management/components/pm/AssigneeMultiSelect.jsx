@@ -68,7 +68,6 @@ export const AssigneeMultiSelect = ({
   const theme = colorThemes[accentColor] || colorThemes.blue;
 
   const toggle = (empId) => {
-    if (isStaff && empId === selfId) return;
     if (excludeIds.includes(empId)) return;
 
     if (single) {
@@ -124,7 +123,7 @@ export const AssigneeMultiSelect = ({
             className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${theme.chip}`}
           >
             {emp.full_name}
-            {(!isStaff || emp.employee_id !== selfId) && !disabled && (
+            {!disabled && (
               <button
                 type="button"
                 onClick={(e) => removeChip(e, emp.employee_id)}
@@ -156,11 +155,11 @@ export const AssigneeMultiSelect = ({
                     key={emp.employee_id}
                     type="button"
                     onClick={() => toggle(emp.employee_id)}
-                    disabled={(isStaff && isSelf) || isExcluded}
+                    disabled={isExcluded}
                     className={[
                       "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition",
                       isSelected ? theme.selected : "hover:bg-slate-50 text-slate-700",
-                      (isStaff && isSelf) || isExcluded ? "opacity-40 cursor-not-allowed" : "",
+                      isExcluded ? "opacity-40 cursor-not-allowed" : "",
                     ].join(" ")}
                   >
                     <span className={[
