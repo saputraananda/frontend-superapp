@@ -62,6 +62,10 @@ import TransDocument from "./pages/document-alora/components/TransDocument";
 import CsAtNps from "./pages/csat-nps";
 import CsAtWaschen from "./pages/csat-nps/components/CsatWaschen";
 import CsAtCleanox from "./pages/csat-nps/components/CsatCleanox";
+import B2BAlora from "./pages/b2b-alora";
+import B2bKoperasiDashboard from "./pages/b2b-alora/B2B-Koperasi-2026/components/b2bKoperasiDashboard";
+import B2bKoperasiCustomer from "./pages/b2b-alora/B2B-Koperasi-2026/components/b2bKoperasiCustomer";
+import B2bHajiDashboard from "./pages/b2b-alora/B2B-Haji-2025/components/b2bHajiDashboard";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -420,6 +424,19 @@ export default function App() {
           <Route path="/result-of-our-work" element={<Navigate to="/result-of-our-work/waschen" replace />} />
           <Route path="/result-of-our-work/waschen" element={<CsAtWaschen />} />
           <Route path="/result-of-our-work/cleanox" element={<CsAtCleanox />} />
+        </Route>
+
+        {/* ── B2B Alora Group ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/event-b2b-alora"]}>
+              <B2BAlora />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/event-b2b-alora" element={<B2bKoperasiDashboard />} />
+          <Route path="/event-b2b-alora/customer" element={<B2bKoperasiCustomer />} />
+          <Route path="/event-b2b-alora/haji" element={<B2bHajiDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>

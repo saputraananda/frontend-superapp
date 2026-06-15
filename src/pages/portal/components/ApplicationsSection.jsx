@@ -102,6 +102,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
       );
+    if (name.includes("b2b") || name.includes("koperasi") || name.includes("event"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M3 21V7l9-4 9 4v14H3zm2-2h5v-5H5v5zm7 0h7v-5h-7v5zm-7-7h14V8.5L12 5.3 5 8.5V12z" />
+        </svg>
+      );
     if (name.includes("document") || name.includes("dokumen"))
       return (
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -132,6 +138,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("operational") || name.includes("control")) return "bg-violet-600";
     if (name.includes("complaint") || name.includes("komplain")) return "bg-rose-600";
     if (name.includes("csat") || name.includes("nps") || name.includes("result")) return "bg-amber-500";
+    if (name.includes("b2b") || name.includes("koperasi") || name.includes("event")) return "bg-sky-600";
     if (name.includes("document") || name.includes("dokumen")) return "bg-blue-900";
     return "bg-blue-600";
   };
