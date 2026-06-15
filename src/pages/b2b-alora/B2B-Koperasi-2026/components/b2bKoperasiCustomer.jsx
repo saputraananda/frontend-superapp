@@ -1,33 +1,40 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../../../../lib/api";
 import {
-  HiOutlineUserGroup, HiOutlineUser, HiOutlineCurrencyDollar,
-  HiOutlineArrowPath, HiOutlineArrowTrendingUp, HiOutlineFunnel,
-  HiOutlineBuildingStorefront, HiOutlineCreditCard, HiOutlineStar,
-  HiOutlineMagnifyingGlass, HiOutlinePhone, HiOutlineCalendar,
-  HiOutlineDocumentText,
+  HiOutlineUserGroup, HiOutlineCurrencyDollar,
+  HiOutlineArrowPath, HiOutlineFunnel, HiOutlineStar,
+  HiOutlineMagnifyingGlass, HiOutlineDocumentText,
+  HiOutlineXMark, HiOutlineChatBubbleLeftRight,
 } from "react-icons/hi2";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
-
-function fmtRp(v) {
-  const n = Number(v) || 0;
-  return "Rp " + n.toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-function fmtNum(v) {
-  return (Number(v) || 0).toLocaleString("id-ID");
-}
-
+function fmtRp(v) { return "Rp " + (Number(v) || 0).toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+function fmtNum(v) { return (Number(v) || 0).toLocaleString("id-ID"); }
 function fmtDate(d) {
   if (!d) return "—";
   try { return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }); }
   catch { return d; }
 }
+function waLink(phone) {
+  if (!phone) return null;
+  let n = String(phone).replace(/[\s\-()]/g, "");
+  if (n.startsWith("0")) n = "62" + n.slice(1);
+  else if (!n.startsWith("62") && !n.startsWith("+")) n = "62" + n;
+  return `https://wa.me/${n.replace("+", "")}`;
+}
+function payBadge(p) {
+  if (!p) return "bg-slate-100 text-slate-600";
+  const low = p.toLowerCase();
+  if (low.includes("belum")) return "bg-red-50 text-red-700";
+  if (low.includes("lunas")) return "bg-emerald-50 text-emerald-700";
+  return "bg-sky-50 text-sky-700";
+}
 
-function StatCard({ icon: Icon, label, value, sub, accent }) {
+function StatCard({ icon: Icon, label, value, sub, accent, onClick }) {
   return (
-    <div className={cn("rounded-2xl border p-4 sm:p-5", accent.border, accent.bg)}>
+    <div onClick={onClick}
+      className={cn("rounded-2xl border p-4 sm:p-5 transition cursor-pointer",
+        accent.border, accent.bg, "hover:shadow-md hover:scale-[1.02] active:scale-[0.98]")}>
       <div className="flex items-center gap-2 mb-2">
         <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", accent.iconBg)}>
           <Icon className={cn("h-4 w-4", accent.iconText)} />
@@ -40,90 +47,231 @@ function StatCard({ icon: Icon, label, value, sub, accent }) {
   );
 }
 
+/* ── Customer Detail Modal ── */
+function CustomerDetailModal({ modal, onClose }) {
+  if (!modal.open) return null;
+  const c = modal.customer || {};
+  const txs = modal.transactions || [];
+  const s = modal.txSummary || {};
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h3 className="text-sm font-bold text-slate-800">Detail: {c.nama || c.id_konsumen}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition">
+            <HiOutlineXMark className="h-5 w-5 text-slate-500" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {modal.loading ? (
+            <div className="py-12 text-center text-slate-400">Loading...</div>
+          ) : (
+            <>
+              {/* Customer info grid */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                {[
+                  ["ID Konsumen", c.id_konsumen],
+                  ["Nama", c.nama],
+                  ["Instansi", c.instansi || "—"],
+                  ["Telepon", c.nomor_telpon || "—"],
+                  ["Outlet", c.outlet || "—"],
+                  ["Member", c.member || "Non-Member"],
+                  ["Sapaan", c.sapaan || "—"],
+                  ["Jenis Kelamin", c.jenis_kelamin || "—"],
+                  ["Tanggal Lahir", c.tanggal_lahir ? fmtDate(c.tanggal_lahir) : "—"],
+                  ["Agama", c.agama || "—"],
+                  ["Alamat", c.alamat || "—"],
+                  ["Blok", c.blok || "—"],
+                  ["Terdaftar Sejak", c.terdaftar_sejak ? fmtDate(c.terdaftar_sejak) : "—"],
+                ].map(([label, val]) => (
+                  <div key={label} className="flex gap-2 py-1 border-b border-slate-100">
+                    <span className="font-semibold text-slate-500 w-32 shrink-0">{label}</span>
+                    <span className="text-slate-800">{val}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Financial cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  ["Total Transaksi", fmtNum(c.total_jumlah_transaksi)],
+                  ["Total Nominal", fmtRp(c.total_nominal_transaksi)],
+                  ["Saldo ePayment", fmtRp(c.saldo_epayment)],
+                  ["Kuota / Sisa", `${c.kuota || 0} / ${fmtRp(c.sisa_nominal)}`],
+                ].map(([label, val]) => (
+                  <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[10px] font-semibold text-slate-500 mb-1">{label}</p>
+                    <p className="text-sm font-bold text-slate-800">{val}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Transaction summary */}
+              {s.total_nota > 0 && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+                  <h4 className="text-xs font-bold text-sky-800 mb-2">Ringkasan Transaksi KMP</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div><span className="text-slate-500">Nota:</span> <b className="text-slate-800">{s.total_nota}</b></div>
+                    <div><span className="text-slate-500">Item:</span> <b className="text-slate-800">{s.total_items}</b></div>
+                    <div><span className="text-slate-500">Tagihan:</span> <b className="text-emerald-600">{fmtRp(s.total_tagihan)}</b></div>
+                    <div><span className="text-slate-500">Grand Total:</span> <b className="text-emerald-600">{fmtRp(s.grand_total)}</b></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Transactions table */}
+              {txs.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 mb-2">Riwayat Transaksi ({txs.length} item)</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-2 px-2 font-semibold text-slate-500">No. Nota</th>
+                          <th className="text-left py-2 px-2 font-semibold text-slate-500">Outlet</th>
+                          <th className="text-left py-2 px-2 font-semibold text-slate-500">Item</th>
+                          <th className="text-center py-2 px-2 font-semibold text-slate-500">Qty</th>
+                          <th className="text-right py-2 px-2 font-semibold text-slate-500">Total</th>
+                          <th className="text-center py-2 px-2 font-semibold text-slate-500">Bayar</th>
+                          <th className="text-left py-2 px-2 font-semibold text-slate-500">Tgl Terima</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {txs.map((r, i) => (
+                          <tr key={i} className="border-b border-slate-100 hover:bg-sky-50">
+                            <td className="py-2 px-2 font-medium text-slate-700">{r.no_nota || "—"}</td>
+                            <td className="py-2 px-2 text-slate-600">{r.outlet || "—"}</td>
+                            <td className="py-2 px-2 text-slate-600 max-w-[180px] truncate">{r.nama_item || "—"}</td>
+                            <td className="py-2 px-2 text-center">{r.jumlah} {r.satuan_item || ""}</td>
+                            <td className="py-2 px-2 text-right font-bold text-slate-800">{fmtRp(r.total)}</td>
+                            <td className="py-2 px-2 text-center">
+                              <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold", payBadge(r.pembayaran))}>
+                                {r.pembayaran || "—"}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2 text-slate-400 whitespace-nowrap">{r.tgl_terima ? String(r.tgl_terima).slice(0, 16) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Phone link */}
+              {c.nomor_telpon && (
+                <div className="border-t border-slate-100 pt-3">
+                  <a href={waLink(c.nomor_telpon)} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition">
+                    <HiOutlineChatBubbleLeftRight className="h-4 w-4" />
+                    Chat WhatsApp: {c.nomor_telpon}
+                  </a>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════ Main Component ═══════════════════════════ */
 export default function B2bKoperasiCustomer() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
   const [list, setList] = useState({ data: [], pagination: { page: 1, totalPages: 1, total: 0 }, loading: false, meta: {} });
-  const [filters, setFilters] = useState({ search: "", outlet: "", member: "" });
+  const [filters, setFilters] = useState({ search: "", member: "" });
+  const [searchInput, setSearchInput] = useState("");
+  const [limit, setLimit] = useState(50);
   const [sort, setSort] = useState({ col: "total_nominal_transaksi", dir: "desc" });
+  const debounceRef = useRef(null);
+
+  const [custModal, setCustModal] = useState({ open: false, loading: false, customer: {}, transactions: [], txSummary: {} });
 
   const fetchStats = useCallback(async () => {
-    setLoading(true);
-    setErr("");
-    try {
-      const res = await api("/b2b/kmp/customers/stats");
-      setData(res.data || null);
-    } catch (e) {
-      setErr(e.message || "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setErr("");
+    try { const res = await api("/b2b/kmp/customers/stats"); setData(res.data || null); }
+    catch (e) { setErr(e.message || "Gagal memuat data"); }
+    finally { setLoading(false); }
   }, []);
-
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
-  const fetchList = useCallback(async (page = 1, f = filters, s = sort) => {
+  const fetchList = useCallback(async (page = 1, f = filters, s = sort, lm = limit) => {
     setList(p => ({ ...p, loading: true }));
     try {
-      const params = new URLSearchParams({ page, limit: 20, sort: s.col, order: s.dir });
+      const params = new URLSearchParams({ page, limit: lm === "all" ? "all" : String(lm), sort: s.col, order: s.dir });
       if (f.search) params.set("search", f.search);
-      if (f.outlet) params.set("outlet", f.outlet);
       if (f.member) params.set("member", f.member);
       const res = await api(`/b2b/kmp/customers?${params}`);
       setList({ data: res.data || [], pagination: res.pagination || {}, loading: false, meta: res.meta || {} });
-    } catch {
-      setList(p => ({ ...p, loading: false }));
-    }
-  }, [filters, sort]);
+    } catch { setList(p => ({ ...p, loading: false })); }
+  }, [filters, sort, limit]);
 
-  useEffect(() => { fetchList(1, filters, sort); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { fetchList(1, filters, sort, limit); /* eslint-disable-next-line */ }, []);
 
-  const applyFilters = () => fetchList(1, filters, sort);
+  /* Auto-search debounce */
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const f = { ...filters, search: searchInput };
+      setFilters(f);
+      fetchList(1, f, sort, limit);
+    }, 400);
+    return () => clearTimeout(debounceRef.current);
+    // eslint-disable-next-line
+  }, [searchInput]);
+
+  const applyFilters = () => { const f = { ...filters, search: searchInput }; setFilters(f); fetchList(1, f, sort, limit); };
   const resetFilters = () => {
-    const f = { search: "", outlet: "", member: "" };
-    setFilters(f);
-    fetchList(1, f, sort);
+    const f = { search: "", member: "" };
+    setFilters(f); setSearchInput("");
+    fetchList(1, f, sort, limit);
   };
-  const handleSearchKey = (e) => {
-    if (e.key === "Enter") { e.preventDefault(); applyFilters(); }
+  const handleLimitChange = (v) => {
+    const newLimit = v === "all" ? "all" : Number(v);
+    setLimit(newLimit);
+    fetchList(1, filters, sort, newLimit);
   };
   const toggleSort = (col) => {
-    const newSort = sort.col === col
-      ? { col, dir: sort.dir === "desc" ? "asc" : "desc" }
-      : { col, dir: "desc" };
+    const newSort = sort.col === col ? { col, dir: sort.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" };
     setSort(newSort);
-    fetchList(1, filters, newSort);
+    fetchList(1, filters, newSort, limit);
   };
-
   const SortIcon = ({ col }) => (
     <span className="ml-1 text-[10px]">{sort.col === col ? (sort.dir === "desc" ? "▼" : "▲") : "⇅"}</span>
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 py-6 sm:py-10">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="h-16 bg-slate-100 rounded-2xl animate-pulse mb-6" />
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            {[1,2,3,4,5].map(i => <div key={i} className="h-28 bg-slate-100 rounded-2xl animate-pulse" />)}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  /* Customer detail modal */
+  const openCustomerDetail = async (idKonsumen) => {
+    setCustModal({ open: true, loading: true, customer: {}, transactions: [], txSummary: {} });
+    try {
+      const res = await api(`/b2b/kmp/customers/detail/${idKonsumen}`);
+      setCustModal({ open: true, loading: false, customer: res.data.customer || {}, transactions: res.data.transactions || [], txSummary: res.data.tx_summary || {} });
+    } catch { setCustModal(p => ({ ...p, loading: false })); }
+  };
+  const closeCustModal = () => setCustModal(p => ({ ...p, open: false }));
 
-  if (err) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 font-semibold mb-2">{err}</p>
-          <button onClick={fetchStats} className="text-sm text-blue-600 hover:underline">Coba lagi</button>
-        </div>
+  /* Loading / Error */
+  if (loading) return (
+    <div className="min-h-screen bg-slate-50 py-6 sm:py-10">
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+        <div className="h-16 bg-slate-100 rounded-2xl animate-pulse mb-6" />
+        <div className="grid grid-cols-3 gap-4 mb-6">{[1,2,3].map(i => <div key={i} className="h-28 bg-slate-100 rounded-2xl animate-pulse" />)}</div>
       </div>
-    );
-  }
+    </div>
+  );
+  if (err) return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-red-600 font-semibold mb-2">{err}</p>
+        <button onClick={fetchStats} className="text-sm text-blue-600 hover:underline">Coba lagi</button>
+      </div>
+    </div>
+  );
 
   const s = data?.summary || {};
 
@@ -142,7 +290,7 @@ export default function B2bKoperasiCustomer() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white sm:text-2xl">Customer Koperasi Merah Putih</h1>
-                <p className="text-sm text-white/70">Daftar customer </p>
+                <p className="text-sm text-white/70">Daftar customer KMP</p>
               </div>
             </div>
             <button onClick={fetchStats}
@@ -152,49 +300,29 @@ export default function B2bKoperasiCustomer() {
           </div>
         </section>
 
-        {/* ── Stat Cards ── */}
-        <section className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard
-            icon={HiOutlineUserGroup}
-            label="Total Customer"
-            value={fmtNum(s.total_customer)}
+        {/* ── Stat Cards (3 cards) ── */}
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatCard icon={HiOutlineUserGroup} label="Total Customer" value={fmtNum(s.total_customer)}
             sub="Customer KMP aktif"
             accent={{ border: "border-slate-200", bg: "bg-white", iconBg: "bg-sky-100", iconText: "text-sky-600" }}
+            onClick={() => {}}
           />
-          <StatCard
-            icon={HiOutlineDocumentText}
-            label="Total Transaksi"
-            value={fmtNum(s.total_transaksi)}
+          <StatCard icon={HiOutlineDocumentText} label="Total Transaksi" value={fmtNum(s.total_transaksi)}
             sub={`Rata-rata: ${fmtNum(Math.round(s.avg_transaksi || 0))}`}
             accent={{ border: "border-emerald-200", bg: "bg-emerald-50", iconBg: "bg-emerald-100", iconText: "text-emerald-600" }}
+            onClick={() => {}}
           />
-          <StatCard
-            icon={HiOutlineCurrencyDollar}
-            label="Total Nominal"
-            value={fmtRp(s.total_nominal)}
+          <StatCard icon={HiOutlineCurrencyDollar} label="Total Nominal" value={fmtRp(s.total_nominal)}
             sub={`Rata-rata: ${fmtRp(Math.round(s.avg_nominal || 0))}`}
             accent={{ border: "border-amber-200", bg: "bg-amber-50", iconBg: "bg-amber-100", iconText: "text-amber-600" }}
-          />
-          <StatCard
-            icon={HiOutlineCreditCard}
-            label="Total Saldo ePayment"
-            value={fmtRp(s.total_saldo)}
-            sub="Saldo gabungan"
-            accent={{ border: "border-violet-200", bg: "bg-violet-50", iconBg: "bg-violet-100", iconText: "text-violet-600" }}
-          />
-          <StatCard
-            icon={HiOutlineBuildingStorefront}
-            label="Outlet Terdaftar"
-            value={data?.outlets?.length || 0}
-            sub="Outlet berbeda"
-            accent={{ border: "border-rose-200", bg: "bg-rose-50", iconBg: "bg-rose-100", iconText: "text-rose-600" }}
+            onClick={() => {}}
           />
         </section>
 
-        {/* ── Top Customers + Member & Outlet Breakdown ── */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Top Customers ── */}
+        <section>
           {/* Top 10 Customers */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-1">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <HiOutlineStar className="h-5 w-5 text-amber-500" />
               <h2 className="text-sm font-bold text-slate-800">Top 10 Customer</h2>
@@ -202,9 +330,9 @@ export default function B2bKoperasiCustomer() {
             {data?.top_customers?.length > 0 ? (
               <div className="space-y-2">
                 {data.top_customers.map((c, i) => (
-                  <div key={i} className="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0">
-                    <span className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                  <div key={i} onClick={() => openCustomerDetail(c.id_konsumen)}
+                    className="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50 rounded px-1 -mx-1 transition">
+                    <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
                       i < 3 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
                     )}>{i + 1}</span>
                     <div className="flex-1 min-w-0">
@@ -218,104 +346,9 @@ export default function B2bKoperasiCustomer() {
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">Belum ada data</p>
-            )}
-          </div>
-
-          {/* Member + Outlet breakdown */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Member breakdown */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <HiOutlineUser className="h-5 w-5 text-sky-500" />
-                <h2 className="text-sm font-bold text-slate-800">Per Tipe Member</h2>
-              </div>
-              {data?.members?.length > 0 ? (
-                <div className="space-y-3">
-                  {data.members.map((m, i) => {
-                    const maxVal = Math.max(...data.members.map(x => Number(x.total_nominal) || 0), 1);
-                    const val = Number(m.total_nominal) || 0;
-                    const pct = Math.round((val / maxVal) * 100);
-                    return (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-slate-700 w-24 shrink-0 truncate">{m.member_type}</span>
-                        <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-5 rounded-full bg-sky-500 transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className="w-32 text-right shrink-0">
-                          <span className="text-xs font-bold text-slate-700">{m.total} org</span>
-                          <span className="text-[10px] text-slate-400 ml-1 block">{fmtRp(val)}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">Belum ada data member</p>
-              )}
-            </div>
-
-            {/* Outlet breakdown */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <HiOutlineBuildingStorefront className="h-5 w-5 text-emerald-500" />
-                <h2 className="text-sm font-bold text-slate-800">Per Outlet</h2>
-              </div>
-              {data?.outlets?.length > 0 ? (
-                <div className="space-y-3">
-                  {data.outlets.map((o, i) => {
-                    const maxVal = Math.max(...data.outlets.map(x => Number(x.total_nominal) || 0), 1);
-                    const val = Number(o.total_nominal) || 0;
-                    const pct = Math.round((val / maxVal) * 100);
-                    return (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-slate-700 w-28 shrink-0 truncate">{o.outlet}</span>
-                        <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-5 rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className="w-32 text-right shrink-0">
-                          <span className="text-xs font-bold text-slate-700">{o.total} org</span>
-                          <span className="text-[10px] text-slate-400 ml-1 block">{fmtRp(val)}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">Belum ada data outlet</p>
-              )}
-            </div>
+            ) : <p className="text-xs text-slate-400 italic">Belum ada data</p>}
           </div>
         </section>
-
-        {/* ── Registration Trend ── */}
-        {data?.registration_trend?.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <HiOutlineCalendar className="h-5 w-5 text-indigo-500" />
-              <h2 className="text-sm font-bold text-slate-800">Tren Pendaftaran (12 Bulan Terakhir)</h2>
-            </div>
-            <div className="flex items-end gap-2 h-32">
-              {(() => {
-                const trend = [...data.registration_trend].reverse();
-                const maxVal = Math.max(...trend.map(t => Number(t.total) || 0), 1);
-                return trend.map((t, i) => {
-                  const h = Math.max(8, Math.round(((Number(t.total) || 0) / maxVal) * 100));
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <span className="text-[10px] font-bold text-slate-700">{t.total}</span>
-                      <div className="w-full bg-indigo-100 rounded-t-lg overflow-hidden" style={{ height: `${h}%` }}>
-                        <div className="w-full h-full bg-indigo-500 rounded-t-lg transition-all duration-500" />
-                      </div>
-                      <span className="text-[9px] text-slate-400 rotate-0">{t.month?.slice(5)}</span>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </section>
-        )}
 
         {/* ── Customer Table ── */}
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -323,26 +356,19 @@ export default function B2bKoperasiCustomer() {
             <HiOutlineFunnel className="h-5 w-5 text-sky-500" />
             <h2 className="text-sm font-bold text-slate-800">Daftar Customer KMP</h2>
           </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <div className="relative">
+
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <HiOutlineMagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input type="text" placeholder="Cari nama / ID / telepon / instansi..." value={filters.search}
-                onChange={e => setFilters(p => ({ ...p, search: e.target.value }))}
-                onKeyDown={handleSearchKey}
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none w-64" />
+              <input type="text" placeholder="Cari nama / ID / telepon / instansi..." value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none w-full" />
             </div>
-            <select value={filters.outlet} onChange={e => setFilters(p => ({ ...p, outlet: e.target.value }))}
-              className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none">
-              <option value="">Semua Outlet</option>
-              {(list.meta.outlets || []).map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <select value={filters.member} onChange={e => setFilters(p => ({ ...p, member: e.target.value }))}
+            <select value={filters.member} onChange={e => { const f = { ...filters, member: e.target.value }; setFilters(f); fetchList(1, f, sort, limit); }}
               className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none">
               <option value="">Semua Member</option>
               {(list.meta.members || []).map(m => <option key={m} value={m}>{m}</option>)}
             </select>
-            <button onClick={applyFilters}
-              className="px-3 py-1.5 text-xs font-semibold bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition">Filter</button>
             <button onClick={resetFilters}
               className="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition">Reset</button>
           </div>
@@ -356,7 +382,6 @@ export default function B2bKoperasiCustomer() {
                     Nama<SortIcon col="nama" />
                   </th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Instansi</th>
-                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Outlet</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">Member</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Telepon</th>
                   <th className="text-right py-2 px-3 font-semibold text-slate-500 cursor-pointer hover:text-slate-800" onClick={() => toggleSort("total_jumlah_transaksi")}>
@@ -365,9 +390,6 @@ export default function B2bKoperasiCustomer() {
                   <th className="text-right py-2 px-3 font-semibold text-slate-500 cursor-pointer hover:text-slate-800" onClick={() => toggleSort("total_nominal_transaksi")}>
                     Nominal<SortIcon col="total_nominal_transaksi" />
                   </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-500 cursor-pointer hover:text-slate-800" onClick={() => toggleSort("saldo_epayment")}>
-                    Saldo<SortIcon col="saldo_epayment" />
-                  </th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500 cursor-pointer hover:text-slate-800" onClick={() => toggleSort("transaksi_terakhir")}>
                     Terakhir<SortIcon col="transaksi_terakhir" />
                   </th>
@@ -375,11 +397,13 @@ export default function B2bKoperasiCustomer() {
               </thead>
               <tbody>
                 {list.loading ? (
-                  <tr><td colSpan={10} className="py-8 text-center text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Loading...</td></tr>
                 ) : list.data.length === 0 ? (
-                  <tr><td colSpan={10} className="py-8 text-center text-slate-400">Tidak ada data customer KMP</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Tidak ada data customer KMP</td></tr>
                 ) : list.data.map((r) => (
-                  <tr key={r.id_konsumen || r.id} className="border-b border-slate-100 hover:bg-sky-50 transition">
+                  <tr key={r.id_konsumen || r.id}
+                    onClick={() => openCustomerDetail(r.id_konsumen)}
+                    className="border-b border-slate-100 hover:bg-sky-50 transition cursor-pointer">
                     <td className="py-2 px-3 font-mono text-slate-500">{r.id_konsumen || "—"}</td>
                     <td className="py-2 px-3">
                       <div className="max-w-[180px]">
@@ -388,25 +412,23 @@ export default function B2bKoperasiCustomer() {
                       </div>
                     </td>
                     <td className="py-2 px-3 text-slate-600 max-w-[150px] truncate">{r.instansi || "—"}</td>
-                    <td className="py-2 px-3 text-slate-600">{r.outlet || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       {r.member ? (
                         <span className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-semibold">{r.member}</span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
+                      ) : <span className="text-slate-400">—</span>}
                     </td>
-                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
+                    <td className="py-2 px-3">
                       {r.nomor_telpon ? (
-                        <span className="flex items-center gap-1">
-                          <HiOutlinePhone className="h-3 w-3 text-slate-400" />
-                          {r.nomor_telpon}
-                        </span>
-                      ) : "—"}
+                        <a href={waLink(r.nomor_telpon)} target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-800 hover:underline text-xs">
+                          <HiOutlineChatBubbleLeftRight className="h-3 w-3 shrink-0" />
+                          <span className="truncate max-w-[110px]">{r.nomor_telpon}</span>
+                        </a>
+                      ) : <span className="text-slate-400">—</span>}
                     </td>
                     <td className="py-2 px-3 text-right font-bold text-slate-700">{fmtNum(r.total_jumlah_transaksi)}</td>
                     <td className="py-2 px-3 text-right font-bold text-emerald-600">{fmtRp(r.total_nominal_transaksi)}</td>
-                    <td className="py-2 px-3 text-right font-semibold text-slate-700">{fmtRp(r.saldo_epayment)}</td>
                     <td className="py-2 px-3 text-slate-400 whitespace-nowrap">{fmtDate(r.transaksi_terakhir)}</td>
                   </tr>
                 ))}
@@ -414,35 +436,37 @@ export default function B2bKoperasiCustomer() {
             </table>
           </div>
 
-          {list.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-500">
-                Halaman {list.pagination.page} dari {list.pagination.totalPages} ({fmtNum(list.pagination.total)} customer)
-              </span>
-              <div className="flex gap-1">
-                <button disabled={list.pagination.page <= 1}
-                  onClick={() => fetchList(list.pagination.page - 1, filters, sort)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition">Prev</button>
-                {Array.from({ length: Math.min(5, list.pagination.totalPages) }, (_, i) => {
-                  const p = Math.max(1, Math.min(list.pagination.page - 2 + i, list.pagination.totalPages - 4 + i));
-                  return p;
-                }).filter((v, i, a) => a.indexOf(v) === i).map(p => (
-                  <button key={p}
-                    onClick={() => fetchList(p, filters, sort)}
-                    className={cn("px-3 py-1.5 text-xs font-semibold rounded-lg border transition",
-                      p === list.pagination.page
-                        ? "bg-sky-600 text-white border-sky-600"
-                        : "border-slate-200 hover:bg-slate-50"
-                    )}>{p}</button>
-                ))}
-                <button disabled={list.pagination.page >= list.pagination.totalPages}
-                  onClick={() => fetchList(list.pagination.page + 1, filters, sort)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition">Next</button>
-              </div>
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+            <span className="text-xs text-slate-500">{list.pagination.total || 0} customer</span>
+            <div className="flex items-center gap-2">
+              <select value={limit} onChange={e => handleLimitChange(e.target.value)}
+                className="px-2 py-1 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none">
+                <option value={10}>10</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value="all">ALL</option>
+              </select>
+              {list.pagination.totalPages > 1 && (
+                <div className="flex gap-1">
+                  <button disabled={list.pagination.page <= 1}
+                    onClick={() => fetchList(list.pagination.page - 1, filters, sort, limit)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition">Prev</button>
+                  <span className="px-3 py-1.5 text-xs font-semibold text-slate-600">
+                    {list.pagination.page} / {list.pagination.totalPages}
+                  </span>
+                  <button disabled={list.pagination.page >= list.pagination.totalPages}
+                    onClick={() => fetchList(list.pagination.page + 1, filters, sort, limit)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition">Next</button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </section>
       </div>
+
+      {/* ── Customer Detail Modal ── */}
+      <CustomerDetailModal modal={custModal} onClose={closeCustModal} />
     </div>
   );
 }
