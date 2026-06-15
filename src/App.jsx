@@ -59,6 +59,9 @@ import FormPengajuan from "./pages/pengajuan-alora/pages/FormPengajuan";
 import DocumentAlora from "./pages/document-alora";
 import MasterDocument from "./pages/document-alora/components/MasterDocument";
 import TransDocument from "./pages/document-alora/components/TransDocument";
+import CsAtNps from "./pages/csat-nps";
+import CsAtWaschen from "./pages/csat-nps/components/CsatWaschen";
+import CsAtCleanox from "./pages/csat-nps/components/CsatCleanox";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -404,6 +407,19 @@ export default function App() {
         >
           <Route path="/document-alora" element={<MasterDocument />} />
           <Route path="/document-alora/transactions" element={<TransDocument />} />
+        </Route>
+
+        {/* ── CSAT & NPS — Result of Our Work ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/result-of-our-work"]}>
+              <CsAtNps />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/result-of-our-work" element={<Navigate to="/result-of-our-work/waschen" replace />} />
+          <Route path="/result-of-our-work/waschen" element={<CsAtWaschen />} />
+          <Route path="/result-of-our-work/cleanox" element={<CsAtCleanox />} />
         </Route>
       </Routes>
     </BrowserRouter>
