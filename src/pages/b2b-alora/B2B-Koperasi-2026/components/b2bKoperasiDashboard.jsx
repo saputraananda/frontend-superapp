@@ -410,27 +410,69 @@ export default function B2bKoperasiDashboard() {
               <HiOutlineCalendar className="h-5 w-5 text-sky-500" />
               <h2 className="text-sm font-bold text-slate-800">Tren Harian (30 Hari)</h2>
             </div>
-            {data?.daily_trend?.length > 0 ? (
-              <div className="flex items-end gap-1 h-36">
-                {(() => {
-                  const maxVal = Math.max(...data.daily_trend.map(d => Number(d.total_nota) || 0), 1);
-                  return data.daily_trend.map((d, i) => {
-                    const h = Math.max(6, Math.round(((Number(d.total_nota) || 0) / maxVal) * 100));
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5 cursor-pointer group"
-                        onClick={() => openModal(`Transaksi ${d.day}`, { type: "daily", day: d.day })}
-                        title={`${d.day}: ${d.total_nota} nota, ${fmtRp(d.total_tagihan)}`}>
-                        <span className="text-[9px] font-bold text-slate-600 opacity-0 group-hover:opacity-100 transition">{d.total_nota}</span>
-                        <div className="w-full bg-sky-100 rounded-t-md overflow-hidden group-hover:bg-sky-200 transition" style={{ height: `${h}%` }}>
-                          <div className="w-full h-full bg-sky-500 group-hover:bg-sky-600 rounded-t-md transition-all duration-500" />
-                        </div>
-                        <span className="text-[8px] text-slate-400">{String(d.day).slice(8)}</span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            ) : <p className="text-xs text-slate-400 italic">Belum ada data tren harian</p>}
+            {data?.daily_trend?.length > 0 ? (() => {
+              const W = 560, H = 160, PAD_X = 30, PAD_Y = 20;
+              const trend = data.daily_trend;
+              const maxVal = Math.max(...trend.map(d => Number(d.total_tagihan) || 0), 1);
+              const pts = trend.map((d, i) => ({
+                x: PAD_X + (i / Math.max(trend.length - 1, 1)) * (W - PAD_X * 2),
+                y: PAD_Y + (1 - (Number(d.total_tagihan) || 0) / maxVal) * (H - PAD_Y * 2),
+                ...d,
+              }));
+              const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+              const area = `${line} L${pts[pts.length - 1].x},${H - PAD_Y} L${pts[0].x},${H - PAD_Y} Z`;
+              // Y-axis labels
+              const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => ({
+                y: PAD_Y + (1 - f) * (H - PAD_Y * 2),
+                label: fmtRp(Math.round(maxVal * f)),
+              }));
+              // X-axis labels (show every 5th)
+              const xLabels = pts.filter((_, i) => i % Math.max(1, Math.ceil(trend.length / 8)) === 0 || i === trend.length - 1);
+              return (
+                <div className="relative cursor-pointer" onClick={() => openModal("Tren Harian", { type: "all" })}>
+                  <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "180px" }} preserveAspectRatio="none">
+                    {/* Grid lines */}
+                    {yTicks.map((t, i) => (
+                      <line key={i} x1={PAD_X} y1={t.y} x2={W - PAD_X} y2={t.y} stroke="#e2e8f0" strokeWidth="0.5" />
+                    ))}
+                    {/* Area fill */}
+                    <path d={area} fill="url(#skyGrad)" opacity="0.3" />
+                    {/* Line */}
+                    <path d={line} fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Dots */}
+                    {pts.map((p, i) => (
+                      <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#fff" stroke="#0284c7" strokeWidth="2"
+                        className="hover:fill-sky-200 transition" />
+                    ))}
+                    {/* Gradient def */}
+                    <defs>
+                      <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0284c7" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#0284c7" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  {/* Tooltip overlay (invisible rects for hover) */}
+                  <div className="absolute inset-0 flex">
+                    {pts.map((p, i) => (
+                      <div key={i} className="flex-1 group relative" title={`${p.day}: ${p.total_nota} nota, ${fmtRp(p.total_tagihan)}`} />
+                    ))}
+                  </div>
+                  {/* X-axis labels */}
+                  <div className="flex justify-between px-7 mt-0.5">
+                    {xLabels.map((p, i) => (
+                      <span key={i} className="text-[9px] text-slate-400">{String(p.day).slice(8)}</span>
+                    ))}
+                  </div>
+                  {/* Y-axis labels */}
+                  <div className="absolute left-0 top-0 h-full flex flex-col justify-between pointer-events-none" style={{ height: "160px" }}>
+                    {yTicks.slice().reverse().map((t, i) => (
+                      <span key={i} className="text-[8px] text-slate-400 w-7 text-right leading-none">{t.label.replace("Rp ", "")}</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })() : <p className="text-xs text-slate-400 italic">Belum ada data tren harian</p>}
           </div>
 
           {/* Rush hour */}
@@ -440,32 +482,41 @@ export default function B2bKoperasiDashboard() {
               <h2 className="text-sm font-bold text-slate-800">Analisa Rush Hour</h2>
             </div>
             {data?.rush_hour?.length > 0 ? (
-              <div className="flex items-end gap-0.5 h-36">
+              <>
+              <div className="relative h-40 flex items-end gap-0.5 pt-4">
                 {(() => {
+                  const CHART_H = 140;
                   const hours = Array.from({ length: 24 }, (_, i) => {
                     const found = data.rush_hour.find(r => Number(r.hour) === i);
-                    return { hour: i, total_nota: found?.total_nota || 0, total_tagihan: found?.total_tagihan || 0 };
+                    return { hour: i, total_items: found?.total_items || 0, total_nota: found?.total_nota || 0, total_tagihan: found?.total_tagihan || 0 };
                   });
-                  const maxVal = Math.max(...hours.map(h => Number(h.total_nota) || 0), 1);
-                  const peakHour = hours.reduce((a, b) => (Number(b.total_nota) || 0) > (Number(a.total_nota) || 0) ? b : a, hours[0]);
+                  const maxVal = Math.max(...hours.map(h => Number(h.total_tagihan) || 0), 1);
+                  const peakHour = hours.reduce((a, b) => (Number(b.total_tagihan) || 0) > (Number(a.total_tagihan) || 0) ? b : a, hours[0]);
                   return hours.map((h, i) => {
-                    const ht = Math.max(4, Math.round(((Number(h.total_nota) || 0) / maxVal) * 100));
-                    const isPeak = h.hour === peakHour?.hour && Number(h.total_nota) > 0;
+                    const val = Number(h.total_tagihan) || 0;
+                    const px = val > 0 ? Math.max(6, Math.round((val / maxVal) * CHART_H)) : 0;
+                    const isPeak = h.hour === peakHour?.hour && val > 0;
                     return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5 cursor-pointer group"
+                      <div key={i} className="flex-1 flex flex-col items-center justify-end cursor-pointer group"
+                        style={{ height: `${CHART_H}px` }}
                         onClick={() => openModal(`Transaksi Jam ${String(h.hour).padStart(2, "0")}:00`, { type: "rush_hour", hour: h.hour })}
-                        title={`Jam ${String(h.hour).padStart(2, "0")}:00 — ${h.total_nota} nota`}>
-                        <div className="w-full rounded-t-sm overflow-hidden group-hover:opacity-80 transition" style={{ height: `${ht}%` }}>
-                          <div className={cn("w-full h-full rounded-t-sm transition-all duration-500",
-                            isPeak ? "bg-rose-500" : "bg-rose-300 group-hover:bg-rose-400"
-                          )} />
-                        </div>
-                        {i % 3 === 0 && <span className="text-[8px] text-slate-400">{String(h.hour).padStart(2, "0")}</span>}
+                        title={`Jam ${String(h.hour).padStart(2, "0")}:00 — ${h.total_items} item, ${fmtRp(h.total_tagihan)}`}>
+                        <div className={cn("w-full rounded-t-sm transition-all duration-300 group-hover:opacity-80",
+                          isPeak ? "bg-rose-500" : "bg-rose-300 group-hover:bg-rose-400"
+                        )} style={{ height: `${px}px` }} />
                       </div>
                     );
                   });
                 })()}
               </div>
+              <div className="flex gap-0.5 mt-1">
+                {Array.from({ length: 24 }, (_, i) => (
+                  <div key={i} className="flex-1 text-center">
+                    {i % 3 === 0 && <span className="text-[8px] text-slate-400">{String(i).padStart(2, "0")}</span>}
+                  </div>
+                ))}
+              </div>
+              </>
             ) : <p className="text-xs text-slate-400 italic">Belum ada data rush hour</p>}
           </div>
         </section>
