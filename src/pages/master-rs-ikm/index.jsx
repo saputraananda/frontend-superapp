@@ -4,6 +4,7 @@ import {
 	HiOutlineArrowLeft,
 	HiOutlineBars3,
 	HiOutlineBuildingOffice2,
+	HiOutlineSquares2X2,
 	HiOutlineTableCells,
 	HiOutlineXMark,
 } from "react-icons/hi2";
@@ -12,21 +13,63 @@ function cn(...c) {
 	return c.filter(Boolean).join(" ");
 }
 
-const MENU_ITEMS = [
+const MENU_SECTIONS = [
 	{
-		to: "/rumah-sakit-ikm",
-		icon: HiOutlineBuildingOffice2,
-		label: "Data Rumah Sakit",
-		description: "Kelola data & lokasi RS",
-		end: true,
+		label: "Dashboard",
+		items: [
+			{
+				to: "/rumah-sakit-ikm",
+				icon: HiOutlineBuildingOffice2,
+				label: "Data Rumah Sakit",
+				description: "Kelola data & lokasi RS",
+				end: true,
+			},
+			{
+				to: "/linen-ikm",
+				icon: HiOutlineTableCells,
+				label: "Data Linen",
+				description: "Manajemen data linen",
+			},
+		],
 	},
 	{
-		to: "/linen-ikm",
-		icon: HiOutlineTableCells,
-		label: "Data Linen",
-		description: "Manajemen data linen",
+		label: "Master Linen RS",
+		items: [
+			{
+				to: "/eka-bsd-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka BSD",
+				description: "Master linen RS Eka BSD",
+			},
+			{
+				to: "/eka-mth-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka MTH",
+				description: "Master linen RS Eka MTH",
+			},
+			{
+				to: "/eka-depok-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka Depok",
+				description: "Master linen RS Eka Depok",
+			},
+			{
+				to: "/eka-cilegon-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka Cilegon",
+				description: "Master linen RS Eka Cilegon",
+			},
+			{
+				to: "/eka-phj-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka PHJ",
+				description: "Master linen RS Eka PHJ",
+			},
+		],
 	},
 ];
+
+const ALL_MENU_ITEMS = MENU_SECTIONS.flatMap(s => s.items);
 
 function NavItem({ to, icon: Icon, label, description, end, onClose }) {
 	return (
@@ -107,14 +150,19 @@ function Sidebar({ collapsed = false, onClose }) {
 				)}
 			</div>
 
-			{!collapsed && (
-				<p className="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Menu</p>
-			)}
-			{collapsed && <div className="pt-3" />}
-
-			<nav className={cn("flex-1 overflow-y-auto space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
-				{MENU_ITEMS.map((item) => (
-					<NavItem key={item.to} {...item} onClose={onClose} />
+			<nav className={cn("flex-1 overflow-y-auto space-y-4", collapsed ? "px-1.5" : "px-3")}>
+				{MENU_SECTIONS.map((section) => (
+					<div key={section.label}>
+						{!collapsed && (
+							<p className="px-2 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{section.label}</p>
+						)}
+						{collapsed && <div className="pt-3" />}
+						<div className="space-y-0.5">
+							{section.items.map((item) => (
+								<NavItem key={item.to} {...item} onClose={onClose} />
+							))}
+						</div>
+					</div>
 				))}
 			</nav>
 
@@ -138,8 +186,8 @@ function ActiveMenuTitle() {
 	const { pathname } = useLocation();
 
 	const active =
-		MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
-		MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
+		ALL_MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
+		ALL_MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
 
 	const label = active?.label ?? "RS IKM";
 	const description = active?.description ?? "Navigasi modul RS IKM";

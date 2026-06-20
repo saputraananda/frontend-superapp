@@ -31,8 +31,13 @@ import LoadingScreen from "./components/LoadingScreen";
 import MaintenancePage from "./pages/maintenance";
 import AsetManagement from "./pages/aset-management";
 import MasterRsIkm from "./pages/master-rs-ikm";
-import RumahSakitPage from "./pages/master-rs-ikm/components/RumahSakit";
-import DataLinenPage from "./pages/master-rs-ikm/components/DataLinen";
+import RumahSakitPage from "./pages/master-rs-ikm/components/Dashboard/RumahSakit";
+import EkaBSD from "./pages/master-rs-ikm/components/MasterLinen/EkaBSD";
+import EkaMTH from "./pages/master-rs-ikm/components/MasterLinen/EkaMTH";
+import EkaDepok from "./pages/master-rs-ikm/components/MasterLinen/EkaDepok";
+import EkaCilegon from "./pages/master-rs-ikm/components/MasterLinen/EkaCilegon";
+import EkaPHJ from "./pages/master-rs-ikm/components/MasterLinen/EkaPHJ";
+import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen";
 import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
 import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
@@ -277,6 +282,11 @@ export default function App() {
         >
           <Route path="/rumah-sakit-ikm" element={<RumahSakitPage />} />
           <Route path="/linen-ikm" element={<DataLinenPage />} />
+          <Route path="/eka-bsd-linen" element={<EkaBSD />} />
+          <Route path="/eka-mth-linen" element={<EkaMTH />} />
+          <Route path="/eka-depok-linen" element={<EkaDepok />} />
+          <Route path="/eka-cilegon-linen" element={<EkaCilegon />} />
+          <Route path="/eka-phj-linen" element={<EkaPHJ />} />
         </Route>
 
         {/* ── Target Waschen ── */}

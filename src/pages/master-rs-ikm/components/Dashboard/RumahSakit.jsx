@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../../../lib/api";
+import { api } from "../../../../lib/api";
 import {
 	HiOutlineBuildingOffice2,
 	HiOutlineCheckCircle,
@@ -244,6 +244,7 @@ export default function RumahSakitPage() {
 	const [deleteTarget, setDeleteTarget] = useState(null);
 	const [detailModal, setDetailModal] = useState(null);
 	const [formLoading, setFormLoading] = useState(false);
+	useEffect(() => { document.title = "Data Rumah Sakit IKM | Alora Group Indonesia"; }, []);
 	
 	// Map states
 	const [mapSearch, setMapSearch] = useState("");

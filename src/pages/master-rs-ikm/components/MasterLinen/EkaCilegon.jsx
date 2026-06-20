@@ -1,0 +1,11 @@
+import HospitalLinenPage from "./HospitalLinenPage";
+
+export default function EkaCilegon() {
+  return (
+    <HospitalLinenPage
+      hospitalId={9}
+      title="Eka Hospital Cilegon"
+      docTitle="Eka Cilegon - Linen RS IKM | Alora Group Indonesia"
+    />
+  );
+}
