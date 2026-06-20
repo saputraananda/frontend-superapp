@@ -4,25 +4,26 @@
  */
 export function formatRupiah(value) {
   if (value === null || value === undefined || value === "") return "Rp0";
-  const n = typeof value === "string" ? parseFloat(value.replace(/\D/g, "") || "0") : Number(value);
+  const n = typeof value === "string" ? parseFloat(value) : Number(value);
   if (isNaN(n)) return "Rp0";
-  return "Rp" + n.toLocaleString("id-ID");
+  return "Rp" + Math.floor(n).toLocaleString("id-ID");
 }
 
 /**
  * formatRupiahInput — Format angka saat diketik di input.
  * Output: "1.000" agar user lihat pemisah ribuan.
- * Simpan di state sebagai string angka (tanpa titik).
+ * Menerima input berupa string digit (hasil parseRupiahInput).
  */
 export function formatRupiahInput(value) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-  return Number(digits).toLocaleString("id-ID");
+  if (!value || value === "0") return "";
+  return Number(value).toLocaleString("id-ID");
 }
 
 /**
- * parseRupiahInput — Balikin dari "1.000" → "1000" (string digit)
+ * parseRupiahInput — Balikin dari "1.000" → "1000" (string digit).
+ * Hapus semua non-digit (titik pemisah ribuan).
  */
 export function parseRupiahInput(value) {
-  return value.replace(/\D/g, "");
+  if (!value) return "0";
+  return value.replace(/\./g, "");
 }

@@ -83,10 +83,11 @@ const EMPTY_FORM = {
   is_active: true,
 };
 
-export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
+export default function HospitalLinenPage({ hospitalId }) {
   const [items, setItems] = useState([]);
   const [linenList, setLinenList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hospitalName, setHospitalName] = useState("");
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -97,6 +98,8 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
 
   // Modal tabs: "form" or "quick"
   const [modalTab, setModalTab] = useState("form");
@@ -115,7 +118,18 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  useEffect(() => { document.title = docTitle; }, [docTitle]);
+  useEffect(() => { document.title = `${hospitalName || "Linen RS"} IKM | Alora Group Indonesia`; }, [hospitalName]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api("/ikm/master-rs/hospitals");
+        const hospitals = res.data || [];
+        const h = hospitals.find(h => h.id === hospitalId);
+        if (h) setHospitalName(h.hospital_name);
+      } catch { /* silent */ }
+    })();
+  }, [hospitalId]);
 
   const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); }, []);
 
@@ -153,6 +167,7 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
 
   const openEdit = (item) => {
     setEditTarget(item);
+    setModalTab("form");
     setForm({
       linen_id: item.linen_id,
       hospital_linen_name: item.hospital_linen_name || "",
@@ -230,6 +245,34 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
     fetchItems();
   };
 
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    if (!selectedIds.size) return;
+    setBatchConfirmOpen(true);
+  };
+
+  const executeBatchDelete = async () => {
+    setBatchConfirmOpen(false);
+    let ok = 0, fail = 0;
+    for (const id of selectedIds) {
+      try { await api(`${basePath}/${id}`, { method: "DELETE" }); ok++; }
+      catch { fail++; }
+    }
+    showToast("success", `${ok} dihapus${fail ? `, ${fail} gagal` : ""}`);
+    setSelectedIds(new Set());
+    setBatchLoading(false);
+    fetchItems();
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -263,10 +306,17 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
       <Toast toast={toast} />
       <ConfirmDialog
         open={confirmOpen} title="Hapus Linen RS"
-        message={`Yakin ingin menghapus linen "${deleteTarget?.master_linen_name}" dari ${title}?`}
+        message={`Yakin ingin menghapus linen "${deleteTarget?.master_linen_name}" dari ${hospitalName}?`}
         onConfirm={handleDeleteConfirm}
         onCancel={() => { setConfirmOpen(false); setDeleteTarget(null); }}
         loading={deleting}
+      />
+      <ConfirmDialog
+        open={batchConfirmOpen} title="Hapus Linen Massal"
+        message={`Yakin ingin menghapus ${selectedIds.size} linen dari ${hospitalName}?`}
+        onConfirm={executeBatchDelete}
+        onCancel={() => setBatchConfirmOpen(false)}
+        loading={batchLoading}
       />
 
       {/* Header */}
@@ -276,7 +326,7 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
             <HiOutlineBuildingOffice2 className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-800 leading-tight">{title}</h1>
+            <h1 className="text-base font-bold text-slate-800 leading-tight">{hospitalName}</h1>
             <p className="text-xs text-slate-400 mt-0.5">{items.length} linen terdaftar</p>
           </div>
         </div>
@@ -293,6 +343,19 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
         </div>
       </div>
 
+      {/* Batch delete bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-rose-50 border border-rose-200 rounded-xl mb-3">
+          <span className="text-sm font-semibold text-rose-700">{selectedIds.size} dipilih</span>
+          <button onClick={handleBatchDelete} disabled={batchLoading}
+            className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition disabled:opacity-50">
+            {batchLoading ? "Menghapus..." : `Hapus ${selectedIds.size} Linen`}
+          </button>
+          <button onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-slate-500 hover:text-slate-700 ml-auto">Batal</button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {filtered.length === 0 && !loading ? (
@@ -306,13 +369,13 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
                   {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "Par Stock", "Min Stock", "Status", "Aksi"].map((h, i) => (
-                    <th key={h} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 11 ? "text-right" : "text-left")}>{h}</th>
+                    <th key={h} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 11 ? "text-center" : "text-left")}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? <SkeletonRows /> : filtered.map((a, i) => (
-                  <tr key={a.id} className="hover:bg-slate-50/60 transition">
+                  <tr key={a.id} className={cn("hover:bg-slate-50/60 transition", selectedIds.has(a.id) && "bg-red-50/40")}>
                     <td className="px-4 py-4 text-slate-400 text-xs">{i + 1}</td>
                     <td className="px-4 py-4 font-semibold text-slate-800 whitespace-nowrap">{a.master_linen_name}</td>
                     <td className="px-4 py-4 text-slate-600">{a.hospital_linen_name || <span className="text-slate-300">—</span>}</td>
@@ -331,13 +394,16 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
                         : <span className="flex items-center gap-1 text-xs font-semibold text-rose-500"><HiOutlineXCircle className="h-4 w-4" /> Nonaktif</span>}
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <button onClick={() => openEdit(a)} className="flex items-center justify-center h-8 w-8 rounded-lg border border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100 transition" title="Edit">
                           <HiOutlinePencilSquare className="h-4 w-4" />
                         </button>
                         <button onClick={() => { setDeleteTarget(a); setConfirmOpen(true); }} className="flex items-center justify-center h-8 w-8 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition" title="Hapus">
                           <HiOutlineTrash className="h-4 w-4" />
                         </button>
+                        <input type="checkbox" checked={selectedIds.has(a.id)}
+                          onChange={() => toggleSelect(a.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" title="Pilih" />
                       </div>
                     </td>
                   </tr>
@@ -490,27 +556,27 @@ export default function HospitalLinenPage({ hospitalId, title, docTitle }) {
                   <>
                     <div className="max-h-80 overflow-y-auto -mx-2">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 px-2">
-                      {filteredQuick.map(l => {
-                        const checked = quickSelected.includes(l.id);
-                        return (
-                          <label key={l.id} className={cn(
-                            "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition",
-                            checked ? "bg-red-50 text-red-800" : "hover:bg-slate-50 text-slate-700"
-                          )}>
-                            <input type="checkbox" checked={checked}
-                              onChange={() => {
-                                setQuickSelected(prev =>
-                                  checked ? prev.filter(id => id !== l.id) : [...prev, l.id]
-                                );
-                              }}
-                              className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold truncate">{l.linen_name}</p>
-                              {l.linen_code && <p className="text-xs text-slate-400">{l.linen_code}</p>}
-                            </div>
-                          </label>
-                        );
-                      })}
+                        {filteredQuick.map(l => {
+                          const checked = quickSelected.includes(l.id);
+                          return (
+                            <label key={l.id} className={cn(
+                              "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition",
+                              checked ? "bg-red-50 text-red-800" : "hover:bg-slate-50 text-slate-700"
+                            )}>
+                              <input type="checkbox" checked={checked}
+                                onChange={() => {
+                                  setQuickSelected(prev =>
+                                    checked ? prev.filter(id => id !== l.id) : [...prev, l.id]
+                                  );
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate">{l.linen_name}</p>
+                                {l.linen_code && <p className="text-xs text-slate-400">{l.linen_code}</p>}
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
 

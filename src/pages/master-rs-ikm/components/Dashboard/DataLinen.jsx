@@ -4,6 +4,7 @@ import {
   HiOutlineTableCells, HiOutlinePlus, HiOutlinePencilSquare,
   HiOutlineTrash, HiOutlineMagnifyingGlass, HiOutlineXMark,
   HiOutlineClock, HiOutlineExclamationTriangle, HiOutlineCheckCircle,
+  HiOutlineCurrencyDollar, HiOutlineArchiveBox,
 } from "react-icons/hi2";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
@@ -12,6 +13,11 @@ function fmtDate(d) {
   if (!d) return "—";
   try { return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }); }
   catch { return d; }
+}
+
+function fmtMoney(n) {
+  if (n === null || n === undefined) return "—";
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
 }
 
 /* ── Toast ── */
@@ -61,13 +67,162 @@ function DeleteModal({ open, onClose, onConfirm, target, loading }) {
   );
 }
 
+/* ── Price History Modal ── */
+function PriceHistoryModal({ open, onClose, linen, onToast }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({ purchase_price: "", effective_date: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    if (!linen) return;
+    setLoading(true);
+    try {
+      const res = await api(`/ikm/master-linen/${linen.id}/price-history`);
+      setHistory(res.data || []);
+    } catch (err) {
+      onToast?.(err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [linen, onToast]);
+
+  useEffect(() => { if (open) fetchHistory(); }, [open, fetchHistory]);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api(`/ikm/master-linen/${linen.id}/price-history`, {
+        method: "POST",
+        body: JSON.stringify({
+          purchase_price: Number(form.purchase_price),
+          effective_date: form.effective_date,
+          notes: form.notes,
+        }),
+      });
+      setAddOpen(false);
+      setForm({ purchase_price: "", effective_date: "", notes: "" });
+      fetchHistory();
+      onToast?.("Harga beli berhasil ditambahkan");
+    } catch (err) {
+      onToast?.(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (priceId) => {
+    if (!confirm("Hapus riwayat harga ini?")) return;
+    try {
+      await api(`/ikm/master-linen/price-history/${priceId}`, { method: "DELETE" });
+      fetchHistory();
+      onToast?.("Riwayat harga berhasil dihapus");
+    } catch (err) {
+      onToast?.(err.message, "error");
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Riwayat Harga Beli</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{linen?.linen_name}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition">
+            <HiOutlineXMark className="h-5 w-5 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {!addOpen && (
+            <button onClick={() => setAddOpen(true)}
+              className="w-full rounded-xl border-2 border-dashed border-slate-200 py-3 text-sm font-semibold text-slate-500 hover:border-red-400 hover:text-red-600 transition flex items-center justify-center gap-2">
+              <HiOutlinePlus className="h-4 w-4" /> Tambah Harga Baru
+            </button>
+          )}
+
+          {addOpen && (
+            <form onSubmit={handleAdd} className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Harga Beli (Rp) <span className="text-rose-500">*</span></label>
+                  <input type="number" value={form.purchase_price}
+                    onChange={e => setForm(p => ({ ...p, purchase_price: e.target.value }))}
+                    required min={0} step="100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Tgl Efektif <span className="text-rose-500">*</span></label>
+                  <input type="date" value={form.effective_date}
+                    onChange={e => setForm(p => ({ ...p, effective_date: e.target.value }))}
+                    required
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Catatan</label>
+                <input type="text" value={form.notes}
+                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Opsional"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setAddOpen(false)} disabled={saving}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                  Batal
+                </button>
+                <button type="submit" disabled={saving}
+                  className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition flex items-center gap-1">
+                  {saving && <HiOutlineClock className="h-3 w-3 animate-spin" />}
+                  Simpan
+                </button>
+              </div>
+            </form>
+          )}
+
+          {loading ? (
+            <div className="py-8 text-center text-slate-400"><HiOutlineClock className="h-5 w-5 animate-spin mx-auto" /></div>
+          ) : history.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-sm">Belum ada riwayat harga</div>
+          ) : (
+            <div className="space-y-2">
+              {history.map(h => (
+                <div key={h.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-800">{fmtMoney(h.purchase_price)}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Efektif: {fmtDate(h.effective_date)}{h.notes ? ` — ${h.notes}` : ""}</div>
+                  </div>
+                  <button onClick={() => handleDelete(h.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                    <HiOutlineTrash className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Form Modal (Create/Edit) ── */
-function LinenFormModal({ open, onClose, onSave, editData, loading, categories }) {
+function LinenFormModal({ open, onClose, onSave, editData, loading, categories, sizes, colors, materials }) {
   const isEdit = Boolean(editData);
   const initialForm = useMemo(() => ({
     linen_code: editData?.linen_code || "",
     linen_name: editData?.linen_name || "",
     category_id: editData?.category_id || "",
+    size_id: editData?.size_id || "",
+    color_id: editData?.color_id || "",
+    material_id: editData?.material_id || "",
+    default_qty: editData?.default_qty ?? 0,
     description: editData?.description || "",
   }), [editData]);
   const [form, setForm] = useState(initialForm);
@@ -78,45 +233,92 @@ function LinenFormModal({ open, onClose, onSave, editData, loading, categories }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sticky top-0 bg-white z-10">
           <h3 className="text-base font-bold text-slate-800">{isEdit ? "Edit Linen" : "Tambah Linen Baru"}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition">
             <HiOutlineXMark className="h-5 w-5 text-slate-500" />
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={e => { e.preventDefault(); onSave(form); }} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Kode Linen</label>
-            <input type="text" value={form.linen_code}
-              onChange={e => setForm(p => ({ ...p, linen_code: e.target.value }))}
-              placeholder="Contoh: LIN-001 (opsional)"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition" />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Kode Linen</label>
+              <input type="text" value={form.linen_code}
+                onChange={e => setForm(p => ({ ...p, linen_code: e.target.value }))}
+                placeholder="Contoh: LIN-001"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Nama Linen <span className="text-rose-500">*</span>
+              </label>
+              <input type="text" value={form.linen_name}
+                onChange={e => setForm(p => ({ ...p, linen_name: e.target.value }))}
+                placeholder="Contoh: Sprei Single"
+                required
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Nama Linen <span className="text-rose-500">*</span>
-            </label>
-            <input type="text" value={form.linen_name}
-              onChange={e => setForm(p => ({ ...p, linen_name: e.target.value }))}
-              placeholder="Contoh: Sprei Single, Sarung Bantal..."
-              required
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition" />
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Ukuran</label>
+              <select value={form.size_id}
+                onChange={e => setForm(p => ({ ...p, size_id: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition bg-white">
+                <option value="">— Pilih —</option>
+                {sizes.map(s => (
+                  <option key={s.id} value={s.id}>{s.size_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Warna</label>
+              <select value={form.color_id}
+                onChange={e => setForm(p => ({ ...p, color_id: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition bg-white">
+                <option value="">— Pilih —</option>
+                {colors.map(c => (
+                  <option key={c.id} value={c.id}>{c.color_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Bahan</label>
+              <select value={form.material_id}
+                onChange={e => setForm(p => ({ ...p, material_id: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition bg-white">
+                <option value="">— Pilih —</option>
+                {materials.map(m => (
+                  <option key={m.id} value={m.id}>{m.material_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Kategori</label>
-            <select value={form.category_id}
-              onChange={e => setForm(p => ({ ...p, category_id: e.target.value }))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition bg-white">
-              <option value="">— Pilih Kategori (opsional) —</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.category_code} — {cat.category_name}</option>
-              ))}
-            </select>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Qty Default</label>
+              <input type="number" value={form.default_qty}
+                onChange={e => setForm(p => ({ ...p, default_qty: Number(e.target.value) }))}
+                min={0}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Kategori</label>
+              <select value={form.category_id}
+                onChange={e => setForm(p => ({ ...p, category_id: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition bg-white">
+                <option value="">— Pilih (opsional) —</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.category_code} — {cat.category_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Deskripsi</label>
             <textarea value={form.description}
@@ -158,18 +360,31 @@ export default function DataLinenPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editData, setEditData] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [priceTarget, setPriceTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
   const [categories, setCategories] = useState([]);
+  const [sizes, setSizes] = useState([]);
+  const [colors, setColors] = useState([]);
+  const [materials, setMaterials] = useState([]);
 
   useEffect(() => { document.title = "Data Linen IKM | Alora Group Indonesia"; }, []);
 
-  /* fetch categories for dropdown */
+  /* fetch master data for dropdowns */
   useEffect(() => {
     (async () => {
       try {
-        const res = await api("/ikm/master-linen/categories");
-        setCategories(res || []);
+        const [catRes, szRes, clRes, mtRes] = await Promise.all([
+          api("/ikm/master-linen/categories"),
+          api("/ikm/master-linen/sizes"),
+          api("/ikm/master-linen/colors"),
+          api("/ikm/master-linen/materials"),
+        ]);
+        setCategories(catRes || []);
+        setSizes(szRes || []);
+        setColors(clRes || []);
+        setMaterials(mtRes || []);
       } catch { /* silent */ }
     })();
   }, []);
@@ -203,13 +418,13 @@ export default function DataLinenPage() {
 
   /* Body scroll lock */
   useEffect(() => {
-    if (formOpen || Boolean(deleteTarget)) {
+    if (formOpen || Boolean(deleteTarget) || Boolean(priceTarget)) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [formOpen, deleteTarget]);
+  }, [formOpen, deleteTarget, priceTarget]);
 
   /* Save (create/update) */
   const handleSave = async (form) => {
@@ -325,27 +540,28 @@ export default function DataLinenPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs w-12">No</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Kode Linen</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs w-10">No</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Kode</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Nama Linen</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Ukuran</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Warna</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Bahan</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Qty</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Kategori</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Deskripsi</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Dibuat</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Diperbarui</th>
-                    <th className="text-center py-3 px-4 font-semibold text-slate-500 text-xs w-28">Aksi</th>
+                    <th className="text-right py-3 px-4 font-semibold text-slate-500 text-xs w-28">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
                         <HiOutlineClock className="h-5 w-5 animate-spin mx-auto mb-2" />
                         Memuat data...
                       </td>
                     </tr>
                   ) : data.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
                         <HiOutlineTableCells className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                         <p className="text-sm font-semibold">Belum ada data linen</p>
                         <p className="text-xs mt-1">Klik tombol "Tambah Linen" untuk menambahkan data baru</p>
@@ -360,16 +576,22 @@ export default function DataLinenPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-800">{row.linen_name}</td>
+                      <td className="py-3 px-4 text-xs text-slate-600">{row.size_name || "—"}</td>
+                      <td className="py-3 px-4 text-xs text-slate-600">{row.color_name || "—"}</td>
+                      <td className="py-3 px-4 text-xs text-slate-600">{row.material_name || "—"}</td>
+                      <td className="py-3 px-4 text-xs text-slate-600">{row.default_qty ?? 0}</td>
                       <td className="py-3 px-4">
                         {row.category_name
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-xs font-medium">{row.category_name}</span>
                           : <span className="text-slate-400 text-xs">—</span>}
                       </td>
-                      <td className="py-3 px-4 text-slate-500 max-w-[200px] truncate">{row.description || "—"}</td>
-                      <td className="py-3 px-4 text-xs text-slate-400 whitespace-nowrap">{fmtDate(row.created_at)}</td>
-                      <td className="py-3 px-4 text-xs text-slate-400 whitespace-nowrap">{fmtDate(row.updated_at)}</td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button onClick={() => setPriceTarget(row)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition"
+                            title="Riwayat Harga Beli">
+                            <HiOutlineCurrencyDollar className="h-4 w-4" />
+                          </button>
                           <button onClick={() => openEdit(row)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition"
                             title="Edit">
@@ -438,6 +660,9 @@ export default function DataLinenPage() {
         editData={editData}
         loading={saving}
         categories={categories}
+        sizes={sizes}
+        colors={colors}
+        materials={materials}
       />
       <DeleteModal
         open={Boolean(deleteTarget)}
@@ -445,6 +670,12 @@ export default function DataLinenPage() {
         onConfirm={handleDelete}
         target={deleteTarget}
         loading={deleting}
+      />
+      <PriceHistoryModal
+        open={Boolean(priceTarget)}
+        onClose={() => setPriceTarget(null)}
+        linen={priceTarget}
+        onToast={showToast}
       />
     </>
   );

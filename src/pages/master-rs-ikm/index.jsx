@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
 	HiOutlineArrowLeft,
@@ -44,7 +44,7 @@ const MENU_SECTIONS = [
 			{
 				to: "/eka-mth-linen",
 				icon: HiOutlineSquares2X2,
-				label: "Eka MTH",
+				label: "Eka MT.Haryono",
 				description: "Master linen RS Eka MTH",
 			},
 			{
@@ -62,8 +62,62 @@ const MENU_SECTIONS = [
 			{
 				to: "/eka-phj-linen",
 				icon: HiOutlineSquares2X2,
-				label: "Eka PHJ",
+				label: "Eka Permata Hijau",
 				description: "Master linen RS Eka PHJ",
+			},
+			{
+				to: "/eka-cbb-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka Cibubur",
+				description: "Master linen RS Eka Cibubur",
+			},
+			{
+				to: "/eka-bks-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka Bekasi",
+				description: "Master linen RS Eka Bekasi",
+			},
+			{
+				to: "/eka-gfpik-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka Grand Family PIK",
+				description: "Master linen RS Eka Grand Family PIK",
+			},
+			{
+				to: "/eka-fpluit-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Eka Family Pluit",
+				description: "Master linen RS Eka Family Pluit",
+			},
+			{
+				to: "/permata-cbb-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Permata Cibubur",
+				description: "Master linen RS Permata Cibubur",
+			},
+			{
+				to: "/rsia-bunda-jkt-linen",
+				icon: HiOutlineSquares2X2,
+				label: "RSIA Bunda Jakarta",
+				description: "Master linen RSIA Bunda Jakarta",
+			},
+			{
+				to: "/rsu-bunda-jkt-linen",
+				icon: HiOutlineSquares2X2,
+				label: "RSU Bunda Jakarta",
+				description: "Master linen RSU Bunda Jakarta",
+			},
+			{
+				to: "/rsu-bunda-mgd-linen",
+				icon: HiOutlineSquares2X2,
+				label: "RSU Bunda Margonda",
+				description: "Master linen RSU Bunda Margonda",
+			},
+			{
+				to: "/columbia-bsd-linen",
+				icon: HiOutlineSquares2X2,
+				label: "Columbia BSD",
+				description: "Master linen RS Columbia BSD",
 			},
 		],
 	},
@@ -79,9 +133,9 @@ function NavItem({ to, icon: Icon, label, description, end, onClose }) {
 			onClick={onClose}
 			className={({ isActive }) =>
 				cn(
-					"group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all",
+					"group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
 					isActive
-						? "bg-red-600 text-white shadow-md shadow-red-200"
+						? "bg-red-600 text-white shadow-sm shadow-red-200"
 						: "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
 				)
 			}
@@ -90,7 +144,7 @@ function NavItem({ to, icon: Icon, label, description, end, onClose }) {
 				<>
 					<div
 						className={cn(
-							"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition",
+							"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
 							isActive
 								? "bg-white/20 text-white"
 								: "border border-slate-200 bg-white text-slate-400 group-hover:border-slate-300 group-hover:text-slate-600",
@@ -124,17 +178,17 @@ function Sidebar({ collapsed = false, onClose }) {
 			>
 				{!collapsed && (
 					<div className="flex min-w-0 flex-1 items-center gap-3">
-						<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-800 to-orange-500 shadow-md">
+						<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-800 to-orange-500 shadow-sm">
 							<HiOutlineBuildingOffice2 className="h-5 w-5 text-white" />
 						</div>
 						<div className="min-w-0">
-							<p className="truncate text-sm font-bold text-slate-800 leading-tight">RS IKM</p>
+							<p className="truncate text-sm font-bold text-slate-800 leading-tight">Data RS & Linen</p>
 							<p className="truncate text-[11px] text-slate-400">Alora Group Indonesia</p>
 						</div>
 					</div>
 				)}
 				{collapsed && (
-					<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-800 to-orange-500 shadow-md">
+					<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-800 to-orange-500 shadow-sm">
 						<HiOutlineBuildingOffice2 className="h-5 w-5 text-white" />
 					</div>
 				)}
@@ -232,7 +286,7 @@ export default function MasterRsIkm() {
 			<div
 				aria-hidden="true"
 				className={cn(
-					"fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden",
+					"fixed inset-0 z-40 bg-black/50 lg:hidden",
 					mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
 				)}
 				onClick={() => setMobileOpen(false)}
@@ -243,7 +297,7 @@ export default function MasterRsIkm() {
 				ref={drawerRef}
 				aria-label="Sidebar navigasi"
 				className={cn(
-					"fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-in-out lg:hidden",
+					"fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-slate-200 bg-white shadow-lg transition-transform duration-300 ease-in-out lg:hidden",
 					mobileOpen ? "translate-x-0" : "-translate-x-full",
 				)}
 			>

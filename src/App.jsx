@@ -37,6 +37,15 @@ import EkaMTH from "./pages/master-rs-ikm/components/MasterLinen/EkaMTH";
 import EkaDepok from "./pages/master-rs-ikm/components/MasterLinen/EkaDepok";
 import EkaCilegon from "./pages/master-rs-ikm/components/MasterLinen/EkaCilegon";
 import EkaPHJ from "./pages/master-rs-ikm/components/MasterLinen/EkaPHJ";
+import EkaCBB from "./pages/master-rs-ikm/components/MasterLinen/EkaCBB";
+import EkaBKS from "./pages/master-rs-ikm/components/MasterLinen/EkaBKS";
+import PermataCBB from "./pages/master-rs-ikm/components/MasterLinen/PermataCBB";
+import RSIABundaJKT from "./pages/master-rs-ikm/components/MasterLinen/RSIABundaJKT";
+import RSUBundaJKT from "./pages/master-rs-ikm/components/MasterLinen/RSUBundaJKT";
+import RSUBundaMGD from "./pages/master-rs-ikm/components/MasterLinen/RSUBundaMGD";
+import EkaGFPIK from "./pages/master-rs-ikm/components/MasterLinen/EkaGFPIK";
+import EkaFPluit from "./pages/master-rs-ikm/components/MasterLinen/EkaFPluit";
+import ColumbiaBSD from "./pages/master-rs-ikm/components/MasterLinen/ColumbiaBSD";
 import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen";
 import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
@@ -287,6 +296,15 @@ export default function App() {
           <Route path="/eka-depok-linen" element={<EkaDepok />} />
           <Route path="/eka-cilegon-linen" element={<EkaCilegon />} />
           <Route path="/eka-phj-linen" element={<EkaPHJ />} />
+          <Route path="/eka-cbb-linen" element={<EkaCBB />} />
+          <Route path="/eka-bks-linen" element={<EkaBKS />} />
+          <Route path="/permata-cbb-linen" element={<PermataCBB />} />
+          <Route path="/rsia-bunda-jkt-linen" element={<RSIABundaJKT />} />
+          <Route path="/rsu-bunda-jkt-linen" element={<RSUBundaJKT />} />
+          <Route path="/rsu-bunda-mgd-linen" element={<RSUBundaMGD />} />
+          <Route path="/eka-gfpik-linen" element={<EkaGFPIK />} />
+          <Route path="/eka-fpluit-linen" element={<EkaFPluit />} />
+          <Route path="/columbia-bsd-linen" element={<ColumbiaBSD />} />
         </Route>
 
         {/* ── Target Waschen ── */}
