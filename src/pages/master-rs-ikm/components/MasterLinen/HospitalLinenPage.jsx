@@ -288,7 +288,8 @@ export default function HospitalLinenPage({ hospitalId }) {
 
   // Quick-add list: only linen NOT yet registered for this hospital
   const existingLinenIds = new Set(items.map(i => i.linen_id));
-  const quickLinenList = linenList.filter(l => !existingLinenIds.has(l.id));
+  const quickLinenList = linenList.filter(l => !existingLinenIds.has(l.id))
+    .sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
   const filteredQuick = quickLinenList.filter(l =>
     l.linen_name.toLowerCase().includes(quickSearch.toLowerCase()) ||
     (l.linen_code || "").toLowerCase().includes(quickSearch.toLowerCase())
@@ -297,7 +298,7 @@ export default function HospitalLinenPage({ hospitalId }) {
   const filteredDd = linenList.filter(l =>
     l.linen_name.toLowerCase().includes(ddSearch.toLowerCase()) ||
     (l.linen_code || "").toLowerCase().includes(ddSearch.toLowerCase())
-  );
+  ).sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
 
   const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 18, 14, 14, 14, 14, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
 

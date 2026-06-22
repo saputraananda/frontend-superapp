@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../../../../lib/api";
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from "../../utils/rupiah";
 import {
   HiOutlineTableCells, HiOutlinePlus, HiOutlinePencilSquare,
   HiOutlineTrash, HiOutlineMagnifyingGlass, HiOutlineXMark,
@@ -13,11 +14,6 @@ function fmtDate(d) {
   if (!d) return "—";
   try { return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }); }
   catch { return d; }
-}
-
-function fmtMoney(n) {
-  if (n === null || n === undefined) return "—";
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
 }
 
 /* ── Toast ── */
@@ -152,8 +148,8 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Harga Beli (Rp) <span className="text-rose-500">*</span></label>
-                  <input type="number" value={form.purchase_price}
-                    onChange={e => setForm(p => ({ ...p, purchase_price: e.target.value }))}
+                  <input type="text" inputMode="numeric" value={formatRupiahInput(form.purchase_price)}
+                    onChange={e => setForm(p => ({ ...p, purchase_price: parseRupiahInput(e.target.value) }))}
                     required min={0} step="100"
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
                 </div>
@@ -195,7 +191,7 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
               {history.map(h => (
                 <div key={h.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-800">{fmtMoney(h.purchase_price)}</div>
+                    <div className="text-sm font-semibold text-slate-800">{formatRupiah(h.purchase_price)}</div>
                     <div className="text-xs text-slate-500 mt-0.5">Efektif: {fmtDate(h.effective_date)}{h.notes ? ` — ${h.notes}` : ""}</div>
                   </div>
                   <button onClick={() => handleDelete(h.id)}
