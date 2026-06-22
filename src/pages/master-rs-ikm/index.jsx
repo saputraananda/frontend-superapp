@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
 	HiOutlineArrowLeft,
@@ -6,6 +6,11 @@ import {
 	HiOutlineBuildingOffice2,
 	HiOutlineSquares2X2,
 	HiOutlineTableCells,
+	HiOutlineCog6Tooth,
+	HiOutlineSwatch,
+	HiOutlineCircleStack,
+	HiOutlineFolder,
+	HiOutlineTruck,
 	HiOutlineXMark,
 } from "react-icons/hi2";
 
@@ -118,6 +123,41 @@ const MENU_SECTIONS = [
 				icon: HiOutlineSquares2X2,
 				label: "Columbia BSD",
 				description: "Master linen RS Columbia BSD",
+			},
+		],
+	},
+	{
+		label: "Master Data",
+		items: [
+			{
+				to: "/master-data-ikm/size",
+				icon: HiOutlineCog6Tooth,
+				label: "Ukuran",
+				description: "Master ukuran (S, M, L, ...)",
+			},
+			{
+				to: "/master-data-ikm/color",
+				icon: HiOutlineSwatch,
+				label: "Warna",
+				description: "Master warna linen",
+			},
+			{
+				to: "/master-data-ikm/material",
+				icon: HiOutlineCircleStack,
+				label: "Bahan",
+				description: "Master bahan linen",
+			},
+			{
+				to: "/master-data-ikm/category",
+				icon: HiOutlineFolder,
+				label: "Kategori Linen",
+				description: "Master kategori linen",
+			},
+			{
+				to: "/master-data-ikm/vendor",
+				icon: HiOutlineTruck,
+				label: "Vendor",
+				description: "Master vendor pemasok",
 			},
 		],
 	},

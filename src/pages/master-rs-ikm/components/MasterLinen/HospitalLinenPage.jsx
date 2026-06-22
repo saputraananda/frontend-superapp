@@ -193,10 +193,6 @@ export default function HospitalLinenPage({ hospitalId }) {
   const validate = () => {
     const e = {};
     if (!form.linen_id) e.linen_id = "Linen wajib dipilih";
-    const wp = parseFloat(form.washing_price);
-    if (isNaN(wp) || wp < 0) e.washing_price = "Harga cuci harus angka ≥ 0";
-    const rp = parseFloat(form.rental_price);
-    if (isNaN(rp) || rp < 0) e.rental_price = "Harga sewa harus angka ≥ 0";
     setErrors(e);
     return !Object.keys(e).length;
   };
@@ -286,9 +282,8 @@ export default function HospitalLinenPage({ hospitalId }) {
     return s;
   });
 
-  // Quick-add list: only linen NOT yet registered for this hospital
-  const existingLinenIds = new Set(items.map(i => i.linen_id));
-  const quickLinenList = linenList.filter(l => !existingLinenIds.has(l.id))
+  // Quick-add list: all linen available
+  const quickLinenList = linenList
     .sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
   const filteredQuick = quickLinenList.filter(l =>
     l.linen_name.toLowerCase().includes(quickSearch.toLowerCase()) ||
@@ -300,7 +295,7 @@ export default function HospitalLinenPage({ hospitalId }) {
     (l.linen_code || "").toLowerCase().includes(ddSearch.toLowerCase())
   ).sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
 
-  const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 18, 14, 14, 14, 14, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
+  const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 18, 14, 14, 14, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
 
   return (
     <div className="p-6 pb-14">
@@ -369,8 +364,8 @@ export default function HospitalLinenPage({ hospitalId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
-                  {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "Par Stock", "Min Stock", "Status", "Aksi"].map((h, i) => (
-                    <th key={h} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 11 ? "text-center" : "text-left")}>{h}</th>
+                  {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "Status", "Aksi"].map((h, i) => (
+                    <th key={h} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 9 ? "text-center" : "text-left")}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -378,7 +373,7 @@ export default function HospitalLinenPage({ hospitalId }) {
                 {loading ? <SkeletonRows /> : filtered.map((a, i) => (
                   <tr key={a.id} className={cn("hover:bg-slate-50/60 transition", selectedIds.has(a.id) && "bg-red-50/40")}>
                     <td className="px-4 py-4 text-slate-400 text-xs">{i + 1}</td>
-                    <td className="px-4 py-4 font-semibold text-slate-800 whitespace-nowrap">{a.master_linen_name}</td>
+                    <td className="px-4 py-4 font-semibold text-slate-800 whitespace-nowrap">{a.master_linen_name}{[a.size_name, a.color_name, a.material_name].filter(Boolean).length ? <span> {[a.size_name, a.color_name, a.material_name].filter(Boolean).join(" ")}</span> : ""}</td>
                     <td className="px-4 py-4 text-slate-600">{a.hospital_linen_name || <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold", a.ownership_type === "MILIK_RS" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700")}>{a.ownership_type}</span>
@@ -387,8 +382,6 @@ export default function HospitalLinenPage({ hospitalId }) {
                     <td className="px-4 py-4 text-slate-600">{a.grammage ? `${a.grammage} g` : <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-4 text-slate-800 font-semibold whitespace-nowrap">{a.washing_price_type === "KG" ? `${formatRupiah(a.washing_price)}/Kg` : formatRupiah(a.washing_price)}</td>
                     <td className="px-4 py-4 text-slate-800 font-semibold whitespace-nowrap">{formatRupiah(a.rental_price)}</td>
-                    <td className="px-4 py-4 text-slate-600">{a.par_stock ?? 0}</td>
-                    <td className="px-4 py-4 text-slate-600">{a.min_stock ?? 0}</td>
                     <td className="px-4 py-4">
                       {a.is_active
                         ? <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><HiOutlineCheckCircle className="h-4 w-4" /> Aktif</span>
@@ -498,7 +491,7 @@ export default function HospitalLinenPage({ hospitalId }) {
                       <option value="KG">Per Kg</option>
                     </select>
                   </Field>
-                  <Field label="Harga Cuci" required error={errors.washing_price}>
+                  <Field label="Harga Cuci" error={errors.washing_price}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">Rp</span>
                       <input className={cn(inputCls, "pl-9")} type="text" inputMode="numeric" placeholder="0"
@@ -506,19 +499,13 @@ export default function HospitalLinenPage({ hospitalId }) {
                         onChange={(e) => setForm({ ...form, washing_price: parseRupiahInput(e.target.value) })} />
                     </div>
                   </Field>
-                  <Field label="Harga Sewa" required error={errors.rental_price}>
+                  <Field label="Harga Sewa" error={errors.rental_price}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">Rp</span>
                       <input className={cn(inputCls, "pl-9")} type="text" inputMode="numeric" placeholder="0"
                         value={formatRupiahInput(form.rental_price)}
                         onChange={(e) => setForm({ ...form, rental_price: parseRupiahInput(e.target.value) })} />
                     </div>
-                  </Field>
-                  <Field label="Par Stock">
-                    <input className={inputCls} type="number" min="0" placeholder="0" value={form.par_stock} onChange={(e) => setForm({ ...form, par_stock: e.target.value })} />
-                  </Field>
-                  <Field label="Min Stock">
-                    <input className={inputCls} type="number" min="0" placeholder="0" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
                   </Field>
                   <Field label="Status">
                     <div className="flex items-center gap-3 h-[42px]">

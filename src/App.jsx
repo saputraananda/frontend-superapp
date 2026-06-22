@@ -47,6 +47,11 @@ import EkaGFPIK from "./pages/master-rs-ikm/components/MasterLinen/EkaGFPIK";
 import EkaFPluit from "./pages/master-rs-ikm/components/MasterLinen/EkaFPluit";
 import ColumbiaBSD from "./pages/master-rs-ikm/components/MasterLinen/ColumbiaBSD";
 import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen";
+import MasterSize from "./pages/master-rs-ikm/components/MasterData/MasterSize";
+import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor";
+import MasterMaterial from "./pages/master-rs-ikm/components/MasterData/MasterMaterial";
+import MasterLinenCategory from "./pages/master-rs-ikm/components/MasterData/MasterLinenCategory";
+import MasterVendorIKM from "./pages/master-rs-ikm/components/MasterData/MasterVendor";
 import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
 import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
@@ -305,6 +310,11 @@ export default function App() {
           <Route path="/eka-gfpik-linen" element={<EkaGFPIK />} />
           <Route path="/eka-fpluit-linen" element={<EkaFPluit />} />
           <Route path="/columbia-bsd-linen" element={<ColumbiaBSD />} />
+          <Route path="/master-data-ikm/size" element={<MasterSize />} />
+          <Route path="/master-data-ikm/color" element={<MasterColor />} />
+          <Route path="/master-data-ikm/material" element={<MasterMaterial />} />
+          <Route path="/master-data-ikm/category" element={<MasterLinenCategory />} />
+          <Route path="/master-data-ikm/vendor" element={<MasterVendorIKM />} />
         </Route>
 
         {/* ── Target Waschen ── */}

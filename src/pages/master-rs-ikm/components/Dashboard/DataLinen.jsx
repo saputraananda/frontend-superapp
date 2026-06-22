@@ -68,8 +68,16 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ purchase_price: "", effective_date: "", notes: "" });
+  const [form, setForm] = useState({ vendor_id: "", qty: "1", unit_price: "", effective_date: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [vendors, setVendors] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try { setVendors(await api("/ikm/master-linen/vendors") || []); } catch { /* silent */ }
+    })();
+  }, [open]);
 
   const fetchHistory = useCallback(async () => {
     if (!linen) return;
@@ -93,13 +101,15 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
       await api(`/ikm/master-linen/${linen.id}/price-history`, {
         method: "POST",
         body: JSON.stringify({
-          purchase_price: Number(form.purchase_price),
+          vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
+          qty: Number(form.qty),
+          unit_price: Number(form.unit_price),
           effective_date: form.effective_date,
           notes: form.notes,
         }),
       });
       setAddOpen(false);
-      setForm({ purchase_price: "", effective_date: "", notes: "" });
+      setForm({ vendor_id: "", qty: "1", unit_price: "", effective_date: "", notes: "" });
       fetchHistory();
       onToast?.("Harga beli berhasil ditambahkan");
     } catch (err) {
@@ -128,7 +138,7 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
           <div>
             <h3 className="text-base font-bold text-slate-800">Riwayat Harga Beli</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{linen?.linen_name}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{linen?.linen_name}{[linen?.size_name, linen?.color_name, linen?.material_name].filter(Boolean).length ? " — " + [linen?.size_name, linen?.color_name, linen?.material_name].filter(Boolean).join(" — ") : ""}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition">
             <HiOutlineXMark className="h-5 w-5 text-slate-500" />
@@ -145,12 +155,19 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
 
           {addOpen && (
             <form onSubmit={handleAdd} className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Harga Beli (Rp) <span className="text-rose-500">*</span></label>
-                  <input type="text" inputMode="numeric" value={formatRupiahInput(form.purchase_price)}
-                    onChange={e => setForm(p => ({ ...p, purchase_price: parseRupiahInput(e.target.value) }))}
-                    required min={0} step="100"
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Harga/Unit (Rp) <span className="text-rose-500">*</span></label>
+                  <input type="text" inputMode="numeric" value={formatRupiahInput(form.unit_price)}
+                    onChange={e => setForm(p => ({ ...p, unit_price: parseRupiahInput(e.target.value) }))}
+                    required
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Qty <span className="text-rose-500">*</span></label>
+                  <input type="number" value={form.qty}
+                    onChange={e => setForm(p => ({ ...p, qty: e.target.value }))}
+                    required min={1} step="1"
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
                 </div>
                 <div>
@@ -161,12 +178,25 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Catatan</label>
-                <input type="text" value={form.notes}
-                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                  placeholder="Opsional"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Vendor</label>
+                  <select value={form.vendor_id}
+                    onChange={e => setForm(p => ({ ...p, vendor_id: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none bg-white">
+                    <option value="">— Pilih Vendor —</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.id}>{v.nama_vendor}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Catatan</label>
+                  <input type="text" value={form.notes}
+                    onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                    placeholder="Opsional"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setAddOpen(false)} disabled={saving}
@@ -190,12 +220,18 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
             <div className="space-y-2">
               {history.map(h => (
                 <div key={h.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800">{formatRupiah(h.purchase_price)}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Efektif: {fmtDate(h.effective_date)}{h.notes ? ` — ${h.notes}` : ""}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-slate-800">{formatRupiah(h.unit_price)}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Qty: <span className="font-semibold text-slate-700">{h.qty}</span>
+                      {h.nama_vendor ? <span> — {h.nama_vendor}</span> : ""}
+                      <span className="mx-1">•</span>
+                      Efektif: {fmtDate(h.effective_date)}
+                      {h.notes ? <span className="ml-1">— {h.notes}</span> : ""}
+                    </div>
                   </div>
                   <button onClick={() => handleDelete(h.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 ml-3">
                     <HiOutlineTrash className="h-4 w-4" />
                   </button>
                 </div>
@@ -214,6 +250,7 @@ function LinenFormModal({ open, onClose, onSave, editData, loading, categories, 
   const initialForm = useMemo(() => ({
     linen_code: editData?.linen_code || "",
     linen_name: editData?.linen_name || "",
+    _fetchingCode: editData ? false : true,
     category_id: editData?.category_id || "",
     size_id: editData?.size_id || "",
     color_id: editData?.color_id || "",
@@ -224,6 +261,17 @@ function LinenFormModal({ open, onClose, onSave, editData, loading, categories, 
   const [form, setForm] = useState(initialForm);
 
   useEffect(() => { setForm(initialForm); }, [initialForm]);
+
+  // Fetch next code when opening for add
+  useEffect(() => {
+    if (!open || editData) return;
+    (async () => {
+      try {
+        const res = await api("/ikm/master-linen/next-code");
+        setForm(p => ({ ...p, linen_code: res.nextCode }));
+      } catch { /* silent */ }
+    })();
+  }, [open, editData]);
 
   if (!open) return null;
 
@@ -241,10 +289,9 @@ function LinenFormModal({ open, onClose, onSave, editData, loading, categories, 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Kode Linen</label>
-              <input type="text" value={form.linen_code}
-                onChange={e => setForm(p => ({ ...p, linen_code: e.target.value }))}
-                placeholder="Contoh: LIN-001"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-red-500 outline-none transition" />
+              <input type="text" value={form.linen_code} readOnly
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-red-500 outline-none transition cursor-not-allowed" />
+              <p className="text-[10px] text-slate-400 mt-1">Otomatis terisi</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -626,14 +673,14 @@ export default function DataLinenPage() {
                       start = Math.max(1, end - maxVisible + 1);
                     }
                     return Array.from({ length: end - start + 1 }, (_, i) => start + i).map(p => (
-                    <button key={p} onClick={() => fetchData(p)}
-                      className={cn("px-3 py-1.5 text-xs font-semibold rounded-lg border transition",
-                        p === page
-                          ? "bg-red-600 text-white border-red-600"
-                          : "border-slate-200 hover:bg-slate-50"
-                      )}>
-                      {p}
-                    </button>
+                      <button key={p} onClick={() => fetchData(p)}
+                        className={cn("px-3 py-1.5 text-xs font-semibold rounded-lg border transition",
+                          p === page
+                            ? "bg-red-600 text-white border-red-600"
+                            : "border-slate-200 hover:bg-slate-50"
+                        )}>
+                        {p}
+                      </button>
                     ));
                   })()}
                   <button disabled={page >= totalPages}
