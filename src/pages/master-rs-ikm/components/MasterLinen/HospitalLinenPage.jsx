@@ -106,6 +106,10 @@ export default function HospitalLinenPage({ hospitalId }) {
   const [quickSelected, setQuickSelected] = useState([]);
   const [quickSearch, setQuickSearch] = useState("");
   const [quickSaving, setQuickSaving] = useState(false);
+  const [hospitals, setHospitals] = useState([]);
+  const [quickHospitalIds, setQuickHospitalIds] = useState(new Set());
+  // Cache hospital_linen per hospital for filtering
+  const [hospitalLinenCache, setHospitalLinenCache] = useState({});
 
   // Searchable dropdown
   const [ddOpen, setDdOpen] = useState(false);
@@ -163,6 +167,34 @@ export default function HospitalLinenPage({ hospitalId }) {
     setQuickSelected([]);
     setQuickSearch("");
     setModalOpen(true);
+    // Fetch hospitals
+    (async () => {
+      try {
+        const res = await api("/ikm/master-rs/hospitals");
+        setHospitals(res.data || []);
+        // Reset to just current hospital
+        setQuickHospitalIds(new Set([hospitalId]));
+        // Prefetch linen for current hospital
+        await fetchHospitalLinen(hospitalId);
+      } catch { /* silent */ }
+    })();
+  };
+
+  // Fetch linen registered at a given hospital for filter
+  const fetchHospitalLinen = async (hid) => {
+    try {
+      const r = await api(`/ikm/hospital-linen/${hid}`);
+      setHospitalLinenCache(prev => ({ ...prev, [hid]: new Set(r.data?.map(i => i.linen_id) || []) }));
+    } catch { /* silent */ }
+  };
+
+  const handleHospitalSelect = (hid) => {
+    setQuickHospitalIds(prev => {
+      const next = new Set(prev);
+      if (next.has(hid)) next.delete(hid); else next.add(hid);
+      return next;
+    });
+    if (!hospitalLinenCache[hid]) fetchHospitalLinen(hid);
   };
 
   const openEdit = (item) => {
@@ -224,14 +256,16 @@ export default function HospitalLinenPage({ hospitalId }) {
   };
 
   const handleQuickAdd = async () => {
-    if (!quickSelected.length) return;
+    if (!quickSelected.length || !quickHospitalIds.size) return;
     setQuickSaving(true);
     let ok = 0, fail = 0;
-    for (const lid of quickSelected) {
-      try {
-        await api(basePath, { method: "POST", body: JSON.stringify({ linen_id: lid }) });
-        ok++;
-      } catch { fail++; }
+    for (const hid of quickHospitalIds) {
+      for (const lid of quickSelected) {
+        try {
+          await api(`/ikm/hospital-linen/${hid}`, { method: "POST", body: JSON.stringify({ linen_id: lid }) });
+          ok++;
+        } catch { fail++; }
+      }
     }
     showToast("success", `${ok} linen berhasil ditambahkan${fail ? `, ${fail} gagal` : ""}`);
     setQuickSaving(false);
@@ -282,9 +316,18 @@ export default function HospitalLinenPage({ hospitalId }) {
     return s;
   });
 
-  // Quick-add list: all linen available
-  const quickLinenList = linenList
-    .sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
+  // Quick-add list: linen NOT yet registered in ANY selected hospital
+  const quickLinenList = (() => {
+    if (quickHospitalIds.size === 0) return [];
+    // Union of existing linen_ids across selected hospitals
+    const existing = new Set();
+    for (const hid of quickHospitalIds) {
+      const cached = hospitalLinenCache[hid];
+      if (cached) for (const id of cached) existing.add(id);
+    }
+    return linenList.filter(l => !existing.has(l.id))
+      .sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
+  })();
   const filteredQuick = quickLinenList.filter(l =>
     l.linen_name.toLowerCase().includes(quickSearch.toLowerCase()) ||
     (l.linen_code || "").toLowerCase().includes(quickSearch.toLowerCase())
@@ -528,8 +571,29 @@ export default function HospitalLinenPage({ hospitalId }) {
 
             {/* ── Tab: Tambah Linen Cepat ── */}
             {modalTab === "quick" && (
-              <div className="px-6 py-5 overflow-y-auto">
-                <div className="relative mb-4">
+              <div className="px-6 py-5 overflow-y-auto flex flex-col gap-4">
+                {/* Hospital select */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-600 mb-2">Pilih Rumah Sakit</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+                    {hospitals.map(h => {
+                      const checked = quickHospitalIds.has(h.id);
+                      return (
+                        <label key={h.id} className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition text-xs",
+                          checked ? "bg-blue-50 text-blue-800 border border-blue-200" : "hover:bg-slate-50 text-slate-600 border border-transparent"
+                        )}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => handleHospitalSelect(h.id)}
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                          <span className="truncate font-medium">{h.hospital_name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="relative">
                   <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input type="text" value={quickSearch} onChange={(e) => setQuickSearch(e.target.value)}
                     placeholder="Cari linen..." className={cn(inputCls, "pl-10")} autoFocus />
@@ -538,11 +602,11 @@ export default function HospitalLinenPage({ hospitalId }) {
                 {quickLinenList.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
                     <HiOutlineCheckCircle className="h-8 w-8 text-emerald-400" />
-                    <p className="text-sm font-semibold">Semua linen sudah terdaftar</p>
+                    <p className="text-sm font-semibold">Semua linen sudah terdaftar di RS yang dipilih</p>
                   </div>
                 ) : (
                   <>
-                    <div className="max-h-80 overflow-y-auto -mx-2">
+                    <div className="max-h-64 overflow-y-auto -mx-2">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 px-2">
                         {filteredQuick.map(l => {
                           const checked = quickSelected.includes(l.id);
@@ -568,19 +632,19 @@ export default function HospitalLinenPage({ hospitalId }) {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-4">
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                       <p className="text-sm text-slate-500">
-                        <span className="font-semibold text-slate-700">{quickSelected.length}</span> linen dipilih
+                        <span className="font-semibold text-slate-700">{quickSelected.length}</span> linen · <span className="font-semibold text-blue-700">{quickHospitalIds.size}</span> RS
                       </p>
                       <div className="flex gap-3">
                         <button type="button" onClick={closeModal}
                           className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
                           Batal
                         </button>
-                        <button type="button" disabled={!quickSelected.length || quickSaving}
+                        <button type="button" disabled={!quickSelected.length || !quickHospitalIds.size || quickSaving}
                           onClick={handleQuickAdd}
                           className="rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 px-4 py-2.5 text-sm font-semibold text-white transition inline-flex items-center gap-2">
-                          {quickSaving ? "Menyimpan..." : `Tambah ${quickSelected.length} Linen`}
+                          {quickSaving ? "Menyimpan..." : `Tambah ${quickSelected.length} Linen ke ${quickHospitalIds.size} RS`}
                         </button>
                       </div>
                     </div>
