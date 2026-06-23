@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { assetUrl } from "../lib/api";
+import { api, assetUrl } from "../lib/api";
+import EmployeeMood, { MOOD_OPTIONS } from "../pages/portal/components/EmployeeMood";
 
 export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -7,6 +8,9 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   const [logoIndex, setLogoIndex] = useState(0);
   const [logoVisible, setLogoVisible] = useState(true);
   const logoTimeoutRef = useRef(null);
+
+  const [todayMood, setTodayMood] = useState(null);
+  const [showMoodModal, setShowMoodModal] = useState(false);
 
   const logos = [
     { src: "/alora.png", alt: "Alora Group Indonesia" },
@@ -44,6 +48,30 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
     };
   }, [logos.length]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api("/api/employee-mood/today");
+        if (res.success && res.data) {
+          setTodayMood(res.data);
+        } else {
+          setShowMoodModal(true);
+        }
+      } catch (err) {
+        console.error("[HeaderLayout] Gagal load today mood:", err);
+      }
+    })();
+  }, []);
+
+  const handleCloseMoodModal = () => {
+    setShowMoodModal(false);
+  };
+
+  const handleMoodSaved = (savedData) => {
+    setTodayMood(savedData);
+    setShowMoodModal(false);
+  };
+
   return (
     <div className="min-h-screen bg-indigo-50">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
@@ -64,6 +92,20 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* E-Mood Icon Button Desktop */}
+              <button
+                onClick={() => setShowMoodModal(true)}
+                className="group flex items-center justify-center h-10 w-10 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                title="Status E-Mood Hari Ini"
+              >
+                <span className="text-xl group-hover:scale-110 transition-transform">
+                  {todayMood?.mood_level
+                    ? MOOD_OPTIONS.find((o) => o.value === todayMood.mood_level)?.emoji || "🧘"
+                    : "🧘"
+                  }
+                </span>
+              </button>
+
               <div className="text-right">
                 <p className="text-sm font-semibold text-slate-700">Halo, {capitalizeEachWord(user?.name || "User")}</p>
                 <p className="text-xs text-slate-500">{capitalizeEachWord(jobTitle)}</p>
@@ -114,6 +156,20 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* E-Mood Icon Button Mobile */}
+              <button
+                onClick={() => setShowMoodModal(true)}
+                className="flex items-center justify-center h-9 w-9 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:shadow-sm transition-all focus:outline-none"
+                title="Status E-Mood Hari Ini"
+              >
+                <span className="text-lg">
+                  {todayMood?.mood_level
+                    ? MOOD_OPTIONS.find((o) => o.value === todayMood.mood_level)?.emoji || "🧘"
+                    : "🧘"
+                  }
+                </span>
+              </button>
+
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="h-10 w-10 rounded-full border-2 border-white shadow overflow-hidden"
@@ -154,6 +210,13 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
       <main className="py-6 sm:py-10">
         {children}
       </main>
+
+      <EmployeeMood
+        isOpen={showMoodModal}
+        onClose={handleCloseMoodModal}
+        todayMood={todayMood}
+        onMoodSaved={handleMoodSaved}
+      />
     </div>
   );
 }
