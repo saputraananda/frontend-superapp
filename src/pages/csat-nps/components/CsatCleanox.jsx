@@ -5,7 +5,7 @@ import {
   HiOutlineFaceSmile, HiOutlineFaceFrown, HiOutlineMinus,
   HiOutlineArrowTrendingUp, HiOutlineClipboardDocumentList,
   HiOutlineClock, HiOutlineArrowPath, HiOutlineSparkles,
-  HiOutlineXMark, HiOutlineFunnel,
+  HiOutlineXMark, HiOutlineFunnel, HiOutlinePencilSquare,
 } from "react-icons/hi2";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -77,6 +77,9 @@ function LayananEditor({ row, onSaved }) {
   const [layanan, setLayanan] = useState(
     row.layanan ? row.layanan.split(",").map(s => s.trim()).filter(Boolean) : []
   );
+  const [isEditing, setIsEditing] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const toggleLayanan = (l) => {
     setLayanan(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
@@ -84,30 +87,43 @@ function LayananEditor({ row, onSaved }) {
 
   const handleSave = async () => {
     setSaving(true);
+    setErrorMsg("");
     try {
       await api(`/csat-nps/cleanox/${row.id}`, {
         method: "PATCH",
         body: JSON.stringify({ layanan: layanan.join(", ") }),
       });
+      setIsEditing(false);
       onSaved();
     } catch (e) {
-      alert("Gagal menyimpan: " + e.message);
+      setErrorMsg("Gagal menyimpan: " + e.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Hapus data ini?")) return;
+  const handleDeleteClick = () => {
+    setShowConfirmDelete(true);
+  };
+
+  const executeDelete = async () => {
     setDeleting(true);
+    setErrorMsg("");
     try {
       await api(`/csat-nps/cleanox/${row.id}`, { method: "DELETE" });
       onSaved();
     } catch (e) {
-      alert("Gagal menghapus: " + e.message);
+      setErrorMsg("Gagal menghapus: " + e.message);
+      setShowConfirmDelete(false);
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleCancel = () => {
+    setLayanan(row.layanan ? row.layanan.split(",").map(s => s.trim()).filter(Boolean) : []);
+    setIsEditing(false);
+    setErrorMsg("");
   };
 
   return (
@@ -129,39 +145,103 @@ function LayananEditor({ row, onSaved }) {
 
       {/* Layanan editor */}
       <div className="mb-3">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Layanan</label>
-        <div className="flex gap-2">
-          <div className="flex-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-0.5">
-            {ALL_LAYANAN.map((l) => (
-              <label key={l} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-50 cursor-pointer text-xs">
-                <input
-                  type="checkbox"
-                  checked={layanan.includes(l)}
-                  onChange={() => toggleLayanan(l)}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                {l}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 shrink-0">
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Layanan</label>
+          {!isEditing && (
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+              onClick={() => setIsEditing(true)}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
+              title="Edit Layanan"
             >
-              {saving ? "..." : "Simpan"}
+              <HiOutlinePencilSquare className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {!isEditing ? (
+          <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex flex-wrap gap-1.5 items-center min-h-[40px]">
+            {row.layanan ? (
+              row.layanan.split(",").map((l, i) => (
+                <span key={i} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium border border-emerald-100">
+                  {l.trim()}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-slate-400 italic">Belum ada layanan dipilih</span>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <div className="flex-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-0.5">
+              {ALL_LAYANAN.map((l) => (
+                <label key={l} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-50 cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={layanan.includes(l)}
+                    onChange={() => toggleLayanan(l)}
+                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  {l}
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 shrink-0">
+              <button
+                onClick={handleSave}
+                disabled={saving || showConfirmDelete}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {saving ? "..." : "Simpan"}
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                disabled={deleting || showConfirmDelete}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition disabled:opacity-50 whitespace-nowrap"
+              >
+                Hapus Penilaian
+              </button>
+              {row.layanan && (
+                <button
+                  onClick={handleCancel}
+                  disabled={showConfirmDelete}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition disabled:opacity-50"
+                >
+                  Batal
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showConfirmDelete && (
+        <div className="mt-3 bg-red-50 border border-red-200 rounded-xl p-3.5 text-xs space-y-2.5 animate-fadeIn">
+          <p className="font-semibold text-red-800">Apakah Anda yakin ingin menghapus penilaian ini secara keseluruhan?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={executeDelete}
+              disabled={deleting}
+              className="px-3 py-1.5 font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50 shadow-sm"
+            >
+              {deleting ? "..." : "Ya, Hapus Penilaian"}
             </button>
             <button
-              onClick={handleDelete}
+              onClick={() => setShowConfirmDelete(false)}
               disabled={deleting}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition disabled:opacity-50"
+              className="px-3 py-1.5 font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition shadow-sm"
             >
-              {deleting ? "..." : "Hapus"}
+              Batal
             </button>
           </div>
         </div>
-      </div>
+      )}
+
+      {errorMsg && (
+        <div className="mt-3 bg-red-50 border border-red-150 rounded-xl p-3 text-xs text-red-700 flex items-center justify-between">
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg("")} className="text-red-500 font-bold hover:text-red-700 px-1 text-base">×</button>
+        </div>
+      )}
 
       {row.feedback_tags && (
         <div className="flex flex-wrap gap-1 mb-2">
