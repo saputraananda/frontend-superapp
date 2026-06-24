@@ -7,8 +7,21 @@ import {
   HiOutlineClock, HiOutlineArrowPath, HiOutlineSparkles,
   HiOutlineXMark, HiOutlineFunnel,
 } from "react-icons/hi2";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
+} from "recharts";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
+
+const ALL_LAYANAN = [
+  "DeepCleaning Bed", "General Cleaning", "FastCleaning Bed",
+  "Sofa Kain Standar", "Sofa Kulit Jumbo", "Sofa Kain Jumbo",
+  "Sofa Kulit Standar", "Sofabed Kain", "Sofabed Lipat Kain",
+  "Sofabed Kulit", "Sofabed Lipat Kulit", "Karpet",
+  "Kursi Kulit", "Kursi Kain",
+  "Full-Interior Car Cleaning", "Kursi Mobil Kain", "Kursi Mobil Kulit",
+];
 
 const CSAT_LABELS = {
   1: { label: "Sangat Tidak Puas", color: "bg-red-500" },
@@ -51,6 +64,115 @@ function Stars({ score, max = 5 }) {
       {Array.from({ length: max }, (_, i) => (
         <HiOutlineStar key={i} className={cn("h-3.5 w-3.5", i < score ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Layanan Editor (used inside modal)
+// ─────────────────────────────────────────────
+function LayananEditor({ row, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [layanan, setLayanan] = useState(
+    row.layanan ? row.layanan.split(",").map(s => s.trim()).filter(Boolean) : []
+  );
+
+  const toggleLayanan = (l) => {
+    setLayanan(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api(`/csat-nps/cleanox/${row.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ layanan: layanan.join(", ") }),
+      });
+      onSaved();
+    } catch (e) {
+      alert("Gagal menyimpan: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Hapus data ini?")) return;
+    setDeleting(true);
+    try {
+      await api(`/csat-nps/cleanox/${row.id}`, { method: "DELETE" });
+      onSaved();
+    } catch (e) {
+      alert("Gagal menghapus: " + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <Stars score={row.csat_score} />
+        <span className="text-xs font-semibold text-slate-600">{row.csat_label}</span>
+        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full",
+          NPS_COLORS[row.nps_category]?.bg, NPS_COLORS[row.nps_category]?.text
+        )}>{row.nps_category}</span>
+        <span className="text-xs font-bold text-slate-700 ml-auto">NPS: {row.nps_score}</span>
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-slate-500 mb-3 flex-wrap">
+        {row.no_nota && <span>No. Nota: <strong className="text-slate-700">{row.no_nota}</strong></span>}
+        {row.nama && <span>Nama: <strong className="text-slate-700">{row.nama}</strong></span>}
+        <span>{row.created_at}</span>
+      </div>
+
+      {/* Layanan editor */}
+      <div className="mb-3">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Layanan</label>
+        <div className="flex gap-2">
+          <div className="flex-1 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-0.5">
+            {ALL_LAYANAN.map((l) => (
+              <label key={l} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-50 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={layanan.includes(l)}
+                  onChange={() => toggleLayanan(l)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                {l}
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2 shrink-0">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+            >
+              {saving ? "..." : "Simpan"}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition disabled:opacity-50"
+            >
+              {deleting ? "..." : "Hapus"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {row.feedback_tags && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {row.feedback_tags.split(",").map((t, i) => (
+            <span key={i} className="px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full text-[10px] font-semibold">{t.trim()}</span>
+          ))}
+        </div>
+      )}
+      {row.feedback_text && (
+        <p className="text-xs text-slate-700 bg-slate-50 rounded-lg p-3">{row.feedback_text}</p>
+      )}
     </div>
   );
 }
@@ -230,7 +352,7 @@ export default function CsatCleanox() {
         {/* ── CSAT Distribution + NPS Breakdown ── */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* CSAT Distribution */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
             <div className="flex items-center gap-2 mb-4">
               <HiOutlineChartBar className="h-5 w-5 text-emerald-500" />
               <h2 className="text-sm font-bold text-slate-800">Distribusi Skor CSAT</h2>
@@ -268,7 +390,7 @@ export default function CsatCleanox() {
           </div>
 
           {/* NPS Breakdown */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
             <div className="flex items-center gap-2 mb-4">
               <HiOutlineFaceSmile className="h-5 w-5 text-emerald-500" />
               <h2 className="text-sm font-bold text-slate-800">NPS Breakdown</h2>
@@ -308,7 +430,7 @@ export default function CsatCleanox() {
         {/* ── Top Feedback Tags + Recent Feedback ── */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top Tags */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
             <div className="flex items-center gap-2 mb-4">
               <HiOutlineChatBubbleLeftRight className="h-5 w-5 text-teal-500" />
               <h2 className="text-sm font-bold text-slate-800">Topik Feedback</h2>
@@ -334,7 +456,7 @@ export default function CsatCleanox() {
           </div>
 
           {/* Recent Feedback */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
             <div className="flex items-center gap-2 mb-4">
               <HiOutlineChatBubbleLeftRight className="h-5 w-5 text-violet-500" />
               <h2 className="text-sm font-bold text-slate-800">Feedback Terbaru</h2>
@@ -353,6 +475,7 @@ export default function CsatCleanox() {
                     )}>{fb.nps_category}</span>
                     <span className="text-[10px] text-slate-400 ml-auto">{fb.no_nota || fb.nama || ""}</span>
                   </div>
+                  {fb.layanan && <p className="text-[10px] text-slate-400 mb-1">Layanan: <span className="font-semibold text-slate-600">{fb.layanan}</span></p>}
                   <p className="text-xs text-slate-700 line-clamp-2">{fb.feedback_text}</p>
                   <p className="text-[10px] text-slate-400 mt-1">{fb.created_at}</p>
                 </div>
@@ -363,9 +486,70 @@ export default function CsatCleanox() {
           </div>
         </section>
 
+        {/* ── CSAT by Service (Stacked Bar) ── */}
+        {data?.csat_by_service?.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
+            <div className="flex items-center gap-2 mb-4">
+              <HiOutlineChartBar className="h-5 w-5 text-emerald-500" />
+              <h2 className="text-sm font-bold text-slate-800">CSAT per Layanan</h2>
+            </div>
+            <div className="h-72 sm:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.csat_by_service} layout="vertical" barSize={16} margin={{ left: 10, right: 20 }}
+                  onClick={(e) => {
+                    if (e?.activeLabel) openModal(`Layanan: ${e.activeLabel}`, { layanan: e.activeLabel });
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                  <YAxis type="category" dataKey="layanan" width={120} tick={{ fontSize: 10, fill: "#475569" }} />
+                  <RechartsTooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload?.length) {
+                        const row = data.csat_by_service.find(d => d.layanan === label);
+                        return (
+                          <div className="bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-xl shadow-slate-200/60">
+                            <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase">{label}</p>
+                            {[5,4,3,2,1].map(s => {
+                              const key = `bintang_${s}`;
+                              const v = row?.[key] || 0;
+                              if (!v) return null;
+                              const labelMap = {5:"Sangat Puas",4:"Puas",3:"Netral",2:"Tidak Puas",1:"Sangat Tidak Puas"};
+                              const colors = {5:"#10b981",4:"#3b82f6",3:"#f59e0b",2:"#f97316",1:"#ef4444"};
+                              return (
+                                <p key={s} className="text-xs font-semibold" style={{color: colors[s]}}>
+                                  {s}★ {labelMap[s]}: {v}
+                                </p>
+                              );
+                            })}
+                            {row?.total && <p className="text-[10px] text-slate-400 mt-1">Total: {row.total}</p>}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend
+                    iconType="circle" iconSize={8}
+                    formatter={(val) => {
+                      const map = {"bintang_5":"5★ Puas","bintang_4":"4★","bintang_3":"3★","bintang_2":"2★","bintang_1":"1★"};
+                      return <span className="text-xs text-slate-600">{map[val] || val}</span>;
+                    }}
+                  />
+                  <Bar dataKey="bintang_5" stackId="a" fill="#10b981" name="bintang_5" />
+                  <Bar dataKey="bintang_4" stackId="a" fill="#3b82f6" name="bintang_4" />
+                  <Bar dataKey="bintang_3" stackId="a" fill="#f59e0b" name="bintang_3" />
+                  <Bar dataKey="bintang_2" stackId="a" fill="#f97316" name="bintang_2" />
+                  <Bar dataKey="bintang_1" stackId="a" fill="#ef4444" name="bintang_1" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
+
         {/* ── Monthly Trend ── */}
         {data?.monthly_trend?.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
             <div className="flex items-center gap-2 mb-4">
               <HiOutlineArrowTrendingUp className="h-5 w-5 text-indigo-500" />
               <h2 className="text-sm font-bold text-slate-800">Tren Bulanan (12 Bulan Terakhir)</h2>
@@ -405,7 +589,7 @@ export default function CsatCleanox() {
         )}
 
         {/* ── Recent Responses ── */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
           <div className="flex items-center gap-2 mb-4">
             <HiOutlineClock className="h-5 w-5 text-slate-500" />
             <h2 className="text-sm font-bold text-slate-800">Respon Terbaru</h2>
@@ -415,6 +599,7 @@ export default function CsatCleanox() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">No. Nota / Nama</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Layanan</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">CSAT</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Label</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">NPS</th>
@@ -430,6 +615,7 @@ export default function CsatCleanox() {
                     onClick={() => openModal(`Detail: ${r.nama || r.no_nota || "#" + r.id}`, { search: r.no_nota || r.nama || "" })}
                   >
                     <td className="py-2 px-3 font-medium text-slate-700">{r.no_nota || r.nama || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600">{r.layanan || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       <span className="inline-flex items-center gap-0.5">
                         <HiOutlineStar className="h-3 w-3 text-amber-400 fill-amber-400" />
@@ -454,7 +640,7 @@ export default function CsatCleanox() {
         </section>
 
         {/* ── Detail Table with Filters & Pagination ── */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
           <div className="flex items-center gap-2 mb-4">
             <HiOutlineFunnel className="h-5 w-5 text-emerald-500" />
             <h2 className="text-sm font-bold text-slate-800">Detail Data Respon</h2>
@@ -490,6 +676,7 @@ export default function CsatCleanox() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">No. Nota / Nama</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Layanan</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">CSAT</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Label</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">NPS</th>
@@ -501,15 +688,16 @@ export default function CsatCleanox() {
               </thead>
               <tbody>
                 {detail.loading ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-slate-400">Loading...</td></tr>
                 ) : detail.data.length === 0 ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
                 ) : detail.data.map((r) => (
                   <tr key={r.id}
                     className="border-b border-slate-100 hover:bg-emerald-50 cursor-pointer transition"
                     onClick={() => openModal(`Detail: ${r.nama || r.no_nota || "#" + r.id}`, { search: r.no_nota || r.nama || "" })}
                   >
                     <td className="py-2 px-3 font-medium text-slate-700">{r.no_nota || r.nama || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600">{r.layanan || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       <span className="inline-flex items-center gap-0.5">
                         <HiOutlineStar className="h-3 w-3 text-amber-400 fill-amber-400" />
@@ -581,31 +769,11 @@ export default function CsatCleanox() {
               ) : (
                 <div className="space-y-3">
                   {modal.data.map(r => (
-                    <div key={r.id} className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50 transition">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <Stars score={r.csat_score} />
-                        <span className="text-xs font-semibold text-slate-600">{r.csat_label}</span>
-                        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                          NPS_COLORS[r.nps_category]?.bg, NPS_COLORS[r.nps_category]?.text
-                        )}>{r.nps_category}</span>
-                        <span className="text-xs font-bold text-slate-700 ml-auto">NPS: {r.nps_score}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mb-2 flex-wrap">
-                        {r.no_nota && <span>No. Nota: <strong className="text-slate-700">{r.no_nota}</strong></span>}
-                        {r.nama && <span>Nama: <strong className="text-slate-700">{r.nama}</strong></span>}
-                        <span>{r.created_at}</span>
-                      </div>
-                      {r.feedback_tags && (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {r.feedback_tags.split(",").map((t, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full text-[10px] font-semibold">{t.trim()}</span>
-                          ))}
-                        </div>
-                      )}
-                      {r.feedback_text && (
-                        <p className="text-xs text-slate-700 bg-slate-50 rounded-lg p-3">{r.feedback_text}</p>
-                      )}
-                    </div>
+                    <LayananEditor
+                      key={r.id}
+                      row={r}
+                      onSaved={() => { closeModal(); fetchStats(); fetchDetail(1); }}
+                    />
                   ))}
                 </div>
               )}
