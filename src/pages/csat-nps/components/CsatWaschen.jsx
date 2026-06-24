@@ -10,6 +10,8 @@ import {
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
+const ALL_LAYANAN_WASCHEN = ["Satuan", "Kiloan"];
+
 const CSAT_LABELS = {
   1: { label: "Sangat Tidak Puas", color: "bg-red-500", text: "text-red-700", bg: "bg-red-50", border: "border-red-200" },
   2: { label: "Tidak Puas", color: "bg-orange-500", text: "text-orange-700", bg: "bg-orange-50", border: "border-orange-200" },
@@ -51,6 +53,105 @@ function Stars({ score, max = 5 }) {
       {Array.from({ length: max }, (_, i) => (
         <HiOutlineStar key={i} className={cn("h-3.5 w-3.5", i < score ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Layanan Editor for Waschen
+// ─────────────────────────────────────────────
+function LayananEditorWaschen({ row, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [layanan, setLayanan] = useState(row.layanan || "");
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api(`/csat-nps/waschen/${row.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ layanan }),
+      });
+      onSaved();
+    } catch (e) {
+      alert("Gagal menyimpan: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Hapus data ini?")) return;
+    setDeleting(true);
+    try {
+      await api(`/csat-nps/waschen/${row.id}`, { method: "DELETE" });
+      onSaved();
+    } catch (e) {
+      alert("Gagal menghapus: " + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <Stars score={row.csat_score} />
+        <span className="text-xs font-semibold text-slate-600">{row.csat_label}</span>
+        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full",
+          NPS_COLORS[row.nps_category]?.bg, NPS_COLORS[row.nps_category]?.text
+        )}>{row.nps_category}</span>
+        <span className="text-xs font-bold text-slate-700 ml-auto">NPS: {row.nps_score}</span>
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-slate-500 mb-3 flex-wrap">
+        {row.no_nota && <span>No. Nota: <strong className="text-slate-700">{row.no_nota}</strong></span>}
+        <span>{row.created_at}</span>
+      </div>
+
+      {/* Layanan editor */}
+      <div className="mb-3">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+          Layanan {row.layanan ? "(klik ganti)" : "(pilih)"}
+        </label>
+        <div className="flex gap-2">
+          <select
+            value={layanan}
+            onChange={(e) => setLayanan(e.target.value)}
+            className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none"
+          >
+            {!row.layanan && <option value="">— Pilih —</option>}
+            {ALL_LAYANAN_WASCHEN.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition disabled:opacity-50"
+          >
+            {saving ? "..." : "Simpan"}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition disabled:opacity-50"
+          >
+            {deleting ? "..." : "Hapus"}
+          </button>
+        </div>
+      </div>
+
+      {row.feedback_tags && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {row.feedback_tags.split(",").map((t, i) => (
+            <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-semibold">{t.trim()}</span>
+          ))}
+        </div>
+      )}
+      {row.feedback_text && (
+        <p className="text-xs text-slate-700 bg-slate-50 rounded-lg p-3">{row.feedback_text}</p>
+      )}
     </div>
   );
 }
@@ -415,6 +516,7 @@ export default function CsatWaschen() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">No. Nota</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Layanan</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">CSAT</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Label</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">NPS</th>
@@ -430,6 +532,7 @@ export default function CsatWaschen() {
                     onClick={() => openModal(`Detail: ${r.no_nota || "#" + r.id}`, { search: r.no_nota || "" })}
                   >
                     <td className="py-2 px-3 font-medium text-slate-700">{r.no_nota || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600">{r.layanan || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       <span className="inline-flex items-center gap-0.5">
                         <HiOutlineStar className="h-3 w-3 text-amber-400 fill-amber-400" />
@@ -490,6 +593,7 @@ export default function CsatWaschen() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">No. Nota</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Layanan</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">CSAT</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Label</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">NPS</th>
@@ -501,15 +605,16 @@ export default function CsatWaschen() {
               </thead>
               <tbody>
                 {detail.loading ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-slate-400">Loading...</td></tr>
                 ) : detail.data.length === 0 ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
                 ) : detail.data.map((r) => (
                   <tr key={r.id}
                     className="border-b border-slate-100 hover:bg-violet-50 cursor-pointer transition"
                     onClick={() => openModal(`Detail: ${r.no_nota || "#" + r.id}`, { search: r.no_nota || "" })}
                   >
                     <td className="py-2 px-3 font-medium text-slate-700">{r.no_nota || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600">{r.layanan || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       <span className="inline-flex items-center gap-0.5">
                         <HiOutlineStar className="h-3 w-3 text-amber-400 fill-amber-400" />
@@ -581,31 +686,11 @@ export default function CsatWaschen() {
               ) : (
                 <div className="space-y-3">
                   {modal.data.map(r => (
-                    <div key={r.id} className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50 transition">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <Stars score={r.csat_score} />
-                        <span className="text-xs font-semibold text-slate-600">{r.csat_label}</span>
-                        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                          NPS_COLORS[r.nps_category]?.bg, NPS_COLORS[r.nps_category]?.text
-                        )}>{r.nps_category}</span>
-                        <span className="text-xs font-bold text-slate-700 ml-auto">NPS: {r.nps_score}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mb-2 flex-wrap">
-                        {r.no_nota && <span>No. Nota: <strong className="text-slate-700">{r.no_nota}</strong></span>}
-                        {r.nama && <span>Nama: <strong className="text-slate-700">{r.nama}</strong></span>}
-                        <span>{r.created_at}</span>
-                      </div>
-                      {r.feedback_tags && (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {r.feedback_tags.split(",").map((t, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-semibold">{t.trim()}</span>
-                          ))}
-                        </div>
-                      )}
-                      {r.feedback_text && (
-                        <p className="text-xs text-slate-700 bg-slate-50 rounded-lg p-3">{r.feedback_text}</p>
-                      )}
-                    </div>
+                    <LayananEditorWaschen
+                      key={r.id}
+                      row={r}
+                      onSaved={() => { closeModal(); fetchStats(); fetchDetail(1); }}
+                    />
                   ))}
                 </div>
               )}
