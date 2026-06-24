@@ -114,6 +114,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zm-5 9h8v2H8v-2zm0 4h5v2H8v-2zm0-8h3v2H8V9z" />
         </svg>
       );
+    if (name.includes("know your employee") || name.includes("employee mood") || name.includes("know your"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3.5 3.5 0 110 7 3.5 3.5 0 010-7zm0 14.5c-2.73 0-5.15-1.24-6.77-3.19C6.54 14.51 9.13 13.5 12 13.5s5.46 1.01 6.77 2.81A8.44 8.44 0 0112 19.5z" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -140,6 +146,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("csat") || name.includes("nps") || name.includes("result")) return "bg-amber-500";
     if (name.includes("b2b") || name.includes("koperasi") || name.includes("event")) return "bg-sky-600";
     if (name.includes("document") || name.includes("dokumen")) return "bg-blue-900";
+    if (name.includes("know your employee") || name.includes("employee mood") || name.includes("know your")) return "bg-violet-500";
     return "bg-blue-600";
   };
 

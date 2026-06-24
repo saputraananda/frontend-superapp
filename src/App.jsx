@@ -85,6 +85,9 @@ import B2BAlora from "./pages/b2b-alora";
 import B2bKoperasiDashboard from "./pages/b2b-alora/B2B-Koperasi-2026/components/b2bKoperasiDashboard";
 import B2bKoperasiCustomer from "./pages/b2b-alora/B2B-Koperasi-2026/components/b2bKoperasiCustomer";
 import B2bHajiDashboard from "./pages/b2b-alora/B2B-Haji-2025/components/b2bHajiDashboard";
+import KnowYourEmployee from "./pages/knowyour-employee";
+import EmployeeMood from "./pages/knowyour-employee/components/EmployeeMood";
+import DashboardKYE from "./pages/knowyour-employee/components/DashboardKYE";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -475,6 +478,18 @@ export default function App() {
           <Route path="/event-b2b-alora" element={<B2bKoperasiDashboard />} />
           <Route path="/event-b2b-alora/customer" element={<B2bKoperasiCustomer />} />
           <Route path="/event-b2b-alora/haji" element={<B2bHajiDashboard />} />
+        </Route>
+
+        {/* ── Know Your Employee ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/know-your-employee"]}>
+              <KnowYourEmployee />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/know-your-employee" element={<EmployeeMood />} />
+          <Route path="/know-your-employee/dashboard" element={<DashboardKYE />} />
         </Route>
       </Routes>
     </BrowserRouter>
