@@ -465,14 +465,6 @@ export default function EmployeeCleanox() {
                                     Kelola data karyawan produksi dan frontliner yang ditugaskan pada unit bisnis Cleanox.
                                 </p>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowAddModal(true)}
-                                className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#97bd3f] hover:bg-[#86aa34] px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition shadow-sm shadow-[#97bd3f]/20 active:scale-95"
-                            >
-                                <HiOutlinePlus className="h-4 w-4" />
-                                Tambah Karyawan
-                            </button>
                         </div>
                     </div>
                 </section>
@@ -537,10 +529,22 @@ export default function EmployeeCleanox() {
                 {/* Table / List View */}
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="border-b border-slate-100 px-5 py-4">
-                        <h2 className="text-base font-bold text-slate-800">Daftar Karyawan Cleanox</h2>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                            Klik pada header tabel untuk mengurutkan data.
-                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 className="text-base font-bold text-slate-800">Daftar Karyawan Cleanox</h2>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                    Klik pada header tabel untuk mengurutkan data.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(true)}
+                                className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#97bd3f] hover:bg-[#86aa34] px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition shadow-sm shadow-[#97bd3f]/20 active:scale-95"
+                            >
+                                <HiOutlinePlus className="h-4 w-4" />
+                                Tambah Karyawan
+                            </button>
+                        </div>
                     </div>
 
                     {/* Desktop view */}
