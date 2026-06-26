@@ -88,6 +88,10 @@ import B2bHajiDashboard from "./pages/b2b-alora/B2B-Haji-2025/components/b2bHaji
 import KnowYourEmployee from "./pages/knowyour-employee";
 import EmployeeMood from "./pages/knowyour-employee/components/EmployeeMood";
 import DashboardKYE from "./pages/knowyour-employee/components/DashboardKYE";
+import CleanoxManagement from "./pages/cleanox-management";
+import EmployeeCleanox from "./pages/cleanox-management/components/EmployeeCleanox";
+import MasterService from "./pages/cleanox-management/components/MasterService";
+import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -490,6 +494,19 @@ export default function App() {
         >
           <Route path="/know-your-employee" element={<EmployeeMood />} />
           <Route path="/know-your-employee/dashboard" element={<DashboardKYE />} />
+        </Route>
+
+        {/* ── Cleanox Management System ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/cleanox-management-system"]}>
+              <CleanoxManagement />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/cleanox-management-system" element={<EmployeeCleanox />} />
+          <Route path="/cleanox-management-system/service" element={<MasterService />} />
+          <Route path="/cleanox-management-system/:id" element={<EmployeeCleanoxDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>
