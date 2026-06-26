@@ -343,12 +343,10 @@ export default function EmployeeCleanox() {
         const fetchAssignable = async () => {
             try {
                 const res = await api("/cleanox/employees/assignable");
-                setAssignable(res.data || []);
-                if (res.data && res.data.length > 0) {
-                    setSelectedEmployeeId(res.data[0].employee_id);
-                } else {
-                    setSelectedEmployeeId("");
-                }
+                const list = res.data || [];
+                const filtered = list.filter((e) => [3, 5].includes(Number(e.company_id)));
+                setAssignable(filtered);
+                setSelectedEmployeeId(filtered[0]?.employee_id ?? "");
             } catch (err) {
                 console.error("Gagal mengambil karyawan yang dapat ditugaskan:", err);
             }
@@ -811,7 +809,7 @@ export default function EmployeeCleanox() {
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Cari & Pilih Karyawan</label>
                                     {assignable.length === 0 ? (
                                         <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100">
-                                            Tidak ada karyawan aktif (dari company 1, 3, atau 5) yang tersedia untuk ditugaskan.
+                                            Tidak ada karyawan aktif (3 & 5) yang tersedia untuk ditugaskan.
                                         </p>
                                     ) : (
                                         <div className="relative">
@@ -952,7 +950,6 @@ export default function EmployeeCleanox() {
                                             onChange={(e) => setNewCompanyId(e.target.value)}
                                             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                                         >
-                                            <option value="1">PT Waschen Alora Indonesia (1)</option>
                                             <option value="3">Cleanox Indonesia (3)</option>
                                             <option value="5">Waschen (5)</option>
                                         </select>
