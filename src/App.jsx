@@ -91,6 +91,7 @@ import DashboardKYE from "./pages/knowyour-employee/components/DashboardKYE";
 import CleanoxManagement from "./pages/cleanox-management";
 import EmployeeCleanox from "./pages/cleanox-management/components/EmployeeCleanox";
 import MasterService from "./pages/cleanox-management/components/MasterService";
+import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduksiCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 
 export default function App() {
@@ -506,6 +507,7 @@ export default function App() {
         >
           <Route path="/cleanox-management-system" element={<EmployeeCleanox />} />
           <Route path="/cleanox-management-system/service" element={<MasterService />} />
+          <Route path="/cleanox-management-system/kpi" element={<KpiProduksiCleanox />} />
           <Route path="/cleanox-management-system/:id" element={<EmployeeCleanoxDetail />} />
         </Route>
       </Routes>

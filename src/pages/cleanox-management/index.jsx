@@ -7,6 +7,7 @@ import {
   HiOutlineUser,
   HiOutlineBriefcase,
   HiOutlineSparkles,
+  HiOutlineChartBar,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -26,6 +27,13 @@ const MENU_ITEMS = [
     icon: HiOutlineBriefcase,
     label: "Master Service",
     description: "Kelola layanan Cleanox",
+    end: true,
+  },
+  {
+    to: "/cleanox-management-system/kpi",
+    icon: HiOutlineChartBar,
+    label: "KPI Produksi",
+    description: "Performa karyawan produksi",
     end: true,
   },
 ];
