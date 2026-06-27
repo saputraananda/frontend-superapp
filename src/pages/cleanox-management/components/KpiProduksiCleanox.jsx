@@ -304,7 +304,7 @@ function DetailModal({ employee, dateStart, dateEnd, onClose }) {
                                     isActive
                                         ? `${sc?.bg || "bg-slate-100"} ${sc?.text || "text-slate-700"} ${sc?.border || "border-slate-300"} shadow-sm`
                                         : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
-                                    )}
+                                )}
                             >
                                 {stage.label} ({cnt})
                             </button>
@@ -515,10 +515,10 @@ function SlaItemsModal({ category, dateStart, dateEnd, outlet, onClose }) {
                                     const diffColor = isPending
                                         ? "text-slate-400"
                                         : diffNum > 0
-                                        ? "text-rose-600"
-                                        : diffNum === 0
-                                        ? "text-blue-600"
-                                        : "text-emerald-600";
+                                            ? "text-rose-600"
+                                            : diffNum === 0
+                                                ? "text-blue-600"
+                                                : "text-emerald-600";
 
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
@@ -677,12 +677,12 @@ export default function KpiProduksiPage() {
 
     const uniqueYears = useMemo(() => {
         const yrs = new Set(periods.map(p => p.yr));
-        return Array.from(yrs).sort((a,b) => b - a);
+        return Array.from(yrs).sort((a, b) => b - a);
     }, [periods]);
 
     const availableMonths = useMemo(() => {
         if (!selectedYear) return [];
-        return periods.filter(p => p.yr === Number(selectedYear)).map(p => p.mo).sort((a,b) => a - b);
+        return periods.filter(p => p.yr === Number(selectedYear)).map(p => p.mo).sort((a, b) => a - b);
     }, [periods, selectedYear]);
 
     const sortedEmployees = useMemo(() => {
@@ -722,7 +722,7 @@ export default function KpiProduksiPage() {
     ] : [];
 
     return (
-        <main className="min-h-screen bg-slate-50 pb-10">
+        <main className="min-h-screen bg-slate-50 py-6 sm:py-10">
             {(loading || dataLoading) && <LoadingBar />}
             {error && (
                 <div className="fixed top-4 right-4 z-50 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800 shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
@@ -730,7 +730,7 @@ export default function KpiProduksiPage() {
                     {error}
                 </div>
             )}
-            <div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8 pt-6">
+            <div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
                 {/* Hero Header */}
                 <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-[#1b3459] via-[#12233c] to-[#0f1f37] shadow-sm">
                     <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
@@ -816,7 +816,7 @@ export default function KpiProduksiPage() {
                                     ))}
                                 </select>
                             </div>
-                            
+
                             <button
                                 type="button"
                                 onClick={() => {
@@ -997,7 +997,7 @@ export default function KpiProduksiPage() {
                                 Perbandingan antara tanggal selesai (nota smartlink) dengan tanggal pengantaran.
                             </span>
                         </div>
-                        
+
                         <div className="flex flex-col gap-6 lg:flex-row">
                             {/* Left Gauge Panel */}
                             <div className="rounded-2xl border border-slate-200 bg-slate-50/30 p-5 flex flex-col items-center justify-center text-center lg:w-80 shrink-0">

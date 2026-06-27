@@ -151,11 +151,11 @@ function MobileCard({ item, onDetail, activeDropdownId, setActiveDropdownId, onU
                             <HiOutlineChevronDown className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
                         )}
                     </button>
-                    
+
                     {isDropdownOpen && (
                         <>
-                            <div 
-                                className="fixed inset-0 z-10" 
+                            <div
+                                className="fixed inset-0 z-10"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setActiveDropdownId(null);
@@ -174,8 +174,8 @@ function MobileCard({ item, onDetail, activeDropdownId, setActiveDropdownId, onU
                                         }}
                                         className={cn(
                                             "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                            item.cleanox_role === key 
-                                                ? "bg-slate-50 text-[#1b3459]" 
+                                            item.cleanox_role === key
+                                                ? "bg-slate-50 text-[#1b3459]"
                                                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                                         )}
                                     >
@@ -250,7 +250,7 @@ export default function EmployeeCleanox() {
                         : row
                 )
             );
-            
+
             setSuccess("Unit/bagian karyawan berhasil diperbarui");
             setTimeout(() => setSuccess(""), 3000);
         } catch (err) {
@@ -656,11 +656,11 @@ export default function EmployeeCleanox() {
                                                             <HiOutlineChevronDown className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
                                                         )}
                                                     </button>
-                                                    
+
                                                     {activeDropdownId === item.employee_id && (
                                                         <>
-                                                            <div 
-                                                                className="fixed inset-0 z-10" 
+                                                            <div
+                                                                className="fixed inset-0 z-10"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveDropdownId(null);
@@ -679,8 +679,8 @@ export default function EmployeeCleanox() {
                                                                         }}
                                                                         className={cn(
                                                                             "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                            item.cleanox_role === key 
-                                                                                ? "bg-slate-50 text-[#1b3459]" 
+                                                                            item.cleanox_role === key
+                                                                                ? "bg-slate-50 text-[#1b3459]"
                                                                                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                                                                         )}
                                                                     >

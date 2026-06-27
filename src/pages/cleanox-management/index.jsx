@@ -8,6 +8,7 @@ import {
   HiOutlineBriefcase,
   HiOutlineSparkles,
   HiOutlineChartBar,
+  HiOutlineTag,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -23,17 +24,24 @@ const MENU_ITEMS = [
     end: true,
   },
   {
-    to: "/cleanox-management-system/service",
-    icon: HiOutlineBriefcase,
-    label: "Master Service",
-    description: "Kelola layanan Cleanox",
-    end: true,
-  },
-  {
     to: "/cleanox-management-system/kpi",
     icon: HiOutlineChartBar,
     label: "KPI Produksi",
     description: "Performa karyawan produksi",
+    end: true,
+  },
+  {
+    to: "/cleanox-management-system/category",
+    icon: HiOutlineTag,
+    label: "Master Kategori",
+    description: "Kelola kategori layanan",
+    end: true,
+  },
+  {
+    to: "/cleanox-management-system/service",
+    icon: HiOutlineBriefcase,
+    label: "Master Service",
+    description: "Kelola layanan Cleanox",
     end: true,
   },
 ];
