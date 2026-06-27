@@ -29,9 +29,20 @@ const labelCls = "block text-xs font-semibold text-slate-500 uppercase tracking-
 
 const formatRupiah = (raw) => {
     if (raw === "" || raw == null) return "";
-    const n = String(raw).replace(/\D/g, "");
+    
+    const strVal = String(raw).trim();
+    const rawNum = Number(strVal);
+    
+    let n;
+    if (!isNaN(rawNum)) {
+        n = Math.round(rawNum);
+    } else {
+        const clean = strVal.replace(/\D/g, "");
+        n = Number(clean);
+    }
+    
     if (!n) return "";
-    return new Intl.NumberFormat("id-ID").format(Number(n));
+    return new Intl.NumberFormat("id-ID").format(n);
 };
 const stripRupiah = (s) => String(s || "").replace(/\D/g, "");
 
