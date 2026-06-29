@@ -383,7 +383,7 @@ export default function TransDocument() {
                   const isBorrowed = row.status === "borrowed" || row.status === "overdue";
                   return (
                     <tr key={row.id} className="hover:bg-blue-50/30 transition-colors">
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 max-w-[280px] sm:max-w-xs md:max-w-sm lg:max-w-md">
                         <div className="flex items-center gap-2.5">
                           <div className={cn(
                             "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
@@ -393,8 +393,8 @@ export default function TransDocument() {
                               ? <HiOutlineClock className="h-4 w-4" />
                               : <HiOutlineCheckCircle className="h-4 w-4" />}
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 truncate">{row.document_name}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-800 break-words whitespace-normal">{row.document_name}</p>
                             <p className="text-[11px] text-slate-400 truncate">{row.transaction_code} · {row.document_number}</p>
                           </div>
                         </div>

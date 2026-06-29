@@ -54,8 +54,33 @@ const formatFileSize = (kb) => {
 const isImage = (mime) => mime && /^image\//i.test(mime);
 const isPdf   = (mime) => mime && /pdf/i.test(mime);
 
-function StatusBadge({ status }) {
-  const c = STATUS_CONFIG[status] ?? STATUS_CONFIG.active;
+const getRemainingDays = (expiryDateStr) => {
+  if (!expiryDateStr) return null;
+  const expiry = new Date(expiryDateStr);
+  if (Number.isNaN(expiry.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  expiry.setHours(0, 0, 0, 0);
+  const diffTime = expiry.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+function StatusBadge({ status, expiryDate }) {
+  let c = STATUS_CONFIG[status] ?? STATUS_CONFIG.active;
+  
+  if (status === "active" && expiryDate) {
+    const days = getRemainingDays(expiryDate);
+    if (days !== null) {
+      if (days <= 0) {
+        c = { label: "Kadaluarsa", cls: "bg-rose-50 text-rose-700 border-rose-200" };
+      } else if (days <= 30) {
+        c = { label: `Aktif (≤${days} Hari)`, cls: "bg-rose-50 text-rose-700 border-rose-200" };
+      } else if (days <= 60) {
+        c = { label: `Aktif (≤${days} Hari)`, cls: "bg-orange-50 text-orange-700 border-orange-200" };
+      }
+    }
+  }
+
   return (
     <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap", c.cls)}>
       {c.label}
@@ -440,7 +465,7 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
         </div>
 
         {/* Form Body */}
-        <form id="docFormMaster" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
+        <form id="docFormMaster" onSubmit={handleSubmit} className="flex-1 overflow-y-auto overflow-x-hidden px-6 lg:px-8 py-6">
 
           {error && (
             <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center gap-2">
@@ -494,7 +519,7 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
             <SectionLabel icon={HiOutlineCalendarDays} hint="Tanggal efektif dan masa berlaku dokumen">
               Periode Berlaku
             </SectionLabel>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Tanggal Efektif <span className="text-rose-500">*</span></label>
                 <input type="date" value={form.effective_date}
@@ -516,14 +541,21 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
                     </span>
                   )}
                 </label>
-                <div className="flex gap-2">
-                  <input type="number" min="1" value={validityVal}
+                <div className="flex rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-blue-900/15 focus-within:border-blue-700 transition overflow-hidden">
+                  <input
+                    type="number"
+                    min="1"
+                    value={validityVal}
                     onChange={e => { setValidityVal(e.target.value); setValidityManual(true); }}
                     placeholder="Contoh: 12"
-                    className={cn(inputCls, "flex-1")} />
-                  <select value={validityUnit}
+                    className="w-full bg-transparent px-3.5 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 border-none min-w-0 flex-1"
+                  />
+                  <div className="w-[1px] bg-slate-200 my-2 shrink-0" />
+                  <select
+                    value={validityUnit}
                     onChange={e => { setValidityUnit(e.target.value); setValidityManual(true); }}
-                    className={cn(selectCls, "w-[100px] shrink-0")}>
+                    className="appearance-none bg-transparent px-3.5 py-2.5 pr-8 text-sm text-slate-700 font-medium outline-none bg-no-repeat bg-[right_0.75rem_center] bg-[length:0.85em] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%23475569%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22/%3E%3C/svg%3E')] border-none cursor-pointer w-[95px] shrink-0"
+                  >
                     {VALIDITY_UNITS.map(u => (
                       <option key={u.value} value={u.value}>{u.label}</option>
                     ))}
@@ -532,7 +564,7 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
                 {validityManual && form.effective_date && form.expiry_date && (
                   <button type="button"
                     onClick={() => setValidityManual(false)}
-                    className="mt-1 text-[11px] text-blue-700 hover:underline">
+                    className="mt-1 text-[11px] text-blue-700 hover:underline block">
                     Hitung otomatis dari tanggal
                   </button>
                 )}
@@ -734,6 +766,176 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
   );
 }
 
+// ── Summary Detail Modal ──────────────────────────────────────────────────────
+function SummaryDetailModal({ open, type, onClose }) {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !type) return;
+    (async () => {
+      setLoading(true);
+      try {
+        let url = "";
+        if (type === "active") {
+          url = "/doc-alora/documents?status=active&limit=100";
+        } else if (type === "expiring_soon") {
+          url = "/doc-alora/documents?expiring_soon=true&limit=100";
+        } else if (type === "borrowed") {
+          url = "/doc-alora/transactions?status=borrowed&limit=100";
+        } else if (type === "overdue") {
+          url = "/doc-alora/documents?overdue=true&limit=100";
+        }
+
+        if (url) {
+          const res = await api(url);
+          setList(res.data || []);
+        }
+      } catch (err) {
+        console.error("Gagal memuat detail summary:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [open, type]);
+
+  if (!open) return null;
+
+  const titles = {
+    active: "Daftar Dokumen Aktif",
+    expiring_soon: "Daftar Dokumen Segera Expired (≤30 Hari)",
+    borrowed: "Daftar Dokumen Sedang Dipinjam",
+    overdue: "Daftar Dokumen Overdue (Kadaluarsa)",
+  };
+
+  const title = titles[type] || "Detail Summary";
+  const isDocType = type === "active" || type === "expiring_soon" || type === "overdue";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition">
+            <HiOutlineXMark className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-6 w-6 rounded-full border-2 border-blue-900 border-t-transparent animate-spin" />
+            </div>
+          ) : list.length === 0 ? (
+            <p className="text-center py-12 text-sm text-slate-400 italic">Tidak ada data ditemukan</p>
+          ) : (
+            <div className="overflow-x-auto border border-slate-100 rounded-xl">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    {isDocType ? (
+                      <>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Dokumen</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Entitas & Dept</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Masa Berlaku</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Aging</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Kode & Dokumen</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Peminjam</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Tgl Pinjam / Batas</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">Status</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {list.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50/50 transition">
+                      {isDocType ? (
+                        <>
+                          <td className="px-4 py-3">
+                            <p className="text-xs font-semibold text-slate-800">{row.document_name}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{row.document_number}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-slate-700">{row.entity}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{row.department_name || "—"}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-slate-600">{formatDate(row.effective_date)}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">s/d {formatDate(row.expiry_date)}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const days = getRemainingDays(row.expiry_date);
+                              if (days === null) return <span className="text-slate-400 text-xs">—</span>;
+                              if (days < 0) {
+                                return <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">Expired</span>;
+                              }
+                              if (days <= 30) {
+                                return <span className="inline-flex rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">{days} Hari</span>;
+                              }
+                              if (days <= 60) {
+                                return <span className="inline-flex rounded-md border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600">{days} Hari</span>;
+                              }
+                              return <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{days} Hari</span>;
+                            })()}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3">
+                            <p className="text-xs font-semibold text-slate-800">{row.document_name}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{row.transaction_code} · {row.document_number}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-slate-700">{row.borrower_name || "—"}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{row.department_name || "—"}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-slate-600">{formatDate(row.borrow_date)}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">s/d {formatDate(row.return_due)}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={cn(
+                              "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+                              row.status === "borrowed" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                              row.status === "returned" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                              row.status === "overdue" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-slate-100 text-slate-600 border-slate-300"
+                            )}>
+                              {row.status === "borrowed" ? "Dipinjam" :
+                               row.status === "returned" ? "Dikembalikan" :
+                               row.status === "overdue" ? "Terlambat" : "Hilang"}
+                            </span>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end px-6 py-4 border-t border-slate-200 bg-slate-50">
+          <button onClick={onClose} className="px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function MasterDocument() {
   const [data, setData]           = useState([]);
@@ -746,6 +948,7 @@ export default function MasterDocument() {
   const [toast, setToast]         = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData]   = useState(null);
+  const [summaryDetailType, setSummaryDetailType] = useState(null);
   const [lookups, setLookups]     = useState({ employees: [], departments: [], companies: [] });
   const [summary, setSummary]     = useState(null);
 
@@ -861,7 +1064,8 @@ export default function MasterDocument() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3">
+          <div onClick={() => setSummaryDetailType("active")}
+            className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
               <HiOutlineDocumentText className="h-5 w-5 text-emerald-700" />
             </div>
@@ -870,7 +1074,8 @@ export default function MasterDocument() {
               <p className="text-xl font-bold text-slate-800">{summary.summary?.active || 0}</p>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3">
+          <div onClick={() => setSummaryDetailType("expiring_soon")}
+            className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
               <HiOutlineClock className="h-5 w-5 text-amber-700" />
             </div>
@@ -879,7 +1084,8 @@ export default function MasterDocument() {
               <p className="text-xl font-bold text-slate-800">{summary.expiring_soon || 0}</p>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3">
+          <div onClick={() => setSummaryDetailType("borrowed")}
+            className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
               <HiOutlineArchiveBox className="h-5 w-5 text-blue-700" />
             </div>
@@ -888,7 +1094,8 @@ export default function MasterDocument() {
               <p className="text-xl font-bold text-slate-800">{summary.active_borrows || 0}</p>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3">
+          <div onClick={() => setSummaryDetailType("overdue")}
+            className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
               <HiOutlineExclamationCircle className="h-5 w-5 text-rose-700" />
             </div>
@@ -938,6 +1145,7 @@ export default function MasterDocument() {
                   <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Entitas</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">PIC</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:table-cell">Berlaku</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:table-cell">Aging</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-5 py-3.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest">Aksi</th>
                 </tr>
@@ -945,13 +1153,13 @@ export default function MasterDocument() {
               <tbody className="divide-y divide-slate-50">
                 {data.map(row => (
                   <tr key={row.id} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 max-w-[280px] sm:max-w-xs md:max-w-sm lg:max-w-md">
                       <div className="flex items-center gap-2.5">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-900">
                           <HiOutlineDocumentText className="h-4 w-4" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{row.document_name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-800 break-words whitespace-normal">{row.document_name}</p>
                           <p className="text-[11px] text-slate-400 truncate flex items-center gap-1.5">
                             {row.document_number}
                             {row.attachment_count > 0 && (
@@ -974,7 +1182,39 @@ export default function MasterDocument() {
                       <p className="text-xs text-slate-600">{formatDate(row.effective_date)}</p>
                       <p className="text-[11px] text-slate-400">s/d {formatDate(row.expiry_date)}</p>
                     </td>
-                    <td className="px-5 py-4"><StatusBadge status={row.status} /></td>
+                    <td className="px-5 py-4 hidden sm:table-cell">
+                      {(() => {
+                        const days = getRemainingDays(row.expiry_date);
+                        if (days === null) return <span className="text-slate-400">—</span>;
+                        if (days < 0) {
+                          return (
+                            <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-400">
+                              Expired
+                            </span>
+                          );
+                        }
+                        if (days <= 30) {
+                          return (
+                            <span className="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-600">
+                              {days} Hari Lagi
+                            </span>
+                          );
+                        }
+                        if (days <= 60) {
+                          return (
+                            <span className="inline-flex items-center rounded-lg border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-600">
+                              {days} Hari Lagi
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                            {days} Hari Lagi
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-5 py-4"><StatusBadge status={row.status} expiryDate={row.expiry_date} /></td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">
                         {row.attachment_count > 0 && (
@@ -1043,6 +1283,13 @@ export default function MasterDocument() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
         loading={deleting}
+      />
+
+      {/* Summary Detail Modal */}
+      <SummaryDetailModal
+        open={!!summaryDetailType}
+        type={summaryDetailType}
+        onClose={() => setSummaryDetailType(null)}
       />
     </div>
   );
