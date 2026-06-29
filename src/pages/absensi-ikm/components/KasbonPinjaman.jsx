@@ -1478,6 +1478,7 @@ function EmployeeReportModal({ open, onClose, employee, startDate, endDate }) {
 export default function KasbonPinjaman() {
   // ── Data state ─────────────────────────────────────────────────────────────
   const [rows, setRows] = useState([]);
+  const [backendStats, setBackendStats] = useState(null);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1567,9 +1568,11 @@ export default function KasbonPinjaman() {
 
       const res = await api(`/ikm/kasbon?${params.toString()}`);
       setRows(res.data || []);
+      setBackendStats(res.stats || null);
       setPagination(res.pagination || { page: 1, totalPages: 1, total: 0 });
     } catch {
       setRows([]);
+      setBackendStats(null);
     } finally {
       setLoading(false);
     }
@@ -1677,12 +1680,18 @@ export default function KasbonPinjaman() {
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
+    if (backendStats) {
+      return backendStats;
+    }
     const totalKasbon = rows.filter((r) => r.type === "kasbon").length;
     const totalPinjaman = rows.filter((r) => r.type === "pinjaman").length;
     const pending = rows.filter((r) => ["pengajuan", "proses"].includes(r.status)).length;
     const approved = rows.filter((r) => r.status === "disetujui").length;
-    return { totalKasbon, totalPinjaman, pending, approved };
-  }, [rows]);
+    const approvedAmount = rows
+      .filter((r) => r.status === "disetujui")
+      .reduce((sum, r) => sum + (Number(r.amount_approved) || 0), 0);
+    return { totalKasbon, totalPinjaman, pending, approved, approvedAmount };
+  }, [rows, backendStats]);
 
   // ── Employee summary: client-side search + paginate ─────────────────────────
   const filteredSummary = useMemo(() => {
@@ -1887,12 +1896,13 @@ export default function KasbonPinjaman() {
           </section>
 
           {/* ── Stats ───────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
               { label: "Kasbon", value: stats.totalKasbon, icon: HiOutlineBanknotes, cls: "text-violet-600 bg-violet-50" },
               { label: "Pinjaman", value: stats.totalPinjaman, icon: HiOutlineCreditCard, cls: "text-cyan-600 bg-cyan-50" },
               { label: "Menunggu", value: stats.pending, icon: HiOutlineClock, cls: "text-amber-600 bg-amber-50" },
               { label: "Disetujui", value: stats.approved, icon: HiOutlineCheckCircle, cls: "text-emerald-600 bg-emerald-50" },
+              { label: "Jumlah Disetujui", value: fmtRupiah(stats.approvedAmount), icon: HiOutlineClipboardDocumentCheck, cls: "text-teal-600 bg-teal-50" },
             ].map((s) => (
               <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", s.cls)}>
@@ -1900,7 +1910,7 @@ export default function KasbonPinjaman() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-400">{s.label}</p>
-                  <p className="text-xl font-bold text-slate-800">{s.value}</p>
+                  <p className="text-xl font-bold text-slate-800 whitespace-nowrap">{s.value}</p>
                 </div>
               </div>
             ))}
