@@ -6,6 +6,7 @@ import {
   HiOutlineXMark,
   HiOutlineFaceSmile,
   HiOutlineChartBarSquare,
+  HiOutlineClipboardDocumentList,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -25,6 +26,13 @@ const MENU_ITEMS = [
     icon: HiOutlineFaceSmile,
     label: "Employee Mood",
     description: "Pantau suasana hati tim",
+    end: true,
+  },
+  {
+    to: "/know-your-employee/burnout",
+    icon: HiOutlineClipboardDocumentList,
+    label: "Analisis Burnout",
+    description: "Pantau hasil kuesioner",
     end: true,
   },
 ];

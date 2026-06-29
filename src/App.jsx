@@ -88,6 +88,7 @@ import B2bHajiDashboard from "./pages/b2b-alora/B2B-Haji-2025/components/b2bHaji
 import KnowYourEmployee from "./pages/knowyour-employee";
 import EmployeeMood from "./pages/knowyour-employee/components/EmployeeMood";
 import DashboardKYE from "./pages/knowyour-employee/components/DashboardKYE";
+import AnalisisBurnout from "./pages/knowyour-employee/components/AnalisisBurnout";
 import CleanoxManagement from "./pages/cleanox-management";
 import EmployeeCleanox from "./pages/cleanox-management/components/EmployeeCleanox";
 import MasterService from "./pages/cleanox-management/components/MasterService";
@@ -496,6 +497,7 @@ export default function App() {
         >
           <Route path="/know-your-employee" element={<EmployeeMood />} />
           <Route path="/know-your-employee/dashboard" element={<DashboardKYE />} />
+          <Route path="/know-your-employee/burnout" element={<AnalisisBurnout />} />
         </Route>
 
         {/* ── Cleanox Management System ── */}
