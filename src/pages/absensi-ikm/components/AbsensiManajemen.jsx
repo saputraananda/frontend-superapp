@@ -1481,12 +1481,33 @@ export default function AbsensiManajemenIKM() {
 										if (filters.onlyIncomplete) qs.set("onlyIncomplete", "1");
 										if (statusFilter) qs.set("status", statusFilter);
 
-										const response = await api(`/ikm/absensi-manajemen/management?${qs.toString()}`);
+										const [response, leaveRes] = await Promise.all([
+											api(`/ikm/absensi-manajemen/management?${qs.toString()}`),
+											api(`/ikm/absensi/employee-leave-resume?startDate=${activePeriod.startDate}&endDate=${activePeriod.endDate}`),
+										]);
 										let allRecords = response.records || [];
+
+										const leaveResumeMap = new Map();
+										for (const item of (leaveRes?.data || [])) {
+											leaveResumeMap.set(Number(item.employee_id), item);
+										}
+
+										const selectedNames = selectedEmployeeIds
+											.map((id) => {
+												const opt = employeeOptions.find((o) => Number(o.employee_id) === id);
+												return opt?.employee_name || `ID ${id}`;
+											});
 
 										exportManagementAbsensiExcel({
 											records: allRecords,
 											periodLabel: activePeriodLabel,
+											activePeriod,
+											filters: {
+												onlyIncomplete: filters.onlyIncomplete,
+												selectedEmployeeNames: selectedNames,
+												statusFilter,
+											},
+											leaveResumeMap,
 										});
 									} catch (err) {
 										console.error("Gagal mendownload excel:", err);
