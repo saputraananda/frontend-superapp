@@ -137,14 +137,11 @@ function fmtDate(d) {
   }).format(date);
 }
 
-function fmtDateTime(d) {
+function fmtTime(d) {
   if (!d) return "-";
   const date = new Date(d);
   if (Number.isNaN(date.getTime())) return String(d);
   return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
@@ -371,8 +368,8 @@ export function exportAbsensiExcel({
           grandTotalMin += mins;
           const sty = shiftCellStyle(s, isMissingOut);
           shiftCells.push(
-            cell(hasIn  ? fmtDateTime(data.in)  : "-", sty),
-            cell(hasOut ? fmtDateTime(data.out) : "Lupa Absen Keluar", isMissingOut ? { ...sty, font: { ...sty.font, bold: true } } : sty),
+            cell(hasIn  ? fmtTime(data.in)  : "-", sty),
+            cell(hasOut ? fmtTime(data.out) : "Lupa Absen Keluar", isMissingOut ? { ...sty, font: { ...sty.font, bold: true } } : sty),
             cell(fmtMin(mins), sty),
           );
         }
