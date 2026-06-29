@@ -29,20 +29,16 @@ const labelCls = "block text-xs font-semibold text-slate-500 uppercase tracking-
 
 const formatRupiah = (raw) => {
     if (raw === "" || raw == null) return "";
-    
-    const strVal = String(raw).trim();
-    const rawNum = Number(strVal);
-    
-    let n;
-    if (!isNaN(rawNum)) {
-        n = Math.round(rawNum);
-    } else {
-        const clean = strVal.replace(/\D/g, "");
-        n = Number(clean);
-    }
-    
-    if (!n) return "";
-    return new Intl.NumberFormat("id-ID").format(n);
+
+    // Anti bug: value input udah terformat (pakai titik ribuan: "2.323")
+    // Number("2.323") dianggap 2.323 (desimal) → jadi kepotong.
+    const digits = String(raw).replace(/\D/g, "");
+    if (!digits) return "";
+
+    const n = Number(digits);
+    if (!Number.isFinite(n)) return "";
+
+    return new Intl.NumberFormat("id-ID").format(Math.round(n));
 };
 const stripRupiah = (s) => String(s || "").replace(/\D/g, "");
 

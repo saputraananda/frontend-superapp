@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import LoadingScreen from "../../components/LoadingScreen";
 import PhotoUpload from "./components/PhotoUpload";
 import DocumentUpload from "./components/DocumentUpload";
+import AnalysisBurnout from "./components/AnalysisBurnout";
 import {
   HiOutlinePhoto,
   HiOutlineUser,
@@ -20,6 +21,7 @@ import {
   HiOutlineCheckCircle,
   HiOutlineExclamationCircle,
   HiOutlineArrowLeft,
+  HiOutlineClipboardDocumentCheck,
 } from "react-icons/hi2";
 import { FiSave } from "react-icons/fi";
 
@@ -39,6 +41,7 @@ const TABS = [
   { id: "photos", label: "Pas Foto", Icon: HiOutlinePhoto },
   { id: "documents", label: "Unggah Dokumen", Icon: HiOutlineDocumentText },
   { id: "notes", label: "Catatan", Icon: HiOutlineDocumentText },
+  { id: "burnout", label: "Survei Burnout", Icon: HiOutlineClipboardDocumentCheck },
 ];
 
 // Daftar dokumen (KTP masuk sini, bukan di photos lagi)
@@ -132,6 +135,7 @@ export default function Profile() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [activeTab, setActiveTab] = useState("personal");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasFilledBurnout, setHasFilledBurnout] = useState(false);
 
   // Pas foto (hanya gambar)
   const [profilePhoto, setProfilePhoto] = useState({ path: null, name: null });
@@ -160,9 +164,10 @@ export default function Profile() {
     document.title = "Profil Karyawan | Alora Group Indonesia";
     const loadData = async () => {
       try {
-        const [profileRes, masterRes] = await Promise.all([
+        const [profileRes, masterRes, burnoutRes] = await Promise.all([
           api("/employees/profile"),
           api("/employees/master-data"),
+          api("/analysis-burnout/history").catch(() => ({ success: false, history: [] })),
         ]);
         let employee = { ...(profileRes.employee || {}) };
         ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach((f) => {
@@ -192,6 +197,7 @@ export default function Profile() {
         setFormData(employee);
         setInitialData(employee);
         setMasterData(masterRes);
+        setHasFilledBurnout(burnoutRes?.success && burnoutRes.history.length > 0);
         setDataReady(true);
       } catch (err) {
         setError(err.message);
@@ -315,6 +321,7 @@ export default function Profile() {
       // documents: semua 8 dokumen (termasuk KTP)
       documents: check(["ktp_path", "kk_path", "npwp_path", "bpjs_path", "bpjs_tk_path", "ijazah_path", "sertifikat_path", "rekomkerja_path"]),
       notes: check(["notes"]),
+      burnout: hasFilledBurnout,
     };
   }, [formData, profilePhoto, docs]);
 
@@ -431,12 +438,14 @@ export default function Profile() {
                   </button>
                 ))}
                 <div className="mt-auto pt-4 border-t border-slate-100 space-y-2">
-                  <button type="submit" disabled={saving || !dirty}
-                    className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
-                      dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
-                    <FiSave className="w-4 h-4" />
-                    {saving ? "Menyimpan..." : "Simpan"}
-                  </button>
+                  {activeTab !== "burnout" && (
+                    <button type="submit" disabled={saving || !dirty}
+                      className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                        dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
+                      <FiSave className="w-4 h-4" />
+                      {saving ? "Menyimpan..." : "Simpan"}
+                    </button>
+                  )}
                   <Link to="/portal"
                     className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
                     <HiOutlineArrowLeft className="w-4 h-4" />Kembali
@@ -462,14 +471,16 @@ export default function Profile() {
                 ))}
               </div>
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-2">
-                <button type="submit" disabled={saving || !dirty}
-                  className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
-                    dirty ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
-                  {saving
-                    ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
-                    : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
-                  }
-                </button>
+                {activeTab !== "burnout" && (
+                  <button type="submit" disabled={saving || !dirty}
+                    className={cn("w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                      dirty ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200" : "bg-slate-100 text-slate-400 cursor-not-allowed")}>
+                    {saving
+                      ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
+                      : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
+                    }
+                  </button>
+                )}
                 <Link to="/portal"
                   className="flex items-center justify-center gap-1.5 w-full rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition border border-slate-200">
                   <HiOutlineArrowLeft className="w-4 h-4" />Kembali
@@ -499,6 +510,7 @@ export default function Profile() {
                         {activeTab === "financial" && "Rekening bank, BPJS, dan NPWP."}
                         {activeTab === "emergency" && "Kontak yang bisa dihubungi saat darurat."}
                         {activeTab === "notes" && "Catatan pengalaman kerja sebelumnya."}
+                        {activeTab === "burnout" && "Kuesioner evaluasi tingkat stres dan burnout kerja karyawan."}
                       </p>
                     </div>
                   </div>
@@ -868,6 +880,11 @@ export default function Profile() {
                     </Panel>
                   )}
 
+                  {/* TAB: BURNOUT */}
+                  <div style={{ display: activeTab === "burnout" ? "block" : "none" }}>
+                    <AnalysisBurnout onSubmitted={() => setHasFilledBurnout(true)} />
+                  </div>
+
                 </div>
 
                 {/* Panel Footer */}
@@ -892,18 +909,20 @@ export default function Profile() {
                       )}
                     </div>
 
-                    <button type="submit" disabled={saving || !dirty}
-                      className={cn(
-                        "inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all w-full sm:w-auto",
-                        dirty
-                          ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      )}>
-                      {saving
-                        ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
-                        : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
-                      }
-                    </button>
+                    {activeTab !== "burnout" && (
+                      <button type="submit" disabled={saving || !dirty}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all w-full sm:w-auto",
+                          dirty
+                            ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        )}>
+                        {saving
+                          ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Menyimpan...</>
+                          : <><FiSave className="w-4 h-4" />Simpan Perubahan</>
+                        }
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
