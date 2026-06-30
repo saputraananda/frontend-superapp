@@ -112,10 +112,16 @@ const EMPTY_INSIGHTS = {
 };
 
 function cutoffStart(year, month) {
-    return `${year}-${String(month - 1).padStart(2, "0")}-26`;
+    const y = Number(year);
+    const m = Number(month);
+    const prevMonth = m === 1 ? 12 : m - 1;
+    const prevYear = m === 1 ? y - 1 : y;
+    return `${prevYear}-${String(prevMonth).padStart(2, "0")}-26`;
 }
 function cutoffEnd(year, month) {
-    return `${year}-${String(month).padStart(2, "0")}-25`;
+    const y = Number(year);
+    const m = Number(month);
+    return `${y}-${String(m).padStart(2, "0")}-25`;
 }
 
 function getDaysDiff(targetDate, pengantaranDate) {
@@ -146,7 +152,7 @@ const AGING_LABELS = {
 };
 
 function isBillingRange(d) {
-    return d.getDate() > 25;
+    return d.getDate() >= 26;
 }
 
 function getDefaultDateRange() {
@@ -636,15 +642,16 @@ export default function KpiProduksiPage() {
     const handleCustomStartChange = useCallback((val) => {
         setDateStart(val);
         if (val) {
-            const d = new Date(val);
-            if (!isNaN(d.getTime()) && d.getDate() === 26) {
-                const nextMonth = new Date(d);
-                nextMonth.setMonth(d.getMonth() + 1);
-                nextMonth.setDate(25);
-                const y = nextMonth.getFullYear();
-                const m = String(nextMonth.getMonth() + 1).padStart(2, "0");
-                const day = String(nextMonth.getDate()).padStart(2, "0");
-                setDateEnd(`${y}-${m}-${day}`);
+            const parts = val.split("-");
+            if (parts.length === 3) {
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10);
+                const day = parseInt(parts[2], 10);
+                if (day === 26) {
+                    const nextM = m === 12 ? 1 : m + 1;
+                    const nextY = m === 12 ? y + 1 : y;
+                    setDateEnd(`${nextY}-${String(nextM).padStart(2, "0")}-25`);
+                }
             }
         }
     }, []);
