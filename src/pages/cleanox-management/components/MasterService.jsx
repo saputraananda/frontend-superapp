@@ -266,19 +266,19 @@ export default function MasterService() {
               </div>
             ) : (
               <table className="min-w-full text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-bold text-slate-400 uppercase tracking-wider">
                   <tr>
                     <th className="px-6 py-3 text-left w-12">No</th>
                     <th className="px-6 py-3 text-left">Nama Layanan</th>
                     <th className="px-6 py-3 text-left">Kategori</th>
                     <th className="px-6 py-3 text-left">Satuan</th>
                     <th className="px-6 py-3 text-left">Durasi</th>
-                    <th className="px-6 py-3 text-left">Harga Dasar</th>
+                    <th className="px-6 py-3 text-left">Harga</th>
                     <th className="px-6 py-3 text-left w-24">Status</th>
                     <th className="px-6 py-3 text-center w-28">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-100 text-sm">
                   {filteredServices.map((item, idx) => (
                     <tr key={item.id} className="transition-colors hover:bg-slate-50/50">
                       <td className="px-6 py-4 text-slate-400 font-medium">
@@ -288,7 +288,7 @@ export default function MasterService() {
                         {item.name}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
                           {item.category_name}
                         </span>
                       </td>
@@ -302,12 +302,12 @@ export default function MasterService() {
                         <HiOutlineClock className="h-3.5 w-3.5 text-slate-400" />
                         {item.duration_value} {item.duration_unit}
                       </td>
-                      <td className="px-6 py-4 font-bold font-mono text-[#1b3459] text-[13px]">
+                      <td className="px-6 py-4 font-bold font-mono text-[#1b3459] text-sm">
                         {formatRupiah(item.price)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border",
+                          "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase border",
                           item.status === "Aktif"
                             ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                             : "bg-slate-50 border-slate-200 text-slate-600"
@@ -378,9 +378,8 @@ export default function MasterService() {
 
               {/* Harga */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Harga Dasar (Rupiah)</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Harga (Rupiah)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -391,7 +390,7 @@ export default function MasterService() {
                       setFormPrice(digits);
                     }}
                     placeholder="Contoh: 15000"
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10"
                   />
                 </div>
               </div>
