@@ -443,6 +443,7 @@ export default function MasterService() {
                     onChange={(e) => setFormDurationUnit(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                   >
+                    <option value="jam">Jam</option>
                     <option value="hari">Hari</option>
                     <option value="minggu">Minggu</option>
                     <option value="bulan">Bulan</option>
