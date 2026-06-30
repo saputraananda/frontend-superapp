@@ -86,11 +86,11 @@ export default function MasterService() {
     setSelectedService(item);
     setFormName(item.name);
     setFormPrice(item.price != null ? String(Math.round(Number(item.price))) : "");
-    setFormSatuanId(item.satuan_id);
-    setFormCategoryId(item.category_id);
-    setFormDurationValue(String(item.duration_value));
-    setFormDurationUnit(item.duration_unit);
-    setFormStatus(item.status);
+    setFormSatuanId(item.satuan_id ?? "");
+    setFormCategoryId(item.category_id ?? "");
+    setFormDurationValue(item.duration_value != null ? String(item.duration_value) : "1");
+    setFormDurationUnit(item.duration_unit ?? "hari");
+    setFormStatus(item.status || "Aktif");
     setModalOpen(true);
   };
 
@@ -399,7 +399,7 @@ export default function MasterService() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Satuan</label>
                 <select
-                  value={formSatuanId}
+                  value={formSatuanId ?? ""}
                   onChange={(e) => setFormSatuanId(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                 >
@@ -414,7 +414,7 @@ export default function MasterService() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Kategori</label>
                 <select
-                  value={formCategoryId}
+                  value={formCategoryId ?? ""}
                   onChange={(e) => setFormCategoryId(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                 >
@@ -438,7 +438,7 @@ export default function MasterService() {
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10"
                   />
                   <select
-                    value={formDurationUnit}
+                    value={formDurationUnit ?? ""}
                     onChange={(e) => setFormDurationUnit(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                   >
