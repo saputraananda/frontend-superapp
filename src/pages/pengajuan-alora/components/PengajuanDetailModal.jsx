@@ -491,10 +491,12 @@ export default function PengajuanDetailModal({
                                     <p className="text-[11px] text-slate-400 uppercase">Kategori</p>
                                     <p className="font-semibold text-slate-700">{toTitleCase(data.company_name) || "—"}</p>
                                 </div>
-                                {data.outlet_name && (
+                                {(data.outlet_name || Number(data.company_id) === 5) && (
                                     <div>
                                         <p className="text-[11px] text-slate-400 uppercase">Outlet</p>
-                                        <p className="font-semibold text-slate-700">{toTitleCase(data.outlet_name)}</p>
+                                        <p className="font-semibold text-slate-700">
+                                            {data.outlet_name ? toTitleCase(data.outlet_name) : "Seluruh Outlet"}
+                                        </p>
                                     </div>
                                 )}
                             </div>

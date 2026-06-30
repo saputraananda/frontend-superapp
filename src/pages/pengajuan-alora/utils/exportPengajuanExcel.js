@@ -200,7 +200,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
       cell(toTitleCase(row.pengaju_name), cs),
       cell(toTitleCase(row.department_name), cs),
       cell(row.company_name || "-", cs),
-      cell(row.outlet_name || "-", cs),
+      cell(Number(row.company_id) === 5 && !row.outlet_name ? "Seluruh Outlet" : (row.outlet_name || "-"), cs),
       cell(toTitleCase(row.nama_barang), cs),
       cell(row.ga_merk || row.merk || "-", cs),
       numCell(finalQty, csC),

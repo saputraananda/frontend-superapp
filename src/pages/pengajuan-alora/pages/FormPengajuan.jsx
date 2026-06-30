@@ -330,7 +330,6 @@ export default function FormPengajuan() {
         if (!form.nama_barang.trim()) return showToast("error", "Nama barang wajib diisi");
         if (!form.alasan_pembelian.trim()) return showToast("error", "Alasan pembelian wajib diisi");
         if (!form.company_id) return showToast("error", "Kategori wajib dipilih");
-        if (needsOutlet && !form.outlet_id) return showToast("error", "Outlet wajib dipilih");
         if (form.type === "reimburse" && !form.atas_nama.trim()) return showToast("error", "Atas nama wajib diisi");
 
         setSaving(true);
@@ -522,10 +521,10 @@ export default function FormPengajuan() {
                         </div>
                         {needsOutlet && (
                             <div>
-                                <label className={labelCls}>Outlet <span className="text-rose-500">*</span></label>
+                                <label className={labelCls}>Outlet</label>
                                 <select className={inputCls} value={form.outlet_id}
                                     onChange={e => setForm(p => ({ ...p, outlet_id: e.target.value }))}>
-                                    <option value="">— Pilih outlet —</option>
+                                    <option value="">— Seluruh Outlet (Pencatatan Bersama) —</option>
                                     {outlets.map(o => <option key={o.outlet_id} value={o.outlet_id}>{o.full_name}</option>)}
                                 </select>
                             </div>
