@@ -52,7 +52,7 @@ const SURVEY_QUESTIONS = [
     questions: [
       { id: "d1", text: "Beban kerja saya saat ini terasa berlebihan", positive: false },
       { id: "d2", text: "Target kerja terasa tidak realistis", positive: false },
-      { id: "d3", text: "Saya tidak memahami dengan jelas apa yang harus saya kerjakan", positive: true },
+      { id: "d3", text: "Saya tidak memahami dengan jelas apa yang harus saya kerjakan", positive: false },
       { id: "d4", text: "Saya tidak mendapat dukungan dari atasan", positive: false },
     ],
   },
