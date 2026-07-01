@@ -309,7 +309,7 @@ export default function KnowYourEmployee() {
         </header>
 
         {/* ── Outlet: render child routes ── */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden relative z-10">
           <Outlet />
         </div>
       </div>

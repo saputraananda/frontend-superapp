@@ -130,6 +130,7 @@ export default function AnalisisBurnout() {
   const [loading, setLoading] = useState(true);
   const [selectedResponse, setSelectedResponse] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [summaryModalType, setSummaryModalType] = useState(null); // null | 'high' | 'warning' | 'low'
 
   // Filters State
   const [search, setSearch] = useState("");
@@ -263,7 +264,11 @@ export default function AnalisisBurnout() {
 
         {/* ── Quick Summary Cards ── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setSummaryModalType("all")}
+            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:border-violet-300 hover:shadow-md transition-all text-left"
+          >
             <div className="h-12 w-12 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center shrink-0">
               <HiOutlineUserGroup className="h-6 w-6" />
             </div>
@@ -271,9 +276,13 @@ export default function AnalisisBurnout() {
               <p className="text-xs font-medium text-slate-400">Total Partisipan</p>
               <h3 className="text-2xl font-bold text-slate-800 mt-0.5">{pagination.total}</h3>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setSummaryModalType("high")}
+            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:border-rose-300 hover:shadow-md transition-all text-left"
+          >
             <div className="h-12 w-12 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
               <HiOutlineExclamationTriangle className="h-6 w-6" />
             </div>
@@ -281,9 +290,13 @@ export default function AnalisisBurnout() {
               <p className="text-xs font-medium text-slate-400">Risiko Tinggi (Burnout)</p>
               <h3 className="text-2xl font-bold text-rose-600 mt-0.5">{summary.high} <span className="text-xs font-normal text-slate-400">karyawan</span></h3>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setSummaryModalType("warning")}
+            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:border-amber-300 hover:shadow-md transition-all text-left"
+          >
             <div className="h-12 w-12 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0">
               <HiOutlineInformationCircle className="h-6 w-6" />
             </div>
@@ -291,9 +304,13 @@ export default function AnalisisBurnout() {
               <p className="text-xs font-medium text-slate-400">Peringatan (Mending)</p>
               <h3 className="text-2xl font-bold text-amber-600 mt-0.5">{summary.warning} <span className="text-xs font-normal text-slate-400">karyawan</span></h3>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setSummaryModalType("low")}
+            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-all text-left"
+          >
             <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
               <HiOutlineCheckCircle className="h-6 w-6" />
             </div>
@@ -301,7 +318,7 @@ export default function AnalisisBurnout() {
               <p className="text-xs font-medium text-slate-400">Risiko Rendah (Sehat)</p>
               <h3 className="text-2xl font-bold text-emerald-600 mt-0.5">{summary.low} <span className="text-xs font-normal text-slate-400">karyawan</span></h3>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* ── Filters Section ── */}
@@ -514,37 +531,39 @@ export default function AnalisisBurnout() {
           )}
         </div>
 
-        {/* ── Interactive Detail Modal ── */}
+{/* ── Interactive Detail Modal ── */}
         {selectedResponse && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedResponse(null)} />
-            
-            <div className="relative bg-slate-50 rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden transform transition-all animate-in fade-in zoom-in duration-200">
+          <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 sm:pt-12 m-0">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedResponse(null)} />
+            <div
+              className="relative z-10 w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl transition-all"
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Modal Header */}
-              <div className="bg-slate-900 border-b border-slate-800 p-4 sm:p-5 flex items-center justify-between text-white shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
                     <HiOutlineClipboardDocumentList className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold tracking-tight">Detail Hasil Jawaban Burnout</h4>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Karyawan: <span className="text-white font-semibold">{selectedResponse.full_name}</span> ({selectedResponse.employee_code})
+                    <h4 className="text-sm font-bold text-slate-800 tracking-tight">Detail Hasil Jawaban Burnout</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Karyawan: <span className="text-slate-700 font-semibold">{selectedResponse.full_name}</span> ({selectedResponse.employee_code})
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedResponse(null)}
-                  className="rounded-lg p-1.5 hover:bg-white/10 text-slate-400 hover:text-white transition"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
                 >
-                  <HiOutlineXMark className="h-5 w-5" />
+                  <HiOutlineXMark className="h-4 w-4" />
                 </button>
               </div>
 
               {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-                
+              <div className="space-y-5">
+
                 {/* Meta details & Overall Index */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-center">
@@ -630,7 +649,7 @@ export default function AnalisisBurnout() {
                 {/* Question Details List */}
                 <div className="space-y-4">
                   <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Detail Pertanyaan & Jawaban</h5>
-                  
+
                   {SURVEY_QUESTIONS.map((cat) => (
                     <div key={cat.category} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                       <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 flex items-center gap-2">
@@ -688,11 +707,11 @@ export default function AnalisisBurnout() {
               </div>
 
               {/* Modal Footer */}
-              <div className="bg-slate-100 border-t border-slate-200 p-4 flex justify-end shrink-0">
+              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setSelectedResponse(null)}
-                  className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-5 py-2.5 text-xs font-bold text-slate-700 transition shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-5 py-2 text-xs font-bold text-slate-700 transition shadow-sm"
                 >
                   Tutup Detail
                 </button>
@@ -700,6 +719,136 @@ export default function AnalisisBurnout() {
             </div>
           </div>
         )}
+
+        {/* ── Summary Detail Modal ── */}
+        {summaryModalType && (() => {
+          const meta = {
+            high: {
+              label: "Risiko Tinggi (Burnout)",
+              icon: HiOutlineExclamationTriangle,
+              cls: "bg-rose-50 border-rose-200 text-rose-700",
+              badgeCls: "bg-rose-100 text-rose-800",
+              headerCls: "bg-rose-600",
+              accent: "rose",
+            },
+            warning: {
+              label: "Peringatan (Sedang)",
+              icon: HiOutlineInformationCircle,
+              cls: "bg-amber-50 border-amber-200 text-amber-700",
+              badgeCls: "bg-amber-100 text-amber-800",
+              headerCls: "bg-amber-600",
+              accent: "amber",
+            },
+            low: {
+              label: "Risiko Rendah (Sehat)",
+              icon: HiOutlineCheckCircle,
+              cls: "bg-emerald-50 border-emerald-200 text-emerald-700",
+              badgeCls: "bg-emerald-100 text-emerald-800",
+              headerCls: "bg-emerald-600",
+              accent: "emerald",
+            },
+            all: {
+              label: "Total Partisipan",
+              icon: HiOutlineUserGroup,
+              cls: "bg-violet-50 border-violet-200 text-violet-700",
+              badgeCls: "bg-violet-100 text-violet-800",
+              headerCls: "bg-violet-600",
+              accent: "violet",
+            },
+          };
+          const m = meta[summaryModalType];
+          const Icon = m.icon;
+          const filteredData = summaryModalType === "all" ? dataList : dataList.filter((item) => {
+            const idx = calcBurnoutIndex(item);
+            if (summaryModalType === "high") return idx >= 70;
+            if (summaryModalType === "warning") return idx >= 40 && idx < 70;
+            return idx < 40;
+          });
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 sm:pt-12 m-0">
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSummaryModalType(null)} />
+              <div
+                className="relative z-10 w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl transition-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-white ${m.headerCls}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800 tracking-tight">{m.label}</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {filteredData.length} karyawan terindikasi
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSummaryModalType(null)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
+                  >
+                    <HiOutlineXMark className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* List */}
+                {filteredData.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400">
+                    Tidak ada karyawan dalam kategori ini.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {filteredData.map((item, idx) => {
+                      const index = calcBurnoutIndex(item);
+                      const risk = getRiskCategory(index);
+                      return (
+                        <div key={item.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-[10px] font-mono font-semibold text-slate-400 w-6 shrink-0">
+                              {idx + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-800 truncate">{item.full_name || "—"}</p>
+                              <p className="text-[10px] font-mono text-slate-400 truncate">
+                                {item.employee_code || "—"} · {item.department_name || "—"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${risk.badgeCls}`}>
+                              {index}%
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => { handleOpenDetail(item.id); setSummaryModalType(null); }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition shadow-sm"
+                            >
+                              <HiOutlineEye className="h-3 w-3" /> Detail
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSummaryModalType(null)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-5 py-2 text-xs font-bold text-slate-700 transition shadow-sm"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
     </main>
