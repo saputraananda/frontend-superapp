@@ -27,6 +27,7 @@ export default function MasterService() {
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [fetchError, setFetchError] = useState("");
 
   // Confirm State
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -49,7 +50,7 @@ export default function MasterService() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      setError("");
+      setFetchError("");
       const [servicesRes, categoriesRes, satuansRes] = await Promise.all([
         api("/master-services"),
         api("/master-services/categories"),
@@ -59,7 +60,7 @@ export default function MasterService() {
       setCategories(categoriesRes.categories || []);
       setSatuans(satuansRes.satuans || []);
     } catch (err) {
-      setError(err.message || "Gagal memuat data master layanan");
+      setFetchError(err.message || "Gagal memuat data master layanan");
     } finally {
       setLoading(false);
     }
@@ -74,9 +75,9 @@ export default function MasterService() {
     setSelectedService(null);
     setFormName("");
     setFormPrice("");
-    setFormSatuanId(satuans.length > 0 ? satuans[0].satuan_id : "");
-    setFormCategoryId(categories.length > 0 ? categories[0].id : "");
-    setFormDurationValue("1");
+    setFormSatuanId("");
+    setFormCategoryId("");
+    setFormDurationValue("");
     setFormDurationUnit("hari");
     setFormStatus("Aktif");
     setModalOpen(true);
@@ -88,7 +89,7 @@ export default function MasterService() {
     setFormPrice(item.price != null ? String(Math.round(Number(item.price))) : "");
     setFormSatuanId(item.satuan_id ?? "");
     setFormCategoryId(item.category_id ?? "");
-    setFormDurationValue(item.duration_value != null ? String(item.duration_value) : "1");
+    setFormDurationValue(item.duration_value != null ? String(item.duration_value) : "");
     setFormDurationUnit(item.duration_unit ?? "hari");
     setFormStatus(item.status || "Aktif");
     setModalOpen(true);
@@ -96,27 +97,30 @@ export default function MasterService() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formName || formPrice === "" || !formSatuanId || !formCategoryId || !formDurationValue || !formDurationUnit) {
-      setError("Semua data wajib diisi!");
+    if (!formName || formPrice === "") {
+      setError("Nama dan Harga wajib diisi!");
       setTimeout(() => setError(""), 3000);
       return;
     }
 
-    const selectedSatuan = satuans.find(s => Number(s.satuan_id) === Number(formSatuanId));
-    if (!selectedSatuan) {
-      setError("Satuan tidak valid!");
-      setTimeout(() => setError(""), 3000);
-      return;
+    let selectedSatuan = null;
+    if (formSatuanId) {
+      selectedSatuan = satuans.find(s => Number(s.satuan_id) === Number(formSatuanId));
+      if (!selectedSatuan) {
+        setError("Satuan tidak valid!");
+        setTimeout(() => setError(""), 3000);
+        return;
+      }
     }
 
     const payload = {
       name: formName,
       price: Number(formPrice) || 0,
-      satuan_id: Number(formSatuanId),
-      satuan_name: selectedSatuan.satuan_name,
-      category_id: Number(formCategoryId),
-      duration_value: Number(formDurationValue),
-      duration_unit: formDurationUnit,
+      satuan_id: formSatuanId ? Number(formSatuanId) : null,
+      satuan_name: selectedSatuan ? selectedSatuan.satuan_name : null,
+      category_id: formCategoryId ? Number(formCategoryId) : null,
+      duration_value: formDurationValue ? Number(formDurationValue) : null,
+      duration_unit: formDurationValue && formDurationUnit ? formDurationUnit : null,
       status: formStatus,
     };
 
@@ -255,10 +259,10 @@ export default function MasterService() {
                   <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100" />
                 ))}
               </div>
-            ) : error ? (
+            ) : fetchError ? (
               <div className="flex flex-col items-center gap-2 py-14 text-sm text-rose-500">
                 <HiOutlineExclamationTriangle className="h-8 w-8" />
-                <p>{error}</p>
+                <p>{fetchError}</p>
               </div>
             ) : filteredServices.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-14 text-sm text-slate-400">
@@ -288,19 +292,33 @@ export default function MasterService() {
                         {item.name}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
-                          {item.category_name}
-                        </span>
+                        {item.category_name ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                            {item.category_name}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-medium">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1 text-slate-600 font-semibold uppercase">
-                          <HiOutlineScale className="h-3.5 w-3.5 text-slate-400" />
-                          {item.satuan_name}
-                        </span>
+                        {item.satuan_name ? (
+                          <span className="inline-flex items-center gap-1 text-slate-600 font-semibold uppercase">
+                            <HiOutlineScale className="h-3.5 w-3.5 text-slate-400" />
+                            {item.satuan_name}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-medium">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-slate-600 font-medium flex items-center gap-1.5 mt-0.5">
-                        <HiOutlineClock className="h-3.5 w-3.5 text-slate-400" />
-                        {item.duration_value} {item.duration_unit}
+                        {item.duration_value != null && item.duration_unit ? (
+                          <>
+                            <HiOutlineClock className="h-3.5 w-3.5 text-slate-400" />
+                            {item.duration_value} {item.duration_unit}
+                          </>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 font-bold font-mono text-[#1b3459] text-sm">
                         {formatRupiah(item.price)}
@@ -403,7 +421,7 @@ export default function MasterService() {
                   onChange={(e) => setFormSatuanId(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                 >
-                  <option value="" disabled>Pilih Satuan</option>
+                  <option value="">Pilih Satuan (Opsional)</option>
                   {satuans.map((s) => (
                     <option key={s.satuan_id} value={s.satuan_id}>{s.satuan_name.toUpperCase()}</option>
                   ))}
@@ -418,7 +436,7 @@ export default function MasterService() {
                   onChange={(e) => setFormCategoryId(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
                 >
-                  <option value="" disabled>Pilih Kategori</option>
+                  <option value="">Pilih Kategori (Opsional)</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -431,10 +449,10 @@ export default function MasterService() {
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="number"
-                    required
                     min="1"
                     value={formDurationValue}
                     onChange={(e) => setFormDurationValue(e.target.value)}
+                    placeholder="Contoh: 3 (Opsional)"
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10"
                   />
                   <select
