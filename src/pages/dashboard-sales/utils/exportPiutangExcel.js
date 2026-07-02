@@ -120,7 +120,7 @@ function buildFilterLabel(filters) {
 
 // ─── Main export function ─────────────────────────────────────────────────────
 export function exportPiutangExcel({ rows, meta, filters, searchKeyword, statusFilter }) {
-  const TOTAL_COLS = 9;
+  const TOTAL_COLS = 10;
 
   const periodStr = meta?.dateStart
     ? `${fmtDate(meta.dateStart)} s.d. ${fmtDate(meta.dateEnd)}`
@@ -162,7 +162,7 @@ export function exportPiutangExcel({ rows, meta, filters, searchKeyword, statusF
   wsData.push(Array.from({ length: TOTAL_COLS }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
 
   // Row 5: Column headers
-  const HEADERS = ["#", "Customer", "No. Telepon", "Outlet", "No Nota", "Tgl Terima", "Jatuh Tempo", "Jumlah Piutang", "Status"];
+  const HEADERS = ["#", "Customer", "No. Telepon", "Outlet", "No Nota", "Tgl Terima", "Jatuh Tempo", "Aging (Hari)", "Jumlah Piutang", "Status"];
   wsData.push(HEADERS.map(h => cell(h, headerStyle)));
 
   // Row 6+: Data rows
@@ -178,6 +178,7 @@ export function exportPiutangExcel({ rows, meta, filters, searchKeyword, statusF
       cell(row.no_nota      ?? "-", { ...csCenter, font: { ...cs.font, name: "Courier New", sz: 9 } }),
       cell(fmtDate(row.tgl_terima),  csCenter),
       cell(fmtDate(row.tgl_selesai), csCenter),
+      cell(row.aging ?? 0,          csCenter),
       cell(Number(row.piutang) || 0, makeCurrencyStyle(isAlt)),
       cell(row.status ?? "-",       makeStatusStyle(row.status, isAlt)),
     ]);
@@ -193,13 +194,13 @@ export function exportPiutangExcel({ rows, meta, filters, searchKeyword, statusF
   const sl = summaryLabelStyle;
   const se = summaryEmptyStyle;
 
-  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
+  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
     cell("Total Piutang", sl), cell(total, sf), empty(se) ]);
-  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
+  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
     cell("Belum Jatuh Tempo", sl), cell(belum, sf), empty(se) ]);
-  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
+  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
     cell("Jatuh Tempo", sl), cell(jt, sf), empty(se) ]);
-  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
+  wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
     cell("Terlambat", sl), cell(terlambat, sf), empty(se) ]);
 
   // ── Build worksheet ───────────────────────────────────────────────────────
@@ -224,6 +225,7 @@ export function exportPiutangExcel({ rows, meta, filters, searchKeyword, statusF
     { wch: 18 }, // No Nota
     { wch: 14 }, // Tgl Terima
     { wch: 14 }, // Jatuh Tempo
+    { wch: 12 }, // Aging (Hari)
     { wch: 18 }, // Jumlah
     { wch: 20 }, // Status
   ];

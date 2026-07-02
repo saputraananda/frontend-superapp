@@ -308,7 +308,7 @@ export default function PiutangSection({ filters }) {
                   <p className="text-xs text-slate-500">📞 <span className="font-mono">{row.customer_telepon}</span></p>
                 )
               )}
-              <div className="grid grid-cols-2 gap-1 text-xs">
+              <div className="grid grid-cols-3 gap-1 text-xs">
                 <div>
                   <p className="text-slate-400">Jumlah Utang</p>
                   <p className="font-bold text-slate-800">Rp {fmtIDR(Number(row.piutang))}</p>
@@ -316,6 +316,12 @@ export default function PiutangSection({ filters }) {
                 <div>
                   <p className="text-slate-400">Jatuh Tempo</p>
                   <p className="font-semibold text-slate-700">{row.tgl_selesai}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Aging</p>
+                  <p className="font-semibold text-slate-700">
+                    {row.aging === 0 ? "0" : `${row.aging} hari`}
+                  </p>
                 </div>
               </div>
                   </>
@@ -336,13 +342,14 @@ export default function PiutangSection({ filters }) {
                 <th className="pb-3 pr-4">Outlet</th>
                 <th className="pb-3 pr-4">No Nota</th>
                 <th className="pb-3 pr-4">Jatuh Tempo</th>
+                <th className="pb-3 pr-4">Aging</th>
                 <th className="pb-3 pr-4 text-right">Jumlah</th>
                 <th className="pb-3">Status</th>
               </tr>
             </thead>
             <tbody>
               {pagedRows.length === 0 ? (
-                <tr><td colSpan={8} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
               ) : pagedRows.map((row, i) => (
                 <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/60 transition">
                   <td className="py-3 pr-4 text-slate-400 text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
@@ -368,6 +375,9 @@ export default function PiutangSection({ filters }) {
                   <td className="py-3 pr-4 text-slate-500 text-xs">{row.outlet}</td>
                   <td className="py-3 pr-4 text-slate-500 font-mono text-xs">{row.no_nota}</td>
                   <td className="py-3 pr-4 text-slate-600 text-xs whitespace-nowrap">{row.tgl_selesai}</td>
+                  <td className="py-3 pr-4 text-slate-600 text-xs whitespace-nowrap">
+                    {row.aging === 0 ? "0" : `${row.aging} hari`}
+                  </td>
                   <td className="py-3 pr-4 font-semibold text-slate-800 text-right whitespace-nowrap">
                     Rp {fmtIDR(Number(row.piutang))}
                   </td>
