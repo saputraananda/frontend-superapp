@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { HiOutlineExclamationTriangle, HiOutlineXMark } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -52,7 +53,7 @@ export default function ConfirmDialog({
     ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-500/30 text-white"
     : "bg-amber-500 hover:bg-amber-600 focus:ring-amber-400/30 text-white";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
       {/* Backdrop */}
       <div
@@ -133,6 +134,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

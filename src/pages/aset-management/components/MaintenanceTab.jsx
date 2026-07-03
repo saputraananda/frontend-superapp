@@ -3,12 +3,15 @@ import { useState, useEffect } from "react";
 import { api } from "../../../lib/api";
 import { cn, inputCls, MAINTENANCE_TIPE, MAINTENANCE_STATUS, toTitleCase } from "./constants";
 import { Field } from "./UIComponents";
-import { HiOutlinePlus, HiOutlineWrenchScrewdriver } from "react-icons/hi2";
+import { HiOutlinePlus, HiOutlineWrenchScrewdriver, HiOutlinePencilSquare, HiOutlineTrash } from "react-icons/hi2";
+import ConfirmDialog from "../../../components/ConfirmDialog";
 
 export default function MaintenanceTab({ asetId, showToast }) {
     const [data, setData] = useState([]);
     const [formOpen, setFormOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [form, setForm] = useState({
         tipe: "perbaikan", deskripsi: "", tanggal_mulai: new Date().toISOString().split("T")[0],
         tanggal_selesai: "", biaya: "", vendor: "", status: "dijadwalkan", catatan: "",
@@ -23,17 +26,84 @@ export default function MaintenanceTab({ asetId, showToast }) {
 
     useEffect(() => { load(); }, [asetId]);
 
+    const formatDateForInput = (val) => {
+        if (!val) return "";
+        if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+            return val.substring(0, 10);
+        }
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return "";
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const handleEdit = (m) => {
+        setForm({
+            tipe: m.tipe,
+            deskripsi: m.deskripsi,
+            tanggal_mulai: formatDateForInput(m.tanggal_mulai),
+            tanggal_selesai: formatDateForInput(m.tanggal_selesai),
+            biaya: m.biaya || "",
+            vendor: m.vendor || "",
+            status: m.status,
+            catatan: m.catatan || "",
+        });
+        setEditingId(m.id);
+        setFormOpen(true);
+    };
+
+    const handleCancel = () => {
+        setFormOpen(false);
+        setEditingId(null);
+        setForm({
+            tipe: "perbaikan",
+            deskripsi: "",
+            tanggal_mulai: new Date().toISOString().split("T")[0],
+            tanggal_selesai: "",
+            biaya: "",
+            vendor: "",
+            status: "dijadwalkan",
+            catatan: "",
+        });
+    };
+
+    const handleOpenForm = () => {
+        if (formOpen) {
+            handleCancel();
+        } else {
+            setFormOpen(true);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.deskripsi.trim()) { showToast("error", "Deskripsi wajib diisi"); return; }
         setSaving(true);
         try {
-            await api(`/aset/${asetId}/maintenance`, { method: "POST", body: JSON.stringify(form) });
-            showToast("success", "Maintenance berhasil dicatat");
-            setFormOpen(false);
-            setForm({ tipe: "perbaikan", deskripsi: "", tanggal_mulai: new Date().toISOString().split("T")[0], tanggal_selesai: "", biaya: "", vendor: "", status: "dijadwalkan", catatan: "" });
+            if (editingId) {
+                await api(`/aset/maintenance/${editingId}`, { method: "PUT", body: JSON.stringify(form) });
+                showToast("success", "Maintenance berhasil diperbarui");
+            } else {
+                await api(`/aset/${asetId}/maintenance`, { method: "POST", body: JSON.stringify(form) });
+                showToast("success", "Maintenance berhasil dicatat");
+            }
+            handleCancel();
             load();
         } catch (err) { showToast("error", err.message); } finally { setSaving(false); }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!confirmDeleteId) return;
+        try {
+            await api(`/aset/maintenance/${confirmDeleteId}`, { method: "DELETE" });
+            showToast("success", "Maintenance berhasil dihapus");
+            setConfirmDeleteId(null);
+            load();
+        } catch (err) {
+            showToast("error", err.message || "Gagal menghapus maintenance");
+        }
     };
 
     const statusColor = {
@@ -49,8 +119,8 @@ export default function MaintenanceTab({ asetId, showToast }) {
                 <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <HiOutlineWrenchScrewdriver className="h-4 w-4" /> Riwayat Maintenance ({data.length})
                 </h4>
-                <button onClick={() => setFormOpen(!formOpen)} className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100 transition">
-                    <HiOutlinePlus className="h-3.5 w-3.5" /> Tambah
+                <button onClick={handleOpenForm} className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100 transition">
+                    <HiOutlinePlus className="h-3.5 w-3.5" /> {editingId ? "Edit Maintenance" : "Tambah"}
                 </button>
             </div>
 
@@ -89,9 +159,9 @@ export default function MaintenanceTab({ asetId, showToast }) {
                         <textarea className={inputCls} value={form.catatan} onChange={(e) => setForm(p => ({ ...p, catatan: e.target.value }))} rows={2} placeholder="Catatan tambahan..." />
                     </Field>
                     <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Batal</button>
+                        <button type="button" onClick={handleCancel} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Batal</button>
                         <button type="submit" disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                            {saving ? "Menyimpan..." : "Simpan"}
+                            {saving ? "Menyimpan..." : editingId ? "Perbarui" : "Simpan"}
                         </button>
                     </div>
                 </form>
@@ -105,9 +175,17 @@ export default function MaintenanceTab({ asetId, showToast }) {
                                 <span className="text-xs font-semibold text-slate-700">
                                     {MAINTENANCE_TIPE.find(t => t.value === m.tipe)?.label || m.tipe}
                                 </span>
-                                <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-medium", statusColor[m.status])}>
-                                    {MAINTENANCE_STATUS.find(s => s.value === m.status)?.label || m.status}
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-medium mr-1.5", statusColor[m.status])}>
+                                        {MAINTENANCE_STATUS.find(s => s.value === m.status)?.label || m.status}
+                                    </span>
+                                    <button onClick={() => handleEdit(m)} className="text-slate-400 hover:text-blue-600 transition p-0.5" title="Edit">
+                                        <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button onClick={() => setConfirmDeleteId(m.id)} className="text-slate-400 hover:text-rose-600 transition p-0.5" title="Hapus">
+                                        <HiOutlineTrash className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-[11px] text-slate-600">{m.deskripsi}</p>
                             <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
@@ -122,6 +200,14 @@ export default function MaintenanceTab({ asetId, showToast }) {
             ) : (
                 <p className="text-xs text-slate-400 text-center py-4">Belum ada riwayat maintenance.</p>
             )}
+
+            <ConfirmDialog
+                open={confirmDeleteId !== null}
+                title="Hapus Riwayat Maintenance"
+                message="Apakah Anda yakin ingin menghapus riwayat maintenance ini? Tindakan ini tidak dapat dibatalkan."
+                onConfirm={handleDeleteConfirm}
+                onCancel={() => setConfirmDeleteId(null)}
+            />
         </div>
     );
 }
