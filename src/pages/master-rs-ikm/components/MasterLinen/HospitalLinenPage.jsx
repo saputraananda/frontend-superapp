@@ -559,7 +559,7 @@ export default function HospitalLinenPage({ hospitalId }) {
             <p className="text-sm text-slate-400">Belum ada linen untuk RS ini</p>
           </div>
         ) : (
-          <div className="overflow-x-hidden w-full">
+          <div className="overflow-x-auto w-full">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">

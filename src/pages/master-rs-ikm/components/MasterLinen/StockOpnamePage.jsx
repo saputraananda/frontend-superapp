@@ -639,7 +639,7 @@ export default function StockOpnamePage({ hospitalId, hospitalName }) {
                   {/* Details table */}
                   <div>
                     <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Daftar Detail Stok Linen</h3>
-                    <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <div className="border border-slate-100 rounded-xl overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead>
                           <tr className="border-b border-slate-100 bg-slate-50/50">

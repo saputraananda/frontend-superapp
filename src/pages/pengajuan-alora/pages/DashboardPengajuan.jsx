@@ -139,7 +139,7 @@ export default function DashboardPengajuan() {
 
     const userRaw = localStorage.getItem("user");
     const currentEmployee = userRaw ? (JSON.parse(userRaw)?.employee || null) : null;
-    const isFinanceOrGA   = isFinanceOrGAPosition(currentEmployee?.position_name);
+    const isFinanceOrGA   = isFinanceOrGAPosition(currentEmployee?.position_name) || Number(currentEmployee?.job_level_id) === 1;
 
     // ── Department selector (khusus finance/GA) ──────────────────────────
     // Default = "all" (Semua Departemen) untuk Finance/GA

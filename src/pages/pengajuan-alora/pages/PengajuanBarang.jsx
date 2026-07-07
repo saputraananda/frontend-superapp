@@ -159,7 +159,8 @@ export default function PengajuanBarang() {
     const isGAFinance     = positionName.toLowerCase().includes("general affair")
                          || positionName.toLowerCase().includes("finance")
                          || positionName.toLowerCase().includes("accounting")
-                         || positionName.toLowerCase().includes("accountiing");
+                         || positionName.toLowerCase().includes("accountiing")
+                         || Number(currentEmployee?.job_level_id) === 1;
     const isGAOnly        = positionName.toLowerCase().includes("general affair");
     const isFinanceOnly   = positionName.toLowerCase().includes("finance")
                          || positionName.toLowerCase().includes("accounting")
@@ -189,10 +190,12 @@ export default function PengajuanBarang() {
 
     const LIMIT = 10;
 
-    // period hook — scope sesuai mode (approval & all & ga-review & finance-review & payment tidak pakai period)
-    const periodScope = (mode === "approval" || mode === "ga-review" || mode === "finance-review" || mode === "payment") ? "me" : (mode === "all" ? "all" : mode);
+    // period hook — scope sesuai mode
+    const periodScope = (mode === "all" || mode === "finance-review" || mode === "payment" || mode === "ga-review")
+        ? "all"
+        : (mode === "approval" ? "approval" : mode);
     const period      = useCutoffPeriod(periodScope);
-    const usePeriod   = mode !== "approval" && mode !== "ga-review" && mode !== "finance-review" && mode !== "payment";
+    const usePeriod   = true;
 
     const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
 
@@ -475,21 +478,19 @@ export default function PengajuanBarang() {
                 )}
             </div>
 
-            {/* ── Period filter (tidak tampil untuk approval & ga-review & finance-review & payment) ── */}
-            {!isApproval && !isGaReview && !isFinReview && !isPayment && (
-                <div className="flex items-center gap-3 flex-wrap">
-                    {!showAllDates && <PeriodFilter period={period} />}
-                    <button onClick={() => { setShowAllDates(prev => !prev); setPage(1); }}
-                        className={cn(
-                            "rounded-xl border px-3.5 py-2 text-xs font-semibold transition",
-                            showAllDates
-                                ? "bg-emerald-600 border-emerald-600 text-white"
-                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                        )}>
-                        {showAllDates ? "✓ Semua Periode" : "Tampilkan Semua"}
-                    </button>
-                </div>
-            )}
+            {/* ── Period filter ── */}
+            <div className="flex items-center gap-3 flex-wrap">
+                {!showAllDates && <PeriodFilter period={period} />}
+                <button onClick={() => { setShowAllDates(prev => !prev); setPage(1); }}
+                    className={cn(
+                        "rounded-xl border px-3.5 py-2 text-xs font-semibold transition",
+                        showAllDates
+                            ? "bg-emerald-600 border-emerald-600 text-white"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}>
+                    {showAllDates ? "✓ Semua Periode" : "Tampilkan Semua"}
+                </button>
+            </div>
 
             {/* ── Search + filters ── */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -583,17 +584,17 @@ export default function PengajuanBarang() {
                                                             ? <HiOutlineCreditCard className="h-4 w-4" />
                                                             : <HiOutlineDocumentPlus className="h-4 w-4" />}
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-semibold text-slate-800 truncate">{toTitleCase(row.nama_barang)}</p>
+                                                    <div className="min-w-0 max-w-[200px] sm:max-w-[300px] md:max-w-[350px] lg:max-w-[450px]">
+                                                        <p className="text-sm font-semibold text-slate-800 whitespace-normal break-words">{toTitleCase(row.nama_barang)}</p>
                                                         <p className="text-[11px] text-slate-400 truncate">{row.pr_code} · {row.qty} {row.satuan_name || ""}</p>
                                                     </div>
                                                 </div>
                                             </td>
 
                                             {(isDept || isApproval || isAll || isGaReview || isFinReview || isPayment) && (
-                                                <td className="px-5 py-4 hidden md:table-cell">
-                                                    <p className="text-sm text-slate-700">{toTitleCase(row.pengaju_name) || "—"}</p>
-                                                    <p className="text-[11px] text-slate-400">{toTitleCase(row.department_name) || ""}</p>
+                                                <td className="px-5 py-4 hidden md:table-cell min-w-[130px] lg:min-w-[160px]">
+                                                    <p className="text-sm text-slate-700 whitespace-normal break-words">{toTitleCase(row.pengaju_name) || "—"}</p>
+                                                    <p className="text-[11px] text-slate-400 whitespace-normal break-words">{toTitleCase(row.department_name) || ""}</p>
                                                 </td>
                                             )}
 
