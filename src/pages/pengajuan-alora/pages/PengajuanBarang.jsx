@@ -187,8 +187,11 @@ export default function PengajuanBarang() {
     const [poId, setPoId]         = useState(null);
     const [reimburseDocId, setReimburseDocId] = useState(null);
     const [approvalCount, setAC]  = useState(0);
+    const [selectedDeptId, setSelectedDeptId] = useState("");
+    const [departments, setDepartments]       = useState([]);
 
-    const LIMIT = 10;
+    const [limit, setLimit] = useState(10);
+    const LIMIT = limit === "all" ? 999999 : limit;
 
     // period hook — scope sesuai mode
     const periodScope = (mode === "all" || mode === "finance-review" || mode === "payment" || mode === "ga-review")
@@ -206,8 +209,21 @@ export default function PengajuanBarang() {
     }, [searchInput]);
 
     // reset page saat mode / period berubah
-    useEffect(() => { setPage(1); setShowAllDates(false); }, [mode]);
+    useEffect(() => { setPage(1); setShowAllDates(false); setSelectedDeptId(""); }, [mode]);
     useEffect(() => { if (!showAllDates) setPage(1); }, [period.dateFrom, period.dateTo]);
+
+    // fetch departments list for filter
+    useEffect(() => {
+        if (!isGAFinance) return;
+        let cancel = false;
+        (async () => {
+            try {
+                const d = await api("/pengajuan/departments");
+                if (!cancel) setDepartments(d.data || []);
+            } catch { /* ignore */ }
+        })();
+        return () => { cancel = true; };
+    }, [isGAFinance]);
 
     // ── load list ────────────────────────────────────────────────────────────
     const loadList = useCallback(async (silent = false) => {
@@ -219,6 +235,9 @@ export default function PengajuanBarang() {
             if (filterStatus) params.set("status",    filterStatus);
             if (filterType)   params.set("type",      filterType);
             if (filterMethod) params.set("payment_method", filterMethod);
+            if (mode === "all" && selectedDeptId) {
+                params.set("department_id", selectedDeptId);
+            }
             if (usePeriod && !showAllDates) {
                 params.set("date_from", period.dateFrom);
                 params.set("date_to",   period.dateTo);
@@ -241,7 +260,7 @@ export default function PengajuanBarang() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [mode, page, search, filterStatus, filterType, filterMethod, usePeriod, showAllDates, period.dateFrom, period.dateTo]);
+    }, [mode, page, search, filterStatus, filterType, filterMethod, selectedDeptId, usePeriod, showAllDates, period.dateFrom, period.dateTo, limit]);
 
     useEffect(() => { loadList(); }, [loadList]);
 
@@ -521,6 +540,17 @@ export default function PengajuanBarang() {
                         <option value="kredit">Kredit</option>
                     </select>
                 )}
+                {isAll && isGAFinance && (
+                    <select value={selectedDeptId} onChange={e => { setSelectedDeptId(e.target.value); setPage(1); }}
+                        className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
+                        <option value="">Semua Departemen</option>
+                        {departments.map(d => (
+                            <option key={d.department_id} value={d.department_id}>
+                                {d.department_name}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {/* ── Table ── */}
@@ -709,23 +739,44 @@ export default function PengajuanBarang() {
                 )}
 
                 {/* pagination — approval, ga-review, finance-review, payment tidak paginasi */}
-                {!isApproval && !isGaReview && !isFinReview && !isPayment && totalPages > 1 && (
-                    <div className="border-t border-slate-100 px-5 py-4 flex items-center justify-between bg-slate-50/50">
-                        <p className="text-xs text-slate-500">
-                            Halaman <span className="font-bold text-slate-700">{page}</span> dari{" "}
-                            <span className="font-bold text-slate-700">{totalPages}</span>
-                            <span className="ml-1.5 text-slate-400">({total} data)</span>
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                                className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                                <HiOutlineChevronLeft className="h-4 w-4" />
-                            </button>
-                            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
-                                className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                                <HiOutlineChevronRight className="h-4 w-4" />
-                            </button>
+                {!isApproval && !isGaReview && !isFinReview && !isPayment && data.length > 0 && (
+                    <div className="border-t border-slate-100 px-5 py-4 flex flex-col sm:flex-row items-center justify-between bg-slate-50/50 gap-3">
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <p className="text-xs text-slate-500">
+                                Halaman <span className="font-bold text-slate-700">{page}</span> dari{" "}
+                                <span className="font-bold text-slate-700">{totalPages}</span>
+                                <span className="ml-1.5 text-slate-400">({total} data)</span>
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-400">Tampilkan:</span>
+                                <select
+                                    value={limit}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setLimit(val === "all" ? "all" : Number(val));
+                                        setPage(1);
+                                    }}
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={100}>100</option>
+                                    <option value="all">ALL</option>
+                                </select>
+                            </div>
                         </div>
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-1.5">
+                                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                                    className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                                    <HiOutlineChevronLeft className="h-4 w-4" />
+                                </button>
+                                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                                    className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                                    <HiOutlineChevronRight className="h-4 w-4" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
