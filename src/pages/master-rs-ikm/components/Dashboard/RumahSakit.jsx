@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../../lib/api";
 import {
 	HiOutlineBuildingOffice2,
+	HiOutlineCheck,
 	HiOutlineCheckCircle,
 	HiOutlineExclamationCircle,
 	HiOutlineMapPin,
@@ -119,6 +120,7 @@ const EMPTY_FORM = {
 	address: "",
 	latitude: "",
 	longitude: "",
+	rooms: [],
 };
 
 // ── Toast ────────────────────────────────────────────────────────────────
@@ -141,7 +143,7 @@ function Toast({ message, type, onClose }) {
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────
-function Modal({ open, title, onClose, children }) {
+function Modal({ open, title, onClose, className = "max-w-lg", children }) {
 	useEffect(() => {
 		const handler = (e) => { if (e.key === "Escape") onClose(); };
 		if (open) document.addEventListener("keydown", handler);
@@ -152,7 +154,7 @@ function Modal({ open, title, onClose, children }) {
 	return (
 		<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
 			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
-			<div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
+			<div className={`relative w-full ${className} rounded-2xl bg-white shadow-2xl overflow-hidden`}>
 				<div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
 					<h3 className="text-base font-bold text-slate-800">{title}</h3>
 					<button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
@@ -178,9 +180,71 @@ function MapController({ target }) {
 
 // ── Form ─────────────────────────────────────────────────────────────────
 function HospitalForm({ initial, onSubmit, onClose, loading }) {
-	const [form, setForm] = useState(initial ?? EMPTY_FORM);
+	const [form, setForm] = useState(() => {
+		if (!initial) return EMPTY_FORM;
+		return {
+			...initial,
+			rooms: Array.isArray(initial.rooms)
+				? initial.rooms.map((r) => (typeof r === "string" ? r : r.room_name))
+				: [],
+		};
+	});
+	const [newRoom, setNewRoom] = useState("");
+	const [editingIdx, setEditingIdx] = useState(null);
+	const [editingName, setEditingName] = useState("");
+	const [deleteRoomIdx, setDeleteRoomIdx] = useState(null);
 
 	const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+	const addRoom = () => {
+		const val = newRoom.trim();
+		if (!val) return;
+		if (form.rooms.some((r) => r.toLowerCase() === val.toLowerCase())) {
+			alert("Nama ruangan sudah ditambahkan!");
+			return;
+		}
+		setForm((f) => ({ ...f, rooms: [...f.rooms, val] }));
+		setNewRoom("");
+	};
+
+	const startEdit = (idx, name) => {
+		setEditingIdx(idx);
+		setEditingName(name);
+	};
+
+	const saveEdit = (idx) => {
+		const val = editingName.trim();
+		if (!val) return;
+		if (form.rooms.some((r, i) => i !== idx && r.toLowerCase() === val.toLowerCase())) {
+			alert("Nama ruangan sudah digunakan!");
+			return;
+		}
+		setForm((f) => ({
+			...f,
+			rooms: f.rooms.map((r, i) => (i === idx ? val : r)),
+		}));
+		setEditingIdx(null);
+		setEditingName("");
+	};
+
+	const cancelEdit = () => {
+		setEditingIdx(null);
+		setEditingName("");
+	};
+
+	const requestDelete = (idx) => {
+		setDeleteRoomIdx(idx);
+	};
+
+	const confirmDelete = () => {
+		if (deleteRoomIdx !== null) {
+			setForm((f) => ({
+				...f,
+				rooms: f.rooms.filter((_, i) => i !== deleteRoomIdx),
+			}));
+			setDeleteRoomIdx(null);
+		}
+	};
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
@@ -192,34 +256,144 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 	const labelCls = "block text-xs font-semibold text-slate-600 mb-1";
 
 	return (
-		<form onSubmit={handleSubmit} className="space-y-4">
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<div className="sm:col-span-2">
-					<label className={labelCls}>Nama Rumah Sakit <span className="text-red-500">*</span></label>
-					<input required className={inputCls} value={form.hospital_name} onChange={set("hospital_name")} placeholder="RS Mitra Husada" />
+		<form onSubmit={handleSubmit} className="relative space-y-4">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+				{/* Kiri: Data Rumah Sakit */}
+				<div className="space-y-4">
+					<div>
+						<label className={labelCls}>Nama Rumah Sakit <span className="text-red-500">*</span></label>
+						<input required className={inputCls} value={form.hospital_name} onChange={set("hospital_name")} placeholder="RS Mitra Husada" />
+					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className={labelCls}>Hospital ID</label>
+							<input className={inputCls} value={form.hospital_id} onChange={set("hospital_id")} placeholder="RSU-001" />
+						</div>
+						<div>
+							<label className={labelCls}>Nama Perusahaan</label>
+							<input className={inputCls} value={form.company_name} onChange={set("company_name")} placeholder="PT ..." />
+						</div>
+					</div>
+					<div>
+						<label className={labelCls}>Alamat</label>
+						<textarea rows={4} className={inputCls} value={form.address} onChange={set("address")} placeholder="Jl. ..." />
+					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className={labelCls}>Latitude</label>
+							<input type="number" step="any" className={inputCls} value={form.latitude} onChange={set("latitude")} placeholder="-6.2088" />
+						</div>
+						<div>
+							<label className={labelCls}>Longitude</label>
+							<input type="number" step="any" className={inputCls} value={form.longitude} onChange={set("longitude")} placeholder="106.8456" />
+						</div>
+					</div>
 				</div>
-				<div>
-					<label className={labelCls}>Hospital ID</label>
-					<input className={inputCls} value={form.hospital_id} onChange={set("hospital_id")} placeholder="RSU-001" />
-				</div>
-				<div>
-					<label className={labelCls}>Nama Perusahaan</label>
-					<input className={inputCls} value={form.company_name} onChange={set("company_name")} placeholder="PT ..." />
-				</div>
-				<div className="sm:col-span-2">
-					<label className={labelCls}>Alamat</label>
-					<textarea rows={2} className={inputCls} value={form.address} onChange={set("address")} placeholder="Jl. ..." />
-				</div>
-				<div>
-					<label className={labelCls}>Latitude</label>
-					<input type="number" step="any" className={inputCls} value={form.latitude} onChange={set("latitude")} placeholder="-6.2088" />
-				</div>
-				<div>
-					<label className={labelCls}>Longitude</label>
-					<input type="number" step="any" className={inputCls} value={form.longitude} onChange={set("longitude")} placeholder="106.8456" />
+
+				{/* Kanan: Daftar Ruangan */}
+				<div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+					<label className="block text-xs font-semibold text-slate-600 mb-2">Daftar Ruangan Rumah Sakit</label>
+
+					<div className="flex gap-2 mb-3 shrink-0">
+						<input
+							type="text"
+							value={newRoom}
+							onChange={(e) => setNewRoom(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									addRoom();
+								}
+							}}
+							placeholder="Nama ruangan (cth: Melati 1, UGD)"
+							className={inputCls}
+						/>
+						<button
+							type="button"
+							onClick={addRoom}
+							className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition active:scale-95"
+							title="Tambah Ruangan"
+						>
+							<HiOutlinePlus className="h-5 w-5" />
+						</button>
+					</div>
+
+					<div className="flex-1 overflow-y-auto min-h-[220px] max-h-[260px] pr-1 space-y-2 border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
+						{form.rooms.length === 0 ? (
+							<div className="flex flex-col items-center justify-center py-10 text-slate-400">
+								<HiOutlineBuildingOffice2 className="h-8 w-8 text-slate-300 mb-1" />
+								<p className="text-xs">Belum ada ruangan ditambahkan</p>
+							</div>
+						) : (
+							form.rooms.map((room, idx) => (
+								<div
+									key={idx}
+									className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-150 shadow-sm text-sm text-slate-700 hover:border-slate-300 transition"
+								>
+									{editingIdx === idx ? (
+										<div className="flex items-center gap-1.5 w-full">
+											<input
+												type="text"
+												value={editingName}
+												onChange={(e) => setEditingName(e.target.value)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														e.preventDefault();
+														saveEdit(idx);
+													} else if (e.key === "Escape") {
+														cancelEdit();
+													}
+												}}
+												className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-400 focus:ring-1 focus:ring-red-200 font-semibold"
+												autoFocus
+											/>
+											<button
+												type="button"
+												onClick={() => saveEdit(idx)}
+												className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
+												title="Simpan Edit"
+											>
+												<HiOutlineCheck className="h-4.5 w-4.5" />
+											</button>
+											<button
+												type="button"
+												onClick={cancelEdit}
+												className="p-1 rounded-lg text-slate-400 hover:bg-slate-50 transition"
+												title="Batal Edit"
+											>
+												<HiOutlineXMark className="h-4.5 w-4.5" />
+											</button>
+										</div>
+									) : (
+										<>
+											<span className="font-semibold truncate">{room}</span>
+											<div className="flex items-center gap-1">
+												<button
+													type="button"
+													onClick={() => startEdit(idx, room)}
+													className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+													title="Edit Nama Ruangan"
+												>
+													<HiOutlinePencilSquare className="h-4 w-4" />
+												</button>
+												<button
+													type="button"
+													onClick={() => requestDelete(idx)}
+													className="p-1 rounded-lg text-slate-400 hover:text-red-650 hover:bg-red-50 transition"
+													title="Hapus Ruangan"
+												>
+													<HiOutlineTrash className="h-4 w-4" />
+												</button>
+											</div>
+										</>
+									)}
+								</div>
+							))
+						)}
+					</div>
 				</div>
 			</div>
-			<div className="flex justify-end gap-3 pt-2">
+			<div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
 				<button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
 					Batal
 				</button>
@@ -231,6 +405,37 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 					{loading ? "Menyimpan..." : "Simpan"}
 				</button>
 			</div>
+
+			{/* Inline Delete Confirmation Overlay */}
+			{deleteRoomIdx !== null && (
+				<div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm rounded-2xl">
+					<div className="bg-white border border-slate-100 shadow-2xl rounded-2xl p-6 max-w-sm w-full mx-auto space-y-4">
+						<div className="flex items-center gap-3 text-red-600">
+							<HiOutlineExclamationCircle className="h-6 w-6 shrink-0" />
+							<h4 className="text-sm font-bold text-slate-800">Hapus Ruangan?</h4>
+						</div>
+						<p className="text-xs text-slate-500 leading-relaxed">
+							Apakah Anda yakin ingin menghapus ruangan <span className="font-bold text-slate-800">"{form.rooms[deleteRoomIdx]}"</span>? Tindakan ini akan menghapus semua catatan stok linen di dalam ruangan ini secara permanen setelah disimpan.
+						</p>
+						<div className="flex justify-end gap-2 pt-2">
+							<button
+								type="button"
+								onClick={() => setDeleteRoomIdx(null)}
+								className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition"
+							>
+								Batal
+							</button>
+							<button
+								type="button"
+								onClick={confirmDelete}
+								className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition active:scale-95"
+							>
+								Hapus Ruangan
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</form>
 	);
 }
@@ -490,6 +695,7 @@ export default function RumahSakitPage() {
 									<th className="px-4 py-3 text-center">#</th>
 									<th className="px-4 py-3 text-left">Nama Rumah Sakit</th>
 									<th className="px-4 py-3 text-left">Hospital ID</th>
+									<th className="hidden sm:table-cell px-4 py-3 text-left">Ruangan</th>
 									<th className="hidden md:table-cell px-4 py-3 text-left">Perusahaan</th>
 									<th className="hidden lg:table-cell px-4 py-3 text-left">Alamat</th>
 
@@ -499,13 +705,13 @@ export default function RumahSakitPage() {
 							<tbody className="divide-y divide-slate-100">
 								{loading ? (
 									<tr>
-										<td colSpan={6} className="py-10 text-center text-slate-400">
+										<td colSpan={7} className="py-10 text-center text-slate-400">
 											Memuat data...
 										</td>
 									</tr>
 								) : hospitals.length === 0 ? (
 									<tr>
-										<td colSpan={6} className="py-12 text-center text-slate-400">
+										<td colSpan={7} className="py-12 text-center text-slate-400">
 											Belum ada data rumah sakit.{" "}
 											<button
 												type="button"
@@ -530,6 +736,11 @@ export default function RumahSakitPage() {
 											</td>
 											<td className="px-4 py-3 text-slate-500 font-mono text-xs">
 												{h.hospital_id || <span className="text-slate-300">—</span>}
+											</td>
+											<td className="hidden sm:table-cell px-4 py-3">
+												<span className="inline-flex items-center rounded-full bg-slate-150 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+													{h.rooms?.length || 0} Ruangan
+												</span>
 											</td>
 											<td className="hidden md:table-cell px-4 py-3 text-slate-500">
 												{h.company_name || <span className="text-slate-300">—</span>}
@@ -589,6 +800,7 @@ export default function RumahSakitPage() {
 				open={modal !== null}
 				title={modal?.mode === "edit" ? "Edit Rumah Sakit" : "Tambah Rumah Sakit"}
 				onClose={() => setModal(null)}
+				className="max-w-4xl"
 			>
 				<HospitalForm
 					initial={modal?.data}
@@ -642,6 +854,20 @@ export default function RumahSakitPage() {
 							<div>
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Nama Perusahaan</label>
 								<div className="text-sm text-slate-700">{detailModal.company_name || "-"}</div>
+							</div>
+							<div className="sm:col-span-2">
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Daftar Ruangan</label>
+								<div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto p-1 border border-slate-100 bg-slate-50/50 rounded-xl p-2">
+									{!detailModal.rooms || detailModal.rooms.length === 0 ? (
+										<span className="text-xs text-slate-400 font-medium">— Belum ada ruangan ditambahkan —</span>
+									) : (
+										detailModal.rooms.map((r, i) => (
+											<span key={i} className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+												{typeof r === "string" ? r : r.room_name}
+											</span>
+										))
+									)}
+								</div>
 							</div>
 							<div className="sm:col-span-2">
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Alamat Lengkap</label>

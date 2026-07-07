@@ -281,12 +281,12 @@ function TasklistRow({ list, expanded, onToggleExpand, onToggleItem, onEdit, onD
                 {/* main info block — takes all remaining width */}
                 <div className="flex-1 min-w-0">
                     {/* line 1: title + badges */}
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-sm font-semibold text-slate-800 truncate max-w-full">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                        <span className="text-sm font-semibold text-slate-800 truncate block max-w-full sm:max-w-[280px] md:max-w-[360px] lg:max-w-[450px]" title={list.title}>
                             {list.title}
                         </span>
                         {list.company_name && (
-                            <span className="shrink-0 text-[10px] text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 border border-blue-100 truncate max-w-[140px]">
+                            <span className="shrink-0 text-[10px] text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 border border-blue-100 truncate max-w-[120px]" title={list.company_name}>
                                 {list.company_name}
                             </span>
                         )}
@@ -296,11 +296,13 @@ function TasklistRow({ list, expanded, onToggleExpand, onToggleItem, onEdit, onD
                             </span>
                         )}
                     </div>
-
+ 
                     {/* line 2: description + due date */}
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 min-w-0">
                         {list.description && (
-                            <p className="text-[11px] text-slate-400 truncate">{list.description}</p>
+                            <p className="text-[11px] text-slate-400 truncate block max-w-full sm:max-w-[320px]" title={list.description}>
+                                {list.description}
+                            </p>
                         )}
                         {list.due_date && (
                             <span className="shrink-0 text-[10px] text-orange-600 bg-orange-50 rounded-full px-2 py-0.5 border border-orange-100">
@@ -308,7 +310,7 @@ function TasklistRow({ list, expanded, onToggleExpand, onToggleItem, onEdit, onD
                             </span>
                         )}
                     </div>
-
+ 
                     {/* line 3: progress bar — always visible on all screen sizes */}
                     <div className="mt-1.5 pr-1">
                         <ProgressBar percentage={list.percentage} />

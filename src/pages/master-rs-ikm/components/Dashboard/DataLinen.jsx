@@ -244,6 +244,227 @@ function PriceHistoryModal({ open, onClose, linen, onToast }) {
   );
 }
 
+/* ── Linen Detail Modal ── */
+function LinenDetailModal({ open, onClose, linenId, onToast }) {
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !linenId) {
+      setDetail(null);
+      return;
+    }
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await api(`/ikm/master-linen/${linenId}`);
+        setDetail(res.data || null);
+      } catch (err) {
+        onToast?.(err.message || "Gagal memuat detail linen", "error");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [open, linenId, onToast]);
+
+  if (!open) return null;
+
+  const hospitals = detail?.hospitals || [];
+  const rentedCount = hospitals.filter(h => h.ownership_type === "SEWA").length;
+  const ownedCount = hospitals.filter(h => h.ownership_type === "MILIK_RS").length;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-4xl rounded-3xl border border-slate-200 bg-white shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50 shrink-0">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <HiOutlineArchiveBox className="h-5 w-5 text-red-500" /> Detail Spesifikasi & Penggunaan Linen
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">Melihat sebaran dan konfigurasi harga linen di berbagai Rumah Sakit</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 transition">
+            <HiOutlineXMark className="h-5 w-5 text-slate-500" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          {loading ? (
+            <div className="py-16 text-center text-slate-400">
+              <HiOutlineClock className="h-8 w-8 animate-spin mx-auto mb-2 text-red-500" />
+              <p className="text-sm font-medium">Memuat rincian data...</p>
+            </div>
+          ) : !detail ? (
+            <div className="py-16 text-center text-slate-400 text-sm">Data linen tidak ditemukan.</div>
+          ) : (
+            <>
+              {/* Specification Grid */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Informasi Spesifikasi</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Nama Linen</span>
+                    <span className="text-sm font-semibold text-slate-800">{detail.linen_name}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Kode Linen</span>
+                    <span className="inline-flex mt-0.5 px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-mono font-bold">
+                      {detail.linen_code || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Kategori</span>
+                    <span className="text-sm font-semibold text-slate-800">{detail.category_name || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Qty Default</span>
+                    <span className="text-sm font-semibold text-slate-800">{detail.default_qty ?? 0}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Ukuran</span>
+                    <span className="text-sm font-semibold text-slate-800">{detail.size_name || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Warna</span>
+                    <span className="text-sm font-semibold text-slate-800">{detail.color_name || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Bahan</span>
+                    <span className="text-sm font-semibold text-slate-800">{detail.material_name || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Deskripsi</span>
+                    <span className="text-sm text-slate-600 block truncate" title={detail.description}>{detail.description || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Statistics Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-4 border border-blue-200 flex items-center gap-4 shadow-sm">
+                  <div className="h-12 w-12 rounded-xl bg-blue-500 text-white flex items-center justify-center font-bold text-xl shrink-0">
+                    {hospitals.length}
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-semibold text-blue-800 uppercase tracking-wider">Total Penggunaan</h5>
+                    <p className="text-sm font-bold text-slate-800 mt-0.5">Rumah Sakit</p>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-4 border border-emerald-200 flex items-center gap-4 shadow-sm">
+                  <div className="h-12 w-12 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-xl shrink-0">
+                    {ownedCount}
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Milik RS</h5>
+                    <p className="text-sm font-bold text-slate-800 mt-0.5">Rumah Sakit</p>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-4 border border-amber-200 flex items-center gap-4 shadow-sm">
+                  <div className="h-12 w-12 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xl shrink-0">
+                    {rentedCount}
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-semibold text-amber-800 uppercase tracking-wider">Sewa</h5>
+                    <p className="text-sm font-bold text-slate-800 mt-0.5">Rumah Sakit</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hospital Associations List */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-slate-800">Daftar Rumah Sakit & Konfigurasi Harga</h4>
+                {hospitals.length === 0 ? (
+                  <div className="text-center py-8 border border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-500 text-sm">
+                    Linen ini belum didistribusikan atau digunakan oleh Rumah Sakit manapun.
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200 bg-slate-50">
+                            <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs w-10">No</th>
+                            <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs w-1/3">Nama Rumah Sakit</th>
+                            <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Nama Linen di RS</th>
+                            <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Kepemilikan</th>
+                            <th className="text-right py-3 px-4 font-semibold text-slate-500 text-xs">Harga Cuci</th>
+                            <th className="text-right py-3 px-4 font-semibold text-slate-500 text-xs">Harga Sewa</th>
+                            <th className="text-center py-3 px-4 font-semibold text-slate-500 text-xs">Stok Par/Min</th>
+                            <th className="text-center py-3 px-4 font-semibold text-slate-500 text-xs w-20">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hospitals.map((h, index) => (
+                            <tr key={h.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                              <td className="py-3 px-4 text-xs text-slate-400 font-mono">{index + 1}</td>
+                              <td className="py-3 px-4 font-bold text-slate-800">{h.hospital_name}</td>
+                              <td className="py-3 px-4 text-slate-600 text-xs italic">{h.hospital_linen_name || detail.linen_name}</td>
+                              <td className="py-3 px-4">
+                                <span className={cn(
+                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold",
+                                  h.ownership_type === "SEWA"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-emerald-100 text-emerald-800"
+                                )}>
+                                  {h.ownership_type === "SEWA" ? "SEWA" : "MILIK RS"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right font-semibold text-slate-800">
+                                {formatRupiah(h.washing_price)}
+                                <span className="text-[10px] text-slate-400 font-normal ml-0.5">/{h.washing_price_type || "PCS"}</span>
+                              </td>
+                              <td className="py-3 px-4 text-right font-semibold text-slate-800">
+                                {h.ownership_type === "SEWA" ? (
+                                  <>
+                                    {formatRupiah(h.rental_price)}
+                                    <span className="text-[10px] text-slate-400 font-normal ml-0.5">/PCS</span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-center text-xs font-mono text-slate-700">
+                                <span className="font-semibold text-slate-900">{h.par_stock ?? 0}</span> / <span>{h.min_stock ?? 0}</span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={cn(
+                                  "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                  h.is_active
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
+                                )}>
+                                  {h.is_active ? "Aktif" : "Non-Aktif"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 flex justify-end shrink-0">
+          <button onClick={onClose}
+            className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Form Modal (Create/Edit) ── */
 function LinenFormModal({ open, onClose, onSave, editData, loading, categories, sizes, colors, materials }) {
   const isEdit = Boolean(editData);
@@ -404,6 +625,7 @@ export default function DataLinenPage() {
   const [editData, setEditData] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [priceTarget, setPriceTarget] = useState(null);
+  const [detailTarget, setDetailTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -461,13 +683,13 @@ export default function DataLinenPage() {
 
   /* Body scroll lock */
   useEffect(() => {
-    if (formOpen || Boolean(deleteTarget) || Boolean(priceTarget)) {
+    if (formOpen || Boolean(deleteTarget) || Boolean(priceTarget) || Boolean(detailTarget)) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [formOpen, deleteTarget, priceTarget]);
+  }, [formOpen, deleteTarget, priceTarget, detailTarget]);
 
   /* Save (create/update) */
   const handleSave = async (form) => {
@@ -589,58 +811,70 @@ export default function DataLinenPage() {
                     <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Ukuran</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Warna</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Bahan</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Qty</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Milik RS</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Sewa</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs">Kategori</th>
-                    <th className="text-right py-3 px-4 font-semibold text-slate-500 text-xs w-28">Aksi</th>
+                    <th className="text-center py-3 px-4 font-semibold text-slate-500 text-xs w-28">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400">
+                      <td colSpan={10} className="py-12 text-center text-slate-400">
                         <HiOutlineClock className="h-5 w-5 animate-spin mx-auto mb-2" />
                         Memuat data...
                       </td>
                     </tr>
                   ) : data.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400">
+                      <td colSpan={10} className="py-12 text-center text-slate-400">
                         <HiOutlineTableCells className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                         <p className="text-sm font-semibold">Belum ada data linen</p>
                         <p className="text-xs mt-1">Klik tombol "Tambah Linen" untuk menambahkan data baru</p>
                       </td>
                     </tr>
                   ) : data.map((row, i) => (
-                    <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                    <tr
+                      key={row.id}
+                      onClick={() => setDetailTarget(row)}
+                      className="border-b border-slate-100 hover:bg-slate-50 transition cursor-pointer"
+                    >
                       <td className="py-3 px-4 text-xs text-slate-400">{(page - 1) * effectiveLimit + i + 1}</td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-50 text-red-700 text-xs font-mono font-semibold">
                           {row.linen_code || "—"}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">{row.linen_name}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-800 group-hover:text-red-600 transition">
+                        {row.linen_name}
+                      </td>
                       <td className="py-3 px-4 text-xs text-slate-600">{row.size_name || "—"}</td>
                       <td className="py-3 px-4 text-xs text-slate-600">{row.color_name || "—"}</td>
                       <td className="py-3 px-4 text-xs text-slate-600">{row.material_name || "—"}</td>
-                      <td className="py-3 px-4 text-xs text-slate-600">{row.default_qty ?? 0}</td>
+                      <td className="py-3 px-4 text-xs text-slate-600">
+                        <span className="font-semibold text-slate-800">{row.owned_count ?? 0}</span> RS
+                      </td>
+                      <td className="py-3 px-4 text-xs text-slate-600">
+                        <span className="font-semibold text-slate-800">{row.rented_count ?? 0}</span> RS
+                      </td>
                       <td className="py-3 px-4">
                         {row.category_name
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-xs font-medium">{row.category_name}</span>
                           : <span className="text-slate-400 text-xs">—</span>}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-end gap-0.5">
-                          <button onClick={() => setPriceTarget(row)}
+                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-0.5">
+                          <button onClick={(e) => { e.stopPropagation(); setPriceTarget(row); }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition"
                             title="Riwayat Harga Beli">
                             <HiOutlineCurrencyDollar className="h-4 w-4" />
                           </button>
-                          <button onClick={() => openEdit(row)}
+                          <button onClick={(e) => { e.stopPropagation(); openEdit(row); }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition"
                             title="Edit">
                             <HiOutlinePencilSquare className="h-4 w-4" />
                           </button>
-                          <button onClick={() => setDeleteTarget(row)}
+                          <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(row); }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                             title="Hapus">
                             <HiOutlineTrash className="h-4 w-4" />
@@ -718,6 +952,12 @@ export default function DataLinenPage() {
         open={Boolean(priceTarget)}
         onClose={() => setPriceTarget(null)}
         linen={priceTarget}
+        onToast={showToast}
+      />
+      <LinenDetailModal
+        open={Boolean(detailTarget)}
+        onClose={() => setDetailTarget(null)}
+        linenId={detailTarget?.id}
         onToast={showToast}
       />
     </>

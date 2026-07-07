@@ -46,6 +46,8 @@ import RSUBundaMGD from "./pages/master-rs-ikm/components/MasterLinen/RSUBundaMG
 import EkaGFPIK from "./pages/master-rs-ikm/components/MasterLinen/EkaGFPIK";
 import EkaFPluit from "./pages/master-rs-ikm/components/MasterLinen/EkaFPluit";
 import ColumbiaBSD from "./pages/master-rs-ikm/components/MasterLinen/ColumbiaBSD";
+import RSAtmaJayaJKT from "./pages/master-rs-ikm/components/MasterLinen/RSAtmaJayaJKT";
+import StockOpnamePage from "./pages/master-rs-ikm/components/MasterLinen/StockOpnamePage";
 import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen";
 import MasterSize from "./pages/master-rs-ikm/components/MasterData/MasterSize";
 import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor";
@@ -307,19 +309,37 @@ export default function App() {
           <Route path="/rumah-sakit-ikm" element={<RumahSakitPage />} />
           <Route path="/linen-ikm" element={<DataLinenPage />} />
           <Route path="/eka-bsd-linen" element={<EkaBSD />} />
+          <Route path="/eka-bsd-stock-opname" element={<StockOpnamePage key="eka-bsd-opname" hospitalId={2} hospitalName="Eka Hospital BSD (Bumi Serpong Damai)" />} />
           <Route path="/eka-mth-linen" element={<EkaMTH />} />
+          <Route path="/eka-mth-stock-opname" element={<StockOpnamePage key="eka-mth-opname" hospitalId={5} hospitalName="Eka Hospital MTH (MT Haryono)" />} />
           <Route path="/eka-depok-linen" element={<EkaDepok />} />
+          <Route path="/eka-depok-stock-opname" element={<StockOpnamePage key="eka-depok-opname" hospitalId={4} hospitalName="Eka Hospital Depok" />} />
           <Route path="/eka-cilegon-linen" element={<EkaCilegon />} />
+          <Route path="/eka-cilegon-stock-opname" element={<StockOpnamePage key="eka-cilegon-opname" hospitalId={9} hospitalName="Eka Hospital Cilegon" />} />
           <Route path="/eka-phj-linen" element={<EkaPHJ />} />
+          <Route path="/eka-phj-stock-opname" element={<StockOpnamePage key="eka-phj-opname" hospitalId={7} hospitalName="Eka Hospital Permata Hijau" />} />
           <Route path="/eka-cbb-linen" element={<EkaCBB />} />
+          <Route path="/eka-cbb-stock-opname" element={<StockOpnamePage key="eka-cbb-opname" hospitalId={3} hospitalName="Eka Hospital Cibubur" />} />
           <Route path="/eka-bks-linen" element={<EkaBKS />} />
+          <Route path="/eka-bks-stock-opname" element={<StockOpnamePage key="eka-bks-opname" hospitalId={1} hospitalName="Eka Hospital Bekasi" />} />
+          <Route path="/eka-gfpik-linen" element={<EkaGFPIK />} />
+          <Route path="/eka-gfpik-stock-opname" element={<StockOpnamePage key="eka-gfpik-opname" hospitalId={8} hospitalName="Eka Hospital Grand Family PIK (Pantai Indah Kapuk)" />} />
+          <Route path="/eka-fpluit-linen" element={<EkaFPluit />} />
+          <Route path="/eka-fpluit-stock-opname" element={<StockOpnamePage key="eka-fpluit-opname" hospitalId={6} hospitalName="Eka Hospital Family Pluit" />} />
           <Route path="/permata-cbb-linen" element={<PermataCBB />} />
+          <Route path="/permata-cbb-stock-opname" element={<StockOpnamePage key="permata-cbb-opname" hospitalId={14} hospitalName="RS Permata Cibubur" />} />
           <Route path="/rsia-bunda-jkt-linen" element={<RSIABundaJKT />} />
+          <Route path="/rsia-bunda-jkt-stock-opname" element={<StockOpnamePage key="rsia-bunda-jkt-opname" hospitalId={10} hospitalName="Bunda - RSIA Bunda Jakarta" />} />
           <Route path="/rsu-bunda-jkt-linen" element={<RSUBundaJKT />} />
+          <Route path="/rsu-bunda-jkt-stock-opname" element={<StockOpnamePage key="rsu-bunda-jkt-opname" hospitalId={11} hospitalName="Bunda - RSU Bunda Jakarta" />} />
           <Route path="/rsu-bunda-mgd-linen" element={<RSUBundaMGD />} />
+          <Route path="/rsu-bunda-mgd-stock-opname" element={<StockOpnamePage key="rsu-bunda-mgd-opname" hospitalId={12} hospitalName="Bunda - RSU Bunda Margonda" />} />
           <Route path="/eka-gfpik-linen" element={<EkaGFPIK />} />
           <Route path="/eka-fpluit-linen" element={<EkaFPluit />} />
           <Route path="/columbia-bsd-linen" element={<ColumbiaBSD />} />
+          <Route path="/columbia-bsd-stock-opname" element={<StockOpnamePage key="columbia-bsd-opname" hospitalId={15} hospitalName="RS Columbia BSD (Bumi Serpong Damai)" />} />
+          <Route path="/atma-jaya-jkt-linen" element={<RSAtmaJayaJKT />} />
+          <Route path="/atma-jaya-jkt-stock-opname" element={<StockOpnamePage key="atma-jaya-jkt-opname" hospitalId={16} hospitalName="Atma Jaya Hospital" />} />
           <Route path="/master-data-ikm/size" element={<MasterSize />} />
           <Route path="/master-data-ikm/color" element={<MasterColor />} />
           <Route path="/master-data-ikm/material" element={<MasterMaterial />} />
