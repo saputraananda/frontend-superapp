@@ -44,6 +44,12 @@ const MENU_ITEMS = [
 		description: "Catatan temuan linen",
 	},
 	{
+		to: "/linen-rewash-ikm",
+		icon: HiOutlineDocumentText,
+		label: "Linen Rewash",
+		description: "Pemantauan data linen rewash",
+	},
+	{
 		to: "/leader-daily-report",
 		icon: HiOutlineClipboardDocument,
 		label: "Leader Daily Report",

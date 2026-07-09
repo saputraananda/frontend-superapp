@@ -60,6 +60,7 @@ import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
 import PerizinanIKM from "./pages/absensi-ikm/components/PerizinanIKM";
 import MasterAbsensi from "./pages/absensi-ikm/components/MasterAbsensi";
 import LinenReport from "./pages/absensi-ikm/components/LinenReport";
+import RewashLinen from "./pages/absensi-ikm/components/RewashLinen";
 import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
 import KasbonPinjaman from "./pages/absensi-ikm/components/KasbonPinjaman";
 import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
@@ -97,6 +98,36 @@ import MasterService from "./pages/cleanox-management/components/MasterService";
 import MasterCategory from "./pages/cleanox-management/components/MasterCategory";
 import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduksiCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
+import MyWaschen from "./pages/my-waschen";
+import DashboardPage from "./pages/my-waschen/components/DashboardPage";
+import AdminLaporanPage from "./pages/my-waschen/components/AdminLaporanPage";
+import AdminSettingsPage from "./pages/my-waschen/components/AdminSettingsPage";
+import AdminTargetPage from "./pages/my-waschen/components/AdminTargetPage";
+import AdminTargetDetailPage from "./pages/my-waschen/components/AdminTargetDetailPage";
+import AdminPromoSlaStokPage from "./pages/my-waschen/components/AdminPromoSlaStokPage";
+import AdminPeriodClosePage from "./pages/my-waschen/components/AdminPeriodClosePage";
+import AdminShiftReportPage from "./pages/my-waschen/components/AdminShiftReportPage";
+import AdminKasOverviewPage from "./pages/my-waschen/components/AdminKasOverviewPage";
+import AdminSubSessionPage from "./pages/my-waschen/components/AdminSubSessionPage";
+import ApprovalCenterPage from "./pages/my-waschen/components/ApprovalCenterPage";
+import ApprovalPage from "./pages/my-waschen/components/ApprovalPage";
+import PurchaseRequestsPage from "./pages/my-waschen/components/PurchaseRequestsPage";
+import PurchaseRequestApprovalPage from "./pages/my-waschen/components/PurchaseRequestApprovalPage";
+import SetorApprovalPage from "./pages/my-waschen/components/SetorApprovalPage";
+import CashDepositApproval from "./pages/my-waschen/components/CashDepositApproval";
+import KasApprovalPage from "./pages/my-waschen/components/KasApprovalPage";
+import BirthdayPage from "./pages/my-waschen/components/BirthdayPage";
+import ComparisonReportPage from "./pages/my-waschen/components/ComparisonReportPage";
+import ForecastPage from "./pages/my-waschen/components/ForecastPage";
+import GeneralReportPage from "./pages/my-waschen/components/GeneralReportPage";
+import ErrorDashboardPage from "./pages/my-waschen/components/ErrorDashboardPage";
+import InfoOutletPage from "./pages/my-waschen/components/InfoOutletPage";
+import KelolaLayananOutletPage from "./pages/my-waschen/components/KelolaLayananOutletPage";
+import ManajemenLayananPage from "./pages/my-waschen/components/ManajemenLayananPage";
+import ManajemenOutletPage from "./pages/my-waschen/components/ManajemenOutletPage";
+import ManajemenUserPage from "./pages/my-waschen/components/ManajemenUserPage";
+import InventoryMasterPage from "./pages/my-waschen/components/InventoryMasterPage";
+import AllOutletStocksPage from "./pages/my-waschen/components/AllOutletStocksPage";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -373,6 +404,7 @@ export default function App() {
           <Route path="/perizinan-ikm" element={<PerizinanIKM user={user} onLogout={handleLogout} />} />
           <Route path="/master-absensi" element={<MasterAbsensi />} />
           <Route path="/linen-report-ikm" element={<LinenReport />} />
+          <Route path="/linen-rewash-ikm" element={<RewashLinen />} />
           <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
           <Route path="/kasbon-pinjaman" element={<KasbonPinjaman />} />
           <Route path="/absensi-manajemen-ikm" element={<AbsensiManajemen />} />
@@ -533,6 +565,45 @@ export default function App() {
           <Route path="/cleanox-management-system/category" element={<MasterCategory />} />
           <Route path="/cleanox-management-system/kpi" element={<KpiProduksiCleanox />} />
           <Route path="/cleanox-management-system/:id" element={<EmployeeCleanoxDetail />} />
+        </Route>
+
+        {/* ── My Waschen POS ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/my-waschen"]}>
+              <MyWaschen />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/my-waschen" element={<DashboardPage />} />
+          <Route path="/my-waschen/admin-laporan" element={<AdminLaporanPage />} />
+          <Route path="/my-waschen/admin-settings" element={<AdminSettingsPage />} />
+          <Route path="/my-waschen/admin-target" element={<AdminTargetPage />} />
+          <Route path="/my-waschen/admin-target-detail" element={<AdminTargetDetailPage />} />
+          <Route path="/my-waschen/admin-promo-sla-stok" element={<AdminPromoSlaStokPage />} />
+          <Route path="/my-waschen/admin-period-close" element={<AdminPeriodClosePage />} />
+          <Route path="/my-waschen/admin-shift-report" element={<AdminShiftReportPage />} />
+          <Route path="/my-waschen/admin-kas-overview" element={<AdminKasOverviewPage />} />
+          <Route path="/my-waschen/admin-sub-session" element={<AdminSubSessionPage />} />
+          <Route path="/my-waschen/approval-center" element={<ApprovalCenterPage />} />
+          <Route path="/my-waschen/approval" element={<ApprovalPage />} />
+          <Route path="/my-waschen/purchase-requests" element={<PurchaseRequestsPage />} />
+          <Route path="/my-waschen/purchase-request-approval" element={<PurchaseRequestApprovalPage />} />
+          <Route path="/my-waschen/setor-approval" element={<SetorApprovalPage />} />
+          <Route path="/my-waschen/cash-deposit-approval" element={<CashDepositApproval />} />
+          <Route path="/my-waschen/kas-approval" element={<KasApprovalPage />} />
+          <Route path="/my-waschen/birthday" element={<BirthdayPage />} />
+          <Route path="/my-waschen/comparison-report" element={<ComparisonReportPage />} />
+          <Route path="/my-waschen/forecast" element={<ForecastPage />} />
+          <Route path="/my-waschen/general-report" element={<GeneralReportPage />} />
+          <Route path="/my-waschen/error-dashboard" element={<ErrorDashboardPage />} />
+          <Route path="/my-waschen/info-outlet" element={<InfoOutletPage />} />
+          <Route path="/my-waschen/kelola-layanan-outlet" element={<KelolaLayananOutletPage />} />
+          <Route path="/my-waschen/manajemen-layanan" element={<ManajemenLayananPage />} />
+          <Route path="/my-waschen/manajemen-outlet" element={<ManajemenOutletPage />} />
+          <Route path="/my-waschen/manajemen-user" element={<ManajemenUserPage />} />
+          <Route path="/my-waschen/inventory-master" element={<InventoryMasterPage />} />
+          <Route path="/my-waschen/all-outlet-stocks" element={<AllOutletStocksPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

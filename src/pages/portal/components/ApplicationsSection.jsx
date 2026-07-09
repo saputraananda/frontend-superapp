@@ -126,6 +126,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M12 2l1.912 5.813a2 2 0 001.275 1.275L21 11l-5.813 1.912a2 2 0 00-1.275 1.275L12 20l-1.912-5.813a2 2 0 00-1.275-1.275L3 11l5.813-1.912a2 2 0 001.275-1.275L12 2zM5 3l.6 1.5L7.1 5l-1.5.6L5 7.1l-.6-1.5L2.9 5l1.5-.6L5 3zm14 14l.6 1.5 1.5.5-1.5.6-.5 1.5-.6-1.5-1.5-.5 1.5-.6.6-1.5z" />
         </svg>
       );
+    if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19.5 3.5A2 2 0 0 0 17.5 2h-11A2 2 0 0 0 4.5 3.5v17a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-17ZM12 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm-5.5 13.5c0-2.485 2.485-4.5 5.5-4.5s5.5 2.015 5.5 4.5h-11Z" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -154,6 +160,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("document") || name.includes("dokumen")) return "bg-blue-900";
     if (name.includes("know your employee") || name.includes("employee mood") || name.includes("know your")) return "bg-violet-500";
     if (name.includes("cleanox")) return "bg-slate-900";
+    if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen")) return "bg-cyan-600";
     return "bg-blue-600";
   };
 
