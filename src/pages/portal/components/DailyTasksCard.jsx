@@ -75,15 +75,30 @@ function TaskItem({ task, onClick }) {
               {pCfg.label}
             </span>
 
-            {task.is_public ? (
-              <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                🌐 Public
-              </span>
-            ) : (
-              <span className="text-[10px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">
-                🔒 Private
-              </span>
-            )}
+            {(() => {
+              const hasTargets =
+                (Array.isArray(task.target_company_ids)    && task.target_company_ids.length > 0) ||
+                (Array.isArray(task.target_department_ids) && task.target_department_ids.length > 0) ||
+                (Array.isArray(task.target_employee_ids)   && task.target_employee_ids.length > 0);
+
+              if (hasTargets) {
+                return (
+                  <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                    🎯 Target Audience
+                  </span>
+                );
+              }
+
+              return task.is_public ? (
+                <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                  🌐 Public
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">
+                  🔒 Private
+                </span>
+              );
+            })()}
 
             {/* Target audience badges */}
             {task.target_companies?.map((c) => (
@@ -221,8 +236,14 @@ export default function DailyTasksCard() {
         if (m !== parseInt(filterMonthNum, 10)) return false;
       }
       if (filterDept && String(t.department_id) !== filterDept) return false;
-      if (filterVis === "public" && !t.is_public) return false;
+      const hasTargets =
+        (Array.isArray(t.target_company_ids)    && t.target_company_ids.length > 0) ||
+        (Array.isArray(t.target_department_ids) && t.target_department_ids.length > 0) ||
+        (Array.isArray(t.target_employee_ids)   && t.target_employee_ids.length > 0);
+
+      if (filterVis === "public" && (!t.is_public || hasTargets)) return false;
       if (filterVis === "private" && t.is_public) return false;
+      if (filterVis === "target" && !hasTargets) return false;
       if (filterProgress !== "all" && t.progress !== filterProgress) return false;
       return true;
     });
@@ -402,6 +423,7 @@ export default function DailyTasksCard() {
                   { val: "all", label: "Semua" },
                   { val: "public", label: "🌐 Public" },
                   { val: "private", label: "🔒 Private" },
+                  { val: "target", label: "🎯 Target" },
                 ].map(({ val, label }) => (
                   <button
                     key={val}

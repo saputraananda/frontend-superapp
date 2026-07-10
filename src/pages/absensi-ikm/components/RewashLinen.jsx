@@ -485,8 +485,8 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-50";
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-6xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-white/95">
           <div className="flex items-center gap-3">
@@ -544,6 +544,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
                 <tr className="border-b border-slate-200">
                   <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">No</th>
                   <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">Nama Linen</th>
+                  <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">Kepemilikan</th>
                   <th className="text-center text-xs font-semibold text-slate-500 pb-2 px-2 w-20">Qty</th>
                   <th className="text-right text-xs font-semibold text-slate-500 pb-2 px-2 w-24">Aksi</th>
                 </tr>
@@ -553,6 +554,11 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
                   <tr key={item.id} className="border-b border-slate-50 last:border-0">
                     <td className="py-2.5 px-2 text-xs text-slate-400 tabular-nums">{idx + 1}</td>
                     <td className="py-2.5 px-2 text-xs font-semibold text-slate-800">{item.linen_display_name}</td>
+                    <td className="py-2.5 px-2 text-xs text-slate-600">
+                      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", item.ownership_type === "SEWA" ? "bg-purple-50 text-purple-700" : "bg-emerald-50 text-emerald-700")}>
+                        {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                      </span>
+                    </td>
                     <td className="py-2.5 px-2 text-center">
                       {editId === item.id ? (
                         <div className="inline-flex items-center gap-1">
@@ -615,7 +621,8 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
                       <option value="">-- Pilih Linen --</option>
                       {availableLinens.map(l => {
                         const parts = [l.master_linen_name, l.size_name, l.color_name, l.material_name].filter(Boolean);
-                        return <option key={l.id} value={l.id}>{parts.join(" ")}</option>;
+                        const ownershipLabel = l.ownership_type === "SEWA" ? "Sewa" : "RS";
+                        return <option key={l.id} value={l.id}>{parts.join(" ")} ({ownershipLabel})</option>;
                       })}
                     </>
                   )}
@@ -725,13 +732,13 @@ export default function RewashLinen() {
   }, [activePeriod.startDate, activePeriod.endDate, filterRS, search, pagination.limit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (formOpen || Boolean(deleteTarget)) {
+    if (formOpen || Boolean(detailGroup) || Boolean(deleteTarget)) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [formOpen, deleteTarget]);
+  }, [formOpen, detailGroup, deleteTarget]);
 
   useEffect(() => {
     document.title = "Linen Rewash IKM | Alora Group Indonesia";
