@@ -275,6 +275,7 @@ export default function PengajuanDetailModal({
     const canRejectFinance = !readOnly && myIsFinance && myJobLevel === 3
         && (isReimburse ? status === 2 : status === 4);
     const canPayment = !readOnly && myIsFinance && status === 5;
+    const canRejectPayment = !readOnly && myIsFinance && status === 5;
     const canComplete = !readOnly && !isReimburse && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
 
     const doApprove = async () => {
@@ -297,6 +298,19 @@ export default function PengajuanDetailModal({
         try {
             await api(`/pengajuan/${prId}/reject`, { method: "POST", body: JSON.stringify({ reason: rejectReason.trim() }) });
             showToast("success", "Pengajuan ditolak");
+            onChanged?.();
+            setTimeout(onClose, 600);
+        } catch (err) {
+            showToast("error", err.message);
+        } finally { setActing(false); }
+    };
+
+    const doRejectPayment = async () => {
+        if (!rejectReason.trim()) return showToast("error", "Alasan wajib diisi");
+        setActing(true);
+        try {
+            await api(`/pengajuan/${prId}/reject-payment`, { method: "POST", body: JSON.stringify({ reason: rejectReason.trim() }) });
+            showToast("success", "Pembayaran ditolak");
             onChanged?.();
             setTimeout(onClose, 600);
         } catch (err) {
@@ -1037,6 +1051,7 @@ export default function PengajuanDetailModal({
                                                 rejected: "Ditolak",
                                                 rejected_ga: "Ditolak oleh GA",
                                                 rejected_finance: "Ditolak oleh Finance",
+                                                rejected_payment: "Pembayaran Ditolak oleh Staff Finance",
                                                 updated: "Diperbarui",
                                                 deleted: "Dihapus",
                                             };
@@ -1124,7 +1139,7 @@ export default function PengajuanDetailModal({
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
-                                        <button onClick={canRejectFinance ? doRejectFinance : canRejectGA ? doRejectGA : doReject} disabled={acting}
+                                        <button onClick={canRejectPayment ? doRejectPayment : canRejectFinance ? doRejectFinance : canRejectGA ? doRejectGA : doReject} disabled={acting}
                                             className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition">
                                             {acting ? "Memproses..." : "Tolak Pengajuan"}
                                         </button>
@@ -1134,9 +1149,9 @@ export default function PengajuanDetailModal({
                         </div>
                     )}
 
-                    {data && !rejectOpen && !gaOpen && !finOpen && !payOpen && !completeOpen && !spvNoteOpen && (canApproveSpv || canApproveBod || canReject || canApproveGA || canRejectGA || canApproveFinance || canRejectFinance || canPayment || canComplete || canEditVendorGA) && (
+                    {data && !rejectOpen && !gaOpen && !finOpen && !payOpen && !completeOpen && !spvNoteOpen && (canApproveSpv || canApproveBod || canReject || canRejectPayment || canApproveGA || canRejectGA || canApproveFinance || canRejectFinance || canPayment || canComplete || canEditVendorGA) && (
                         <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-2 bg-white flex-wrap">
-                            {(canReject || canRejectGA || canRejectFinance) && (
+                            {(canReject || canRejectGA || canRejectFinance || canRejectPayment) && (
                                 <button onClick={() => setRejectOpen(true)}
                                     className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 transition">
                                     Tolak
