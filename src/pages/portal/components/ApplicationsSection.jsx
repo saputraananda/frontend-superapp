@@ -132,6 +132,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M19.5 3.5A2 2 0 0 0 17.5 2h-11A2 2 0 0 0 4.5 3.5v17a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-17ZM12 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm-5.5 13.5c0-2.485 2.485-4.5 5.5-4.5s5.5 2.015 5.5 4.5h-11Z" />
         </svg>
       );
+    if (name.includes("training"))
+      return (
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -161,6 +167,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("know your employee") || name.includes("employee mood") || name.includes("know your")) return "bg-violet-500";
     if (name.includes("cleanox")) return "bg-slate-900";
     if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen")) return "bg-cyan-600";
+    if (name.includes("training")) return "bg-violet-600";
     return "bg-blue-600";
   };
 

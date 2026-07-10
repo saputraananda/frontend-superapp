@@ -128,6 +128,11 @@ import ManajemenOutletPage from "./pages/my-waschen/components/ManajemenOutletPa
 import ManajemenUserPage from "./pages/my-waschen/components/ManajemenUserPage";
 import InventoryMasterPage from "./pages/my-waschen/components/InventoryMasterPage";
 import AllOutletStocksPage from "./pages/my-waschen/components/AllOutletStocksPage";
+import TrainingManagementSystem from "./pages/training-system";
+import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
+import RequestTraining from "./pages/training-system/pages/RequestTraining";
+import FormRequestTraining from "./pages/training-system/components/FormRequestTraining";
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -604,6 +609,20 @@ export default function App() {
           <Route path="/my-waschen/manajemen-user" element={<ManajemenUserPage />} />
           <Route path="/my-waschen/inventory-master" element={<InventoryMasterPage />} />
           <Route path="/my-waschen/all-outlet-stocks" element={<AllOutletStocksPage />} />
+        </Route>
+
+        {/* ── Training Management System ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/training-management-system"]}>
+              <TrainingManagementSystem />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/training-management-system" element={<DashboardTraining />} />
+          <Route path="/training-management-system/request" element={<RequestTraining />} />
+          <Route path="/training-management-system/request/form" element={<FormRequestTraining />} />
+
         </Route>
       </Routes>
     </BrowserRouter>
