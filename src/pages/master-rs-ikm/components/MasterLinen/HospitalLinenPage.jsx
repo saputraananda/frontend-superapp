@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  HiOutlineArrowDownTray,
   HiOutlineBuildingOffice2,
   HiOutlineCheckCircle,
   HiOutlineCircleStack,
@@ -14,6 +15,7 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from "../../utils/rupiah";
+import exportLinenRumahSakit from "../../utils/exportLinenRumahSakit";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -444,9 +446,15 @@ export default function HospitalLinenPage({ hospitalId }) {
             <p className="text-xs text-slate-400 mt-0.5">{items.length} linen terdaftar</p>
           </div>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow transition active:scale-95">
-          <HiOutlinePlus className="h-4 w-4" /> Tambah Linen
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => exportLinenRumahSakit({ items, hospitalName })} disabled={items.length === 0}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            <HiOutlineArrowDownTray className="h-4 w-4" /> Excel
+          </button>
+          <button onClick={openAdd} className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow transition active:scale-95">
+            <HiOutlinePlus className="h-4 w-4" /> Tambah Linen
+          </button>
+        </div>
       </div>
 
       {/* Search */}
