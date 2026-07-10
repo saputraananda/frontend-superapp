@@ -46,16 +46,12 @@ export default function FormRequestTraining() {
   // Relational arrays
   const [selectedMentors, setSelectedMentors] = useState([]); // Array of employee objects
   const [selectedTrainees, setSelectedTrainees] = useState([]); // Array of employee objects
-  const [selectedVendors, setSelectedVendors] = useState([]); // Array of vendor objects
-
-  // Custom text input for vendors (if external and typing manually)
-  const [customVendorText, setCustomVendorText] = useState("");
+  const [vendorInput, setVendorInput] = useState("");
 
   // Master lists
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [vendorsList, setVendorsList] = useState([]);
 
   // Check user level
   const [currentUser, setCurrentUser] = useState(null);
@@ -73,9 +69,6 @@ export default function FormRequestTraining() {
         const masterData = await api("/employees/master-data");
         setDepartments(masterData.departments || []);
         setCompanies(masterData.companies || []);
-
-        const vData = await api("/vendors");
-        setVendorsList(vData.vendors || []);
 
         // Get logged in user from localStorage
         const storedUser = localStorage.getItem("user");
@@ -112,14 +105,12 @@ export default function FormRequestTraining() {
           setSelectedTrainees(detail.trainees || []);
           setSelectedMentors(detail.mentors || []);
 
-          // Vendors mapping
-          const mappedVendors = (detail.vendors || []).map(v => ({
-            id: v.vendor_id || `custom-${Date.now()}-${Math.random()}`,
-            vendor_id: v.vendor_id,
-            vendor_name: v.vendor_name || v.nama_vendor,
-            nama_vendor: v.nama_vendor || v.vendor_name
-          }));
-          setSelectedVendors(mappedVendors);
+          if (detail.vendors && detail.vendors.length > 0) {
+            const firstVendor = detail.vendors[0];
+            setVendorInput(firstVendor.vendor_name || firstVendor.nama_vendor || "");
+          } else {
+            setVendorInput("");
+          }
         }
       } catch (err) {
         console.error("Form initialization error:", err);
@@ -245,10 +236,10 @@ export default function FormRequestTraining() {
       supervisor_id: requireSupervisor && supervisorId ? Number(supervisorId) : null,
       mentors: trainingMethod === "Internal" ? selectedMentors.map(m => m.employee_id) : [],
       trainees: selectedTrainees.map(t => t.employee_id),
-      vendors: trainingMethod === "Eksternal" ? selectedVendors.map(v => ({
-        vendor_id: v.vendor_id || null,
-        vendor_name: v.vendor_name || v.nama_vendor
-      })) : []
+      vendors: trainingMethod === "Eksternal" && vendorInput.trim() ? [{
+        vendor_id: null,
+        vendor_name: vendorInput.trim()
+      }] : []
     };
 
     try {
@@ -482,47 +473,17 @@ export default function FormRequestTraining() {
 
             {/* 8. Vendors (External only) */}
             {trainingMethod === "Eksternal" && (
-              <div className="space-y-4">
-                <SearchableMultiSelect
-                  label="Rekomendasi Vendor / Lembaga Penyelenggara (Opsional)"
-                  options={vendorsList.map(v => ({ id: v.id, name: v.nama_vendor, sub: v.kategori }))}
-                  selected={selectedVendors}
-                  onChange={setSelectedVendors}
-                  placeholder="Cari vendor..."
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-500">
+                  Rekomendasi Vendor / Lembaga Penyelenggara (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={vendorInput}
+                  onChange={(e) => setVendorInput(e.target.value)}
+                  placeholder="Ketik nama vendor / lembaga penyelenggara..."
+                  className="rounded-xl border border-slate-300 bg-white shadow-sm px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-amber-500 transition w-full"
                 />
-                
-                {/* Custom vendor text input */}
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-[11px] font-semibold text-slate-400">
-                      Tambahkan Vendor Custom (Jika tidak ada di daftar)
-                    </label>
-                    <input
-                      type="text"
-                      value={customVendorText}
-                      onChange={(e) => setCustomVendorText(e.target.value)}
-                      placeholder="Ketik nama vendor baru..."
-                      className="rounded-xl border border-slate-300 bg-white shadow-sm px-3.5 py-2 text-sm text-slate-800 outline-none focus:border-amber-500 transition"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (customVendorText.trim() !== "") {
-                        const newCustom = {
-                          id: `custom-${Date.now()}`,
-                          nama_vendor: customVendorText.trim(),
-                          vendor_name: customVendorText.trim()
-                        };
-                        setSelectedVendors([...selectedVendors, newCustom]);
-                        setCustomVendorText("");
-                      }
-                    }}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition"
-                  >
-                    Tambah
-                  </button>
-                </div>
               </div>
             )}
           </div>
@@ -534,7 +495,7 @@ export default function FormRequestTraining() {
             {/* 9. Alasan Pengajuan Training dan Dampaknya */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">
-                Alasan Pengajuan Training & Dampak Terhadap Kinerja <span className="text-rose-500">*</span>
+                Alasan Pengajuan Training (Jelaskan Lengkap) <span className="text-rose-500">*</span>
               </label>
               <textarea
                 value={reasonsAndImpact}
@@ -549,7 +510,7 @@ export default function FormRequestTraining() {
             {/* 10. Kompetensi Karyawan Saat Ini */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500">
-                Kompetensi Karyawan Saat Ini <span className="text-rose-500">*</span>
+                Kompetensi karyawan saat ini yang menjadi dasar perlunya training <span className="text-rose-500">*</span>
               </label>
               <textarea
                 value={currentCompetency}
@@ -624,7 +585,7 @@ export default function FormRequestTraining() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* 15. Narahubung */}
               <SearchableSelect
-                label="Narahubung (Opsional)"
+                label="Karyawan yang dapat diajak diskusi (boleh lebih dari 1)"
                 options={employees.map(e => ({ id: e.employee_id, name: e.full_name, sub: e.position }))}
                 value={contactPersonId}
                 onChange={setContactPersonId}

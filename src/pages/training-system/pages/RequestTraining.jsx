@@ -705,8 +705,8 @@ export default function RequestTraining() {
                   {/* Evidence Files List */}
                   {detailData.training.evidence_files && (
                     <div className="border-t border-slate-100 pt-4">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Dokumen / Bukti Pelaksanaan</span>
-                      <div className="space-y-2">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-3">Dokumen / Bukti Pelaksanaan</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {(() => {
                           const raw = detailData.training.evidence_files;
                           let files = [];
@@ -724,17 +724,129 @@ export default function RequestTraining() {
                           }
                           return files.map((filepath, index) => {
                             const filename = String(filepath || "").split("/").pop();
+                            const ext = filename.split(".").pop().toLowerCase();
+                            const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+                            const isPdf = ext === "pdf";
+
+                            if (isImage) {
+                              return (
+                                <div key={index} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-amber-500">
+                                  <div className="h-28 w-full rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                                    <img 
+                                      src={`${BASE_URL}/assets/${filepath}`} 
+                                      alt={filename} 
+                                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                      onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = "https://placehold.co/400x300?text=Error+Loading";
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                      <a 
+                                        href={`${BASE_URL}/assets/${filepath}`} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="bg-white text-slate-800 p-2 rounded-full shadow hover:bg-slate-100 transition" 
+                                        title="Buka di tab baru"
+                                      >
+                                        <HiOutlineEye className="h-4 w-4" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between px-1">
+                                    <span className="text-[10px] font-semibold text-slate-700 truncate max-w-[80%]" title={filename}>
+                                      {filename}
+                                    </span>
+                                    <a 
+                                      href={`${BASE_URL}/assets/${filepath}`} 
+                                      download 
+                                      target="_blank" 
+                                      rel="noreferrer" 
+                                      className="text-amber-500 hover:text-amber-600 transition shrink-0 ml-1" 
+                                      title="Unduh"
+                                    >
+                                      <HiOutlineInboxArrowDown className="h-4 w-4" />
+                                    </a>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            if (isPdf) {
+                              return (
+                                <div key={index} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-rose-500">
+                                  <div className="h-28 w-full rounded-xl bg-rose-50/50 border border-rose-100 flex flex-col items-center justify-center relative">
+                                    <div className="h-9 w-9 bg-rose-500 text-white rounded-xl flex items-center justify-center font-black text-xs shadow-md">
+                                      PDF
+                                    </div>
+                                    <span className="text-[9px] font-bold text-rose-600 uppercase mt-2 tracking-wider">Dokumen PDF</span>
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                      <a 
+                                        href={`${BASE_URL}/assets/${filepath}`} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="bg-white text-slate-800 p-2 rounded-full shadow hover:bg-slate-100 transition" 
+                                        title="Buka PDF"
+                                      >
+                                        <HiOutlineEye className="h-4 w-4" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between px-1">
+                                    <span className="text-[10px] font-semibold text-slate-700 truncate max-w-[80%]" title={filename}>
+                                      {filename}
+                                    </span>
+                                    <a 
+                                      href={`${BASE_URL}/assets/${filepath}`} 
+                                      download 
+                                      target="_blank" 
+                                      rel="noreferrer" 
+                                      className="text-rose-500 hover:text-rose-600 transition shrink-0 ml-1" 
+                                      title="Unduh"
+                                    >
+                                      <HiOutlineInboxArrowDown className="h-4 w-4" />
+                                    </a>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Generic file fallback
                             return (
-                              <a
-                                key={index}
-                                href={`${BASE_URL}/assets/${filepath}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center justify-between border border-slate-200 bg-white hover:bg-slate-50 rounded-xl p-2.5 text-xs text-amber-700 font-semibold transition"
-                              >
-                                <span className="truncate max-w-[80%]">{filename}</span>
-                                <HiOutlineInboxArrowDown className="h-4.5 w-4.5 shrink-0 text-amber-500" />
-                              </a>
+                              <div key={index} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-blue-500">
+                                <div className="h-28 w-full rounded-xl bg-blue-50/50 border border-blue-100 flex flex-col items-center justify-center relative">
+                                  <div className="h-9 w-9 bg-blue-500 text-white rounded-xl flex items-center justify-center font-black text-xs shadow-md">
+                                    FILE
+                                  </div>
+                                  <span className="text-[9px] font-bold text-blue-600 uppercase mt-2 tracking-wider">Berkas</span>
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                    <a 
+                                      href={`${BASE_URL}/assets/${filepath}`} 
+                                      target="_blank" 
+                                      rel="noreferrer" 
+                                      className="bg-white text-slate-800 p-2 rounded-full shadow hover:bg-slate-100 transition" 
+                                      title="Buka Berkas"
+                                    >
+                                      <HiOutlineEye className="h-4 w-4" />
+                                    </a>
+                                  </div>
+                                </div>
+                                <div className="mt-2 flex items-center justify-between px-1">
+                                  <span className="text-[10px] font-semibold text-slate-700 truncate max-w-[80%]" title={filename}>
+                                    {filename}
+                                  </span>
+                                  <a 
+                                    href={`${BASE_URL}/assets/${filepath}`} 
+                                    download 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="text-blue-500 hover:text-blue-600 transition shrink-0 ml-1" 
+                                    title="Unduh"
+                                  >
+                                    <HiOutlineInboxArrowDown className="h-4 w-4" />
+                                  </a>
+                                </div>
+                              </div>
                             );
                           });
                         })()}
