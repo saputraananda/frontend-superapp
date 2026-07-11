@@ -163,6 +163,7 @@ export function exportToPdfTraining(detailData) {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: nowrap;
       background-color: #0f172a;
       border-radius: 12px;
       padding: 16px 20px;
@@ -174,6 +175,8 @@ export function exportToPdfTraining(detailData) {
       display: flex;
       align-items: center;
       gap: 12px;
+      flex: 1;
+      min-width: 0;
     }
 
     .header-icon-box {
@@ -208,12 +211,14 @@ export function exportToPdfTraining(detailData) {
 
     .header-meta-section {
       display: flex;
-      gap: 24px;
+      gap: 20px;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .meta-stat-box {
       text-align: right;
+      white-space: nowrap;
     }
 
     .meta-stat-label {
@@ -223,11 +228,13 @@ export function exportToPdfTraining(detailData) {
       text-transform: uppercase;
       letter-spacing: 0.8px;
       margin-bottom: 3px;
+      white-space: nowrap;
     }
 
     .meta-stat-val {
       font-size: 11px;
       font-weight: 700;
+      white-space: nowrap;
     }
 
     .status-badge {
@@ -239,6 +246,7 @@ export function exportToPdfTraining(detailData) {
       text-transform: uppercase;
       border: 1px solid transparent;
       box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      white-space: nowrap;
     }
 
     /* Grid layouts */
