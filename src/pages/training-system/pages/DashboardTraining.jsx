@@ -13,8 +13,10 @@ import {
   HiOutlineEye,
   HiOutlineInboxArrowDown,
   HiOutlineMapPin,
-  HiOutlineFunnel
+  HiOutlineFunnel,
+  HiOutlinePrinter
 } from "react-icons/hi2";
+import { exportToPdfTraining } from "../utils/exportToPdfTraining";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -502,6 +504,9 @@ export default function DashboardTraining() {
                       className="flex items-center justify-between border border-slate-100 hover:border-amber-200 bg-slate-50/40 hover:bg-amber-50/10 rounded-2xl p-3.5 transition cursor-pointer"
                     >
                       <div className="min-w-0 flex-1 pr-3">
+                        {row.training_code && (
+                          <span className="text-[9px] font-extrabold font-mono text-slate-400 block tracking-wider mb-0.5">{row.training_code}</span>
+                        )}
                         <span className="font-bold text-slate-800 text-xs block truncate">{row.topic}</span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
                           {row.requester_name} • {row.department_name}
@@ -530,15 +535,35 @@ export default function DashboardTraining() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
               <div>
-                <h3 className="text-base font-bold text-slate-800">Detail Pengajuan Training</h3>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <span>Detail Pengajuan Training</span>
+                  {detailData?.training?.training_code && (
+                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-extrabold font-mono border border-amber-200">
+                      {detailData.training.training_code}
+                    </span>
+                  )}
+                </h3>
                 <p className="text-xs text-slate-400 mt-0.5">Rincian data pengusulan dan log persetujuan</p>
               </div>
-              <button
-                onClick={() => setDetailTarget(null)}
-                className="rounded-xl border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 transition"
-              >
-                <HiOutlineXMark className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {detailData && detailData.training && (
+                  <button
+                    type="button"
+                    onClick={() => exportToPdfTraining(detailData)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition shadow-sm animate-fadeIn"
+                    title="Cetak / Simpan PDF"
+                  >
+                    <HiOutlinePrinter className="h-4.5 w-4.5" />
+                    <span>Cetak PDF</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setDetailTarget(null)}
+                  className="rounded-xl border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 transition"
+                >
+                  <HiOutlineXMark className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body (Scrollable) */}

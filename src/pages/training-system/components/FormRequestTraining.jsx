@@ -42,6 +42,7 @@ export default function FormRequestTraining() {
   const [priorityMaterial, setPriorityMaterial] = useState("");
   const [contactPersonId, setContactPersonId] = useState("");
   const [supervisorId, setSupervisorId] = useState("");
+  const [trainingCode, setTrainingCode] = useState("");
 
   // Relational arrays
   const [selectedMentors, setSelectedMentors] = useState([]); // Array of employee objects
@@ -101,6 +102,7 @@ export default function FormRequestTraining() {
           setPriorityMaterial(t.priority_material);
           setContactPersonId(t.contact_person_id || "");
           setSupervisorId(t.supervisor_id || "");
+          setTrainingCode(t.training_code || "");
           
           setSelectedTrainees(detail.trainees || []);
           setSelectedMentors(detail.mentors || []);
@@ -288,7 +290,14 @@ export default function FormRequestTraining() {
           style={{ background: "linear-gradient(135deg, #E8823A, #D4A12A)" }}
         >
           <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-          <h1 className="text-2xl font-bold">{editId ? "Ubah Pengajuan Training" : "Buat Pengajuan Training"}</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
+            <span>{editId ? "Ubah Pengajuan Training" : "Buat Pengajuan Training"}</span>
+            {editId && trainingCode && (
+              <span className="bg-white/20 backdrop-blur-md px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold border border-white/10">
+                {trainingCode}
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-white/80 mt-1">Lengkapi form pengajuan training di bawah ini dengan lengkap.</p>
         </div>
 
@@ -647,28 +656,36 @@ function SearchableSelect({ label, required, options, value, onChange, placehold
       <label className="text-xs font-semibold text-slate-500">
         {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
       </label>
-      <div
-        onClick={() => setOpen(!open)}
-        className="flex items-center justify-between rounded-xl border border-slate-300 bg-white shadow-sm px-3.5 py-2.5 text-sm text-slate-800 cursor-pointer hover:border-slate-400 transition"
-      >
-        <span className={selectedOption ? "text-slate-800" : "text-slate-400"}>
-          {selectedOption ? selectedOption.name : placeholder}
-        </span>
-        <HiOutlineChevronDown className="h-4 w-4 text-slate-400" />
-      </div>
+      
+      {open ? (
+        <div className="flex items-center justify-between rounded-xl border border-amber-500 bg-white shadow-sm px-3.5 py-2.5 text-sm transition">
+          <input
+            type="text"
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={selectedOption ? selectedOption.name : placeholder}
+            className="w-full text-slate-800 outline-none bg-transparent"
+          />
+          <HiOutlineMagnifyingGlass className="h-4 w-4 text-amber-500 shrink-0 ml-1.5" />
+        </div>
+      ) : (
+        <div
+          onClick={() => {
+            setOpen(true);
+            setSearch("");
+          }}
+          className="flex items-center justify-between rounded-xl border border-slate-300 bg-white shadow-sm px-3.5 py-2.5 text-sm text-slate-800 cursor-pointer hover:border-slate-400 transition"
+        >
+          <span className={selectedOption ? "text-slate-800 font-semibold" : "text-slate-400"}>
+            {selectedOption ? selectedOption.name : placeholder}
+          </span>
+          <HiOutlineChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+        </div>
+      )}
 
       {open && (
         <div className="absolute top-[100%] left-0 w-full bg-white border border-slate-200 shadow-xl rounded-2xl mt-1.5 z-50 p-2 space-y-2 max-h-64 flex flex-col">
-          <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-2.5 py-1.5 shrink-0">
-            <HiOutlineMagnifyingGlass className="h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari..."
-              className="text-xs outline-none w-full"
-            />
-          </div>
           <div className="overflow-y-auto flex-1">
             {filtered.length === 0 ? (
               <p className="text-xs text-slate-400 p-2.5 text-center">Tidak ditemukan</p>
@@ -744,40 +761,47 @@ function SearchableMultiSelect({ label, required, options, selected, onChange, p
         {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
       </label>
       
-      {/* Selected Items Badges */}
-      <div className="flex flex-wrap gap-1.5 p-2 rounded-xl border border-slate-300 bg-white shadow-sm hover:border-slate-400 transition cursor-pointer min-h-[44px] items-center"
-           onClick={() => setOpen(!open)}>
-        {selected.length === 0 ? (
-          <span className="text-slate-400 text-sm ml-1.5">{placeholder}</span>
+      {/* Selected Items Badges + Search Input */}
+      <div 
+        onClick={() => setOpen(true)}
+        className={cn(
+          "flex flex-wrap gap-1.5 p-2 rounded-xl border bg-white shadow-sm transition min-h-[44px] items-center",
+          open ? "border-amber-500 ring-1 ring-amber-500/20" : "border-slate-300 hover:border-slate-400 cursor-pointer"
+        )}
+      >
+        {selected.map((item) => (
+          <div
+            key={item.employee_id || item.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(selected.filter(i => Number(i.employee_id || i.id) !== Number(item.employee_id || item.id)));
+            }}
+            className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1 text-xs font-bold"
+          >
+            <span>{item.full_name || item.nama_vendor || item.vendor_name}</span>
+            <HiOutlineXMark className="h-3 w-3 shrink-0 cursor-pointer hover:text-rose-600" />
+          </div>
+        ))}
+        
+        {open ? (
+          <input
+            type="text"
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={selected.length === 0 ? placeholder : "Ketik untuk mencari..."}
+            className="flex-1 min-w-[120px] text-xs text-slate-800 outline-none bg-transparent"
+            onClick={(e) => e.stopPropagation()}
+          />
         ) : (
-          selected.map((item) => (
-            <div
-              key={item.employee_id || item.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange(selected.filter(i => Number(i.employee_id || i.id) !== Number(item.employee_id || item.id)));
-              }}
-              className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1 text-xs font-bold"
-            >
-              <span>{item.full_name || item.nama_vendor || item.vendor_name}</span>
-              <HiOutlineXMark className="h-3 w-3 shrink-0 cursor-pointer hover:text-rose-600" />
-            </div>
-          ))
+          selected.length === 0 && (
+            <span className="text-slate-400 text-sm ml-1.5">{placeholder}</span>
+          )
         )}
       </div>
 
       {open && (
         <div className="absolute top-[100%] left-0 w-full bg-white border border-slate-200 shadow-xl rounded-2xl mt-1.5 z-50 p-2 space-y-2 max-h-64 flex flex-col">
-          <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-2.5 py-1.5 shrink-0">
-            <HiOutlineMagnifyingGlass className="h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari..."
-              className="text-xs outline-none w-full"
-            />
-          </div>
           <div className="overflow-y-auto flex-1">
             {filtered.length === 0 ? (
               <p className="text-xs text-slate-400 p-2.5 text-center">Tidak ditemukan</p>

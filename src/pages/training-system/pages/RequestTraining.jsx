@@ -17,10 +17,12 @@ import {
   HiOutlineInboxArrowDown,
   HiOutlineCalendar,
   HiOutlineFunnel,
-  HiOutlineUser
+  HiOutlineUser,
+  HiOutlinePrinter
 } from "react-icons/hi2";
 import SupervisorApprove from "../components/SupervisorApprove";
 import HumanResourceApprove from "../components/HumanResourceApprove";
+import { exportToPdfTraining } from "../utils/exportToPdfTraining";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -167,6 +169,16 @@ export default function RequestTraining() {
       showToast("Gagal memuat detail pengajuan", "error");
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleDirectPrint = async (id) => {
+    try {
+      const res = await api(`/training/${id}`);
+      exportToPdfTraining(res);
+    } catch (err) {
+      console.error(err);
+      showToast("Gagal memuat data cetak", "error");
     }
   };
 
@@ -421,6 +433,9 @@ export default function RequestTraining() {
                       return (
                         <tr key={row.id} className="hover:bg-slate-50/50 transition">
                           <td className="px-6 py-4 text-left">
+                            {row.training_code && (
+                              <span className="text-[10px] font-extrabold font-mono text-slate-400 block tracking-wider mb-0.5">{row.training_code}</span>
+                            )}
                             <span className="font-bold text-slate-800 text-sm block">{row.topic}</span>
                           </td>
                           <td className="px-6 py-4 text-left">
@@ -453,6 +468,14 @@ export default function RequestTraining() {
                                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                               >
                                 <HiOutlineEye className="h-4.5 w-4.5" />
+                              </button>
+                              
+                              <button
+                                onClick={() => handleDirectPrint(row.id)}
+                                title="Cetak / Simpan PDF"
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-amber-600 transition"
+                              >
+                                <HiOutlinePrinter className="h-4.5 w-4.5" />
                               </button>
                               
                               {/* Edit permissions */}
@@ -556,15 +579,35 @@ export default function RequestTraining() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
               <div>
-                <h3 className="text-base font-bold text-slate-800">Detail Pengajuan Training</h3>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <span>Detail Pengajuan Training</span>
+                  {detailData?.training?.training_code && (
+                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-extrabold font-mono border border-amber-200">
+                      {detailData.training.training_code}
+                    </span>
+                  )}
+                </h3>
                 <p className="text-xs text-slate-400 mt-0.5">Rincian data pengusulan dan log persetujuan</p>
               </div>
-              <button
-                onClick={() => setDetailTarget(null)}
-                className="rounded-xl border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 transition"
-              >
-                <HiOutlineXMark className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {detailData && detailData.training && (
+                  <button
+                    type="button"
+                    onClick={() => exportToPdfTraining(detailData)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition shadow-sm animate-fadeIn"
+                    title="Cetak / Simpan PDF"
+                  >
+                    <HiOutlinePrinter className="h-4.5 w-4.5" />
+                    <span>Cetak PDF</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setDetailTarget(null)}
+                  className="rounded-xl border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 transition"
+                >
+                  <HiOutlineXMark className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body (Scrollable) */}
