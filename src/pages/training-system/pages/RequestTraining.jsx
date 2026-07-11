@@ -16,7 +16,8 @@ import {
   HiOutlineMapPin,
   HiOutlineInboxArrowDown,
   HiOutlineCalendar,
-  HiOutlineFunnel
+  HiOutlineFunnel,
+  HiOutlineUser
 } from "react-icons/hi2";
 import SupervisorApprove from "../components/SupervisorApprove";
 import HumanResourceApprove from "../components/HumanResourceApprove";
@@ -47,6 +48,7 @@ export default function RequestTraining() {
   const [dateTo, setDateTo] = useState("");
   const [companies, setCompanies] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [onlyMeFilter, setOnlyMeFilter] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -100,7 +102,8 @@ export default function RequestTraining() {
         company_id: companyFilter,
         training_type: trainingTypeFilter,
         date_from: dateFrom,
-        date_to: dateTo
+        date_to: dateTo,
+        only_me: onlyMeFilter ? "true" : ""
       });
       const res = await api(`/training?${q}`);
       setData(res.data || []);
@@ -116,11 +119,11 @@ export default function RequestTraining() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, search, statusFilter, companyFilter, trainingTypeFilter, dateFrom, dateTo, showToast]);
+  }, [pagination.limit, search, statusFilter, companyFilter, trainingTypeFilter, dateFrom, dateTo, onlyMeFilter, showToast]);
 
   useEffect(() => {
     fetchData(1);
-  }, [search, statusFilter, companyFilter, trainingTypeFilter, dateFrom, dateTo]);
+  }, [search, statusFilter, companyFilter, trainingTypeFilter, dateFrom, dateTo, onlyMeFilter]);
 
   // Realtime subscription using SSE
   const fetchDataRef = useRef(fetchData);
@@ -277,6 +280,19 @@ export default function RequestTraining() {
                     Reset
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setOnlyMeFilter(!onlyMeFilter)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold border transition shadow-sm",
+                    onlyMeFilter
+                      ? "bg-amber-500 border-amber-500 text-white"
+                      : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <HiOutlineUser className="h-4 w-4" />
+                  <span>Pengajuan Saya</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowFilters(!showFilters)}
