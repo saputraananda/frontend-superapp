@@ -4,76 +4,81 @@
  * The title of the window is set to the request code and date, which defaults the PDF filename.
  */
 export function exportToPdfTraining(detailData) {
-  if (!detailData || !detailData.training) {
-    alert("Data pengajuan tidak valid untuk dicetak");
-    return;
-  }
+    if (!detailData || !detailData.training) {
+        alert("Data pengajuan tidak valid untuk dicetak");
+        return;
+    }
 
-  const { training, trainees = [], mentors = [], vendors = [], logs = [] } = detailData;
+    const { training, trainees = [], mentors = [], vendors = [], logs = [] } = detailData;
 
-  const code = training.training_code || `TR-NEW-${training.id || ""}`;
-  const dateStr = training.request_date ? training.request_date.split("T")[0] : new Date().toISOString().split("T")[0];
-  const title = `Request_Training_${code}_${dateStr}`;
+    const code = training.training_code || `TR-NEW-${training.id || ""}`;
+    const dateStr = training.request_date ? training.request_date.split("T")[0] : new Date().toISOString().split("T")[0];
+    const title = `Request_Training_${code}_${dateStr}`;
 
-  // Formatting date functions
-  const formatDate = (dateInput) => {
-    if (!dateInput) return "-";
-    const d = new Date(dateInput);
-    return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-  };
+    // Formatting date functions
+    const formatDate = (dateInput) => {
+        if (!dateInput) return "-";
+        const d = new Date(dateInput);
+        return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    };
 
-  const formatDateTime = (ts) => {
-    if (!ts) return "-";
-    const d = new Date(ts);
-    return `${d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} ${d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`;
-  };
+    const formatDateTime = (ts) => {
+        if (!ts) return "-";
+        const d = new Date(ts);
+        return `${d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} ${d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`;
+    };
 
-  // Determine current status meta
-  let statusText = "Persiapan";
-  let statusCls = "bg-amber-100 text-amber-800 border-amber-200";
-  if (training.status === "Pending_Supervisor") {
-    statusText = "Menunggu Supervisor";
-    statusCls = "bg-amber-50 text-amber-700 border-amber-200";
-  } else if (training.status === "Pending_HRD") {
-    statusText = "Menunggu HRD";
-    statusCls = "bg-blue-50 text-blue-700 border-blue-200";
-  } else if (training.status === "Review") {
-    statusText = "Review HRD";
-    statusCls = "bg-purple-50 text-purple-700 border-purple-200";
-  } else if (training.status === "Scheduled") {
-    statusText = "Terjadwal";
-    statusCls = "bg-emerald-50 text-emerald-700 border-emerald-200";
-  } else if (training.status === "Selesai") {
-    statusText = "Selesai";
-    statusCls = "bg-emerald-100 text-emerald-800 border-emerald-300";
-  } else if (training.status === "Rejected_Supervisor") {
-    statusText = "Ditolak Supervisor";
-    statusCls = "bg-rose-50 text-rose-700 border-rose-200";
-  } else if (training.status === "Rejected_HRD") {
-    statusText = "Ditolak HRD";
-    statusCls = "bg-rose-50 text-rose-700 border-rose-200";
-  }
+    const toTitleCase = (str) => {
+        if (!str) return "-";
+        return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    };
 
-  // Trainees list mapping
-  const traineesHtml = trainees.length === 0 
-    ? `<div style="color: #94a3b8; font-style: italic; font-size: 11px;">Tidak ada peserta terdaftar</div>`
-    : `<ol style="margin: 0; padding-left: 16px; font-size: 11px; color: #334155; line-height: 1.6;">
-        ${trainees.map(t => `<li><strong>${t.full_name}</strong> <span style="color: #64748b; font-size: 10px;">(${t.position || "-"})</span></li>`).join("")}
+    // Determine current status meta
+    let statusText = "Persiapan";
+    let statusCls = "bg-amber-100 text-amber-800 border-amber-200";
+    if (training.status === "Pending_Supervisor") {
+        statusText = "Menunggu Supervisor";
+        statusCls = "bg-amber-50 text-amber-700 border-amber-200";
+    } else if (training.status === "Pending_HRD") {
+        statusText = "Menunggu HRD";
+        statusCls = "bg-blue-50 text-blue-700 border-blue-200";
+    } else if (training.status === "Review") {
+        statusText = "Review HRD";
+        statusCls = "bg-purple-50 text-purple-700 border-purple-200";
+    } else if (training.status === "Scheduled") {
+        statusText = "Terjadwal";
+        statusCls = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    } else if (training.status === "Selesai") {
+        statusText = "Selesai";
+        statusCls = "bg-emerald-100 text-emerald-800 border-emerald-300";
+    } else if (training.status === "Rejected_Supervisor") {
+        statusText = "Ditolak Supervisor";
+        statusCls = "bg-rose-50 text-rose-700 border-rose-200";
+    } else if (training.status === "Rejected_HRD") {
+        statusText = "Ditolak HRD";
+        statusCls = "bg-rose-50 text-rose-700 border-rose-200";
+    }
+
+    // Trainees list mapping
+    const traineesHtml = trainees.length === 0
+        ? `<div style="color: #94a3b8; font-style: italic; font-size: 11px;">Tidak ada peserta terdaftar</div>`
+        : `<ol style="margin: 0; padding-left: 16px; font-size: 11px; color: #334155; line-height: 1.6;">
+        ${trainees.map(t => `<li><strong>${toTitleCase(t.full_name)}</strong> <span style="color: #64748b; font-size: 10px;">(${t.position || "-"})</span></li>`).join("")}
        </ol>`;
 
-  // Mentors/Vendors mapping
-  let partnerHtml = "";
-  if (training.training_method === "Internal") {
-    partnerHtml = `
+    // Mentors/Vendors mapping
+    let partnerHtml = "";
+    if (training.training_method === "Internal") {
+        partnerHtml = `
       <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
         <span style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 4px;">Rekomendasi Mentor (Internal)</span>
         <div style="font-size: 11px; color: #1e293b; font-weight: 700;">
-          ${mentors.map(m => m.full_name).join(", ") || "-"}
+          ${mentors.map(m => toTitleCase(m.full_name)).join(", ") || "-"}
         </div>
       </div>
     `;
-  } else {
-    partnerHtml = `
+    } else {
+        partnerHtml = `
       <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
         <span style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 4px;">Rekomendasi Vendor / Penyelenggara</span>
         <div style="font-size: 11px; color: #1e293b; font-weight: 700;">
@@ -81,15 +86,15 @@ export function exportToPdfTraining(detailData) {
         </div>
       </div>
     `;
-  }
+    }
 
-  // Timeline approval steps
-  const spvApproved = !["Pending_Supervisor", "Rejected_Supervisor"].includes(training.status);
-  const spvRejected = training.status === "Rejected_Supervisor";
-  const hrdApproved = ["Scheduled", "Selesai"].includes(training.status);
-  const hrdRejected = training.status === "Rejected_HRD";
+    // Timeline approval steps
+    const spvApproved = !["Pending_Supervisor", "Rejected_Supervisor"].includes(training.status);
+    const spvRejected = training.status === "Rejected_Supervisor";
+    const hrdApproved = ["Scheduled", "Selesai"].includes(training.status);
+    const hrdRejected = training.status === "Rejected_HRD";
 
-  const html = `
+    const html = `
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -280,22 +285,27 @@ export function exportToPdfTraining(detailData) {
       padding-bottom: 6px;
     }
 
-    .field-row {
+.field-row {
       display: flex;
       margin-bottom: 6px;
       font-size: 11px;
     }
 
     .field-label {
-      width: 40%;
+      width: 38%;
       color: #64748b;
       font-weight: 600;
+      flex-shrink: 0;
+      text-align: right;
+      padding-right: 6px;
     }
 
     .field-val {
-      width: 60%;
+      width: 62%;
       color: #1e293b;
       font-weight: 700;
+      white-space: pre-wrap;
+      padding-left: 0;
     }
 
     /* Requirements block */
@@ -534,7 +544,7 @@ export function exportToPdfTraining(detailData) {
             </div>
             <div class="header-title-block">
               <h1 class="header-main-title">TRAINING TICKET</h1>
-              <p class="header-subtitle">FORMULIR PERMINTAAN TRAINING KARYAWAN · ALORA GROUP</p>
+              <p class="header-subtitle">Formulir Permintaan Training Karyawan</p>
             </div>
           </div>
 
@@ -554,8 +564,8 @@ export function exportToPdfTraining(detailData) {
           </div>
         </div>
 
-        <!-- ROW SECTION 1: Meta profile -->
-        <div class="row-grid">
+        <!-- ROW SECTION 1: A + B side by side -->
+        <div class="row-grid" style="grid-template-columns: 1fr 1fr;">
           <!-- A. DATA PENGAJU -->
           <div class="panel-card">
             <div class="panel-card-title">
@@ -564,17 +574,15 @@ export function exportToPdfTraining(detailData) {
               </svg>
               <span>A. Data Pengaju</span>
             </div>
-            <div class="field-row">
-              <div class="field-label">Nama Pengaju</div>
-              <div class="field-val">: ${training.requester_name || "-"}</div>
-            </div>
-            <div class="field-row">
-              <div class="field-label">Departemen</div>
-              <div class="field-val">: ${training.department_name || "-"}</div>
-            </div>
-            <div class="field-row">
-              <div class="field-label">Unit Bisnis</div>
-              <div class="field-val">: ${training.company_name || "-"}</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">Nama Pengaju</span>
+                <span style="font-size: 12px; font-weight: 700; color: #0f172a;">${toTitleCase(training.requester_name)}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">Departemen</span>
+                <span style="font-size: 11px; font-weight: 600; color: #334155;">${training.department_name || "-"}</span>
+              </div>
             </div>
           </div>
 
@@ -586,40 +594,48 @@ export function exportToPdfTraining(detailData) {
               </svg>
               <span>B. Informasi Training</span>
             </div>
-            <div class="field-row" style="margin-bottom: 4px;">
-              <div class="field-label" style="width: 30%;">Topik</div>
-              <div class="field-val" style="width: 70%; line-height: 1.2;">: ${training.topic || "-"}</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">Topik Training</span>
+                <span style="font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.3;">${training.topic || "-"}</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">Jenis</span>
+                  <span style="display: inline-block; font-size: 10px; font-weight: 700; color: #4f46e5; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 8px; width: fit-content;">${training.training_type || "-"}</span>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">Metode</span>
+                  <span style="display: inline-block; font-size: 10px; font-weight: 700; color: #0891b2; background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 6px; padding: 2px 8px; width: fit-content;">${training.training_method || "-"}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">Unit Bisnis</span>
+                <span style="font-size: 11px; font-weight: 600; color: #334155;">${training.company_name || "-"}</span>
+              </div>
+              </div>
             </div>
-            <div class="field-row">
-              <div class="field-label" style="width: 30%;">Jenis</div>
-              <div class="field-val" style="width: 70%;">: ${training.training_type || "-"}</div>
-            </div>
-            <div class="field-row">
-              <div class="field-label" style="width: 30%;">Metode</div>
-              <div class="field-val" style="width: 70%;">: ${training.training_method || "-"}</div>
-            </div>
-          </div>
-
-          <!-- D. PESERTA TRAINING -->
-          <div class="panel-card">
-            <div class="panel-card-title">
-              <svg style="width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-              </svg>
-              <span>D. Peserta Training</span>
-            </div>
-            ${traineesHtml}
-            ${partnerHtml}
           </div>
         </div>
 
-        <!-- ROW SECTION 2: Alasan & Kompetensi Karyawan -->
+        <!-- ROW SECTION 2: C. Peserta Training full width -->
+        <div class="panel-card" style="margin-bottom: 16px;">
+          <div class="panel-card-title">
+            <svg style="width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+            </svg>
+            <span>C. Peserta Training</span>
+          </div>
+          ${traineesHtml}
+          ${partnerHtml}
+        </div>
+
+        <!-- ROW SECTION 3: D. Alasan & Kebutuhan Training -->
         <div class="panel-card" style="margin-bottom: 16px;">
           <div class="panel-card-title" style="margin-bottom: 10px;">
             <svg style="width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
-            <span>C. Alasan & Kebutuhan Training</span>
+            <span>D. Alasan & Kebutuhan Training</span>
           </div>
           
           <div class="req-grid">
@@ -646,7 +662,7 @@ export function exportToPdfTraining(detailData) {
           </div>
         </div>
 
-        <!-- ROW SECTION 3: Narahubung & Extra metadata -->
+        <!-- ROW SECTION 4: E. Narahubung & Riwayat Approval -->
         <div style="display: grid; grid-template-columns: 40% 60%; gap: 16px;">
           <!-- E. Narahubung & Detail -->
           <div class="panel-card">
@@ -656,17 +672,37 @@ export function exportToPdfTraining(detailData) {
               </svg>
               <span>E. Narahubung & Diskusi</span>
             </div>
-            <div class="field-row">
-              <div class="field-label" style="width: 50%;">Narahubung (CP)</div>
-              <div class="field-val" style="width: 50%;">: ${training.contact_person_name || "-"}</div>
-            </div>
-            <div class="field-row" style="margin-top: 4px;">
-              <div class="field-label" style="width: 50%;">Supervisor Pemeriksa</div>
-              <div class="field-val" style="width: 50%;">: ${training.supervisor_name || "-"}</div>
-            </div>
-            <div class="field-row" style="margin-top: 4px;">
-              <div class="field-label" style="width: 50%;">HRD Penanggungjawab</div>
-              <div class="field-val" style="width: 50%;">: ${training.hrd_name || "-"}</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+              <!-- Contact Person card -->
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #16a34a, #15803d); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #ffffff; flex-shrink: 0; letter-spacing: 0.5px;">
+                  ${(training.contact_person_name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+                  <span style="font-size: 7.5px; font-weight: 800; color: #15803d; text-transform: uppercase; letter-spacing: 0.8px;">Narahubung (Contact Person)</span>
+                  <span style="font-size: 11px; font-weight: 700; color: #14532d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${toTitleCase(training.contact_person_name)}</span>
+                </div>
+              </div>
+              <!-- Supervisor card -->
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #ffffff; flex-shrink: 0; letter-spacing: 0.5px;">
+                  ${(training.supervisor_name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+                  <span style="font-size: 7.5px; font-weight: 800; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.8px;">Supervisor Pemeriksa</span>
+                  <span style="font-size: 11px; font-weight: 700; color: #1e3a8a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${toTitleCase(training.supervisor_name)}</span>
+                </div>
+              </div>
+              <!-- HRD card -->
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%); border: 1px solid #e9d5ff;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #9333ea, #7e22ce); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #ffffff; flex-shrink: 0; letter-spacing: 0.5px;">
+                  ${(training.hrd_name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+                  <span style="font-size: 7.5px; font-weight: 800; color: #7e22ce; text-transform: uppercase; letter-spacing: 0.8px;">HRD Penanggungjawab</span>
+                  <span style="font-size: 11px; font-weight: 700; color: #581c87; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${toTitleCase(training.hrd_name)}</span>
+                </div>
+              </div>
             </div>
             ${training.scheduled_date ? `
               <div style="margin-top: 10px; padding: 6px 10px; border-radius: 6px; background-color: #e0e7ff; border: 1px solid #c7d2fe; display: flex; align-items: center; gap: 6px;">
@@ -678,23 +714,23 @@ export function exportToPdfTraining(detailData) {
             ` : ""}
           </div>
 
-          <!-- G. RIWAYAT PERSURATAN / PERSURATAN LOG -->
+          <!-- F2. Riwayat Approval -->
           <div class="panel-card timeline-wrapper" style="margin-top: 0; padding-top: 14px;">
             <div class="panel-card-title" style="margin-bottom: 12px; border: none; padding: 0;">
               <svg style="width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
               </svg>
-              <span>G. Riwayat Approval & Persetujuan</span>
+              <span>Riwayat Approval & Persetujuan</span>
             </div>
 
             <div class="timeline-steps">
               <div class="timeline-line"></div>
-              
+
               <!-- Step 1: Diajukan -->
               <div class="timeline-step">
                 <div class="step-circle success">✓</div>
                 <div class="step-label">Diajukan</div>
-                <div class="step-user">${training.requester_name ? training.requester_name.split(" ")[0] : "-"}</div>
+                <div class="step-user">${training.requester_name ? toTitleCase(training.requester_name).split(" ")[0] : "-"}</div>
                 <div class="step-date">${formatDate(training.request_date)}</div>
               </div>
 
@@ -704,7 +740,7 @@ export function exportToPdfTraining(detailData) {
                   ${spvApproved ? "✓" : spvRejected ? "✗" : "2"}
                 </div>
                 <div class="step-label">Supervisor</div>
-                <div class="step-user">${training.supervisor_name ? training.supervisor_name.split(" ")[0] : "-"}</div>
+                <div class="step-user">${training.supervisor_name ? toTitleCase(training.supervisor_name).split(" ")[0] : "-"}</div>
                 <div class="step-date">${training.supervisor_approved_at ? formatDate(training.supervisor_approved_at) : "Menunggu"}</div>
               </div>
 
@@ -714,7 +750,7 @@ export function exportToPdfTraining(detailData) {
                   ${hrdApproved ? "✓" : hrdRejected ? "✗" : "3"}
                 </div>
                 <div class="step-label">HRD</div>
-                <div class="step-user">${training.hrd_name ? training.hrd_name.split(" ")[0] : "HRD"}</div>
+                <div class="step-user">${training.hrd_name ? toTitleCase(training.hrd_name).split(" ")[0] : "HRD"}</div>
                 <div class="step-date">${training.hrd_approved_at ? formatDate(training.hrd_approved_at) : "Menunggu"}</div>
               </div>
 
@@ -756,11 +792,11 @@ export function exportToPdfTraining(detailData) {
 </html>
   `;
 
-  const win = window.open("", "_blank", "width=1000,height=800");
-  if (!win) {
-    alert("Popup diblokir oleh browser. Harap izinkan popup pada website ini untuk melakukan cetak PDF.");
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
+    const win = window.open("", "_blank", "width=1000,height=800");
+    if (!win) {
+        alert("Popup diblokir oleh browser. Harap izinkan popup pada website ini untuk melakukan cetak PDF.");
+        return;
+    }
+    win.document.write(html);
+    win.document.close();
 }
