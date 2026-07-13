@@ -120,6 +120,8 @@ const EMPTY_FORM = {
 	address: "",
 	latitude: "",
 	longitude: "",
+	username: "",
+	password: "",
 	rooms: [],
 };
 
@@ -187,6 +189,8 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 			rooms: Array.isArray(initial.rooms)
 				? initial.rooms.map((r) => (typeof r === "string" ? r : r.room_name))
 				: [],
+			username: initial.username ?? "",
+			password: initial.password ?? "",
 		};
 	});
 	const [newRoom, setNewRoom] = useState("");
@@ -286,6 +290,16 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 						<div>
 							<label className={labelCls}>Longitude</label>
 							<input type="number" step="any" className={inputCls} value={form.longitude} onChange={set("longitude")} placeholder="106.8456" />
+						</div>
+					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className={labelCls}>Username</label>
+							<input className={inputCls} value={form.username} onChange={set("username")} placeholder="username_rs" />
+						</div>
+						<div>
+							<label className={labelCls}>Password</label>
+							<input type="text" className={inputCls} value={form.password} onChange={set("password")} placeholder="••••••••" />
 						</div>
 					</div>
 				</div>
@@ -855,9 +869,17 @@ export default function RumahSakitPage() {
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Nama Perusahaan</label>
 								<div className="text-sm text-slate-700">{detailModal.company_name || "-"}</div>
 							</div>
+							<div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Username</label>
+								<div className="text-sm text-slate-700 font-mono">{detailModal.username || "-"}</div>
+							</div>
+							<div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Password</label>
+								<div className="text-sm text-slate-700 font-mono">{detailModal.password || "-"}</div>
+							</div>
 							<div className="sm:col-span-2">
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Daftar Ruangan</label>
-								<div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto p-1 border border-slate-100 bg-slate-50/50 rounded-xl p-2">
+								<div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto border border-slate-100 bg-slate-50/50 rounded-xl p-2">
 									{!detailModal.rooms || detailModal.rooms.length === 0 ? (
 										<span className="text-xs text-slate-400 font-medium">— Belum ada ruangan ditambahkan —</span>
 									) : (
