@@ -208,6 +208,9 @@ export default function PengajuanDetailModal({
     const [payTerminValue, setPayTV] = useState("");
     const [payTerminUnit, setPayTU] = useState(""); // 'hari' | 'bulan' | 'tahun'
     const [payNominalBayar, setPayNB] = useState(""); // nominal bayar aktual (formatted)
+    const [payAdminFee, setPayAdminFee] = useState(""); // biaya admin (formatted)
+    const [classificationList, setClassificationList] = useState([]); // list classifications
+    const [editPayOpen, setEditPayOpen] = useState(false);
 
     // Complete state (karyawan upload invoice)
     const [completeOpen, setCompleteOpen] = useState(false);
@@ -238,10 +241,12 @@ export default function PengajuanDetailModal({
             setGaQty(""); setGaMerk(""); setGaVendor(""); setGaNote("");
             setGaVendorMode(""); setGaVendorId(""); setGaLinkUrl(""); setGaLinkTitle("");
             setVendorList([]);
+            setClassificationList([]);
             setFinOpen(false); setFinNote("");
             setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]);
-            setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB("");
+            setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee("");
             setCompleteOpen(false); setInvoiceFile(null);
+            setEditPayOpen(false);
         }
     }, [open, load]);
 
@@ -395,7 +400,7 @@ export default function PengajuanDetailModal({
         setActing(true);
         try {
             const fd = new FormData();
-            fd.append("classification", payClassification);
+            fd.append("classification_id", payClassification);
             fd.append("payment_method", payMethod);
             if (payMethod === "kredit") {
                 fd.append("termin_value", payTerminValue);
@@ -404,6 +409,8 @@ export default function PengajuanDetailModal({
             // Nominal bayar aktual
             const nomBayar = stripRupiah(payNominalBayar);
             if (nomBayar) fd.append("nominal_bayar", nomBayar);
+            const admFee = stripRupiah(payAdminFee);
+            if (admFee) fd.append("admin_fee", admFee);
             if (payNote.trim()) fd.append("payment_note", payNote.trim());
             payFiles.forEach(f => fd.append("attachments", f));
             await fetch(`${import.meta.env.VITE_API_URL || ""}/pengajuan/${prId}/pay`, {
@@ -421,6 +428,34 @@ export default function PengajuanDetailModal({
         } catch (err) {
             showToast("error", err.message);
         } finally { setActing(false); }
+    };
+
+    const doUpdatePaymentInfo = async () => {
+        const nomBayar = stripRupiah(payNominalBayar);
+        if (!nomBayar) return showToast("error", "Nominal bayar wajib diisi");
+        if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
+        if (!payClassification) return showToast("error", "Klasifikasi wajib dipilih");
+
+        setActing(true);
+        try {
+            await api(`/pengajuan/${prId}/payment-info`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    nominal_bayar: nomBayar,
+                    admin_fee: stripRupiah(payAdminFee) || null,
+                    payment_method: payMethod,
+                    classification_id: payClassification,
+                })
+            });
+            showToast("success", "Info pembayaran berhasil diperbarui");
+            setEditPayOpen(false);
+            onChanged?.();
+            load();
+        } catch (err) {
+            showToast("error", err.message);
+        } finally {
+            setActing(false);
+        }
     };
 
     const doComplete = async () => {
@@ -572,15 +607,110 @@ export default function PengajuanDetailModal({
                                         )}
                                     </div>
                                 )}
-                                {/* Nominal Bayar (tampil setelah pembayaran) */}
-                                {status >= 6 && status !== 9 && data.nominal_bayar && (
-                                    <div className="border-t border-slate-100 pt-3">
-                                        <p className="text-[11px] text-slate-400 uppercase">
-                                            {data.payment_method === "kredit" ? "Total Tagihan Kredit" : "Nominal Bayar (Aktual)"}
-                                        </p>
-                                        <p className="font-bold text-cyan-700">{formatRp(data.nominal_bayar)}</p>
-                                    </div>
-                                )}
+                                {/* Info Pembayaran (tampil setelah pembayaran) */}
+                                {status >= 6 && status !== 9 && (
+                                     <div className="border-t border-slate-100 pt-3 space-y-3">
+                                         <div className="flex items-center justify-between">
+                                             <p className="text-[11px] text-slate-400 uppercase font-semibold">Info Pembayaran</p>
+                                             {myIsFinance && !editPayOpen && (
+                                                 <button onClick={() => {
+                                                     setEditPayOpen(true);
+                                                     setPayNB(formatRupiah(String(data.nominal_bayar || 0)));
+                                                     setPayAdminFee(data.admin_fee ? formatRupiah(String(data.admin_fee)) : "");
+                                                     setPayClass(String(data.classification_id || ""));
+                                                     setPayMethod(data.payment_method || "");
+                                                     api("/pengajuan/classifications").then(r => setClassificationList(r.data || [])).catch(() => {});
+                                                 }} className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold hover:underline">
+                                                     Edit Info
+                                                 </button>
+                                             )}
+                                         </div>
+                                         
+                                         {editPayOpen ? (
+                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-cyan-50/20 border border-dashed border-cyan-200 rounded-xl p-3 text-sm">
+                                                 <div>
+                                                     <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Nominal Bayar <span className="text-rose-500">*</span></label>
+                                                     <div className="relative">
+                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
+                                                         <input
+                                                             className="w-full rounded-lg border border-cyan-200 bg-white pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200 tabular-nums"
+                                                             value={payNominalBayar}
+                                                             inputMode="numeric"
+                                                             onChange={e => setPayNB(formatRupiah(e.target.value))}
+                                                             placeholder="0" />
+                                                     </div>
+                                                 </div>
+                                                 <div>
+                                                     <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Biaya Admin (Opsional)</label>
+                                                     <div className="relative">
+                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
+                                                         <input
+                                                             className="w-full rounded-lg border border-cyan-200 bg-white pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200 tabular-nums"
+                                                             value={payAdminFee}
+                                                             inputMode="numeric"
+                                                             onChange={e => setPayAdminFee(formatRupiah(e.target.value))}
+                                                             placeholder="0" />
+                                                     </div>
+                                                 </div>
+                                                 <div>
+                                                     <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Metode Pembayaran <span className="text-rose-500">*</span></label>
+                                                     <select
+                                                         className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
+                                                         value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                                                         disabled={isReimburse}>
+                                                         <option value="">— Pilih —</option>
+                                                         <option value="cash">Cash</option>
+                                                         {!isReimburse && <option value="kredit">Kredit</option>}
+                                                     </select>
+                                                 </div>
+                                                 <div>
+                                                     <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
+                                                     <select
+                                                         className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
+                                                         value={payClassification} onChange={e => setPayClass(e.target.value)}>
+                                                         <option value="">— Pilih —</option>
+                                                         {classificationList.map(c => (
+                                                             <option key={c.id} value={c.id}>{c.classification_name}</option>
+                                                         ))}
+                                                     </select>
+                                                 </div>
+                                                 <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass(""); setPayMethod(""); }}
+                                                         className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" disabled={acting}>
+                                                         Batal
+                                                     </button>
+                                                     <button onClick={doUpdatePaymentInfo}
+                                                         className="rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition" disabled={acting || !payNominalBayar || !payMethod || !payClassification}>
+                                                         {acting ? "Menyimpan..." : "Simpan"}
+                                                     </button>
+                                                 </div>
+                                             </div>
+                                         ) : (
+                                             <div className="grid grid-cols-2 gap-3 text-sm">
+                                                 <div>
+                                                     <p className="text-[11px] text-slate-400 uppercase">
+                                                         {data.payment_method === "kredit" ? "Total Tagihan Kredit" : "Nominal Bayar (Aktual)"}
+                                                     </p>
+                                                     <p className="font-bold text-cyan-700">{formatRp(data.nominal_bayar)}</p>
+                                                 </div>
+                                                 {data.admin_fee !== null && data.admin_fee !== undefined && (
+                                                     <div>
+                                                         <p className="text-[11px] text-slate-400 uppercase">Biaya Admin</p>
+                                                         <p className="font-semibold text-slate-700">{formatRp(data.admin_fee)}</p>
+                                                     </div>
+                                                 )}
+                                                 <div>
+                                                     <p className="text-[11px] text-slate-400 uppercase">Metode Pembayaran</p>
+                                                     <p className="font-semibold text-slate-700 uppercase">{data.payment_method || "—"}</p>
+                                                 </div>
+                                                 <div>
+                                                     <p className="text-[11px] text-slate-400 uppercase">Klasifikasi</p>
+                                                     <p className="font-semibold text-slate-700">{data.classification_name || "—"}</p>
+                                                 </div>
+                                             </div>
+                                         )}
+                                     </div>
+                                 )}
                             </div>
 
                             {/* reimburse-only */}
@@ -882,8 +1012,9 @@ export default function PengajuanDetailModal({
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
                                                 value={payClassification} onChange={e => setPayClass(e.target.value)}>
                                                 <option value="">— Pilih —</option>
-                                                <option value="inventory">Inventory</option>
-                                                <option value="expense">Expense</option>
+                                                {classificationList.map(c => (
+                                                    <option key={c.id} value={c.id}>{c.classification_name}</option>
+                                                ))}
                                             </select>
                                         </div>
                                         <div>
@@ -987,7 +1118,24 @@ export default function PengajuanDetailModal({
                                             <p className="text-[10px] text-slate-400 mt-0.5">
                                                 {payMethod === "kredit"
                                                     ? "Total yang harus dibayar (target). Cicilan dicatat di menu Pelunasan."
-                                                    : "Default dari estimasi harga. Ubah jika berbeda."}
+                                                    : "Masukkan nominal aktual yang dibayarkan."}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                Biaya Admin (Opsional)
+                                            </label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
+                                                <input
+                                                    className="w-full rounded-lg border border-cyan-200 bg-white pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200 tabular-nums"
+                                                    value={payAdminFee}
+                                                    inputMode="numeric"
+                                                    onChange={e => setPayAdminFee(formatRupiah(e.target.value))}
+                                                    placeholder="0" />
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                                Biaya administrasi transfer/pembayaran (jika ada).
                                             </p>
                                         </div>
                                         <div className="sm:col-span-2">
@@ -998,7 +1146,7 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setClassificationList([]); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
@@ -1166,12 +1314,17 @@ export default function PengajuanDetailModal({
                             {canPayment && (
                                 <button onClick={() => {
                                     setPayOpen(true);
-                                    // Pre-fill nominal bayar dari estimasi harga * qty
-                                    const qty = data.ga_qty ? Number(data.ga_qty) : Number(data.qty);
-                                    const totalEst = data.estimasi_harga ? Number(data.estimasi_harga) * qty : 0;
-                                    if (totalEst) setPayNB(formatRupiah(String(totalEst)));
-                                    // Reimburse: default classification = expense
-                                    if (isReimburse) { setPayClass("expense"); setPayMethod("cash"); }
+                                    setPayNB("");
+                                    setPayAdminFee("");
+                                    api("/pengajuan/classifications").then(r => {
+                                        const list = r.data || [];
+                                        setClassificationList(list);
+                                        if (isReimburse) {
+                                            const exp = list.find(c => c.classification_name?.toLowerCase() === "expense");
+                                            if (exp) setPayClass(String(exp.id));
+                                        }
+                                    }).catch(() => {});
+                                    if (isReimburse) { setPayMethod("cash"); }
                                 }}
                                     className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 transition">
                                     {isReimburse ? "Bayar & Selesaikan" : "Proses Pembayaran"}
