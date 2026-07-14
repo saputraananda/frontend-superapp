@@ -772,7 +772,14 @@ export default function RequestTraining() {
                           if (raw) {
                             try {
                               const parsed = JSON.parse(raw);
-                              files = Array.isArray(parsed) ? parsed : [parsed];
+                              if (Array.isArray(parsed)) {
+                                files = parsed;
+                              } else if (typeof parsed === "string" && parsed.includes(",")) {
+                                // old data: CSV stored as JSON-encoded string
+                                files = parsed.split(",").map(item => item.trim());
+                              } else {
+                                files = [parsed];
+                              }
                             } catch (e) {
                               if (typeof raw === "string" && raw.includes(",")) {
                                 files = raw.split(",").map(item => item.trim());
