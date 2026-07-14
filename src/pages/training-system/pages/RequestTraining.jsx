@@ -761,46 +761,24 @@ export default function RequestTraining() {
                     </div>
                   </div>
 
-                  {/* Evidence Files List */}
-                  {detailData.training.evidence_files && (
+                  {/* Evidence Files List — from tr_training_evidence table */}
+                  {detailData.evidence && detailData.evidence.length > 0 && (
                     <div className="border-t border-slate-100 pt-4">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-3">Dokumen / Bukti Pelaksanaan</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-3">
+                        Dokumen / Bukti Pelaksanaan
+                        <span className="ml-2 font-normal normal-case text-slate-300">({detailData.evidence.length} file)</span>
+                      </span>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {(() => {
-                          const raw = detailData.training.evidence_files;
-                          let files = [];
-                          if (raw) {
-                            try {
-                              const parsed = JSON.parse(raw);
-                              if (Array.isArray(parsed)) {
-                                // FlatMap: handle case where array element is itself a CSV string
-                                files = parsed.flatMap(item =>
-                                  typeof item === "string" && item.includes(",")
-                                    ? item.split(",").map(s => s.trim())
-                                    : [item]
-                                );
-                              } else if (typeof parsed === "string" && parsed.includes(",")) {
-                                files = parsed.split(",").map(item => item.trim());
-                              } else {
-                                files = [parsed];
-                              }
-                            } catch (e) {
-                              if (typeof raw === "string" && raw.includes(",")) {
-                                files = raw.split(",").map(item => item.trim());
-                              } else {
-                                files = [raw];
-                              }
-                            }
-                          }
-                          return files.map((filepath, index) => {
-                            const filename = String(filepath || "").split("/").pop();
-                            const ext = filename.split(".").pop().toLowerCase();
-                            const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
-                            const isPdf = ext === "pdf";
+                        {detailData.evidence.map((ev) => {
+                          const filepath = ev.file_path;
+                          const filename = String(filepath || "").split("/").pop();
+                          const ext = filename.split(".").pop().toLowerCase();
+                          const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+                          const isPdf = ext === "pdf";
 
                             if (isImage) {
                               return (
-                                <div key={index} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-amber-500">
+                                <div key={ev.id} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-amber-500">
                                   <div className="h-28 w-full rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden relative">
                                     <img 
                                       src={`${BASE_URL}/assets/${filepath}`} 
@@ -844,7 +822,7 @@ export default function RequestTraining() {
 
                             if (isPdf) {
                               return (
-                                <div key={index} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-rose-500">
+                                <div key={ev.id} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-rose-500">
                                   <div className="h-28 w-full rounded-xl bg-rose-50/50 border border-rose-100 flex flex-col items-center justify-center relative">
                                     <div className="h-9 w-9 bg-rose-500 text-white rounded-xl flex items-center justify-center font-black text-xs shadow-md">
                                       PDF
@@ -883,7 +861,7 @@ export default function RequestTraining() {
 
                             // Generic file fallback
                             return (
-                              <div key={index} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-blue-500">
+                              <div key={ev.id} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-blue-500">
                                 <div className="h-28 w-full rounded-xl bg-blue-50/50 border border-blue-100 flex flex-col items-center justify-center relative">
                                   <div className="h-9 w-9 bg-blue-500 text-white rounded-xl flex items-center justify-center font-black text-xs shadow-md">
                                     FILE
@@ -918,8 +896,7 @@ export default function RequestTraining() {
                                 </div>
                               </div>
                             );
-                          });
-                        })()}
+                          })}
                       </div>
                     </div>
                   )}
