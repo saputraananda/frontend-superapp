@@ -210,6 +210,7 @@ export default function PengajuanDetailModal({
     const [payNominalBayar, setPayNB] = useState(""); // nominal bayar aktual (formatted)
     const [payAdminFee, setPayAdminFee] = useState(""); // biaya admin (formatted)
     const [classificationList, setClassificationList] = useState([]); // list classifications
+    const [payPaidAt, setPayPaidAt] = useState(""); // waktu pembayaran (datetime-local)
     const [editPayOpen, setEditPayOpen] = useState(false);
 
     // Complete state (karyawan upload invoice)
@@ -244,7 +245,7 @@ export default function PengajuanDetailModal({
             setClassificationList([]);
             setFinOpen(false); setFinNote("");
             setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]);
-            setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee("");
+            setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt("");
             setCompleteOpen(false); setInvoiceFile(null);
             setEditPayOpen(false);
         }
@@ -392,6 +393,14 @@ export default function PengajuanDetailModal({
         } finally { setActing(false); }
     };
 
+    // Helper: format datetime-local ke ISO string untuk form value
+    const nowDatetimeLocal = () => {
+        const d = new Date();
+        // Format: YYYY-MM-DDTHH:mm (required by datetime-local input)
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
     const doPayment = async () => {
         if (!payClassification) return showToast("error", "Klasifikasi wajib dipilih");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
@@ -406,6 +415,8 @@ export default function PengajuanDetailModal({
                 fd.append("termin_value", payTerminValue);
                 fd.append("termin_unit", payTerminUnit);
             }
+            // Waktu pembayaran (gunakan yang diisi user, fallback ke NOW di backend)
+            if (payPaidAt) fd.append("paid_at", payPaidAt);
             // Nominal bayar aktual
             const nomBayar = stripRupiah(payNominalBayar);
             if (nomBayar) fd.append("nominal_bayar", nomBayar);
@@ -1006,6 +1017,21 @@ export default function PengajuanDetailModal({
                                             : "Isi klasifikasi, metode pembayaran, catatan, dan lampirkan bukti pembayaran."}
                                     </p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                Waktu Pembayaran <span className="text-rose-500">*</span>
+                                            </label>
+                                            <input
+                                                type="datetime-local"
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
+                                                value={payPaidAt}
+                                                onChange={e => setPayPaidAt(e.target.value)}
+                                                onClick={e => { if (!payPaidAt) setPayPaidAt(nowDatetimeLocal()); }}
+                                            />
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                                Tanggal &amp; jam aktual pembayaran dilakukan. Default ke sekarang jika dikosongkan.
+                                            </p>
+                                        </div>
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
                                             <select
@@ -1146,7 +1172,7 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setClassificationList([]); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
