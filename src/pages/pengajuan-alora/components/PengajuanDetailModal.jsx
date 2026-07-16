@@ -179,6 +179,7 @@ export default function PengajuanDetailModal({
     const [gaLinkUrl, setGaLinkUrl] = useState("");
     const [gaLinkTitle, setGaLinkTitle] = useState("");
     const [vendorList, setVendorList] = useState([]);
+    const [gaInvoiceFile, setGaInvoiceFile] = useState(null);
 
     // ── derived data (di-declare di sini karena dipakai di hooks dan JSX) ────
     const data = detail?.data;
@@ -242,6 +243,7 @@ export default function PengajuanDetailModal({
             setGaQty(""); setGaMerk(""); setGaVendor(""); setGaNote("");
             setGaVendorMode(""); setGaVendorId(""); setGaLinkUrl(""); setGaLinkTitle("");
             setVendorList([]);
+            setGaInvoiceFile(null);
             setClassificationList([]);
             setFinOpen(false); setFinNote("");
             setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]);
@@ -327,23 +329,32 @@ export default function PengajuanDetailModal({
     const doApproveGA = async () => {
         setActing(true);
         try {
-            const body = {
-                ga_qty: gaQty ? Number(gaQty) : undefined,
-                ga_merk: gaMerk || undefined,
-                ga_note: gaNote || undefined,
-                vendor_mode: gaVendorMode || undefined,
-            };
+            const fd = new FormData();
+            if (gaQty) fd.append("ga_qty", gaQty);
+            if (gaMerk) fd.append("ga_merk", gaMerk);
+            if (gaNote) fd.append("ga_note", gaNote);
+            if (gaVendorMode) fd.append("vendor_mode", gaVendorMode);
             if (gaVendorMode === "vendor") {
-                body.vendor_id = gaVendorId ? Number(gaVendorId) : undefined;
-                body.vendor = gaVendor || undefined;
+                if (gaVendorId) fd.append("vendor_id", gaVendorId);
+                if (gaVendor) fd.append("vendor", gaVendor);
             } else if (gaVendorMode === "link") {
-                body.link_url = gaLinkUrl || undefined;
-                body.link_title = gaLinkTitle || undefined;
+                if (gaLinkUrl) fd.append("link_url", gaLinkUrl);
+                if (gaLinkTitle) fd.append("link_title", gaLinkTitle);
             }
-            await api(`/pengajuan/${prId}/approve-ga`, {
+            if (gaInvoiceFile) {
+                fd.append("ga_invoice", gaInvoiceFile);
+            }
+
+            await fetch(`${import.meta.env.VITE_API_URL || ""}/pengajuan/${prId}/approve-ga`, {
                 method: "POST",
-                body: JSON.stringify(body),
+                body: fd,
+                credentials: "include",
+            }).then(async r => {
+                const j = await r.json();
+                if (!r.ok) throw new Error(j.message || "Gagal");
+                return j;
             });
+
             showToast("success", "Disetujui GA — PO siap");
             onChanged?.();
             setTimeout(onClose, 600);
@@ -867,6 +878,23 @@ export default function PengajuanDetailModal({
                                                 <p className="text-slate-600">{data.ga_note}</p>
                                             </div>
                                         )}
+                                        {data.ga_invoice && (
+                                            <div className="col-span-2">
+                                                <p className="text-[11px] text-slate-400 uppercase mb-1">Invoice / Dokumen GA</p>
+                                                <button
+                                                    onClick={() => {
+                                                        const ext = getExt(data.ga_invoice);
+                                                        const src = assetUrl(data.ga_invoice);
+                                                        if (isImageExt(ext)) setPreview({ kind: "image", name: "Invoice GA", src, downloadUrl: src });
+                                                        else if (isPdfExt(ext)) setPreview({ kind: "pdf", name: "Invoice GA", src, downloadUrl: src });
+                                                        else window.open(src, "_blank", "noopener");
+                                                    }}
+                                                    className="inline-flex items-center gap-1 rounded-md bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 hover:bg-violet-100 transition">
+                                                    <HiOutlineEye className="h-3 w-3" />
+                                                    Lihat Invoice GA
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -960,6 +988,44 @@ export default function PengajuanDetailModal({
                                             <textarea rows={2} value={gaNote} onChange={e => setGaNote(e.target.value)}
                                                 className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200 resize-none"
                                                 placeholder="Catatan tambahan untuk PO..." />
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                Dokumen / Foto Invoice (Opsional)
+                                            </label>
+                                            <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                                className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-2 file:rounded file:border-0 file:bg-violet-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-violet-700"
+                                                onChange={e => {
+                                                    setGaInvoiceFile(e.target.files?.[0] || null);
+                                                    e.target.value = "";
+                                                }} />
+                                            {gaInvoiceFile && (() => {
+                                                const ext = getExt(gaInvoiceFile.name);
+                                                const isImg = isImageExt(ext);
+                                                const url = isImg ? URL.createObjectURL(gaInvoiceFile) : null;
+                                                return (
+                                                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50/40 px-2.5 py-1.5 animate-fade-in">
+                                                        {isImg && url && (
+                                                            <img src={url} alt={gaInvoiceFile.name} className="h-8 w-8 rounded object-cover shrink-0 cursor-pointer"
+                                                                onClick={() => setPreview({ kind: "image", name: gaInvoiceFile.name, src: url, downloadUrl: url })} />
+                                                        )}
+                                                        {!isImg && (
+                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-rose-100 text-rose-600 cursor-pointer"
+                                                                onClick={() => {
+                                                                    const pdfUrl = URL.createObjectURL(gaInvoiceFile);
+                                                                    setPreview({ kind: "pdf", name: gaInvoiceFile.name, src: pdfUrl, downloadUrl: pdfUrl });
+                                                                }}>
+                                                                <HiOutlineDocumentText className="h-4 w-4" />
+                                                            </div>
+                                                        )}
+                                                        <span className="flex-1 min-w-0 text-[11px] text-slate-600 font-medium truncate">{gaInvoiceFile.name}</span>
+                                                        <button type="button" onClick={() => setGaInvoiceFile(null)}
+                                                            className="rounded p-0.5 text-rose-500 hover:bg-rose-50 transition shrink-0">
+                                                            <HiOutlineXMark className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
