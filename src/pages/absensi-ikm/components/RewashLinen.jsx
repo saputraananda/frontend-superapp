@@ -30,6 +30,19 @@ function fmtDate(v) {
   return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
 }
 
+function fmtDateTime(v) {
+  if (!v) return "-";
+  const d = new Date(v);
+  if (isNaN(d)) return v;
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -358,6 +371,52 @@ function FormModal({ open, onClose, onSaved, editData, hospitals }) {
   );
 }
 
+// ─── Build flat list of change lines for one audit entry ──────────────────────
+function buildAuditLines(log) {
+  const lines = [];
+  const oldD = log.before_data?.details || [];
+  const newD = log.after_data?.details || [];
+
+  // Normalize helpers — agar null/undefined tidak dianggap berbeda dari 0 atau ""
+  const normNum = (v) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+  const normStr = (v) => (v == null ? "" : String(v).trim());
+
+  // Notes header change
+  const oldNotes = normStr(log.before_data?.header?.notes);
+  const newNotes = normStr(log.after_data?.header?.notes);
+  if (oldNotes !== newNotes) {
+    lines.push(`Catatan: "${oldNotes || "-"}" → "${newNotes || "-"}"`);
+  }
+
+  // Updated / added items
+  newD.forEach(n => {
+    const o = oldD.find(x => x.hospital_linen_id === n.hospital_linen_id);
+    const name = n.linen_display_name || `Item #${n.hospital_linen_id}`;
+    if (!o) {
+      lines.push(`+ ${name} ditambahkan (Qty ${n.qty})`);
+    } else {
+      if (normNum(o.qty) !== normNum(n.qty))
+        lines.push(`${name} — Qty: ${normNum(o.qty)} → ${normNum(n.qty)}`);
+      if (normNum(o.clear) !== normNum(n.clear))
+        lines.push(`${name} — Bersih: ${normNum(o.clear)} → ${normNum(n.clear)}`);
+      const oNotes = normStr(o.detail_notes);
+      const nNotes = normStr(n.detail_notes);
+      if (oNotes !== nNotes)
+        lines.push(`${name} — Catatan: "${oNotes || "-"}" → "${nNotes || "-"}"`);
+    }
+  });
+
+  // Deleted items
+  oldD.forEach(o => {
+    if (!newD.find(n => n.hospital_linen_id === o.hospital_linen_id)) {
+      const name = o.linen_display_name || `Item #${o.hospital_linen_id}`;
+      lines.push(`− ${name} dihapus`);
+    }
+  });
+
+  return lines;
+}
+
 // ─── DetailModal — lihat/edit/hapus/tambah linen ────────────────────────────
 function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   const [linens, setLinens] = useState([]);
@@ -372,6 +431,24 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState("");
 
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  const fetchAuditLogs = useCallback(async () => {
+    if (!group?.id) return;
+    setLoadingAudit(true);
+    try {
+      const res = await api(`/ikm/rewash-linen/${group.id}/audit`);
+      if (res.success) {
+        setAuditLogs(res.data || []);
+      }
+    } catch (err) {
+      console.error("Gagal load audit logs:", err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  }, [group?.id]);
+
   useEffect(() => {
     if (open && group) {
       setItems([...group.items]);
@@ -381,8 +458,9 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       setAddQty(1);
       setAddError("");
       setError("");
+      fetchAuditLogs();
     }
-  }, [open, group]);
+  }, [open, group, fetchAuditLogs]);
 
   // Load linens for the add dropdown
   useEffect(() => {
@@ -428,6 +506,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       ));
       setEditId(null);
       onRefresh?.();
+      fetchAuditLogs();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -443,6 +522,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       await api(`/ikm/rewash-linen/${itemId}`, { method: "DELETE" });
       setItems(prev => prev.filter(i => i.id !== itemId));
       onRefresh?.();
+      fetchAuditLogs();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -481,6 +561,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       setAddQty(1);
       setAdding(false);
       onRefresh?.();
+      fetchAuditLogs();
     } catch (err) {
       setAddError(err.message);
       setAdding(false);
@@ -707,6 +788,47 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
               </button>
             </form>
           </div>
+
+          {/* Audit Log / History Section */}
+          {auditLogs.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-0 mt-4 shrink-0">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-600 border-b border-slate-200/50 pb-2 mb-2">
+                <HiOutlineClock className="h-4 w-4 text-slate-400" />
+                <span>Riwayat Pengisian / Perubahan Laporan</span>
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                {auditLogs.map((log) => {
+                  const lines = buildAuditLines(log);
+                  return (
+                    <div key={log.id} className="py-1.5 border-b border-slate-100 last:border-0">
+                      {/* Baris aksi */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-700">
+                          {log.action === "INSERT" ? (
+                            <span className="inline-flex rounded bg-emerald-50 text-emerald-700 border border-emerald-100 px-1 py-0.5 text-[9px] font-bold mr-1">BUAT</span>
+                          ) : (
+                            <span className="inline-flex rounded bg-blue-50 text-blue-700 border border-blue-100 px-1 py-0.5 text-[9px] font-bold mr-1">UPDATE</span>
+                          )}
+                          oleh <strong className="text-slate-800">{log.changed_by_employee_name || log.changed_by_name}</strong>
+                        </span>
+                        <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{fmtDateTime(log.changed_at)}</span>
+                      </div>
+                      {/* Detail perubahan — satu baris per item */}
+                      {lines.length > 0 && (
+                        <ul className="mt-0.5 space-y-0.5 pl-2">
+                          {lines.map((line, i) => (
+                            <li key={i} className="text-[10px] text-slate-500 leading-snug before:content-['·'] before:mr-1 before:text-slate-300">
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>,

@@ -73,6 +73,15 @@ const MANAGEMENT_MENU = [
 	},
 ];
 
+const TRANSAKSI_LINEN_MENU = [
+	{
+		to: "/transaksi-linen-ikm",
+		icon: HiOutlineDocumentText,
+		label: "Serah Terima Linen",
+		description: "Penerimaan & pengiriman linen",
+	},
+];
+
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
 	return (
 		<NavLink
@@ -193,6 +202,21 @@ function Sidebar({ collapsed = false, onClose }) {
 						<NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
 					))}
 				</nav>
+
+				{/* Menu label - Transaksi Linen IKM */}
+				{!collapsed && (
+					<p className="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+						Transaksi Linen IKM
+					</p>
+				)}
+				{collapsed && <div className="pt-3" />}
+
+				{/* Navigation - Transaksi Linen IKM */}
+				<nav className={cn("space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
+					{TRANSAKSI_LINEN_MENU.map((item) => (
+						<NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+					))}
+				</nav>
 			</div>
 
 			{/* Footer: back to portal */}
@@ -223,7 +247,7 @@ function ActiveMenuTitle() {
 	const { pathname } = useLocation();
 
 	// Cari menu yang cocok: prioritaskan match exact dulu, lalu startsWith
-	const allMenuItems = [...MENU_ITEMS, ...MANAGEMENT_MENU];
+	const allMenuItems = [...MENU_ITEMS, ...MANAGEMENT_MENU, ...TRANSAKSI_LINEN_MENU];
 	const active =
 		allMenuItems.find((m) => m.end && pathname === m.to) ??
 		allMenuItems.find((m) => !m.end && pathname.startsWith(m.to));

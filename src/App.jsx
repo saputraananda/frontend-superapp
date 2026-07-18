@@ -64,6 +64,7 @@ import RewashLinen from "./pages/absensi-ikm/components/RewashLinen";
 import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
 import KasbonPinjaman from "./pages/absensi-ikm/components/KasbonPinjaman";
 import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
+import LinenTransaction from "./pages/absensi-ikm/components/LinenTransaction";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -413,6 +414,7 @@ export default function App() {
           <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
           <Route path="/kasbon-pinjaman" element={<KasbonPinjaman />} />
           <Route path="/absensi-manajemen-ikm" element={<AbsensiManajemen />} />
+          <Route path="/transaksi-linen-ikm" element={<LinenTransaction />} />
         </Route>
 
         {/* ── Karyawan IKM ── */}
