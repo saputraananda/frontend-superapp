@@ -9,6 +9,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
 
   const getAppIcon = (appName) => {
     const name = appName.toLowerCase();
+    if (name.includes("project management 2.0") || name.includes("project-management-v2") || name.includes("pm 2.0"))
+      return (
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      );
     if (name.includes("pengajuan") || name.includes("request") || name.includes("reimburse") || name.includes("pengadaan"))
       return (
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -147,6 +153,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
 
   const getAppIconBg = (appName) => {
     const name = appName.toLowerCase();
+    if (name.includes("project management 2.0") || name.includes("project-management-v2") || name.includes("pm 2.0")) return "bg-gradient-to-br from-indigo-900 to-indigo-650";
     if (name.includes("pengajuan") || name.includes("request") || name.includes("reimburse") || name.includes("pengadaan")) return "bg-emerald-600";
     if (name.includes("project")) return "bg-blue-600";
     if (name.includes("sales")) return "bg-indigo-500";

@@ -134,6 +134,14 @@ import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
 import FormRequestTraining from "./pages/training-system/components/FormRequestTraining";
 
+// Project Management V2 Imports
+import ProjectManagementV2 from "./pages/project-management-v2";
+import AssignedToMe from "./pages/project-management-v2/pages/MyTasks/AssignedToMe";
+import PersonalTaskList from "./pages/project-management-v2/pages/MyTasks/PersonalTaskList";
+import Workspaces from "./pages/project-management-v2/pages/Workspaces/Workspaces";
+import WorkspaceDetail from "./pages/project-management-v2/pages/Workspaces/WorkspaceDetail";
+import PersonalChat from "./pages/project-management-v2/pages/DirectMessages/PersonalChat";
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -625,6 +633,24 @@ export default function App() {
           <Route path="/training-management-system/request" element={<RequestTraining />} />
           <Route path="/training-management-system/request/form" element={<FormRequestTraining />} />
 
+        </Route>
+
+        {/* ── Project Management V2 ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/project-management-v2"]}>
+              <ProjectManagementV2 />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/project-management-v2" element={<Navigate to="/project-management-v2/assigned-to-me" replace />} />
+          <Route path="/project-management-v2/assigned-to-me" element={<AssignedToMe />} />
+          <Route path="/project-management-v2/personal-list" element={<PersonalTaskList />} />
+          <Route path="/project-management-v2/tasks" element={<Workspaces />} />
+          <Route path="/project-management-v2/workspaces" element={<Workspaces />} />
+          <Route path="/project-management-v2/workspaces/:workspaceId" element={<WorkspaceDetail />} />
+          <Route path="/project-management-v2/workspaces/:workspaceId/sub/:subId" element={<WorkspaceDetail />} />
+          <Route path="/project-management-v2/chat" element={<PersonalChat />} />
         </Route>
       </Routes>
     </BrowserRouter>
