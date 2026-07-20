@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../../lib/api";
-import { HiOutlineXMark, HiOutlineFolderPlus } from "react-icons/hi2";
+import { HiOutlineXMark, HiOutlinePencilSquare } from "react-icons/hi2";
 
-export default function AddWorkspaceModal({ open, onClose, onSuccess }) {
+export default function EditWorkspaceModal({ open, onClose, onSuccess, workspace }) {
   const [form, setForm] = useState({ title: "", desc: "", company_ids: [] });
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -11,11 +11,22 @@ export default function AddWorkspaceModal({ open, onClose, onSuccess }) {
   const [companies, setCompanies] = useState([]);
 
   useEffect(() => {
-    if (open) {
-      setForm({ title: "", desc: "", company_ids: [] });
-      setIsPublic(true);
+    if (open && workspace) {
+      let initialCompanyIds = [];
+      let initialIsPublic = true;
+      if (workspace.company_id) {
+        initialCompanyIds = String(workspace.company_id).split(",").map(Number).filter(Boolean);
+        initialIsPublic = initialCompanyIds.length === 0;
+      }
+
+      setForm({
+        title: workspace.title || "",
+        desc: workspace.desc || "",
+        company_ids: initialCompanyIds,
+      });
+      setIsPublic(initialIsPublic);
       setError("");
-      
+
       // Fetch active companies
       const loadCompanies = async () => {
         try {
@@ -27,7 +38,7 @@ export default function AddWorkspaceModal({ open, onClose, onSuccess }) {
       };
       loadCompanies();
     }
-  }, [open]);
+  }, [open, workspace]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,8 +49,8 @@ export default function AddWorkspaceModal({ open, onClose, onSuccess }) {
     setLoading(true);
     setError("");
     try {
-      await api("/api/pm2/workspaces", {
-        method: "POST",
+      await api(`/api/pm2/workspaces/${workspace.id}`, {
+        method: "PUT",
         body: JSON.stringify({
           title: form.title,
           desc: form.desc,
@@ -50,34 +61,35 @@ export default function AddWorkspaceModal({ open, onClose, onSuccess }) {
       onSuccess?.();
       onClose();
     } catch (err) {
-      setError(err.message || "Gagal membuat workspace");
+      setError(err.message || "Gagal mengedit workspace");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open) return null;
+  if (!open || !workspace) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-black/10 overflow-hidden">
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-            <HiOutlineFolderPlus className="h-5 w-5" />
+            <HiOutlinePencilSquare className="h-5 w-5" />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-bold text-slate-800">Buat Workspace Baru</h2>
-            <p className="text-[11px] text-slate-400">Buat Workspace / Unit Bisnis  &amp;</p>
+            <h2 className="text-sm font-bold text-slate-800">Edit Workspace</h2>
+            <p className="text-[11px] text-slate-400">Perbarui nama atau deskripsi workspace</p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
           >
@@ -167,26 +179,21 @@ export default function AddWorkspaceModal({ open, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-2 pt-1">
+          {/* Footer Actions */}
+          <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+              className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 transition active:scale-95"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition disabled:opacity-60"
+              className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition active:scale-95 shadow-md shadow-indigo-600/20"
             >
-              {loading ? (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent inline-block" />
-              ) : (
-                <HiOutlineFolderPlus className="h-3.5 w-3.5" />
-              )}
-              {loading ? "Menyimpan..." : "Buat Workspace"}
+              {loading ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
           </div>
         </form>

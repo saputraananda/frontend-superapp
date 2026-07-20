@@ -8,11 +8,13 @@ import {
   HiOutlineSquares2X2,
   HiOutlineChevronRight,
   HiOutlineXMark,
+  HiOutlinePencilSquare,
 } from "react-icons/hi2";
 import AddWorkspaceModal from "../../components/AddWorkspaceModal";
 import AddSubWorkspaceModal from "../../components/AddSubWorkspaceModal";
+import EditWorkspaceModal from "../../components/EditWorkspaceModal";
 
-function WorkspaceCard({ workspace, onDelete, onAddSub }) {
+function WorkspaceCard({ workspace, onDelete, onAddSub, onEdit }) {
   const navigate = useNavigate();
   const [subs, setSubs] = useState([]);
   const [expanded, setExpanded] = useState(false);
@@ -65,9 +67,14 @@ function WorkspaceCard({ workspace, onDelete, onAddSub }) {
           <h3 className="text-sm font-bold text-slate-800 hover:text-indigo-600 transition truncate">
             {workspace.title}
           </h3>
-          <p className="text-[11px] text-slate-400 truncate">
-            {workspace.desc || "Tidak ada deskripsi"} &middot;{" "}
+          <p className="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+            <span>{workspace.desc || "Tidak ada deskripsi"}</span>
+            <span>&middot;</span>
             <span className="font-semibold">{workspace.sub_count || 0} sub-workspace</span>
+            <span>&middot;</span>
+            <span className="font-semibold text-[9px] bg-slate-100 text-slate-600 rounded px-1 py-0.5">
+              {workspace.company_name || "Semua Perusahaan"}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -77,6 +84,13 @@ function WorkspaceCard({ workspace, onDelete, onAddSub }) {
             className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
           >
             <HiOutlinePlus className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(workspace); }}
+            title="Edit Workspace"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition"
+          >
+            <HiOutlinePencilSquare className="h-4 w-4" />
           </button>
           <button
             onClick={handleDeleteWorkspace}
@@ -127,10 +141,7 @@ function WorkspaceCard({ workspace, onDelete, onAddSub }) {
                       {sub.title}
                     </p>
                     <p className="text-[10px] text-slate-400 truncate">
-                      {sub.department_name && (
-                        <span className="mr-1 font-semibold text-indigo-400">{sub.department_name} ·</span>
-                      )}
-                      {sub.task_count || 0} task · {sub.completed_count || 0} selesai
+                      {sub.task_count || 0} task &middot; {sub.completed_count || 0} selesai
                     </p>
                   </div>
                   {/* Mini progress bar */}
@@ -203,6 +214,7 @@ export default function Workspaces() {
   const [loading, setLoading] = useState(true);
   const [showAddWorkspace, setShowAddWorkspace] = useState(false);
   const [addSubTarget, setAddSubTarget] = useState(null); // workspace object
+  const [editWorkspaceTarget, setEditWorkspaceTarget] = useState(null); // workspace object
 
   const loadWorkspaces = async () => {
     setLoading(true);
@@ -223,9 +235,10 @@ export default function Workspaces() {
   const handleDelete = async (id) => {
     try {
       await api(`/api/pm2/workspaces/${id}`, { method: "DELETE" });
+      window.dispatchEvent(new Event("pm2_workspaces_updated"));
       loadWorkspaces();
     } catch (err) {
-      Swal.fire("Gagal", err.message, "error");
+      console.error("Gagal menghapus workspace:", err);
     }
   };
 
@@ -297,6 +310,7 @@ export default function Workspaces() {
                 workspace={ws}
                 onDelete={handleDelete}
                 onAddSub={(ws) => setAddSubTarget(ws)}
+                onEdit={(ws) => setEditWorkspaceTarget(ws)}
               />
             ))}
           </div>
@@ -316,6 +330,13 @@ export default function Workspaces() {
         onSuccess={loadWorkspaces}
         workspaceId={addSubTarget?.id}
         workspaceName={addSubTarget?.title}
+      />
+
+      <EditWorkspaceModal
+        open={!!editWorkspaceTarget}
+        onClose={() => setEditWorkspaceTarget(null)}
+        onSuccess={loadWorkspaces}
+        workspace={editWorkspaceTarget}
       />
     </div>
   );

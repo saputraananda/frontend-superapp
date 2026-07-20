@@ -4,40 +4,21 @@ import { api } from "../../../lib/api";
 import { HiOutlineXMark, HiOutlineSquaresPlus } from "react-icons/hi2";
 
 export default function AddSubWorkspaceModal({ open, onClose, onSuccess, workspaceId, workspaceName }) {
-  const [form, setForm] = useState({ title: "", desc: "", department_id: "" });
-  const [departments, setDepartments] = useState([]);
+  const [form, setForm] = useState({ title: "", desc: "" });
   const [loading, setLoading] = useState(false);
-  const [loadingDeps, setLoadingDeps] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
-      setForm({ title: "", desc: "", department_id: "" });
+      setForm({ title: "", desc: "" });
       setError("");
-      loadDepartments();
     }
   }, [open]);
-
-  const loadDepartments = async () => {
-    setLoadingDeps(true);
-    try {
-      const data = await api("/api/pm2/departments");
-      setDepartments(data?.data || []);
-    } catch {
-      setDepartments([]);
-    } finally {
-      setLoadingDeps(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) {
       setError("Nama sub-workspace wajib diisi");
-      return;
-    }
-    if (!form.department_id) {
-      setError("Department wajib dipilih");
       return;
     }
     setLoading(true);
@@ -48,9 +29,10 @@ export default function AddSubWorkspaceModal({ open, onClose, onSuccess, workspa
         body: JSON.stringify({
           title: form.title,
           desc: form.desc,
-          department_id: form.department_id,
+          department_id: null,
         }),
       });
+      window.dispatchEvent(new Event("pm2_workspaces_updated"));
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -115,27 +97,6 @@ export default function AddSubWorkspaceModal({ open, onClose, onSuccess, workspa
 
           <div>
             <label className="block mb-1.5 text-xs font-bold text-slate-700">
-              Department <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={form.department_id}
-              onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value }))}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100 transition"
-              disabled={loadingDeps}
-            >
-              <option value="">
-                {loadingDeps ? "Memuat department..." : "-- Pilih Department --"}
-              </option>
-              {departments.map((dep) => (
-                <option key={dep.id} value={dep.id}>
-                  {dep.department_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-1.5 text-xs font-bold text-slate-700">
               Deskripsi <span className="text-slate-400 font-normal">(opsional)</span>
             </label>
             <textarea
@@ -158,7 +119,7 @@ export default function AddSubWorkspaceModal({ open, onClose, onSuccess, workspa
             </button>
             <button
               type="submit"
-              disabled={loading || loadingDeps}
+              disabled={loading}
               className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-5 py-2 text-xs font-bold text-white hover:bg-violet-700 transition disabled:opacity-60"
             >
               {loading ? (

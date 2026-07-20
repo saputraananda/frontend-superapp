@@ -15,10 +15,12 @@ import {
   HiOutlineMagnifyingGlass,
   HiOutlineFunnel,
   HiOutlineXMark,
-  HiOutlineCheckBadge
+  HiOutlineCheckBadge,
+  HiOutlinePencilSquare
 } from "react-icons/hi2";
 import AddTaskModal from "../../components/AddTaskModal";
 import TaskDetailModal from "../../components/TaskDetailModal";
+import EditWorkspaceModal from "../../components/EditWorkspaceModal";
 
 const STATUS_COLUMNS = {
   "To Do":      { label: "To Do",       color: "border-t-slate-400" },
@@ -62,6 +64,7 @@ export default function WorkspaceDetail() {
   const navigate = useNavigate();
 
   const [subWorkspace, setSubWorkspace] = useState(null);
+  const [subWorkspaces, setSubWorkspaces] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("board");
@@ -71,6 +74,7 @@ export default function WorkspaceDetail() {
   // Custom modals state
   const [taskToDeleteId, setTaskToDeleteId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [showEditWorkspace, setShowEditWorkspace] = useState(false);
 
   // Search & Filters states
   const [searchTerm, setSearchTerm] = useState("");
@@ -84,6 +88,7 @@ export default function WorkspaceDetail() {
   const [endDate, setEndDate] = useState("");
   const [dueDateType, setDueDateType] = useState(""); // '', 'today', 'this-week', 'overdue', 'custom'
   const [customDueDate, setCustomDueDate] = useState("");
+  const [filterSubWorkspace, setFilterSubWorkspace] = useState("");
 
   // Dynamic Month & Year options from task data
   const availableMonths = Array.from(
@@ -130,6 +135,7 @@ export default function WorkspaceDetail() {
   const loadSubWorkspace = async () => {
     try {
       const data = await api(`/api/pm2/workspaces/${workspaceId}/sub`);
+      setSubWorkspaces(data?.data || []);
       if (subId) {
         const sub = (data?.data || []).find((s) => String(s.id) === String(subId));
         setSubWorkspace(sub || null);
@@ -234,6 +240,15 @@ export default function WorkspaceDetail() {
       }
     }
 
+    // 7. Sub-Workspace match (only applies if we are in main Workspace detail page where subId is missing)
+    if (!subId && filterSubWorkspace) {
+      if (filterSubWorkspace === "none") {
+        if (task.id_pm_detail !== null) return false;
+      } else {
+        if (String(task.id_pm_detail) !== String(filterSubWorkspace)) return false;
+      }
+    }
+
     return true;
   });
 
@@ -291,15 +306,22 @@ export default function WorkspaceDetail() {
                 <HiOutlineSquares2X2 className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-800 leading-snug">
-                  {subWorkspace?.title || (subId ? "Sub-Workspace" : "Workspace")}
-                </h1>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {subWorkspace?.department_name && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-indigo-600 font-semibold mr-2">
-                      {subWorkspace.department_name}
-                    </span>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-slate-800 leading-snug">
+                    {subWorkspace?.title || (subId ? "Sub-Workspace" : "Workspace")}
+                  </h1>
+                  {!subId && subWorkspace && (
+                    <button
+                      type="button"
+                      onClick={() => setShowEditWorkspace(true)}
+                      title="Edit Workspace"
+                      className="rounded-lg p-1 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition"
+                    >
+                      <HiOutlinePencilSquare className="h-4 w-4" />
+                    </button>
                   )}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
                   {subWorkspace?.desc || "Tidak ada deskripsi"}
                 </p>
               </div>
@@ -330,15 +352,13 @@ export default function WorkspaceDetail() {
                 </button>
               </div>
 
-              {subId && (
-                <button
-                  onClick={() => setShowAddTask(true)}
-                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20"
-                >
-                  <HiOutlinePlus className="h-4 w-4" />
-                  Tambah Task
-                </button>
-              )}
+              <button
+                onClick={() => setShowAddTask(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20"
+              >
+                <HiOutlinePlus className="h-4 w-4" />
+                Tambah Task
+              </button>
             </div>
           </div>
         </div>
@@ -376,7 +396,7 @@ export default function WorkspaceDetail() {
           >
             <HiOutlineFunnel className="h-4 w-4 text-slate-450" />
             Filter {showFilters ? "Tutup" : "Buka"}
-            {(filterPriority || filterStatus || filterPosition || filterMonth || filterYear || startDate || endDate || dueDateType) && (
+            {(filterPriority || filterStatus || filterPosition || filterMonth || filterYear || startDate || endDate || dueDateType || filterSubWorkspace) && (
               <span className="h-2 w-2 rounded-full bg-indigo-600 inline-block animate-pulse" />
             )}
           </button>
@@ -483,6 +503,24 @@ export default function WorkspaceDetail() {
               />
             </div>
 
+            {/* Sub-Workspace Filter (Only visible on main Workspace page) */}
+            {!subId && (
+              <div>
+                <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sub-Workspace</label>
+                <select
+                  value={filterSubWorkspace}
+                  onChange={(e) => setFilterSubWorkspace(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition text-slate-800"
+                >
+                  <option value="">Semua Sub-Workspace &amp; Tanpa Sub</option>
+                  <option value="none">Hanya Tanpa Sub-Workspace</option>
+                  {subWorkspaces.map((sub) => (
+                    <option key={sub.id} value={sub.id}>{sub.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Due Date Filter */}
             <div>
               <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Due Date (Deadline)</label>
@@ -527,6 +565,7 @@ export default function WorkspaceDetail() {
                   setDueDateType("");
                   setCustomDueDate("");
                   setSearchTerm("");
+                  setFilterSubWorkspace("");
                 }}
                 className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition shadow-sm"
               >
@@ -757,6 +796,7 @@ export default function WorkspaceDetail() {
         onClose={() => setShowAddTask(false)}
         onSuccess={loadTasks}
         subWorkspaceId={subId}
+        workspaceId={workspaceId}
       />
 
       {/* TaskDetailModal — modular component */}
@@ -824,6 +864,16 @@ export default function WorkspaceDetail() {
           </div>
         </div>
       )}
+
+      {/* Custom Edit Workspace Modal */}
+      <EditWorkspaceModal
+        open={showEditWorkspace}
+        onClose={() => setShowEditWorkspace(false)}
+        onSuccess={() => {
+          loadSubWorkspace();
+        }}
+        workspace={subWorkspace ? { id: workspaceId, title: subWorkspace.title, desc: subWorkspace.desc } : null}
+      />
     </div>
   );
 }

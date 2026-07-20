@@ -272,7 +272,7 @@ function MultiEmployeeSelect({ label, placeholder, values = [], onChange, employ
 }
 
 // ─── Main Modal ────────────────────────────────────────────────────────────────
-export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId }) {
+export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId, workspaceId }) {
   const [form, setForm] = useState({
     title: "",
     startdate: "",
@@ -289,6 +289,8 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId 
   const [reviewers, setReviewers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [subWorkspaces, setSubWorkspaces] = useState([]);
+  const [selectedSubWorkspaceId, setSelectedSubWorkspaceId] = useState("");
   const [me, setMe] = useState(null);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -303,6 +305,7 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId 
     setReviewers([]);
     setFile(null);
     setError("");
+    setSelectedSubWorkspaceId("");
 
     // Fetch employees, positions & me
     Promise.all([
@@ -310,7 +313,14 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId 
       api("/positions").then(d => setPositions(d?.positions || [])).catch(() => {}),
       api("/api/pm2/me").then(d => setMe(d)).catch(() => {}),
     ]);
-  }, [open]);
+
+    // Fetch sub-workspaces if workspaceId is provided and subWorkspaceId is missing
+    if (workspaceId && !subWorkspaceId) {
+      api(`/api/pm2/workspaces/${workspaceId}/sub`)
+        .then(d => setSubWorkspaces(d?.data || []))
+        .catch(() => setSubWorkspaces([]));
+    }
+  }, [open, workspaceId, subWorkspaceId]);
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -335,9 +345,14 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId 
         link_title: form.attachment_type === "link" ? form.link_title : null,
         co_pics: coPics,
         reviewers,
+        id_pm_detail: subWorkspaceId ? Number(subWorkspaceId) : (selectedSubWorkspaceId ? Number(selectedSubWorkspaceId) : null),
       };
 
-      const result = await api(`/api/pm2/sub-workspaces/${subWorkspaceId}/tasks`, {
+      const url = subWorkspaceId 
+        ? `/api/pm2/sub-workspaces/${subWorkspaceId}/tasks`
+        : `/api/pm2/workspaces/${workspaceId}/tasks`;
+
+      const result = await api(url, {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -391,6 +406,27 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId 
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs font-medium text-rose-600">
               {error}
+            </div>
+          )}
+
+          {/* Sub-Workspace Selection (Optional) */}
+          {workspaceId && !subWorkspaceId && (
+            <div>
+              <label className="block mb-1.5 text-xs font-bold text-slate-700">
+                Pilih Sub-Workspace <span className="text-slate-400 font-normal">(opsional)</span>
+              </label>
+              <select
+                value={selectedSubWorkspaceId}
+                onChange={(e) => setSelectedSubWorkspaceId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition text-slate-800"
+              >
+                <option value="">-- Tanpa Sub-Workspace (Langsung di Workspace) --</option>
+                {subWorkspaces.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.title}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

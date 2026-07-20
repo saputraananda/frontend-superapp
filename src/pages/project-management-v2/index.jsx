@@ -103,6 +103,19 @@ function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }
     );
 }
 
+const GRADIENTS = [
+    "from-indigo-500 via-purple-500 to-pink-500",
+    "from-emerald-500 via-teal-500 to-cyan-500",
+    "from-amber-500 via-orange-500 to-rose-500",
+    "from-blue-500 via-indigo-500 to-violet-500",
+    "from-violet-500 via-fuchsia-500 to-pink-500",
+];
+
+const getGradientClass = (id) => {
+    const idx = (id || 0) % GRADIENTS.length;
+    return GRADIENTS[idx];
+};
+
 // ─── Workspace Accordion Item ──────────────────────────────────────────────────
 function WorkspaceAccordionItem({ workspace, collapsed, onClose, onAddSub, refreshKey }) {
     const location = useLocation();
@@ -226,7 +239,12 @@ function WorkspaceAccordionItem({ workspace, collapsed, onClose, onAddSub, refre
 
             {/* Sub-workspace list */}
             {expanded && (
-                <div className="ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
+                <div className="relative ml-4 pl-3 space-y-0.5">
+                    {/* Colorful vertical line */}
+                    <div className={cn(
+                        "absolute left-0 top-1 bottom-1 w-[2.5px] rounded-full bg-gradient-to-b shadow-sm",
+                        getGradientClass(workspace.id)
+                    )} />
                     {loadingSubs ? (
                         <div className="flex items-center gap-2 py-2 px-2">
                             <div className="h-3 w-3 animate-spin rounded-full border border-indigo-400 border-t-transparent" />
@@ -299,6 +317,12 @@ function BusinessUnitSection({ collapsed, onClose }) {
 
     useEffect(() => {
         loadWorkspaces();
+        const handleUpdate = () => {
+            setRefreshKey((k) => k + 1);
+            loadWorkspaces();
+        };
+        window.addEventListener("pm2_workspaces_updated", handleUpdate);
+        return () => window.removeEventListener("pm2_workspaces_updated", handleUpdate);
     }, [loadWorkspaces]);
 
     const handleWorkspaceSuccess = () => {
@@ -316,7 +340,7 @@ function BusinessUnitSection({ collapsed, onClose }) {
                 {!collapsed && (
                     <div className="flex items-center justify-between px-3 pb-1">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400/85">
-                            Business Unit
+                            Business Unit / Workspace
                         </p>
                         <button
                             onClick={() => setShowAddWorkspace(true)}

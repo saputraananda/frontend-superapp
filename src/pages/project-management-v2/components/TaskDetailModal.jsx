@@ -286,12 +286,14 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     status: "",
     link: "",
     link_title: "",
+    id_pm_detail: "",
   });
   const [desc, setDesc] = useState("");
   const [coPics, setCoPics] = useState([]);
   const [reviewers, setReviewers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [subWorkspaces, setSubWorkspaces] = useState([]);
 
   // Comments states
   const [comments, setComments] = useState([]);
@@ -310,13 +312,22 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
         api("/api/pm2/employees"),
         api("/positions"),
       ]);
-      setTask(taskRes.data);
+      const t = taskRes.data;
+      setTask(t);
       setMe(meRes);
       setEmployees(empRes.data || []);
       setPositions(posRes.positions || []);
 
+      // Load sub workspaces for the workspace
+      if (t.id_pm) {
+        api(`/api/pm2/workspaces/${t.id_pm}/sub`)
+          .then((d) => setSubWorkspaces(d?.data || []))
+          .catch(() => setSubWorkspaces([]));
+      } else {
+        setSubWorkspaces([]);
+      }
+
       // Populate form
-      const t = taskRes.data;
       setForm({
         title: t.title || "",
         startdate: t.startdate ? t.startdate.slice(0, 10) : "",
@@ -327,6 +338,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
         status: t.status || "",
         link: t.link || "",
         link_title: t.link_title || "",
+        id_pm_detail: t.id_pm_detail || "",
       });
       setDesc(t.desc || "");
       setCoPics(t.co_pics || []);
@@ -379,6 +391,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
           desc,
           co_pics: coPics,
           reviewers,
+          id_pm_detail: form.id_pm_detail ? Number(form.id_pm_detail) : null,
         }),
       });
       setEditing(false);
@@ -476,6 +489,19 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                     <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm outline-none focus:border-indigo-400 focus:bg-white transition" required />
                   </div>
+
+                  {subWorkspaces.length > 0 && (
+                    <div>
+                      <label className="block mb-1 text-xs font-bold text-slate-700">Sub-Workspace <span className="text-slate-400 font-normal text-[10px]">(opsional)</span></label>
+                      <select value={form.id_pm_detail} onChange={e => setForm({ ...form, id_pm_detail: e.target.value })}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white text-slate-800">
+                        <option value="">-- Tanpa Sub-Workspace (Langsung di Workspace) --</option>
+                        {subWorkspaces.map(sub => (
+                          <option key={sub.id} value={sub.id}>{sub.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block mb-1 text-xs font-bold text-slate-700">Deskripsi</label>
