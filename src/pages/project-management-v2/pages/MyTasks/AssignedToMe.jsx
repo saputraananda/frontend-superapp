@@ -264,7 +264,7 @@ export default function AssignedToMe() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-slate-800 leading-snug">
-                  Tugas Saya (Assigned To Me)
+                  Assigned To Me
                 </h1>
                 <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
                   Daftar pekerjaan dan tanggung jawab Anda.
