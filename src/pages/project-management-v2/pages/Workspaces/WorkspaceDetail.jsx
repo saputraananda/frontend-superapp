@@ -75,6 +75,7 @@ export default function WorkspaceDetail() {
   const [taskToDeleteId, setTaskToDeleteId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [showEditWorkspace, setShowEditWorkspace] = useState(false);
+  const [showDeleteWorkspaceModal, setShowDeleteWorkspaceModal] = useState(false);
 
   // Search & Filters states
   const [searchTerm, setSearchTerm] = useState("");
@@ -161,6 +162,16 @@ export default function WorkspaceDetail() {
       console.error("Gagal memuat tasks:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    try {
+      await api(`/api/pm2/workspaces/${workspaceId}`, { method: "DELETE" });
+      window.dispatchEvent(new Event("pm2_workspaces_updated"));
+      navigate("/project-management-v2/workspaces");
+    } catch (err) {
+      console.error("Gagal menghapus workspace:", err);
     }
   };
 
@@ -311,14 +322,24 @@ export default function WorkspaceDetail() {
                     {subWorkspace?.title || (subId ? "Sub-Workspace" : "Workspace")}
                   </h1>
                   {!subId && subWorkspace && (
-                    <button
-                      type="button"
-                      onClick={() => setShowEditWorkspace(true)}
-                      title="Edit Workspace"
-                      className="rounded-lg p-1 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition"
-                    >
-                      <HiOutlinePencilSquare className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowEditWorkspace(true)}
+                        title="Edit Workspace"
+                        className="rounded-lg p-1 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition"
+                      >
+                        <HiOutlinePencilSquare className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteWorkspaceModal(true)}
+                        title="Hapus Workspace"
+                        className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                      >
+                        <HiOutlineTrash className="h-4 w-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -872,8 +893,51 @@ export default function WorkspaceDetail() {
         onSuccess={() => {
           loadSubWorkspace();
         }}
-        workspace={subWorkspace ? { id: workspaceId, title: subWorkspace.title, desc: subWorkspace.desc } : null}
+        workspace={subWorkspace ? { 
+          id: workspaceId, 
+          title: subWorkspace.title, 
+          desc: subWorkspace.desc,
+          company_id: subWorkspace.company_id,
+          employee_ids: subWorkspace.employee_ids,
+          position_ids: subWorkspace.position_ids
+        } : null}
       />
+
+      {/* Custom Delete Workspace Modal Overlay */}
+      {showDeleteWorkspaceModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl text-center space-y-4 animate-scaleUp">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 shadow-inner">
+              <HiOutlineTrash className="h-6 w-6 text-rose-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-800">Hapus Workspace?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Workspace "{subWorkspace?.title}" dan semua sub-workspace-nya akan dihapus secara permanen. Apakah Anda yakin?
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteWorkspaceModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 transition active:scale-95"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteWorkspace();
+                  setShowDeleteWorkspaceModal(false);
+                }}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition active:scale-95 shadow-md shadow-rose-600/20"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
