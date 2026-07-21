@@ -153,7 +153,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
 
   const getAppIconBg = (appName) => {
     const name = appName.toLowerCase();
-    if (name.includes("project management 2.0") || name.includes("project-management-v2") || name.includes("pm 2.0")) return "bg-gradient-to-br from-indigo-900 to-indigo-650";
+    if (name.includes("project management 2.0") || name.includes("project-management-v2") || name.includes("pm 2.0")) return "bg-blue-950";
     if (name.includes("pengajuan") || name.includes("request") || name.includes("reimburse") || name.includes("pengadaan")) return "bg-emerald-600";
     if (name.includes("project")) return "bg-blue-600";
     if (name.includes("sales")) return "bg-indigo-500";
@@ -218,8 +218,15 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
               href={app.href}
               className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
             >
-              <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getAppIconBg(app.name)} text-white flex items-center justify-center shadow-sm`}>
-                {getAppIcon(app.name)}
+              <div className="relative flex-shrink-0">
+                <div className={`h-10 w-10 rounded-lg ${getAppIconBg(app.name)} text-white flex items-center justify-center shadow-sm`}>
+                  {getAppIcon(app.name)}
+                </div>
+                {(app.name.toLowerCase().includes("project management 2.0") || app.name.toLowerCase().includes("project-management-v2") || app.name.toLowerCase().includes("pm 2.0")) && (
+                  <span className="absolute -top-1 -left-0 bg-red-600 text-white text-[7px] font-bold px-2 py-0.5 shadow-md whitespace-nowrap -rotate-12 uppercase tracking-wider origin-bottom-left">
+                    New
+                  </span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-slate-800 truncate">{app.name}</h3>
