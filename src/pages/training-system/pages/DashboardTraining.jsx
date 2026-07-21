@@ -17,6 +17,7 @@ import {
   HiOutlinePrinter
 } from "react-icons/hi2";
 import { exportToPdfTraining } from "../utils/exportToPdfTraining";
+import { formatDateIndonesian } from "../../../utils/date";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -601,7 +602,7 @@ export default function DashboardTraining() {
                     </div>
                     <div>
                       <span className="text-slate-400 block">Tanggal Pengajuan</span>
-                      <span className="font-semibold text-slate-700 block mt-0.5">{detailData.training.request_date}</span>
+                      <span className="font-semibold text-slate-700 block mt-0.5">{formatDateIndonesian(detailData.training.request_date)}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block">Jenis Training</span>
@@ -616,7 +617,7 @@ export default function DashboardTraining() {
                         <HiOutlineCalendar className="h-4.5 w-4.5 text-indigo-500 shrink-0" />
                         <div>
                           <span className="text-slate-400 text-[10px] block">Tanggal Pelaksanaan Terjadwal</span>
-                          <span className="font-bold text-indigo-700 text-xs mt-0.5">{detailData.training.scheduled_date}</span>
+                          <span className="font-bold text-indigo-700 text-xs mt-0.5">{formatDateIndonesian(detailData.training.scheduled_date)}</span>
                         </div>
                       </div>
                     )}
