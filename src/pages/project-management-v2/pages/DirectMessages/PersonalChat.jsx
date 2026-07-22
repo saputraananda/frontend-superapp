@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../../../lib/api";
+import { api, assetUrl } from "../../../../lib/api";
 import { 
   HiOutlinePaperAirplane, 
   HiOutlineFaceSmile, 
@@ -170,6 +170,12 @@ export default function PersonalChat() {
     return AVATAR_COLORS[id % AVATAR_COLORS.length];
   };
 
+  // Bangun URL foto profil kontak, fallback ke ui-avatars jika tidak ada
+  const buildContactAvatarSrc = (contact) => {
+    if (contact?.profile_path) return assetUrl(contact.profile_path);
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || "U")}&background=6366f1&color=ffffff&bold=true`;
+  };
+
   const formatTime = (timeStr) => {
     if (!timeStr) return "";
     const date = new Date(timeStr);
@@ -281,9 +287,12 @@ export default function PersonalChat() {
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm ${getAvatarColor(c.id)}`}>
-                      {getInitials(c.name)}
-                    </div>
+                    <img
+                      src={buildContactAvatarSrc(c)}
+                      alt={c.name}
+                      className="h-11 w-11 rounded-xl object-cover shadow-sm"
+                      onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name || "U")}&background=6366f1&color=ffffff&bold=true`; }}
+                    />
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -316,9 +325,12 @@ export default function PersonalChat() {
             <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3.5 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white ${getAvatarColor(activeContact.id)}`}>
-                    {getInitials(activeContact.name)}
-                  </div>
+                  <img
+                    src={buildContactAvatarSrc(activeContact)}
+                    alt={activeContact.name}
+                    className="h-10 w-10 rounded-xl object-cover"
+                    onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeContact.name || "U")}&background=6366f1&color=ffffff&bold=true`; }}
+                  />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-slate-800 leading-tight">{activeContact.name}</h3>
@@ -501,9 +513,12 @@ export default function PersonalChat() {
                     onClick={() => startNewChat(contact)}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-indigo-50/50 transition"
                   >
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${getAvatarColor(contact.id)}`}>
-                      {getInitials(contact.name)}
-                    </div>
+                    <img
+                      src={buildContactAvatarSrc(contact)}
+                      alt={contact.name}
+                      className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                      onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || "U")}&background=6366f1&color=ffffff&bold=true`; }}
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-bold text-slate-800">{contact.name}</p>
                       <p className="truncate text-[10px] text-slate-450 leading-tight">{contact.role} &bull; {contact.email}</p>
