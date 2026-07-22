@@ -684,9 +684,14 @@ export default function WorkspaceDetail() {
                         </div>
 
                         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
-                          <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold border uppercase ${PRIORITY_BADGES[task.priority] || PRIORITY_BADGES.medium}`}>
-                            {task.priority}
-                          </span>
+                          <span
+                            title={task.priority}
+                            className={`inline-block h-3 w-3 rounded-full ${
+                              task.priority === "critical" ? "bg-rose-500" :
+                              task.priority === "low"      ? "bg-emerald-500" :
+                              "bg-amber-400"
+                            }`}
+                          />
                           <select
                             value={task.status}
                             onClick={(e) => e.stopPropagation()}
@@ -721,9 +726,9 @@ export default function WorkspaceDetail() {
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 font-bold border-b border-slate-100 whitespace-nowrap">
                     <th className="py-3 px-4 w-10 text-center">No</th>
-                    <th className="py-3 px-4 text-center">Judul Task</th>
+                    <th className="py-3 px-4 min-w-[280px]">Judul Task</th>
                     {!subId && <th className="py-3 px-4 text-center">Sub Workspace</th>}
-                    <th className="py-3 px-4 text-center">Prioritas</th>
+                    <th className="py-3 px-2 text-center w-8" title="Prioritas">P</th>
                     <th className="py-3 px-4 text-center">PIC</th>
                     <th className="py-3 px-4 text-center">Position</th>
                     <th className="py-3 px-4 text-center">Start Date</th>
@@ -743,26 +748,28 @@ export default function WorkspaceDetail() {
                     filteredTasks.map((task, idx) => (
                       <tr key={task.id} className="hover:bg-slate-50/30 transition">
                         <td className="py-3 px-4 text-slate-400 font-medium cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>{idx + 1}</td>
-                        <td className="py-3 px-4 cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
+                        <td className="py-3 px-4 cursor-pointer min-w-[280px]" onClick={() => setSelectedTaskId(task.id)}>
                           <p className="font-bold text-slate-800 hover:text-indigo-600 transition">
                             {task.title}
                           </p>
-                          {task.desc && (
-                            <p className="text-slate-400 text-[10px] mt-0.5 line-clamp-1">{stripHtml(task.desc)}</p>
-                          )}
                         </td>
                         {!subId && (
                           <td className="py-3 px-4 font-semibold text-slate-500 text-center cursor-pointer whitespace-nowrap" onClick={() => setSelectedTaskId(task.id)}>
                             {task.sub_workspace_title || "—"}
                           </td>
                         )}
-                        <td className="py-3 px-4 cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
-                          <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold border uppercase ${PRIORITY_BADGES[task.priority] || PRIORITY_BADGES.medium}`}>
-                            {task.priority}
-                          </span>
+                        <td className="py-3 px-2 text-center cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
+                          <span
+                            title={task.priority}
+                            className={`inline-block h-3 w-3 rounded-full ${
+                              task.priority === "critical" ? "bg-rose-500" :
+                              task.priority === "low"      ? "bg-emerald-500" :
+                              "bg-amber-400"
+                            }`}
+                          />
                         </td>
                         <td className="py-3 px-4 font-semibold text-slate-600 text-center cursor-pointer whitespace-nowrap" onClick={() => setSelectedTaskId(task.id)}>
-                          {capitalizeEachWord(task.pic_name) || "—"}
+                          {capitalizeEachWord((task.pic_name || "").split(" ")[0]) || "—"}
                         </td>
                         <td className="py-3 px-4 font-semibold text-slate-500 text-center cursor-pointer whitespace-nowrap" onClick={() => setSelectedTaskId(task.id)}>
                           {task.position_name || "—"}

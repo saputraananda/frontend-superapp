@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { api, BASE_URL } from "../../../lib/api";
+import { api, apiUpload, BASE_URL } from "../../../lib/api";
 import RichTextEditor from "../../../components/RichTextEditor";
 import {
   HiOutlineXMark,
@@ -19,6 +19,8 @@ import {
   HiOutlineCheckCircle,
   HiOutlineMinus,
   HiOutlineBriefcase,
+  HiOutlineArrowUpTray,
+  HiOutlinePhoto,
 } from "react-icons/hi2";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
@@ -301,6 +303,12 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
 
+  // Evidence states
+  const [evidences, setEvidences] = useState([]);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState("");
+  const evidenceInputRef = useRef(null);
+
   const commentsEndRef = useRef(null);
 
   const loadDetails = async () => {
@@ -343,6 +351,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
       setDesc(t.desc || "");
       setCoPics(t.co_pics || []);
       setReviewers(t.reviewers || []);
+      setEvidences(t.evidences || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -401,6 +410,39 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUploadEvidence = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingEvidence(true);
+    setEvidenceError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      await apiUpload(`/api/pm2/tasks/${taskId}/evidence`, {
+        method: "POST",
+        body: formData,
+      });
+      // Reload to get real data from DB including new evidence id
+      await loadDetails();
+    } catch (err) {
+      setEvidenceError("Gagal mengunggah file. Pastikan ukuran file < 20MB.");
+      console.error(err);
+    } finally {
+      setUploadingEvidence(false);
+      if (evidenceInputRef.current) evidenceInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteEvidence = async (evidenceId) => {
+    if (!window.confirm("Yakin ingin menghapus file lampiran ini?")) return;
+    try {
+      await api(`/api/pm2/tasks/${taskId}/evidence/${evidenceId}`, { method: "DELETE" });
+      setEvidences(prev => prev.filter(ev => ev.id !== evidenceId));
+    } catch (err) {
+      console.error("Gagal menghapus evidence:", err);
     }
   };
 
@@ -549,6 +591,153 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                   />
 
                   <MultiEmployeeSelect label="Reviewer (Pengawas / CC)" values={reviewers} onChange={setReviewers} employees={employees} />
+
+                  {/* ── Evidence / Lampiran Section ── */}
+                  <div>
+                    <label className="block mb-2 text-xs font-bold text-slate-700">
+                      Lampiran / Evidence
+                      <span className="ml-1 text-slate-400 font-normal text-[10px]">(opsional)</span>
+                    </label>
+
+                    {/* Daftar file evidence yang sudah ada */}
+                    {evidences.length > 0 && (
+                      <div className="mb-3 space-y-1.5">
+                        {evidences.map((ev) => {
+                          const isImage = ev.file_type?.startsWith("image/");
+                          return (
+                            <div key={ev.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+                                {isImage
+                                  ? <HiOutlinePhoto className="h-4 w-4" />
+                                  : <HiOutlinePaperClip className="h-4 w-4" />}
+                              </div>
+                              <a
+                                href={`${BASE_URL}${ev.file_path}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-1 truncate text-xs font-medium text-indigo-700 hover:underline"
+                              >
+                                {ev.file_name}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEvidence(ev.id)}
+                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition"
+                                title="Hapus lampiran ini"
+                              >
+                                <HiOutlineTrash className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Pilihan tipe lampiran baru */}
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 space-y-3">
+                      {/* Tab selector */}
+                      <div className="flex items-center gap-1.5">
+                        {[
+                          { key: "none",   label: "Tidak Ada",    icon: HiOutlineXMark },
+                          { key: "link",   label: "Link URL",     icon: HiOutlineLink },
+                          { key: "file",   label: "Upload File",  icon: HiOutlineArrowUpTray },
+                        ].map(({ key, label, icon: Icon }) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, _lampType: key }))}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-bold transition",
+                              (form._lampType ?? (form.link ? "link" : "none")) === key
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                                : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Panel: Link URL */}
+                      {(form._lampType ?? (form.link ? "link" : "none")) === "link" && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">URL Referensi *</label>
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <HiOutlineLink className="h-3.5 w-3.5" />
+                              </span>
+                              <input
+                                type="url"
+                                placeholder="https://contoh.com/referensi"
+                                value={form.link || ""}
+                                onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
+                                className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-indigo-400 focus:bg-white transition"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">Label / Judul Link</label>
+                            <input
+                              type="text"
+                              placeholder="Contoh: Lihat Referensi Desain"
+                              value={form.link_title || ""}
+                              onChange={e => setForm(f => ({ ...f, link_title: e.target.value }))}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-indigo-400 transition"
+                            />
+                          </div>
+                          {form.link && (
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, link: "", link_title: "", _lampType: "none" }))}
+                              className="flex items-center gap-1 text-[10px] text-rose-500 hover:text-rose-600 font-semibold transition"
+                            >
+                              <HiOutlineTrash className="h-3 w-3" /> Hapus Link
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Panel: Upload File */}
+                      {(form._lampType ?? (form.link ? "link" : "none")) === "file" && (
+                        <div>
+                          <input
+                            ref={evidenceInputRef}
+                            type="file"
+                            id="evidence-upload-edit"
+                            className="hidden"
+                            onChange={handleUploadEvidence}
+                            disabled={uploadingEvidence}
+                          />
+                          <label
+                            htmlFor="evidence-upload-edit"
+                            className={cn(
+                              "flex items-center gap-2 w-fit cursor-pointer rounded-xl border border-dashed px-4 py-2 text-xs font-bold transition",
+                              uploadingEvidence
+                                ? "border-slate-200 text-slate-400 cursor-not-allowed"
+                                : "border-indigo-300 text-indigo-600 hover:bg-indigo-50 bg-white"
+                            )}
+                          >
+                            <HiOutlineArrowUpTray className="h-4 w-4" />
+                            {uploadingEvidence ? "Mengunggah..." : "Pilih File untuk Diunggah"}
+                          </label>
+                          {evidenceError && (
+                            <p className="mt-1 text-[10px] text-rose-500 font-medium">{evidenceError}</p>
+                          )}
+                          <p className="mt-1.5 text-[10px] text-slate-400">Maks. 20MB · PDF, Gambar, Word, Excel, dll.</p>
+                        </div>
+                      )}
+
+                      {/* Panel: Tidak Ada — tampilkan info jika ada link existing */}
+                      {(form._lampType ?? (form.link ? "link" : "none")) === "none" && form.link && (
+                        <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
+                          <HiOutlineExclamationTriangle className="h-3.5 w-3.5" />
+                          Link yang ada akan tetap tersimpan. Pilih &quot;Link URL&quot; untuk menghapusnya.
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
                   <div className="flex justify-end gap-2 pt-2">
                     <button type="button" onClick={() => setEditing(false)}

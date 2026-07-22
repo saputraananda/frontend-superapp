@@ -13,6 +13,7 @@ import {
   HiOutlineXMark,
   HiOutlineCheckBadge
 } from "react-icons/hi2";
+import { HiCheckCircle } from "react-icons/hi";
 
 const AVATAR_COLORS = [
   "bg-indigo-600",
@@ -381,8 +382,17 @@ export default function PersonalChat() {
                         </span>
                         {isMe && (
                           <div className="flex items-center gap-0.5 shrink-0">
-                            <HiOutlineCheck className={`h-3 w-3 ${msg.is_read === 1 ? "text-sky-300 font-bold" : "text-indigo-200"}`} />
-                            <HiOutlineCheck className={`-ml-1.5 h-3 w-3 ${msg.is_read === 1 ? "text-sky-300 font-bold" : "text-indigo-200"}`} />
+                            {msg.is_read === 1 ? (
+                              <>
+                                <HiCheckCircle className="h-3.5 w-3.5 text-sky-300" />
+                                <span className="text-[8px] font-bold text-sky-300 tracking-wide">Read</span>
+                              </>
+                            ) : (
+                              <>
+                                <HiOutlineCheck className="h-3 w-3 text-indigo-200/70" />
+                                <span className="text-[8px] font-medium text-indigo-200/60 tracking-wide">Sent</span>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

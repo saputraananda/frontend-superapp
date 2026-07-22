@@ -631,8 +631,8 @@ export default function AssignedToMe() {
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 font-bold border-b border-slate-100 whitespace-nowrap">
                     <th className="py-3 px-4 w-10 text-center">No</th>
-                    <th className="py-3 px-4 text-center">Judul Task</th>
-                    <th className="py-3 px-4 text-center">Prioritas</th>
+                    <th className="py-3 px-4 min-w-[280px]">Judul Task</th>
+                    <th className="py-3 px-2 text-center w-8" title="Prioritas">P</th>
                     <th className="py-3 px-4 text-center">PIC / Role</th>
                     <th className="py-3 px-4 text-center">Position</th>
                     <th className="py-3 px-4 text-center">Start Date</th>
@@ -652,22 +652,24 @@ export default function AssignedToMe() {
                     filteredTasks.map((task, idx) => (
                       <tr key={task.id} className="hover:bg-slate-50/30 transition">
                         <td className="py-3 px-4 text-slate-400 font-medium cursor-pointer whitespace-nowrap" onClick={() => setSelectedTaskId(task.id)}>{idx + 1}</td>
-                        <td className="py-3 px-4 cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
+                        <td className="py-3 px-4 cursor-pointer min-w-[280px]" onClick={() => setSelectedTaskId(task.id)}>
                           <p className="font-bold text-slate-800 hover:text-indigo-600 transition">
                             {task.title}
                           </p>
-                          <p className="text-slate-400 text-[10px] mt-0.5 font-medium">
-                            {task.project_title} &bull; {task.sub_workspace_title}
-                          </p>
                         </td>
-                        <td className="py-3 px-4 cursor-pointer whitespace-nowrap" onClick={() => setSelectedTaskId(task.id)}>
-                          <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold border uppercase ${PRIORITY_BADGES[task.priority] || PRIORITY_BADGES.medium}`}>
-                            {task.priority}
-                          </span>
+                        <td className="py-3 px-2 text-center cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
+                          <span
+                            title={task.priority}
+                            className={`inline-block h-3 w-3 rounded-full ${
+                              task.priority === "critical" ? "bg-rose-500" :
+                              task.priority === "low"      ? "bg-emerald-500" :
+                              "bg-amber-400"
+                            }`}
+                          />
                         </td>
                         <td className="py-3 px-4 font-semibold text-slate-600 text-center cursor-pointer whitespace-nowrap" onClick={() => setSelectedTaskId(task.id)}>
                           <div className="flex flex-col items-center">
-                            <span>{capitalizeEachWord(task.pic_name) || "—"}</span>
+                            <span>{capitalizeEachWord((task.pic_name || "").split(" ")[0]) || "—"}</span>
                             {task.user_role && (
                               <span className="mt-0.5 px-1 py-0.2 text-[8px] font-bold uppercase rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
                                 {task.user_role}
