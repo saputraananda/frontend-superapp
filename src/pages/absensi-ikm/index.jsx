@@ -130,8 +130,28 @@ function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }
 	);
 }
 
+function canAccessKasbon() {
+	try {
+		const raw = localStorage.getItem("user");
+		if (!raw) return false;
+		const u = JSON.parse(raw);
+		const employeeId = Number(u?.employee?.employee_id || 0);
+		const role = u?.role || "";
+		return [42, 43, 45].includes(employeeId) || role === "admin";
+	} catch {
+		return false;
+	}
+}
+
 function Sidebar({ collapsed = false, onClose }) {
 	const navigate = useNavigate();
+
+	const allowedMenuItems = MENU_ITEMS.filter((item) => {
+		if (item.to === "/kasbon-pinjaman") {
+			return canAccessKasbon();
+		}
+		return true;
+	});
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden">
@@ -163,7 +183,7 @@ function Sidebar({ collapsed = false, onClose }) {
 					<button
 						type="button"
 						onClick={onClose}
-						className="flex shrink-0 items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition lg:hidden"
+						className="flex shrink-0 items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-650 transition lg:hidden"
 						aria-label="Tutup sidebar"
 					>
 						<HiOutlineXMark className="h-5 w-5" />
@@ -183,7 +203,7 @@ function Sidebar({ collapsed = false, onClose }) {
 			<div className="flex-1 overflow-y-auto">
 				{/* Navigation - Menu Karyawan */}
 				<nav className={cn("space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
-					{MENU_ITEMS.map((item) => (
+					{allowedMenuItems.map((item) => (
 						<NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
 					))}
 				</nav>

@@ -1476,6 +1476,19 @@ function EmployeeReportModal({ open, onClose, employee, startDate, endDate }) {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function KasbonPinjaman() {
+  const isAllowed = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (!raw) return false;
+      const u = JSON.parse(raw);
+      const employeeId = Number(u?.employee?.employee_id || 0);
+      const role = u?.role || "";
+      return [42, 43, 45].includes(employeeId) || role === "admin";
+    } catch {
+      return false;
+    }
+  }, []);
+
   // ── Data state ─────────────────────────────────────────────────────────────
   const [rows, setRows] = useState([]);
   const [backendStats, setBackendStats] = useState(null);
@@ -1726,6 +1739,20 @@ export default function KasbonPinjaman() {
   const summaryTo   = filteredSummary.length === 0 ? 0 : summaryLimit === "all"
     ? filteredSummary.length
     : Math.min(summaryPage * summaryPerPage, filteredSummary.length);
+
+  if (!isAllowed) {
+    return (
+      <main className="min-h-screen bg-indigo-50 py-12 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm flex flex-col items-center max-w-md">
+          <HiOutlineExclamationTriangle className="h-16 w-16 text-rose-500 mb-4" />
+          <h2 className="text-xl font-bold text-slate-800">Akses Ditolak</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Anda tidak memiliki izin untuk mengakses halaman Kasbon & Pinjaman. Halaman ini hanya diperuntukkan bagi personel tertentu.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>
