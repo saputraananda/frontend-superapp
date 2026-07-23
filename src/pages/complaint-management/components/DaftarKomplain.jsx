@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, apiUpload, assetUrl } from "../../../lib/api";
@@ -291,7 +291,7 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, children, wide, ful
 
 // ── Progress Timeline ──────────────────────────────────────────────────────────
 
-function ProgressTimeline({ logs, complaint, onPreviewDoc }) {
+function ProgressTimeline({ logs, complaint, onPreviewDoc, onEditLog, onDeleteLog }) {
   if (!logs?.length) return <p className="py-4 text-center text-sm text-slate-400">Belum ada log progress.</p>;
   return (
     <ol className="relative border-l border-slate-200 pl-6 space-y-6">
@@ -308,13 +308,35 @@ function ProgressTimeline({ logs, complaint, onPreviewDoc }) {
               PROGRESS_DOT[log.progress] || "bg-slate-300",
             )} />
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <Badge progress={log.progress} />
-                <span className="text-[11px] text-slate-400">
-                  {displayDate.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
-                </span>
-                {log.pic_name && (
-                  <span className="text-[11px] text-slate-500">— PIC: <b>{log.pic_name}</b></span>
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge progress={log.progress} />
+                  <span className="text-[11px] text-slate-400">
+                    {displayDate.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                  {log.pic_name && (
+                    <span className="text-[11px] text-slate-500">— PIC: <b>{log.pic_name}</b></span>
+                  )}
+                </div>
+                {!isCreatedLog && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onEditLog?.(log)}
+                      className="p-1 text-slate-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded transition"
+                      title="Edit progress"
+                    >
+                      <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteLog?.(log)}
+                      className="p-1 text-slate-400 hover:text-red-650 hover:bg-red-50 rounded transition"
+                      title="Hapus progress"
+                    >
+                      <HiOutlineTrash className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
               {log.note && <p className="text-sm text-slate-700 whitespace-pre-line">{log.note}</p>}
@@ -389,6 +411,9 @@ export default function DaftarKomplain() {
   const [progressForm, setProgressForm] = useState(EMPTY_PROGRESS_FORM);
   const [progressFiles, setProgressFiles] = useState([]);
   const [savingProgress, setSavingProgress] = useState(false);
+  const [editProgressTarget, setEditProgressTarget] = useState(null);
+  const [deleteProgressTarget, setDeleteProgressTarget] = useState(null);
+  const [deletingProgress, setDeletingProgress] = useState(false);
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -499,10 +524,22 @@ export default function DaftarKomplain() {
     if (!progressForm.progress) return;
     setSavingProgress(true);
     try {
-      const fd = new FormData();
-      Object.entries(progressForm).forEach(([k, v]) => fd.append(k, v));
-      progressFiles.forEach((f) => fd.append("documents", f));
-      await apiUpload(`/complaints/${detailData.complaint.complaint_id}/progress`, { method: "POST", body: fd });
+      if (editProgressTarget) {
+        await api(`/complaints/progress-log/${editProgressTarget.log_id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            progress: progressForm.progress,
+            note: progressForm.note,
+            pic_name: progressForm.pic_name,
+          }),
+        });
+      } else {
+        const fd = new FormData();
+        Object.entries(progressForm).forEach(([k, v]) => fd.append(k, v));
+        progressFiles.forEach((f) => fd.append("documents", f));
+        await apiUpload(`/complaints/${detailData.complaint.complaint_id}/progress`, { method: "POST", body: fd });
+      }
       setProgressOpen(false);
       // Refresh detail
       const data = await api(`/complaints/${detailData.complaint.complaint_id}`);
@@ -512,8 +549,39 @@ export default function DaftarKomplain() {
       alert(err.message);
     } finally {
       setSavingProgress(false);
+      setEditProgressTarget(null);
     }
   };
+
+  const handleEditProgress = (log) => {
+    setEditProgressTarget(log);
+    setProgressForm({
+      progress: log.progress,
+      note: log.note || "",
+      pic_employee_id: log.pic_employee_id || "",
+      pic_name: log.pic_name || "",
+    });
+    setProgressFiles([]);
+    setProgressOpen(true);
+  };
+
+  const handleDeleteProgress = async () => {
+    if (!deleteProgressTarget) return;
+    setDeletingProgress(true);
+    try {
+      await api(`/complaints/progress-log/${deleteProgressTarget.log_id}`, { method: "DELETE" });
+      setDeleteProgressTarget(null);
+      // Refresh detail
+      const data = await api(`/complaints/${detailData.complaint.complaint_id}`);
+      setDetailData(data);
+      fetchComplaints();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDeletingProgress(false);
+    }
+  };
+
 
   // ── Delete ────────────────────────────────────────────────────────
 
@@ -1050,7 +1118,7 @@ export default function DaftarKomplain() {
               </div>
               {/* Timeline scrollable */}
               <div className="flex-1 overflow-y-auto p-5">
-                <ProgressTimeline logs={detailData.progressLogs} complaint={detailData.complaint} onPreviewDoc={setLightbox} />
+                <ProgressTimeline logs={detailData.progressLogs} complaint={detailData.complaint} onPreviewDoc={setLightbox} onEditLog={handleEditProgress} onDeleteLog={setDeleteProgressTarget} />
               </div>
             </div>
 
@@ -1061,7 +1129,7 @@ export default function DaftarKomplain() {
       </Modal>
 
       {/* ── Progress Log Modal ── */}
-      <Modal open={progressOpen} onClose={() => setProgressOpen(false)} title="Update Progress Komplain" subtitle="Catat tindak lanjut dan ubah status komplain" icon={HiOutlineClipboardDocumentList}>
+      <Modal open={progressOpen} onClose={() => { setProgressOpen(false); setEditProgressTarget(null); }} title={editProgressTarget ? "Edit Progress Komplain" : "Update Progress Komplain"} subtitle={editProgressTarget ? "Ubah catatan dan status progress" : "Catat tindak lanjut dan ubah status komplain"} icon={HiOutlineClipboardDocumentList}>
         <form onSubmit={handleAddProgress} className="space-y-4">
           <SelectField
             label="Progress Baru"
@@ -1088,38 +1156,40 @@ export default function DaftarKomplain() {
             placeholder="Penanggungjawab progress ini"
           />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-500">Dokumentasi Progress</label>
-            <input
-              ref={progressFileRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => setProgressFiles(Array.from(e.target.files))}
-            />
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => progressFileRef.current?.click()}
-              onKeyDown={(e) => e.key === "Enter" && progressFileRef.current?.click()}
-              className={cn(
-                "cursor-pointer rounded-xl border-2 border-dashed p-5 text-center transition",
-                progressFiles.length > 0
-                  ? "border-fuchsia-400 bg-fuchsia-100/60"
-                  : "border-slate-200 bg-slate-50 hover:border-fuchsia-400 hover:bg-fuchsia-100/30",
-              )}
-            >
-              <HiOutlinePaperClip className={cn("mx-auto mb-1.5 h-6 w-6", progressFiles.length > 0 ? "text-fuchsia-500" : "text-slate-300")} />
-              {progressFiles.length > 0 ? (
-                <p className="text-sm font-semibold text-fuchsia-800">{progressFiles.length} file dipilih</p>
-              ) : (
-                <p className="text-sm text-slate-500">Klik untuk upload bukti</p>
-              )}
+          {!editProgressTarget && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">Dokumentasi Progress</label>
+              <input
+                ref={progressFileRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => setProgressFiles(Array.from(e.target.files))}
+              />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => progressFileRef.current?.click()}
+                onKeyDown={(e) => e.key === "Enter" && progressFileRef.current?.click()}
+                className={cn(
+                  "cursor-pointer rounded-xl border-2 border-dashed p-5 text-center transition",
+                  progressFiles.length > 0
+                    ? "border-fuchsia-400 bg-fuchsia-100/60"
+                    : "border-slate-200 bg-slate-50 hover:border-fuchsia-400 hover:bg-fuchsia-100/30",
+                )}
+              >
+                <HiOutlinePaperClip className={cn("mx-auto mb-1.5 h-6 w-6", progressFiles.length > 0 ? "text-fuchsia-500" : "text-slate-300")} />
+                {progressFiles.length > 0 ? (
+                  <p className="text-sm font-semibold text-fuchsia-800">{progressFiles.length} file dipilih</p>
+                ) : (
+                  <p className="text-sm text-slate-500">Klik untuk upload bukti</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-4">
-            <button type="button" onClick={() => setProgressOpen(false)} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+            <button type="button" onClick={() => { setProgressOpen(false); setEditProgressTarget(null); }} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
               Batal
             </button>
             <button type="submit" disabled={savingProgress || !progressForm.progress} className="rounded-xl bg-gradient-to-r from-fuchsia-700 to-fuchsia-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-fuchsia-300/50 transition hover:from-fuchsia-800 hover:to-fuchsia-800 disabled:opacity-50">
@@ -1127,6 +1197,26 @@ export default function DaftarKomplain() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* ── Delete Progress Confirm ── */}
+      <Modal open={!!deleteProgressTarget} onClose={() => setDeleteProgressTarget(null)} title="Hapus Progress Komplain" subtitle="Tindakan ini tidak dapat dibatalkan" icon={HiOutlineTrash} danger>
+        <p className="mb-6 text-sm text-slate-600">
+          Yakin ingin menghapus progress log status <b>{deleteProgressTarget?.progress}</b>?
+          {deleteProgressTarget?.note && (
+            <span className="block mt-2 p-3 bg-slate-50 border border-slate-100 rounded-xl italic">
+              "{deleteProgressTarget.note}"
+            </span>
+          )}
+        </p>
+        <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-4">
+          <button type="button" onClick={() => setDeleteProgressTarget(null)} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+            Batal
+          </button>
+          <button type="button" onClick={handleDeleteProgress} disabled={deletingProgress} className="rounded-xl bg-gradient-to-r from-red-600 to-rose-500 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-red-700 hover:to-rose-600 disabled:opacity-50">
+            {deletingProgress ? "Menghapus..." : "Ya, Hapus"}
+          </button>
+        </div>
       </Modal>
 
       {/* ── Delete Confirm ── */}
