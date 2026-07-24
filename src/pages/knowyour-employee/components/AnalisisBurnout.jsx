@@ -131,6 +131,9 @@ export default function AnalisisBurnout() {
   const [selectedResponse, setSelectedResponse] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [summaryModalType, setSummaryModalType] = useState(null); // null | 'high' | 'warning' | 'low'
+  const [summary, setSummary] = useState({ high: 0, warning: 0, low: 0 });
+  const [modalDataList, setModalDataList] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
   // Filters State
   const [search, setSearch] = useState("");
@@ -175,6 +178,9 @@ export default function AnalisisBurnout() {
       if (res.success) {
         setDataList(res.data || []);
         setPagination(res.pagination || { total: 0, totalPages: 1 });
+        if (res.summary) {
+          setSummary(res.summary);
+        }
       }
     } catch (err) {
       console.error("Gagal mengambil monitoring list:", err);
@@ -186,6 +192,40 @@ export default function AnalisisBurnout() {
   useEffect(() => {
     fetchList();
   }, [page, deptFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!summaryModalType) {
+      setModalDataList([]);
+      return;
+    }
+
+    const fetchModalData = async () => {
+      setModalLoading(true);
+      try {
+        const queryParams = new URLSearchParams({
+          page: 1,
+          limit: 100,
+          search,
+          department_id: deptFilter,
+          date_from: dateFrom,
+          date_to: dateTo,
+        });
+        if (summaryModalType !== "all") {
+          queryParams.append("risk_level", summaryModalType);
+        }
+        const res = await api(`/analysis-burnout/monitoring?${queryParams.toString()}`);
+        if (res.success) {
+          setModalDataList(res.data || []);
+        }
+      } catch (err) {
+        console.error("Gagal mengambil data modal burnout:", err);
+      } finally {
+        setModalLoading(false);
+      }
+    };
+
+    fetchModalData();
+  }, [summaryModalType, search, deptFilter, dateFrom, dateTo]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -215,25 +255,6 @@ export default function AnalisisBurnout() {
       setDetailLoading(false);
     }
   };
-
-  // Hitung data ringkasan dashboard kye
-  const statsSummary = () => {
-    let total = dataList.length;
-    let high = 0;
-    let warning = 0;
-    let low = 0;
-
-    dataList.forEach((item) => {
-      const index = calcBurnoutIndex(item);
-      if (index >= 70) high++;
-      else if (index >= 40) warning++;
-      else low++;
-    });
-
-    return { total, high, warning, low };
-  };
-
-  const summary = statsSummary();
 
   return (
     <main className="min-h-screen bg-violet-50/40 py-6 sm:py-8">
@@ -758,12 +779,6 @@ export default function AnalisisBurnout() {
           };
           const m = meta[summaryModalType];
           const Icon = m.icon;
-          const filteredData = summaryModalType === "all" ? dataList : dataList.filter((item) => {
-            const idx = calcBurnoutIndex(item);
-            if (summaryModalType === "high") return idx >= 70;
-            if (summaryModalType === "warning") return idx >= 40 && idx < 70;
-            return idx < 40;
-          });
 
           return (
             <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 sm:pt-12 m-0">
@@ -781,7 +796,7 @@ export default function AnalisisBurnout() {
                     <div>
                       <h4 className="text-sm font-bold text-slate-800 tracking-tight">{m.label}</h4>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        {filteredData.length} karyawan terindikasi
+                        {modalLoading ? "..." : `${modalDataList.length} karyawan`}
                       </p>
                     </div>
                   </div>
@@ -795,13 +810,18 @@ export default function AnalisisBurnout() {
                 </div>
 
                 {/* List */}
-                {filteredData.length === 0 ? (
+                {modalLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-slate-400">
+                    <div className="h-5 w-5 animate-spin rounded-full border border-violet-600 border-t-transparent" />
+                    <span>Memuat daftar karyawan...</span>
+                  </div>
+                ) : modalDataList.length === 0 ? (
                   <div className="py-12 text-center text-xs text-slate-400">
                     Tidak ada karyawan dalam kategori ini.
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
-                    {filteredData.map((item, idx) => {
+                    {modalDataList.map((item, idx) => {
                       const index = calcBurnoutIndex(item);
                       const risk = getRiskCategory(index);
                       return (
