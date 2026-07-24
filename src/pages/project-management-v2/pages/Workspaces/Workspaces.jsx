@@ -13,29 +13,43 @@ import {
 import AddWorkspaceModal from "../../components/AddWorkspaceModal";
 import AddSubWorkspaceModal from "../../components/AddSubWorkspaceModal";
 import EditWorkspaceModal from "../../components/EditWorkspaceModal";
+import EditSubWorkspaceModal from "../../components/EditSubWorkspaceModal";
 
-function WorkspaceCard({ workspace, onDelete, onAddSub, onEdit }) {
+function WorkspaceCard({ workspace, onDelete, onAddSub, onEdit, onEditSub, onDeleteSub }) {
   const navigate = useNavigate();
   const [subs, setSubs] = useState([]);
   const [expanded, setExpanded] = useState(false);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  const loadSubs = async () => {
+    setLoadingSubs(true);
+    try {
+      const data = await api(`/api/pm2/workspaces/${workspace.id}/sub`);
+      setSubs(data?.data || []);
+    } catch (err) {
+      console.error("Gagal memuat sub-workspace:", err);
+    } finally {
+      setLoadingSubs(false);
+    }
+  };
+
   useEffect(() => {
     if (expanded) {
-      const loadSubs = async () => {
-        setLoadingSubs(true);
-        try {
-          const data = await api(`/api/pm2/workspaces/${workspace.id}/sub`);
-          setSubs(data?.data || []);
-        } catch (err) {
-          console.error("Gagal memuat sub-workspace:", err);
-        } finally {
-          setLoadingSubs(false);
-        }
-      };
       loadSubs();
     }
+  }, [expanded, workspace.id]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      if (expanded) {
+        loadSubs();
+      }
+    };
+    window.addEventListener("pm2_workspaces_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("pm2_workspaces_updated", handleUpdate);
+    };
   }, [expanded, workspace.id]);
 
   const toggleExpand = (e) => {
@@ -126,12 +140,12 @@ function WorkspaceCard({ workspace, onDelete, onAddSub, onEdit }) {
           ) : (
             <div className="divide-y divide-slate-100">
               {subs.map((sub) => (
-                <button
+                <div
                   key={sub.id}
                   onClick={() =>
                     navigate(`/project-management-v2/workspaces/${workspace.id}/sub/${sub.id}`)
                   }
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white text-left group/sub transition"
+                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white text-left group/sub transition cursor-pointer"
                 >
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 group-hover/sub:bg-violet-600 group-hover/sub:text-white transition">
                     <HiOutlineSquares2X2 className="h-3.5 w-3.5" />
@@ -162,8 +176,34 @@ function WorkspaceCard({ workspace, onDelete, onAddSub, onEdit }) {
                         : "0%"}
                     </span>
                   </div>
+                  
+                  {/* Action buttons (Edit & Delete) */}
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/sub:opacity-100 transition duration-150">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditSub(sub);
+                      }}
+                      title="Edit Sub-Workspace"
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition"
+                    >
+                      <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSub(sub);
+                      }}
+                      title="Hapus Sub-Workspace"
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition"
+                    >
+                      <HiOutlineTrash className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <HiOutlineChevronRight className="h-4 w-4 text-slate-300 group-hover/sub:text-indigo-400 transition shrink-0" />
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -215,6 +255,8 @@ export default function Workspaces() {
   const [showAddWorkspace, setShowAddWorkspace] = useState(false);
   const [addSubTarget, setAddSubTarget] = useState(null); // workspace object
   const [editWorkspaceTarget, setEditWorkspaceTarget] = useState(null); // workspace object
+  const [editSubWorkspaceTarget, setEditSubWorkspaceTarget] = useState(null);
+  const [deleteSubWorkspaceTarget, setDeleteSubWorkspaceTarget] = useState(null);
 
   const loadWorkspaces = async () => {
     setLoading(true);
@@ -239,6 +281,16 @@ export default function Workspaces() {
       loadWorkspaces();
     } catch (err) {
       console.error("Gagal menghapus workspace:", err);
+    }
+  };
+
+  const handleDeleteSub = async (id) => {
+    try {
+      await api(`/api/pm2/sub-workspaces/${id}`, { method: "DELETE" });
+      window.dispatchEvent(new Event("pm2_workspaces_updated"));
+      loadWorkspaces();
+    } catch (err) {
+      console.error("Gagal menghapus sub-workspace:", err);
     }
   };
 
@@ -311,6 +363,8 @@ export default function Workspaces() {
                 onDelete={handleDelete}
                 onAddSub={(ws) => setAddSubTarget(ws)}
                 onEdit={(ws) => setEditWorkspaceTarget(ws)}
+                onEditSub={(sub) => setEditSubWorkspaceTarget(sub)}
+                onDeleteSub={(sub) => setDeleteSubWorkspaceTarget(sub)}
               />
             ))}
           </div>
@@ -338,6 +392,49 @@ export default function Workspaces() {
         onSuccess={loadWorkspaces}
         workspace={editWorkspaceTarget}
       />
+
+      <EditSubWorkspaceModal
+        open={!!editSubWorkspaceTarget}
+        onClose={() => setEditSubWorkspaceTarget(null)}
+        onSuccess={loadWorkspaces}
+        subWorkspace={editSubWorkspaceTarget}
+      />
+
+      {/* Custom Delete Sub-Workspace Modal Overlay */}
+      {deleteSubWorkspaceTarget && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl text-center space-y-4 animate-scaleUp">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 shadow-inner">
+              <HiOutlineTrash className="h-6 w-6 text-rose-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-800">Hapus Sub-Workspace?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Sub-workspace "{deleteSubWorkspaceTarget.title}" dan semua task di dalamnya akan dihapus secara permanen. Apakah Anda yakin?
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteSubWorkspaceTarget(null)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 transition active:scale-95"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteSub(deleteSubWorkspaceTarget.id);
+                  setDeleteSubWorkspaceTarget(null);
+                }}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition active:scale-95 shadow-md shadow-rose-600/20"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

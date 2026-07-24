@@ -21,6 +21,7 @@ import {
 import AddTaskModal from "../../components/AddTaskModal";
 import TaskDetailModal from "../../components/TaskDetailModal";
 import EditWorkspaceModal from "../../components/EditWorkspaceModal";
+import EditSubWorkspaceModal from "../../components/EditSubWorkspaceModal";
 
 const STATUS_COLUMNS = {
   "To Do":      { label: "To Do",       color: "border-t-slate-400" },
@@ -76,6 +77,8 @@ export default function WorkspaceDetail() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [showEditWorkspace, setShowEditWorkspace] = useState(false);
   const [showDeleteWorkspaceModal, setShowDeleteWorkspaceModal] = useState(false);
+  const [showEditSubWorkspace, setShowEditSubWorkspace] = useState(false);
+  const [showDeleteSubWorkspaceModal, setShowDeleteSubWorkspaceModal] = useState(false);
 
   // Search & Filters states
   const [searchTerm, setSearchTerm] = useState("");
@@ -172,6 +175,16 @@ export default function WorkspaceDetail() {
       navigate("/project-management-v2/workspaces");
     } catch (err) {
       console.error("Gagal menghapus workspace:", err);
+    }
+  };
+
+  const handleDeleteSubWorkspace = async () => {
+    try {
+      await api(`/api/pm2/sub-workspaces/${subId}`, { method: "DELETE" });
+      window.dispatchEvent(new Event("pm2_workspaces_updated"));
+      navigate(`/project-management-v2/workspaces/${workspaceId}`);
+    } catch (err) {
+      console.error("Gagal menghapus sub-workspace:", err);
     }
   };
 
@@ -335,6 +348,26 @@ export default function WorkspaceDetail() {
                         type="button"
                         onClick={() => setShowDeleteWorkspaceModal(true)}
                         title="Hapus Workspace"
+                        className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                      >
+                        <HiOutlineTrash className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {subId && subWorkspace && (
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowEditSubWorkspace(true)}
+                        title="Edit Sub-Workspace"
+                        className="rounded-lg p-1 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition"
+                      >
+                        <HiOutlinePencilSquare className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteSubWorkspaceModal(true)}
+                        title="Hapus Sub-Workspace"
                         className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
                       >
                         <HiOutlineTrash className="h-4 w-4" />
@@ -936,6 +969,52 @@ export default function WorkspaceDetail() {
                 onClick={() => {
                   handleDeleteWorkspace();
                   setShowDeleteWorkspaceModal(false);
+                }}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition active:scale-95 shadow-md shadow-rose-600/20"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Edit Sub-Workspace Modal */}
+      <EditSubWorkspaceModal
+        open={showEditSubWorkspace}
+        onClose={() => setShowEditSubWorkspace(false)}
+        onSuccess={() => {
+          loadSubWorkspace();
+        }}
+        subWorkspace={subWorkspace}
+      />
+
+      {/* Custom Delete Sub-Workspace Modal Overlay */}
+      {showDeleteSubWorkspaceModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl text-center space-y-4 animate-scaleUp">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 shadow-inner">
+              <HiOutlineTrash className="h-6 w-6 text-rose-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-800">Hapus Sub-Workspace?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Sub-workspace "{subWorkspace?.title}" dan semua task di dalamnya akan dihapus secara permanen. Apakah Anda yakin?
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteSubWorkspaceModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 transition active:scale-95"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteSubWorkspace();
+                  setShowDeleteSubWorkspaceModal(false);
                 }}
                 className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition active:scale-95 shadow-md shadow-rose-600/20"
               >
