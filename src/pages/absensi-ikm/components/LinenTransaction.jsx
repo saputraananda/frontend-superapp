@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineFunnel, HiOutlineXMark,
@@ -6,25 +6,13 @@ import {
   HiOutlineMagnifyingGlass,
   HiOutlineExclamationTriangle, HiOutlineCheckCircle, HiOutlineDocumentText,
   HiOutlinePencilSquare, HiOutlineTrash, HiOutlinePlus, HiOutlineClock,
-  HiOutlineUser, HiOutlineArrowDownTray
+  HiOutlineUser, HiOutlineArrowDownTray, HiOutlineChevronDown
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
+import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
-
-function fmtDateTime(v) {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (isNaN(d)) return v;
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(d);
-}
 
 function fmtDate(v) {
   if (!v) return "-";
@@ -126,108 +114,199 @@ function Toast({ toast }) {
   );
 }
 
-// ─── Audit Log Details Diff Component ─────────────────────────────────────────
-function AuditChangeDetails({ log }) {
-  const [open, setOpen] = useState(false);
+// ─── Format Audit Log Helpers ────────────────────────────────────────────────
+function fmtLogDateTime(v) {
+  if (!v) return "-";
+  const d = new Date(v);
+  if (isNaN(d)) return v;
 
-  const oldD = log.old_values?.details || [];
-  const newD = log.new_values?.details || [];
+  const dayName = new Intl.DateTimeFormat("id-ID", { weekday: "long" }).format(d);
+  const day = d.getDate();
+  const month = new Intl.DateTimeFormat("id-ID", { month: "long" }).format(d);
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
 
-  // header summary
-  const oldSt = log.old_values?.header?.status;
-  const newSt = log.new_values?.header?.status;
-  const statusChanged = oldSt && newSt && oldSt !== newSt;
-
-  // collect all linen items, highlight changes
-  const items = newD.map(n => {
-    const o = oldD.find(x => x.hospital_linen_id === n.hospital_linen_id);
-    const name = n.linen_display_name || `Item #${n.hospital_linen_id}`;
-    const changes = {};
-    if (o) {
-      if (Number(o.qty_kotor) !== Number(n.qty_kotor)) changes.kotor = { from: o.qty_kotor, to: n.qty_kotor };
-      if (Number(o.qty_bersih) !== Number(n.qty_bersih)) changes.bersih = { from: o.qty_bersih, to: n.qty_bersih };
-      if (o.notes !== n.notes) changes.notes = { from: o.notes, to: n.notes };
-    } else {
-      changes._added = true;
-    }
-    return { name, changes, hasChanges: Object.keys(changes).length > 0 };
-  });
-
-  // deleted items
-  oldD.forEach(o => {
-    if (!newD.find(n => n.hospital_linen_id === o.hospital_linen_id)) {
-      const name = o.linen_display_name || `Item #${o.hospital_linen_id}`;
-      items.push({ name, changes: { _deleted: true }, hasChanges: true });
-    }
-  });
-
-  return (
-    <div className="mt-1">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-0.5"
-      >
-        {open ? "Sembunyikan Rincian" : "Lihat Rincian Perubahan"}
-      </button>
-
-      {open && (
-        <div className="mt-2 text-xs bg-slate-50 rounded-xl border border-slate-100 max-h-48 overflow-y-auto divide-y divide-slate-100">
-          {statusChanged && (
-            <div className="px-3 py-2 text-slate-600 flex items-center gap-2">
-              <span className="font-medium">Status:</span>
-              <span className="line-through text-slate-400">{oldSt}</span>
-              <span className="text-slate-300">→</span>
-              <span className="font-bold text-slate-800">{newSt}</span>
-            </div>
-          )}
-
-          {items.filter(i => i.hasChanges).length === 0 && !statusChanged && (
-            <div className="px-3 py-2 text-slate-400 italic text-[10px]">Tidak ada perubahan.</div>
-          )}
-
-          {items.map((item, i) => {
-            if (!item.hasChanges) return null;
-            return (
-              <div key={i} className="px-3 py-2 flex items-start gap-2">
-                <div className="mt-0.5 h-1.5 w-1.5 rounded-full bg-slate-300 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <span className="font-semibold text-slate-800 text-[11px] block leading-tight">{item.name}</span>
-                  {item.changes._added && <span className="text-[10px] text-emerald-600 font-medium">Item baru</span>}
-                  {item.changes._deleted && <span className="text-[10px] text-rose-500 font-medium">Item dihapus</span>}
-                  {item.changes.kotor && (
-                    <span className="text-[10px] text-slate-500 mr-2">
-                      Kotor: <span className="line-through text-slate-400">{item.changes.kotor.from}</span> → <span className="font-bold text-slate-700">{item.changes.kotor.to}</span>
-                    </span>
-                  )}
-                  {item.changes.bersih && (
-                    <span className="text-[10px] text-slate-500 mr-2">
-                      Bersih: <span className="line-through text-slate-400">{item.changes.bersih.from ?? "-"}</span> → <span className="font-bold text-slate-700">{item.changes.bersih.to ?? "-"}</span>
-                    </span>
-                  )}
-                  {item.changes.notes && (
-                    <span className="text-[10px] text-slate-500">
-                      Catatan: <span className="line-through text-slate-400">{item.changes.notes.from || "-"}</span> → <span className="font-medium text-slate-600">{item.changes.notes.to || "-"}</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  return `${dayName}, ${day} ${month} ${year}, ${hours}:${minutes} WIB`;
 }
+
+function normalizeAction(log) {
+  let action = log.action;
+  if (action === "CREATE") return "PICKUP_KOTOR";
+  if (action === "UPDATE") {
+    const oldStatus = log.old_values?.header?.status;
+    if (oldStatus === "SELESAI") return "KURANG_KIRIM";
+    const newStatus = log.new_values?.header?.status;
+    if (newStatus === "SELESAI") return "DELIVERY_BERSIH";
+    return "PICKUP_KOTOR";
+  }
+  return action;
+}
+
+function formatHeaderFieldChange(field, oldVal, newVal, employeeMap) {
+  const getEmpName = (id) => employeeMap.get(Number(id)) || `Karyawan #${id}`;
+
+  const displayOld = oldVal === null || oldVal === undefined || oldVal === "" ? "—" : oldVal;
+  const displayNew = newVal === null || newVal === undefined || newVal === "" ? "—" : newVal;
+
+  switch (field) {
+    case "user_pickup":
+      return `Petugas Pickup: "${oldVal ? getEmpName(oldVal) : "—"}" menjadi "${newVal ? getEmpName(newVal) : "—"}"`;
+    case "user_delivery":
+      return `Petugas Delivery: "${oldVal ? getEmpName(oldVal) : "—"}" menjadi "${newVal ? getEmpName(newVal) : "—"}"`;
+    case "hospital_staff_pickup":
+      return `Petugas RS Pickup: "${displayOld}" menjadi "${displayNew}"`;
+    case "hospital_staff_delivery":
+      return `Petugas RS Delivery: "${displayOld}" menjadi "${displayNew}"`;
+    case "hospital_assistant_pickup":
+      return `Perawat RS Pickup: "${displayOld}" menjadi "${displayNew}"`;
+    case "hospital_assistant_delivery":
+      return `Perawat RS Delivery: "${displayOld}" menjadi "${displayNew}"`;
+    case "pickup_date":
+      return `Tanggal Pickup: "${displayOld}" menjadi "${displayNew}"`;
+    case "delivery_date":
+      return `Tanggal Pengantaran: "${displayOld}" menjadi "${displayNew}"`;
+    case "notes_pickup":
+      return `Catatan Pickup: "${displayOld}" menjadi "${displayNew}"`;
+    case "notes_delivery":
+      return `Catatan Delivery: "${displayOld}" menjadi "${displayNew}"`;
+    default:
+      return null;
+  }
+}
+
+function getLogChanges(log, employeeMap) {
+  const changes = [];
+  const action = normalizeAction(log);
+
+  if (action === "PICKUP_KOTOR" && (!log.old_values || !log.old_values.header)) {
+    changes.push("Membuat transaksi kotor");
+    return changes;
+  }
+
+  const oldHeader = log.old_values?.header || {};
+  const newHeader = log.new_values?.header || {};
+
+  // 1. Check header fields
+  const fields = [
+    "user_pickup", "user_delivery",
+    "hospital_staff_pickup", "hospital_staff_delivery",
+    "hospital_assistant_pickup", "hospital_assistant_delivery",
+    "pickup_date", "delivery_date",
+    "notes_pickup", "notes_delivery"
+  ];
+
+  fields.forEach(field => {
+    const oldVal = oldHeader[field];
+    const newVal = newHeader[field];
+    if (oldVal !== newVal) {
+      const changeText = formatHeaderFieldChange(field, oldVal, newVal, employeeMap);
+      if (changeText) changes.push(changeText);
+    }
+  });
+
+  // 2. Check detail items
+  const oldDetails = log.old_values?.details || [];
+  const newDetails = log.new_values?.details || [];
+
+  const oldMap = new Map(oldDetails.map(d => [d.hospital_linen_id, d]));
+
+  newDetails.forEach(n => {
+    const o = oldMap.get(n.hospital_linen_id);
+    const linenName = n.linen_display_name || `Linen #${n.hospital_linen_id}`;
+
+    // Check qty_kotor changes
+    const oldKotor = o ? Number(o.qty_kotor) : 0;
+    const newKotor = Number(n.qty_kotor);
+    if (oldKotor !== newKotor) {
+      changes.push(`Linen Kotor ${linenName} ${oldKotor} menjadi ${newKotor}`);
+    }
+
+    // Check qty_bersih changes
+    const oldBersih = o ? o.qty_bersih : null;
+    const newBersih = n.qty_bersih;
+
+    if (oldBersih !== newBersih) {
+      if (oldBersih === null || oldBersih === undefined || oldBersih === 0) {
+        changes.push(`Linen Bersih ${linenName} — menjadi ${newBersih}`);
+      } else {
+        changes.push(`Linen Bersih ${linenName} ${oldBersih} menjadi ${newBersih}`);
+      }
+    }
+  });
+
+  if (changes.length === 0) {
+    if (action === "PICKUP_KOTOR") {
+      changes.push("Mengubah transaksi kotor");
+    } else if (action === "DELIVERY_BERSIH") {
+      changes.push("Mengubah transaksi bersih");
+    } else {
+      changes.push("Menyesuaikan kurang kirim");
+    }
+  }
+
+  return changes;
+}
+
+// Helper to render signature verification badge/status
+const renderSignatureStatus = (sigPath) => {
+  if (sigPath) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-455 italic font-medium ml-2 select-none shrink-0">
+        <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        <span className="text-slate-400 font-sans">Tanda Tangan Digital Terverifikasi</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-455 italic font-medium ml-2 select-none shrink-0">
+      <svg className="h-3.5 w-3.5 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <span className="text-slate-400 font-sans">Tanda Tangan Belum Terverifikasi</span>
+    </span>
+  );
+};
 
 // ─── Transaction Edit / Create Modal (React Portal) ───────────────────────────
 function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSuccess }) {
   const [employees, setEmployees] = useState([]);
-  const [linens, setLinens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [auditLogs, setAuditLogs] = useState([]);
+
+  const employeeMap = useMemo(() => {
+    return new Map(employees.map(emp => [Number(emp.employee_id), emp.full_name]));
+  }, [employees]);
+
+  const categorizedLogs = useMemo(() => {
+    const groups = {
+      PICKUP_KOTOR: [],
+      DELIVERY_BERSIH: [],
+      KURANG_KIRIM: [],
+      ADMIN: []
+    };
+
+    const sortedLogs = [...auditLogs].sort((a, b) => a.id - b.id);
+
+    sortedLogs.forEach(log => {
+      const action = normalizeAction(log);
+      const changes = getLogChanges(log, employeeMap);
+      changes.forEach(changeText => {
+        groups[action]?.push({
+          id: `${log.id}-${changeText}`,
+          dateStr: fmtLogDateTime(log.created_at),
+          fullName: log.full_name || log.username || "System",
+          changeText
+        });
+      });
+    });
+
+    return groups;
+  }, [auditLogs, employeeMap]);
 
   // Form Fields
   const [hospitalId, setHospitalId] = useState("");
@@ -241,8 +320,45 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [pickupDate, setPickupDate] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [status, setStatus] = useState("PROSES");
-  const [notes, setNotes] = useState("");
+  const [notesPickup, setNotesPickup] = useState("");
+  const [notesDelivery, setNotesDelivery] = useState("");
   const [details, setDetails] = useState([]); // Array of { hospital_linen_id, linen_display_name, ownership_type, qty_kotor, qty_bersih, notes }
+
+  // Signature States for Verification Indicators
+  const [sigValetPickup, setSigValetPickup] = useState(null);
+  const [sigHospitalPickup, setSigHospitalPickup] = useState(null);
+  const [sigAssistantPickup, setSigAssistantPickup] = useState(null);
+  const [sigValetDelivery, setSigValetDelivery] = useState(null);
+  const [sigHospitalDelivery, setSigHospitalDelivery] = useState(null);
+  const [sigAssistantDelivery, setSigAssistantDelivery] = useState(null);
+
+  // Set default values when open or mode changes
+  useEffect(() => {
+    if (!open) return;
+    if (mode === "create") {
+      setHospitalId("");
+      setFormNumber("");
+      setUserPickup("");
+      setUserDelivery("");
+      setHospitalStaffPickup("");
+      setHospitalStaffDelivery("");
+      setHospitalAssistantPickup("");
+      setHospitalAssistantDelivery("");
+      setPickupDate("");
+      setDeliveryDate("");
+      setStatus("PROSES");
+      setNotesPickup("");
+      setNotesDelivery("");
+      setDetails([]);
+      setAuditLogs([]);
+      setSigValetPickup(null);
+      setSigHospitalPickup(null);
+      setSigAssistantPickup(null);
+      setSigValetDelivery(null);
+      setSigHospitalDelivery(null);
+      setSigAssistantDelivery(null);
+    }
+  }, [open, mode]);
 
   // Load Employees list (For dropdowns)
   useEffect(() => {
@@ -280,9 +396,16 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           setPickupDate(toDatetimeLocalInput(header.pickup_date));
           setDeliveryDate(toDatetimeLocalInput(header.delivery_date));
           setStatus(header.status || "PROSES");
-          setNotes(header.notes || "");
+          setNotesPickup(header.notes_pickup || "");
+          setNotesDelivery(header.notes_delivery || "");
           setDetails(details || []);
           setAuditLogs(auditLogs || []);
+          setSigValetPickup(header.signature_valet_pickup || null);
+          setSigHospitalPickup(header.signature_hospital_pickup || null);
+          setSigAssistantPickup(header.signature_assistant_pickup || null);
+          setSigValetDelivery(header.signature_valet_delivery || null);
+          setSigHospitalDelivery(header.signature_hospital_delivery || null);
+          setSigAssistantDelivery(header.signature_assistant_delivery || null);
         } else {
           throw new Error(res.message || "Gagal memuat rincian transaksi");
         }
@@ -370,7 +493,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
         pickup_date: pickupDate.replace("T", " ") + ":00",
         delivery_date: deliveryDate ? deliveryDate.replace("T", " ") + ":00" : null,
         status,
-        notes,
+        notes_pickup: notesPickup || null,
+        notes_delivery: notesDelivery || null,
         details: details.map(d => ({
           hospital_linen_id: d.hospital_linen_id,
           qty_kotor: Number(d.qty_kotor || 0),
@@ -382,12 +506,17 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       if (mode !== "create") {
         payload.form_number = formNumber;
       }
-
       let res;
       if (mode === "create") {
-        res = await api("/ikm/linen-transactions", "POST", payload);
+        res = await api("/ikm/linen-transactions", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
       } else {
-        res = await api(`/ikm/linen-transactions/${transactionId}`, "PUT", payload);
+        res = await api(`/ikm/linen-transactions/${transactionId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload)
+        });
       }
 
       if (res.success) {
@@ -406,7 +535,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="w-full max-w-5xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
-        
+
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
           <div className="flex items-center gap-3">
@@ -522,7 +651,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                   </div>
                   <div className="p-4 space-y-3">
                     <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Petugas IKM <strong className="text-rose-500">*</strong></span>
+                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                        <span>Petugas IKM <strong className="text-rose-505">*</strong></span>
+                        {mode !== "create" && renderSignatureStatus(sigValetPickup)}
+                      </span>
                       <select
                         value={userPickup}
                         onChange={(e) => setUserPickup(e.target.value)}
@@ -536,7 +668,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       </select>
                     </label>
                     <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Petugas RS</span>
+                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                        <span>Petugas RS</span>
+                        {mode !== "create" && renderSignatureStatus(sigHospitalPickup)}
+                      </span>
                       <input
                         type="text"
                         value={hospitalStaffPickup}
@@ -546,7 +681,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       />
                     </label>
                     <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Perawat RS</span>
+                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                        <span>Perawat RS</span>
+                        {mode !== "create" && renderSignatureStatus(sigAssistantPickup)}
+                      </span>
                       <input
                         type="text"
                         value={hospitalAssistantPickup}
@@ -578,7 +716,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                   </div>
                   <div className="p-4 space-y-3">
                     <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Petugas IKM</span>
+                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                        <span>Petugas IKM</span>
+                        {mode !== "create" && renderSignatureStatus(sigValetDelivery)}
+                      </span>
                       <select
                         value={userDelivery}
                         onChange={(e) => setUserDelivery(e.target.value)}
@@ -591,23 +732,29 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       </select>
                     </label>
                     <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Petugas RS</span>
+                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                        <span>Petugas RS</span>
+                        {mode !== "create" && renderSignatureStatus(sigHospitalDelivery)}
+                      </span>
                       <input
                         type="text"
                         value={hospitalStaffDelivery}
                         onChange={(e) => setHospitalStaffDelivery(e.target.value)}
                         placeholder="Nama petugas RS saat delivery..."
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                       />
                     </label>
                     <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Perawat RS</span>
+                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                        <span>Perawat RS</span>
+                        {mode !== "create" && renderSignatureStatus(sigAssistantDelivery)}
+                      </span>
                       <input
                         type="text"
                         value={hospitalAssistantDelivery}
                         onChange={(e) => setHospitalAssistantDelivery(e.target.value)}
                         placeholder="Nama perawat RS saat delivery..."
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                       />
                     </label>
                     <label className="block text-sm text-slate-600">
@@ -624,16 +771,28 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
               </div>
 
               {/* ── SECTION 3: Catatan ────────────────────────────────────── */}
-              <label className="block text-sm text-slate-600">
-                <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Tambahan</span>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Tulis instruksi atau catatan khusus di sini..."
-                  rows={2}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-y"
-                />
-              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="block text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Pickup</span>
+                  <textarea
+                    value={notesPickup}
+                    onChange={(e) => setNotesPickup(e.target.value)}
+                    placeholder="Tulis catatan saat pickup..."
+                    rows={2}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-y"
+                  />
+                </label>
+                <label className="block text-sm text-slate-600">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Delivery</span>
+                  <textarea
+                    value={notesDelivery}
+                    onChange={(e) => setNotesDelivery(e.target.value)}
+                    placeholder="Tulis catatan saat delivery..."
+                    rows={2}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 resize-y"
+                  />
+                </label>
+              </div>
 
               {/* ── SECTION 4: Item Detail Linen ─────────────────────────── */}
               <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -711,8 +870,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                 "px-3 py-2 text-center text-xs font-bold tabular-nums",
                                 selisih === null ? "text-slate-300"
                                   : selisih > 0 ? "text-rose-600"
-                                  : selisih < 0 ? "text-blue-600"
-                                  : "text-slate-400"
+                                    : selisih < 0 ? "text-blue-600"
+                                      : "text-slate-400"
                               )}>
                                 {selisih === null ? "—" : selisih === 0 ? "✓" : selisih > 0 ? `+${selisih}` : selisih}
                               </td>
@@ -751,24 +910,78 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                     <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Riwayat Perubahan</span>
                     <span className="rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5">{auditLogs.length}</span>
                   </div>
-                  <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
-                    {auditLogs.map((log) => (
-                      <div key={log.id} className="px-4 py-3 text-[11px] text-slate-600 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                            {log.action === "CREATE" ? (
-                              <span className="inline-flex rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 text-[9px] font-bold">BUAT</span>
-                            ) : (
-                              <span className="inline-flex rounded-md bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 text-[9px] font-bold">UBAH</span>
-                            )}
-                            oleh <strong className="text-slate-800">{log.full_name || log.username}</strong>
-                            <span className="text-slate-400 font-normal">({log.role || "Admin"})</span>
-                          </span>
-                          <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{fmtDateTime(log.created_at)}</span>
+                  <div className="max-h-[350px] overflow-y-auto p-4 space-y-4 divide-y divide-slate-100 bg-white">
+                    {/* Render Group 1: PICKUP_KOTOR */}
+                    {categorizedLogs.PICKUP_KOTOR.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Pickup Linen Kotor</h4>
+                        <div className="space-y-1.5 pl-1">
+                          {categorizedLogs.PICKUP_KOTOR.map((item) => (
+                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-700 font-bold">{item.fullName}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-600 font-medium">{item.changeText}</span>
+                            </div>
+                          ))}
                         </div>
-                        <AuditChangeDetails log={log} />
                       </div>
-                    ))}
+                    )}
+
+                    {/* Render Group 2: DELIVERY_BERSIH */}
+                    {categorizedLogs.DELIVERY_BERSIH.length > 0 && (
+                      <div className="space-y-2 pt-4 first:pt-0">
+                        <h4 className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Pengantaran Linen Bersih</h4>
+                        <div className="space-y-1.5 pl-1">
+                          {categorizedLogs.DELIVERY_BERSIH.map((item) => (
+                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-700 font-bold">{item.fullName}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-600 font-medium">{item.changeText}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render Group 3: KURANG_KIRIM */}
+                    {categorizedLogs.KURANG_KIRIM.length > 0 && (
+                      <div className="space-y-2 pt-4 first:pt-0">
+                        <h4 className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Linen Kurang Kirim</h4>
+                        <div className="space-y-1.5 pl-1">
+                          {categorizedLogs.KURANG_KIRIM.map((item) => (
+                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-700 font-bold">{item.fullName}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-600 font-medium">{item.changeText}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render Group 4: ADMIN */}
+                    {categorizedLogs.ADMIN.length > 0 && (
+                      <div className="space-y-2 pt-4 first:pt-0">
+                        <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Perubahan Oleh Admin</h4>
+                        <div className="space-y-1.5 pl-1">
+                          {categorizedLogs.ADMIN.map((item) => (
+                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-700 font-bold">{item.fullName}</span>
+                              <span className="text-slate-300 font-bold">•</span>
+                              <span className="text-slate-600 font-medium">{item.changeText}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -941,6 +1154,50 @@ export default function LinenTransaction() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Set Document Title
+  useEffect(() => {
+    document.title = "Serah Terima Linen IKM | Alora Group Indonesia";
+  }, []);
+
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
+  const [exportingRekap, setExportingRekap] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDownloadDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const handleExportRekap = async (ownershipType) => {
+    setDownloadDropdownOpen(false);
+    setExportingRekap(true);
+    try {
+      const q = new URLSearchParams();
+      if (activePeriod.startDate) q.append("startDate", activePeriod.startDate);
+      if (activePeriod.endDate) q.append("endDate", activePeriod.endDate);
+      if (hospitalFilter) q.append("hospital_id", hospitalFilter);
+      q.append("ownership_type", ownershipType);
+
+      const res = await api(`/ikm/linen-transactions/rekap/cuci?${q.toString()}`);
+      if (res.success) {
+        await exportRekapCuciLinenSewa(res, activePeriod.startDate, activePeriod.endDate, ownershipType);
+        showToast("success", `File rekap ${ownershipType === "SEWA" ? "Linen Sewa" : "Linen RS"} berhasil diunduh`);
+      } else {
+        throw new Error(res.message || "Gagal mengambil data rekap");
+      }
+    } catch (err) {
+      showToast("error", "Gagal mengunduh Rekap: " + err.message);
+    } finally {
+      setExportingRekap(false);
+    }
+  };
+
   // Fetch Hospitals
   useEffect(() => {
     const loadHospitals = async () => {
@@ -949,7 +1206,7 @@ export default function LinenTransaction() {
         if (res.success) {
           setHospitals(res.data);
         }
-      } catch (err) {
+      } catch {
         showToast("error", "Gagal memuat daftar rumah sakit");
       }
     };
@@ -968,7 +1225,7 @@ export default function LinenTransaction() {
         if (res.success) {
           setRooms(res.data);
         }
-      } catch (err) {
+      } catch {
         showToast("error", "Gagal memuat ruangan rumah sakit");
       }
     };
@@ -1055,7 +1312,7 @@ export default function LinenTransaction() {
         />
 
         {/* Header Banner */}
-        <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-900 to-cyan-700 p-5 shadow-sm sm:p-6">
+        <section className="relative rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-900 to-cyan-700 p-5 shadow-sm sm:p-6">
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-blue-300/10 blur-3xl" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1068,13 +1325,47 @@ export default function LinenTransaction() {
                 <p className="text-sm text-white/70">Monitoring data penerimaan linen kotor &amp; pengiriman linen bersih</p>
               </div>
             </div>
-            {/* Tambah Transaksi Trigger */}
-            <button
-              onClick={handleTriggerCreate}
-              className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm shrink-0"
-            >
-              <HiOutlinePlus className="h-4 w-4" /> Tambah Transaksi
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Download Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setDownloadDropdownOpen(!downloadDropdownOpen)}
+                  disabled={exportingRekap}
+                  className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm shrink-0"
+                >
+                  <HiOutlineArrowDownTray className="h-4 w-4" />
+                  {exportingRekap ? "Mengekspor..." : "Unduh Rekap"}
+                  <HiOutlineChevronDown className="h-4 w-4 opacity-70" />
+                </button>
+
+                {downloadDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-black/5 z-30 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <button
+                      onClick={() => handleExportRekap("SEWA")}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition font-semibold"
+                    >
+                      <HiOutlineDocumentText className="h-4 w-4 text-blue-500" />
+                      Rekap Cuci Linen Sewa
+                    </button>
+                    <button
+                      onClick={() => handleExportRekap("MILIK_RS")}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition font-semibold"
+                    >
+                      <HiOutlineDocumentText className="h-4 w-4 text-emerald-500" />
+                      Rekap Cuci Linen RS
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Tambah Transaksi Trigger */}
+              <button
+                onClick={handleTriggerCreate}
+                className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm shrink-0"
+              >
+                <HiOutlinePlus className="h-4 w-4" /> Tambah Transaksi
+              </button>
+            </div>
           </div>
         </section>
 
@@ -1305,7 +1596,7 @@ export default function LinenTransaction() {
                         )}>
                           {row.kurang_kirim}
                         </td>
-                        
+
                         {/* Aksi options */}
                         <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                           <div className="inline-flex items-center gap-1.5 justify-center">
@@ -1381,8 +1672,8 @@ export default function LinenTransaction() {
                       p === page
                         ? "border-blue-600 bg-blue-600 text-white font-bold"
                         : p === "..."
-                        ? "border-transparent bg-transparent cursor-default"
-                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                          ? "border-transparent bg-transparent cursor-default"
+                          : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
                     )}
                   >
                     {p}

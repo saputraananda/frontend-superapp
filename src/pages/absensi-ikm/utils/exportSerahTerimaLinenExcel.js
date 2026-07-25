@@ -116,7 +116,11 @@ export async function exportSerahTerimaLinenExcel(transactionData) {
   const r1 = ws.addRow(["Rumah Sakit", `: ${header.hospital_name || "-"}`, "", "", "Status", `: ${header.status || "PROSES"}`]);
   const r2 = ws.addRow(["Tanggal Pickup", `: ${fmtDateTime(header.pickup_date)}`, "", "", "Tanggal Pengantaran", `: ${fmtDateTime(header.delivery_date)}`]);
   const r3 = ws.addRow(["Petugas IKM (Pickup)", `: ${header.pickup_by_name || "-"}`, "", "", "Petugas IKM (Delivery)", `: ${header.delivery_by_name || "-"}`]);
-  const r4 = ws.addRow(["Catatan", `: ${header.notes || "-"}`, "", "", "", ""]);
+  const notesStr = [
+    header.notes_pickup ? `Pickup: ${header.notes_pickup}` : "",
+    header.notes_delivery ? `Delivery: ${header.notes_delivery}` : ""
+  ].filter(Boolean).join(" | ");
+  const r4 = ws.addRow(["Catatan", `: ${notesStr || "-"}`, "", "", "", ""]);
 
   // Merge values cells for metadata
   ws.mergeCells(`B${r1.number}:D${r1.number}`);

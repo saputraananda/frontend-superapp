@@ -30,9 +30,17 @@ const labelCls = "block text-xs font-semibold text-slate-500 uppercase tracking-
 const formatRupiah = (raw) => {
     if (raw === "" || raw == null) return "";
 
-    // Anti bug: value input udah terformat (pakai titik ribuan: "2.323")
-    // Number("2.323") dianggap 2.323 (desimal) → jadi kepotong.
-    const digits = String(raw).replace(/\D/g, "");
+    if (typeof raw === "number") {
+        return new Intl.NumberFormat("id-ID").format(Math.round(raw));
+    }
+
+    let s = String(raw).trim();
+
+    if (/^-?\d+\.\d{1,2}$/.test(s) || /^-?\d+$/.test(s)) {
+        return new Intl.NumberFormat("id-ID").format(Math.round(parseFloat(s)));
+    }
+
+    const digits = s.replace(/\D/g, "");
     if (!digits) return "";
 
     const n = Number(digits);
@@ -265,7 +273,7 @@ export default function FormPengajuan() {
                     offline_desc: r.vendor_mode === "offline" ? r.vendor : "",
                     // Reimburse
                     bank_name: r.bank_name || emp?.bank_name || "",
-                    bank_account_number: r.bank_account_number || emp?.bank_account_number || "",
+                    bank_account_number: r.nomor_rekening || r.bank_account_number || emp?.bank_account_number || "",
                     atas_nama: toTitleCase(r.atas_nama || ""),
                 });
                 setExisting(d.attachments || []);

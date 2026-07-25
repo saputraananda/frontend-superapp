@@ -46,9 +46,24 @@ const formatRp = (v) =>
 
 const formatRupiah = (raw) => {
     if (raw === "" || raw == null) return "";
-    const n = String(raw).replace(/\D/g, "");
-    if (!n) return "";
-    return new Intl.NumberFormat("id-ID").format(Number(n));
+
+    if (typeof raw === "number") {
+        return new Intl.NumberFormat("id-ID").format(Math.round(raw));
+    }
+
+    let s = String(raw).trim();
+
+    if (/^-?\d+\.\d{1,2}$/.test(s) || /^-?\d+$/.test(s)) {
+        return new Intl.NumberFormat("id-ID").format(Math.round(parseFloat(s)));
+    }
+
+    const digits = s.replace(/\D/g, "");
+    if (!digits) return "";
+
+    const n = Number(digits);
+    if (!Number.isFinite(n)) return "";
+
+    return new Intl.NumberFormat("id-ID").format(Math.round(n));
 };
 const stripRupiah = (s) => String(s || "").replace(/\D/g, "");
 
