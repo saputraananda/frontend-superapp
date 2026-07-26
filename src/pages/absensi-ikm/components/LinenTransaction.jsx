@@ -6,11 +6,13 @@ import {
   HiOutlineMagnifyingGlass,
   HiOutlineExclamationTriangle, HiOutlineCheckCircle, HiOutlineDocumentText,
   HiOutlinePencilSquare, HiOutlineTrash, HiOutlinePlus, HiOutlineClock,
-  HiOutlineUser, HiOutlineArrowDownTray, HiOutlineChevronDown
+  HiOutlineUser, HiOutlineArrowDownTray, HiOutlineChevronDown,
+  HiOutlineTruck, HiOutlinePrinter
 } from "react-icons/hi2";
-import { api } from "../../../lib/api";
+import { api, BASE_URL } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
 import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
+import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -175,66 +177,136 @@ function formatHeaderFieldChange(field, oldVal, newVal, employeeMap) {
   }
 }
 
+function parseJSONMaybe(val) {
+  if (!val) return null;
+  if (typeof val === "object") return val;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return null;
+  }
+}
+
 function getLogChanges(log, employeeMap) {
   const changes = [];
-  const action = normalizeAction(log);
+  const detailsObj = parseJSONMaybe(log.details || log.change_summary || log.changes);
 
-  if (action === "PICKUP_KOTOR" && (!log.old_values || !log.old_values.header)) {
-    changes.push("Membuat transaksi kotor");
-    return changes;
+  if (detailsObj && typeof detailsObj === "object") {
+    if (detailsObj.pickup_date) changes.push(`Tanggal Pickup: ${detailsObj.pickup_date}`);
+    if (detailsObj.delivery_date) changes.push(`Tanggal Pengantaran: ${detailsObj.delivery_date}`);
+    if (detailsObj.notes_pickup) changes.push(`Catatan Pickup: ${detailsObj.notes_pickup}`);
+    if (detailsObj.notes_delivery) changes.push(`Catatan Pengantaran: ${detailsObj.notes_delivery}`);
+    if (detailsObj.status) changes.push(`Status: ${detailsObj.status}`);
+
+    if (detailsObj.user_pickup) {
+      const empId = Number(detailsObj.user_pickup);
+      const name = employeeMap.get(empId) || `ID #${empId}`;
+      changes.push(`Petugas Pickup: ${name}`);
+    }
+    if (detailsObj.user_delivery) {
+      const empId = Number(detailsObj.user_delivery);
+      const name = employeeMap.get(empId) || `ID #${empId}`;
+      changes.push(`Petugas Pengantaran: ${name}`);
+    }
+    if (detailsObj.hospital_staff_pickup) changes.push(`Petugas RS (Pickup): ${detailsObj.hospital_staff_pickup}`);
+    if (detailsObj.hospital_staff_delivery) changes.push(`Petugas RS (Pengantaran): ${detailsObj.hospital_staff_delivery}`);
+
+    if (Array.isArray(detailsObj.items)) {
+      detailsObj.items.forEach(item => {
+        const linenName = item.linen_name || item.name || `Item #${item.hospital_linen_id || ""}`;
+        if (item.qty_kotor !== undefined) changes.push(`Linen Kotor ${linenName}: ${item.qty_kotor}`);
+        if (item.qty_bersih !== undefined) changes.push(`Linen Bersih ${linenName}: ${item.qty_bersih}`);
+      });
+    }
+
+    if (Array.isArray(detailsObj.item_changes)) {
+      detailsObj.item_changes.forEach(item => {
+        const linenName = item.linen_name || `Item #${item.hospital_linen_id || ""}`;
+        if (item.old_qty_kotor !== undefined || item.new_qty_kotor !== undefined) {
+          changes.push(`Linen Kotor ${linenName}: ${item.old_qty_kotor ?? "-"} -> ${item.new_qty_kotor ?? "-"}`);
+        }
+        if (item.old_qty_bersih !== undefined || item.new_qty_bersih !== undefined) {
+          changes.push(`Linen Bersih ${linenName}: ${item.old_qty_bersih ?? "-"} -> ${item.new_qty_bersih ?? "-"}`);
+        }
+      });
+    }
+
+    if (changes.length > 0) return changes;
   }
 
-  const oldHeader = log.old_values?.header || {};
-  const newHeader = log.new_values?.header || {};
+  const snapshot = parseJSONMaybe(log.snapshot);
+  const oldSnapshot = parseJSONMaybe(log.old_snapshot);
 
-  // 1. Check header fields
-  const fields = [
-    "user_pickup", "user_delivery",
-    "hospital_staff_pickup", "hospital_staff_delivery",
-    "hospital_assistant_pickup", "hospital_assistant_delivery",
-    "pickup_date", "delivery_date",
-    "notes_pickup", "notes_delivery"
-  ];
-
-  fields.forEach(field => {
-    const oldVal = oldHeader[field];
-    const newVal = newHeader[field];
-    if (oldVal !== newVal) {
-      const changeText = formatHeaderFieldChange(field, oldVal, newVal, employeeMap);
-      if (changeText) changes.push(changeText);
+  if (snapshot && oldSnapshot) {
+    if (oldSnapshot.pickup_date !== snapshot.pickup_date) {
+      changes.push(`Tanggal Pickup: ${oldSnapshot.pickup_date || "-"} -> ${snapshot.pickup_date || "-"}`);
     }
-  });
-
-  // 2. Check detail items
-  const oldDetails = log.old_values?.details || [];
-  const newDetails = log.new_values?.details || [];
-
-  const oldMap = new Map(oldDetails.map(d => [d.hospital_linen_id, d]));
-
-  newDetails.forEach(n => {
-    const o = oldMap.get(n.hospital_linen_id);
-    const linenName = n.linen_display_name || `Linen #${n.hospital_linen_id}`;
-
-    // Check qty_kotor changes
-    const oldKotor = o ? Number(o.qty_kotor) : 0;
-    const newKotor = Number(n.qty_kotor);
-    if (oldKotor !== newKotor) {
-      changes.push(`Linen Kotor ${linenName} ${oldKotor} menjadi ${newKotor}`);
+    if (oldSnapshot.delivery_date !== snapshot.delivery_date) {
+      changes.push(`Tanggal Pengantaran: ${oldSnapshot.delivery_date || "-"} -> ${snapshot.delivery_date || "-"}`);
+    }
+    if (oldSnapshot.notes_pickup !== snapshot.notes_pickup) {
+      changes.push(`Catatan Pickup: ${oldSnapshot.notes_pickup || "-"} -> ${snapshot.notes_pickup || "-"}`);
+    }
+    if (oldSnapshot.notes_delivery !== snapshot.notes_delivery) {
+      changes.push(`Catatan Pengantaran: ${oldSnapshot.notes_delivery || "-"} -> ${snapshot.notes_delivery || "-"}`);
+    }
+    if (oldSnapshot.status !== snapshot.status) {
+      changes.push(`Status: ${oldSnapshot.status || "-"} -> ${snapshot.status || "-"}`);
     }
 
-    // Check qty_bersih changes
-    const oldBersih = o ? o.qty_bersih : null;
-    const newBersih = n.qty_bersih;
+    const oldMap = new Map((oldSnapshot.details || []).map(i => [i.hospital_linen_id, i]));
+    const newMap = new Map((snapshot.details || []).map(i => [i.hospital_linen_id, i]));
 
-    if (oldBersih !== newBersih) {
-      if (oldBersih === null || oldBersih === undefined || oldBersih === 0) {
-        changes.push(`Linen Bersih ${linenName} — menjadi ${newBersih}`);
-      } else {
-        changes.push(`Linen Bersih ${linenName} ${oldBersih} menjadi ${newBersih}`);
+    const allKeys = new Set([...oldMap.keys(), ...newMap.keys()]);
+    allKeys.forEach(key => {
+      const oldItem = oldMap.get(key) || {};
+      const newItem = newMap.get(key) || {};
+      const linenName = newItem.hospital_linen_name || oldItem.hospital_linen_name || `Linen #${key}`;
+
+      if (Number(oldItem.qty_kotor || 0) !== Number(newItem.qty_kotor || 0)) {
+        changes.push(`Linen Kotor ${linenName}: ${oldItem.qty_kotor || 0} -> ${newItem.qty_kotor || 0}`);
       }
-    }
-  });
+      if (Number(oldItem.qty_bersih || 0) !== Number(newItem.qty_bersih || 0)) {
+        changes.push(`Linen Bersih ${linenName}: ${oldItem.qty_bersih || 0} -> ${newItem.qty_bersih || 0}`);
+      }
+    });
 
+    if (changes.length > 0) return changes;
+  }
+
+  if (snapshot && !oldSnapshot && Array.isArray(snapshot.details)) {
+    snapshot.details.forEach(item => {
+      const linenName = item.hospital_linen_name || `Linen #${item.hospital_linen_id}`;
+      const oldKotor = Number(item.old_qty_kotor);
+      const newKotor = Number(item.qty_kotor || 0);
+      const oldBersih = item.old_qty_bersih !== undefined ? Number(item.old_qty_bersih) : undefined;
+      const newBersih = item.qty_bersih !== undefined ? Number(item.qty_bersih) : undefined;
+
+      if (oldKotor !== newKotor) {
+        if (oldKotor === 0 || isNaN(oldKotor)) {
+          changes.push(`Linen Kotor ${linenName} — menjadi ${newKotor}`);
+        } else {
+          changes.push(`Linen Kotor ${linenName} ${oldKotor} menjadi ${newKotor}`);
+        }
+      }
+
+      if (oldBersih !== newBersih) {
+        if (oldBersih === null || oldBersih === undefined || oldBersih === 0) {
+          changes.push(`Linen Bersih ${linenName} — menjadi ${newBersih}`);
+        } else {
+          changes.push(`Linen Bersih ${linenName} ${oldBersih} menjadi ${newBersih}`);
+        }
+      }
+    });
+
+    if (changes.length > 0) return changes;
+  }
+
+  if (log.description || log.notes) {
+    changes.push(log.description || log.notes);
+  }
+
+  const action = normalizeAction(log);
   if (changes.length === 0) {
     if (action === "PICKUP_KOTOR") {
       changes.push("Mengubah transaksi kotor");
@@ -246,6 +318,17 @@ function getLogChanges(log, employeeMap) {
   }
 
   return changes;
+}
+
+// Helper to get signature URL
+function getSignatureUrl(sig) {
+  if (!sig) return null;
+  if (sig.startsWith("data:") || sig.startsWith("http://") || sig.startsWith("https://") || sig.startsWith("blob:")) {
+    return sig;
+  }
+  const filename = sig.split("/").pop();
+  const base = (BASE_URL || "").replace(/\/$/, "");
+  return `${base}/ikm/linen-transactions/signature-proxy?name=${encodeURIComponent(filename)}`;
 }
 
 // Helper to render signature verification badge/status
@@ -332,9 +415,36 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [sigHospitalDelivery, setSigHospitalDelivery] = useState(null);
   const [sigAssistantDelivery, setSigAssistantDelivery] = useState(null);
 
+  // Accordion / Collapsible Section States (Default closed)
+  const [showItemDetails, setShowItemDetails] = useState(false);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [showSignatures, setShowSignatures] = useState(false);
+
+  // Tab Navigation & Kurang Kirim Deliveries State
+  const [activeTab, setActiveTab] = useState("info");
+  const [kurangKirimDeliveries, setKurangKirimDeliveries] = useState([]);
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+
+  // Calculate if there is a gap (kurang kirim) between kotor and bersih
+  const hasGap = useMemo(() => {
+    if (!details || details.length === 0) return false;
+    return details.some(d => {
+      const kotor = Number(d.qty_kotor || 0);
+      const bersih = d.qty_bersih !== null && d.qty_bersih !== "" ? Number(d.qty_bersih) : null;
+      if (bersih === null) return kotor > 0;
+      return kotor > bersih;
+    });
+  }, [details]);
+
   // Set default values when open or mode changes
   useEffect(() => {
     if (!open) return;
+    setActiveTab("info");
+    setKurangKirimDeliveries([]);
+    setSelectedDelivery(null);
+    setShowItemDetails(false);
+    setShowAuditLogs(false);
+    setShowSignatures(false);
     if (mode === "create") {
       setHospitalId("");
       setFormNumber("");
@@ -384,7 +494,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       try {
         const res = await api(`/ikm/linen-transactions/${transactionId}`);
         if (res.success) {
-          const { header, details, auditLogs } = res.data;
+          const { header, details, auditLogs, kurangKirimDeliveries } = res.data;
           setHospitalId(header.hospital_id || "");
           setFormNumber(header.form_number || "");
           setUserPickup(header.user_pickup || "");
@@ -400,6 +510,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           setNotesDelivery(header.notes_delivery || "");
           setDetails(details || []);
           setAuditLogs(auditLogs || []);
+          setKurangKirimDeliveries(kurangKirimDeliveries || []);
           setSigValetPickup(header.signature_valet_pickup || null);
           setSigHospitalPickup(header.signature_hospital_pickup || null);
           setSigAssistantPickup(header.signature_assistant_pickup || null);
@@ -554,442 +665,880 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 space-y-5 pr-1.5 pb-4">
-          {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center gap-2">
-              <HiOutlineExclamationTriangle className="h-5 w-5 shrink-0" />
-              {error}
-            </div>
-          )}
+        {/* Navigation Tabs */}
+        <div className="shrink-0 flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab("info")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all",
+              activeTab === "info"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            )}
+          >
+            <HiOutlineDocumentText className="h-4 w-4" />
+            <span>Info Transaksi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("suratJalan")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all",
+              activeTab === "suratJalan"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            )}
+          >
+            <HiOutlineTruck className="h-4 w-4" />
+            <span>Riwayat Surat Jalan</span>
+            {kurangKirimDeliveries.length > 0 && (
+              <span className={cn(
+                "rounded-full text-[10px] px-2 py-0.5 font-bold",
+                activeTab === "suratJalan" ? "bg-indigo-700 text-white" : "bg-indigo-100 text-indigo-700"
+              )}>
+                {kurangKirimDeliveries.length}
+              </span>
+            )}
+          </button>
+        </div>
 
-
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-20 space-y-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-              <p className="text-sm text-slate-500">Memuat rincian transaksi...</p>
-            </div>
-          )}
-
-          {!loading && (
-            <div className="space-y-5">
-
-              {/* ── SECTION 1: Info Transaksi ─────────────────────────────── */}
-              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                <div className="flex items-center gap-2.5 bg-slate-50 border-b border-slate-200 px-4 py-2.5">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                    <HiOutlineDocumentText className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Info Transaksi</span>
-                </div>
-                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-
-                  {/* Hospital */}
-                  <label className="text-sm text-slate-600">
-                    <span className="mb-1 block text-xs font-semibold text-slate-500">Rumah Sakit <strong className="text-rose-500">*</strong></span>
-                    {mode === "create" ? (
-                      <select
-                        value={hospitalId}
-                        onChange={(e) => setHospitalId(e.target.value)}
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                      >
-                        <option value="">Pilih Rumah Sakit</option>
-                        {hospitals.map(h => (
-                          <option key={h.id} value={h.id}>{h.hospital_name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-800">
-                        {selectedHospitalName}
-                      </div>
-                    )}
-                  </label>
-
-                  {/* Form Number */}
-                  <label className="text-sm text-slate-600">
-                    <span className="mb-1 block text-xs font-semibold text-slate-500">Nomor Formulir</span>
-                    {mode === "create" ? (
-                      <div className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-400 italic select-none">
-                        Dibuat otomatis oleh sistem
-                      </div>
-                    ) : (
-                      <input
-                        type="text"
-                        value={formNumber}
-                        disabled
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono font-semibold text-slate-700 outline-none"
-                      />
-                    )}
-                  </label>
-
-                  {/* Status */}
-                  <label className="text-sm text-slate-600">
-                    <span className="mb-1 block text-xs font-semibold text-slate-500">Status</span>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                    >
-                      <option value="PROSES">⏳ PROSES — Kotor Diterima</option>
-                      <option value="SELESAI">✅ SELESAI — Bersih Dikirim</option>
-                    </select>
-                  </label>
-                </div>
+        {/* TAB 1: Info Transaksi Form */}
+        {activeTab === "info" && (
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 space-y-5 pr-1.5 pb-4">
+            {error && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center gap-2">
+                <HiOutlineExclamationTriangle className="h-5 w-5 shrink-0" />
+                {error}
               </div>
+            )}
 
-              {/* ── SECTION 2: Serah Terima — split dua kolom ────────────── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                {/* Pickup card */}
-                <div className="rounded-2xl border border-orange-200 bg-orange-50/30 overflow-hidden">
-                  <div className="flex items-center gap-2.5 bg-orange-50 border-b border-orange-200 px-4 py-2.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
-                      <HiOutlineUser className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="text-xs font-bold text-orange-700 uppercase tracking-wide">Linen Kotor — Pickup</span>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                        <span>Petugas IKM <strong className="text-rose-505">*</strong></span>
-                        {mode !== "create" && renderSignatureStatus(sigValetPickup)}
-                      </span>
-                      <select
-                        value={userPickup}
-                        onChange={(e) => setUserPickup(e.target.value)}
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                      >
-                        <option value="">Pilih Petugas IKM</option>
-                        {employees.map(emp => (
-                          <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                        <span>Petugas RS</span>
-                        {mode !== "create" && renderSignatureStatus(sigHospitalPickup)}
-                      </span>
-                      <input
-                        type="text"
-                        value={hospitalStaffPickup}
-                        onChange={(e) => setHospitalStaffPickup(e.target.value)}
-                        placeholder="Nama petugas RS saat pickup..."
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                      />
-                    </label>
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                        <span>Perawat RS</span>
-                        {mode !== "create" && renderSignatureStatus(sigAssistantPickup)}
-                      </span>
-                      <input
-                        type="text"
-                        value={hospitalAssistantPickup}
-                        onChange={(e) => setHospitalAssistantPickup(e.target.value)}
-                        placeholder="Nama perawat RS saat pickup..."
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                      />
-                    </label>
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Pickup <strong className="text-rose-500">*</strong></span>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={pickupDate}
-                        onChange={(e) => setPickupDate(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* Delivery card */}
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/30 overflow-hidden">
-                  <div className="flex items-center gap-2.5 bg-emerald-50 border-b border-emerald-200 px-4 py-2.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                      <HiOutlineUser className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">Linen Bersih — Pengiriman</span>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                        <span>Petugas IKM</span>
-                        {mode !== "create" && renderSignatureStatus(sigValetDelivery)}
-                      </span>
-                      <select
-                        value={userDelivery}
-                        onChange={(e) => setUserDelivery(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                      >
-                        <option value="">Pilih Petugas IKM (Opsional)</option>
-                        {employees.map(emp => (
-                          <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                        <span>Petugas RS</span>
-                        {mode !== "create" && renderSignatureStatus(sigHospitalDelivery)}
-                      </span>
-                      <input
-                        type="text"
-                        value={hospitalStaffDelivery}
-                        onChange={(e) => setHospitalStaffDelivery(e.target.value)}
-                        placeholder="Nama petugas RS saat delivery..."
-                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                      />
-                    </label>
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                        <span>Perawat RS</span>
-                        {mode !== "create" && renderSignatureStatus(sigAssistantDelivery)}
-                      </span>
-                      <input
-                        type="text"
-                        value={hospitalAssistantDelivery}
-                        onChange={(e) => setHospitalAssistantDelivery(e.target.value)}
-                        placeholder="Nama perawat RS saat delivery..."
-                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                      />
-                    </label>
-                    <label className="block text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Pengantaran</span>
-                      <input
-                        type="datetime-local"
-                        value={deliveryDate}
-                        onChange={(e) => setDeliveryDate(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                      />
-                    </label>
-                  </div>
-                </div>
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+                <p className="text-sm text-slate-500">Memuat rincian transaksi...</p>
               </div>
+            )}
 
-              {/* ── SECTION 3: Catatan ────────────────────────────────────── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="block text-sm text-slate-600">
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Pickup</span>
-                  <textarea
-                    value={notesPickup}
-                    onChange={(e) => setNotesPickup(e.target.value)}
-                    placeholder="Tulis catatan saat pickup..."
-                    rows={2}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-y"
-                  />
-                </label>
-                <label className="block text-sm text-slate-600">
-                  <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Delivery</span>
-                  <textarea
-                    value={notesDelivery}
-                    onChange={(e) => setNotesDelivery(e.target.value)}
-                    placeholder="Tulis catatan saat delivery..."
-                    rows={2}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 resize-y"
-                  />
-                </label>
-              </div>
+            {!loading && (
+              <div className="space-y-5">
 
-              {/* ── SECTION 4: Item Detail Linen ─────────────────────────── */}
-              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                {/* ── SECTION 1: Info Transaksi ─────────────────────────────── */}
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="flex items-center gap-2.5 bg-slate-50 border-b border-slate-200 px-4 py-2.5">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
                       <HiOutlineDocumentText className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen</span>
-                    {details.length > 0 && (
-                      <span className="rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5">
-                        {details.length} item
-                      </span>
-                    )}
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Info Transaksi</span>
                   </div>
-                  {!hospitalId && (
-                    <span className="text-xs text-rose-500 italic">Pilih Rumah Sakit terlebih dahulu</span>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                    {/* Hospital */}
+                    <label className="text-sm text-slate-600">
+                      <span className="mb-1 block text-xs font-semibold text-slate-500">Rumah Sakit <strong className="text-rose-500">*</strong></span>
+                      {mode === "create" ? (
+                        <select
+                          value={hospitalId}
+                          onChange={(e) => setHospitalId(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                        >
+                          <option value="">Pilih Rumah Sakit</option>
+                          {hospitals.map(h => (
+                            <option key={h.id} value={h.id}>{h.hospital_name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-800">
+                          {selectedHospitalName}
+                        </div>
+                      )}
+                    </label>
+
+                    {/* Form Number */}
+                    <label className="text-sm text-slate-600">
+                      <span className="mb-1 block text-xs font-semibold text-slate-500">Nomor Formulir</span>
+                      {mode === "create" ? (
+                        <div className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-400 italic select-none">
+                          Dibuat otomatis oleh sistem
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={formNumber}
+                          disabled
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono font-semibold text-slate-700 outline-none"
+                        />
+                      )}
+                    </label>
+
+                    {/* Status */}
+                    <label className="text-sm text-slate-600">
+                      <span className="mb-1 block text-xs font-semibold text-slate-500">Status</span>
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <option value="PROSES">⏳ PROSES — Kotor Diterima</option>
+                        <option value="SELESAI">✅ SELESAI — Bersih Dikirim</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                {/* ── SECTION 2: Serah Terima — split dua kolom ────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                  {/* Pickup card */}
+                  <div className="rounded-2xl border border-orange-200 bg-orange-50/30 overflow-hidden">
+                    <div className="flex items-center gap-2.5 bg-orange-50 border-b border-orange-200 px-4 py-2.5">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+                        <HiOutlineUser className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-orange-700 uppercase tracking-wide">Linen Kotor — Pickup</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                          <span>Petugas IKM <strong className="text-rose-505">*</strong></span>
+                          {mode !== "create" && renderSignatureStatus(sigValetPickup)}
+                        </span>
+                        <select
+                          value={userPickup}
+                          onChange={(e) => setUserPickup(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        >
+                          <option value="">Pilih Petugas IKM</option>
+                          {employees.map(emp => (
+                            <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                          <span>Petugas RS</span>
+                          {mode !== "create" && renderSignatureStatus(sigHospitalPickup)}
+                        </span>
+                        <input
+                          type="text"
+                          value={hospitalStaffPickup}
+                          onChange={(e) => setHospitalStaffPickup(e.target.value)}
+                          placeholder="Nama petugas RS saat pickup..."
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        />
+                      </label>
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                          <span>Perawat RS</span>
+                          {mode !== "create" && renderSignatureStatus(sigAssistantPickup)}
+                        </span>
+                        <input
+                          type="text"
+                          value={hospitalAssistantPickup}
+                          onChange={(e) => setHospitalAssistantPickup(e.target.value)}
+                          placeholder="Nama perawat RS saat pickup..."
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        />
+                      </label>
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Pickup <strong className="text-rose-500">*</strong></span>
+                        <input
+                          type="datetime-local"
+                          required
+                          value={pickupDate}
+                          onChange={(e) => setPickupDate(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Delivery card */}
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/30 overflow-hidden">
+                    <div className="flex items-center gap-2.5 bg-emerald-50 border-b border-emerald-200 px-4 py-2.5">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                        <HiOutlineUser className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">Linen Bersih — Pengiriman</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                          <span>Petugas IKM</span>
+                          {mode !== "create" && renderSignatureStatus(sigValetDelivery)}
+                        </span>
+                        <select
+                          value={userDelivery}
+                          onChange={(e) => setUserDelivery(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        >
+                          <option value="">Pilih Petugas IKM (Opsional)</option>
+                          {employees.map(emp => (
+                            <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                          <span>Petugas RS</span>
+                          {mode !== "create" && renderSignatureStatus(sigHospitalDelivery)}
+                        </span>
+                        <input
+                          type="text"
+                          value={hospitalStaffDelivery}
+                          onChange={(e) => setHospitalStaffDelivery(e.target.value)}
+                          placeholder="Nama petugas RS saat delivery..."
+                          className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        />
+                      </label>
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
+                          <span>Perawat RS</span>
+                          {mode !== "create" && renderSignatureStatus(sigAssistantDelivery)}
+                        </span>
+                        <input
+                          type="text"
+                          value={hospitalAssistantDelivery}
+                          onChange={(e) => setHospitalAssistantDelivery(e.target.value)}
+                          placeholder="Nama perawat RS saat delivery..."
+                          className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        />
+                      </label>
+                      <label className="block text-sm text-slate-600">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Pengantaran</span>
+                        <input
+                          type="datetime-local"
+                          value={deliveryDate}
+                          onChange={(e) => setDeliveryDate(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── SECTION 3: Catatan ────────────────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="block text-sm text-slate-600">
+                    <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Pickup</span>
+                    <textarea
+                      value={notesPickup}
+                      onChange={(e) => setNotesPickup(e.target.value)}
+                      placeholder="Tulis catatan saat pickup..."
+                      rows={2}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-y"
+                    />
+                  </label>
+                  <label className="block text-sm text-slate-600">
+                    <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan Delivery</span>
+                    <textarea
+                      value={notesDelivery}
+                      onChange={(e) => setNotesDelivery(e.target.value)}
+                      placeholder="Tulis catatan saat delivery..."
+                      rows={2}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 resize-y"
+                    />
+                  </label>
+                </div>
+
+                {/* ── SECTION 4: Item Detail Linen ─────────────────────────── */}
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div
+                    onClick={() => setShowItemDetails(prev => !prev)}
+                    className={cn(
+                      "flex items-center justify-between bg-slate-50 px-4 py-2.5 cursor-pointer hover:bg-slate-100/80 transition select-none",
+                      showItemDetails && "border-b border-slate-200"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                        <HiOutlineDocumentText className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen</span>
+                      {details.length > 0 && (
+                        <span className="rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5">
+                          {details.length} item
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!hospitalId && (
+                        <span className="text-xs text-rose-500 italic">Pilih Rumah Sakit terlebih dahulu</span>
+                      )}
+                      <div className="text-slate-400 p-0.5">
+                        {showItemDetails ? (
+                          <HiOutlineChevronDown className="h-4 w-4" />
+                        ) : (
+                          <HiOutlineChevronRight className="h-4 w-4" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {showItemDetails && (
+                    hospitalId ? (
+                      <div className="overflow-x-auto animate-fade-in">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen</th>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16">Tipe</th>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-orange-500 w-24">Kotor (Pcs)</th>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-600 w-24">Bersih (Pcs)</th>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20">Selisih</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Catatan</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {details.map((detail, idx) => {
+                              const kotor = Number(detail.qty_kotor || 0);
+                              const bersih = detail.qty_bersih !== null && detail.qty_bersih !== "" ? Number(detail.qty_bersih) : null;
+                              const selisih = bersih !== null ? kotor - bersih : null;
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="px-3 py-2 text-center text-xs text-slate-400 tabular-nums">{idx + 1}</td>
+                                  <td className="px-3 py-2 text-xs font-semibold text-slate-800 min-w-[140px]">{detail.linen_display_name}</td>
+                                  <td className="px-3 py-2 text-center">
+                                    <span className={cn(
+                                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase",
+                                      detail.ownership_type === "SEWA"
+                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                        : "bg-teal-50 text-teal-700 border-teal-200"
+                                    )}>
+                                      {detail.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-2">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      required
+                                      value={detail.qty_kotor}
+                                      onChange={(e) => handleQtyChange(idx, "qty_kotor", e.target.value)}
+                                      className="w-full text-center rounded-lg border border-orange-200 bg-orange-50/50 py-1.5 px-2 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-bold text-orange-700"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-2">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      placeholder="—"
+                                      value={detail.qty_bersih ?? ""}
+                                      onChange={(e) => handleQtyChange(idx, "qty_bersih", e.target.value)}
+                                      className="w-full text-center rounded-lg border border-emerald-200 bg-emerald-50/50 py-1.5 px-2 text-xs outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 font-bold text-emerald-700"
+                                    />
+                                  </td>
+                                  <td className={cn(
+                                    "px-3 py-2 text-center text-xs font-bold tabular-nums",
+                                    selisih === null ? "text-slate-300"
+                                      : selisih > 0 ? "text-rose-600"
+                                        : selisih < 0 ? "text-blue-600"
+                                          : "text-slate-400"
+                                  )}>
+                                    {selisih === null ? "—" : selisih === 0 ? "✓" : selisih > 0 ? `+${selisih}` : selisih}
+                                  </td>
+                                  <td className="px-2 py-2">
+                                    <input
+                                      type="text"
+                                      value={detail.notes || ""}
+                                      onChange={(e) => handleItemNoteChange(idx, e.target.value)}
+                                      placeholder="Catatan item..."
+                                      className="w-full rounded-lg border border-slate-200 bg-white py-1.5 px-2 text-xs outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {details.length === 0 && (
+                              <tr>
+                                <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400 italic">
+                                  Rumah sakit ini belum dikonfigurasi memiliki item linen aktif.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-rose-500 italic">
+                        Silakan pilih Rumah Sakit terlebih dahulu untuk melihat item linen.
+                      </div>
+                    )
                   )}
                 </div>
 
-                {hospitalId && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 border-b border-slate-100">
-                        <tr>
-                          <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
-                          <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen</th>
-                          <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16">Tipe</th>
-                          <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-orange-500 w-24">Kotor (Pcs)</th>
-                          <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-600 w-24">Bersih (Pcs)</th>
-                          <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20">Selisih</th>
-                          <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Catatan</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {details.map((detail, idx) => {
-                          const kotor = Number(detail.qty_kotor || 0);
-                          const bersih = detail.qty_bersih !== null && detail.qty_bersih !== "" ? Number(detail.qty_bersih) : null;
-                          const selisih = bersih !== null ? kotor - bersih : null;
-                          return (
-                            <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="px-3 py-2 text-center text-xs text-slate-400 tabular-nums">{idx + 1}</td>
-                              <td className="px-3 py-2 text-xs font-semibold text-slate-800 min-w-[140px]">{detail.linen_display_name}</td>
-                              <td className="px-3 py-2 text-center">
-                                <span className={cn(
-                                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase",
-                                  detail.ownership_type === "SEWA"
-                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                    : "bg-teal-50 text-teal-700 border-teal-200"
-                                )}>
-                                  {detail.ownership_type === "SEWA" ? "Sewa" : "RS"}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  required
-                                  value={detail.qty_kotor}
-                                  onChange={(e) => handleQtyChange(idx, "qty_kotor", e.target.value)}
-                                  className="w-full text-center rounded-lg border border-orange-200 bg-orange-50/50 py-1.5 px-2 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-bold text-orange-700"
-                                />
-                              </td>
-                              <td className="px-2 py-2">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  placeholder="—"
-                                  value={detail.qty_bersih ?? ""}
-                                  onChange={(e) => handleQtyChange(idx, "qty_bersih", e.target.value)}
-                                  className="w-full text-center rounded-lg border border-emerald-200 bg-emerald-50/50 py-1.5 px-2 text-xs outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 font-bold text-emerald-700"
-                                />
-                              </td>
-                              <td className={cn(
-                                "px-3 py-2 text-center text-xs font-bold tabular-nums",
-                                selisih === null ? "text-slate-300"
-                                  : selisih > 0 ? "text-rose-600"
-                                    : selisih < 0 ? "text-blue-600"
-                                      : "text-slate-400"
-                              )}>
-                                {selisih === null ? "—" : selisih === 0 ? "✓" : selisih > 0 ? `+${selisih}` : selisih}
-                              </td>
-                              <td className="px-2 py-2">
-                                <input
-                                  type="text"
-                                  value={detail.notes || ""}
-                                  onChange={(e) => handleItemNoteChange(idx, e.target.value)}
-                                  placeholder="Catatan item..."
-                                  className="w-full rounded-lg border border-slate-200 bg-white py-1.5 px-2 text-xs outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {details.length === 0 && (
-                          <tr>
-                            <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400 italic">
-                              Rumah sakit ini belum dikonfigurasi memiliki item linen aktif.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* ── SECTION 5: Riwayat Audit ─────────────────────────────── */}
-              {mode !== "create" && auditLogs.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/50 overflow-hidden">
-                  <div className="flex items-center gap-2.5 bg-slate-50 border-b border-slate-200 px-4 py-2.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-200 text-slate-600">
-                      <HiOutlineClock className="h-3.5 w-3.5" />
+                {/* ── SECTION 6: Tanda Tangan Serah Terima ─────────────────────────── */}
+                {mode !== "create" && (
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div
+                    onClick={() => setShowSignatures(prev => !prev)}
+                    className={cn(
+                      "flex items-center justify-between bg-slate-50 px-4 py-2.5 cursor-pointer hover:bg-slate-100/80 transition select-none",
+                      showSignatures && "border-b border-slate-200"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                        <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Tanda Tangan Serah Terima</span>
+                      <span className="rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5">
+                        {[sigValetPickup, sigHospitalPickup, sigAssistantPickup, sigValetDelivery, sigHospitalDelivery, sigAssistantDelivery].filter(Boolean).length} / 6 Terverifikasi
+                      </span>
                     </div>
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Riwayat Perubahan</span>
-                    <span className="rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5">{auditLogs.length}</span>
+                    <div className="text-slate-400 p-0.5">
+                      {showSignatures ? (
+                        <HiOutlineChevronDown className="h-4 w-4" />
+                      ) : (
+                        <HiOutlineChevronRight className="h-4 w-4" />
+                      )}
+                    </div>
                   </div>
-                  <div className="max-h-[350px] overflow-y-auto p-4 space-y-4 divide-y divide-slate-100 bg-white">
-                    {/* Render Group 1: PICKUP_KOTOR */}
-                    {categorizedLogs.PICKUP_KOTOR.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Pickup Linen Kotor</h4>
-                        <div className="space-y-1.5 pl-1">
-                          {categorizedLogs.PICKUP_KOTOR.map((item) => (
-                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
-                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-700 font-bold">{item.fullName}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-600 font-medium">{item.changeText}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Render Group 2: DELIVERY_BERSIH */}
-                    {categorizedLogs.DELIVERY_BERSIH.length > 0 && (
-                      <div className="space-y-2 pt-4 first:pt-0">
-                        <h4 className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Pengantaran Linen Bersih</h4>
-                        <div className="space-y-1.5 pl-1">
-                          {categorizedLogs.DELIVERY_BERSIH.map((item) => (
-                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
-                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-700 font-bold">{item.fullName}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-600 font-medium">{item.changeText}</span>
-                            </div>
-                          ))}
+                  {showSignatures && (
+                    <div className="p-4 space-y-5 animate-fade-in bg-white">
+                      
+                      {/* Proses 1: Pengambilan Linen Kotor */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 border-b border-amber-100 pb-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-700 font-bold text-xs">1</span>
+                          <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wide">Pengambilan Linen Kotor</h4>
                         </div>
-                      </div>
-                    )}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          
+                          {/* 1. Petugas IKM */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-center flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Petugas IKM</span>
+                              <span className="text-xs font-bold text-slate-800 block truncate mt-0.5">
+                                {userPickup ? employeeMap.get(Number(userPickup)) || `Karyawan #${userPickup}` : "—"}
+                              </span>
+                            </div>
+                            <div className="h-24 w-full rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                              {sigValetPickup ? (
+                                <img src={getSignatureUrl(sigValetPickup)} alt="TTD Petugas IKM Pickup" className="max-h-full max-w-full object-contain" />
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Belum Tanda Tangan</span>
+                              )}
+                            </div>
+                            <div className="flex justify-center">
+                              {renderSignatureStatus(sigValetPickup)}
+                            </div>
+                          </div>
 
-                    {/* Render Group 3: KURANG_KIRIM */}
-                    {categorizedLogs.KURANG_KIRIM.length > 0 && (
-                      <div className="space-y-2 pt-4 first:pt-0">
-                        <h4 className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Linen Kurang Kirim</h4>
-                        <div className="space-y-1.5 pl-1">
-                          {categorizedLogs.KURANG_KIRIM.map((item) => (
-                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
-                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-700 font-bold">{item.fullName}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-600 font-medium">{item.changeText}</span>
+                          {/* 2. Petugas RS */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-center flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Petugas RS</span>
+                              <span className="text-xs font-bold text-slate-800 block truncate mt-0.5">
+                                {hospitalStaffPickup || "—"}
+                              </span>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                            <div className="h-24 w-full rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                              {sigHospitalPickup ? (
+                                <img src={getSignatureUrl(sigHospitalPickup)} alt="TTD Petugas RS Pickup" className="max-h-full max-w-full object-contain" />
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Belum Tanda Tangan</span>
+                              )}
+                            </div>
+                            <div className="flex justify-center">
+                              {renderSignatureStatus(sigHospitalPickup)}
+                            </div>
+                          </div>
 
-                    {/* Render Group 4: ADMIN */}
-                    {categorizedLogs.ADMIN.length > 0 && (
-                      <div className="space-y-2 pt-4 first:pt-0">
-                        <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Perubahan Oleh Admin</h4>
-                        <div className="space-y-1.5 pl-1">
-                          {categorizedLogs.ADMIN.map((item) => (
-                            <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
-                              <span className="text-slate-400 font-medium">{item.dateStr}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-700 font-bold">{item.fullName}</span>
-                              <span className="text-slate-300 font-bold">•</span>
-                              <span className="text-slate-600 font-medium">{item.changeText}</span>
+                          {/* 3. Perawat RS */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-center flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Perawat RS</span>
+                              <span className="text-xs font-bold text-slate-800 block truncate mt-0.5">
+                                {hospitalAssistantPickup || "—"}
+                              </span>
                             </div>
-                          ))}
+                            <div className="h-24 w-full rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                              {sigAssistantPickup ? (
+                                <img src={getSignatureUrl(sigAssistantPickup)} alt="TTD Perawat RS Pickup" className="max-h-full max-w-full object-contain" />
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Belum Tanda Tangan</span>
+                              )}
+                            </div>
+                            <div className="flex justify-center">
+                              {renderSignatureStatus(sigAssistantPickup)}
+                            </div>
+                          </div>
+
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Proses 2: Pengiriman Linen Bersih */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center gap-2 border-b border-emerald-100 pb-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 font-bold text-xs">2</span>
+                          <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Pengiriman Linen Bersih</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          
+                          {/* 1. Petugas IKM */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-center flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Petugas IKM</span>
+                              <span className="text-xs font-bold text-slate-800 block truncate mt-0.5">
+                                {userDelivery ? employeeMap.get(Number(userDelivery)) || `Karyawan #${userDelivery}` : "—"}
+                              </span>
+                            </div>
+                            <div className="h-24 w-full rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                              {sigValetDelivery ? (
+                                <img src={getSignatureUrl(sigValetDelivery)} alt="TTD Petugas IKM Delivery" className="max-h-full max-w-full object-contain" />
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Belum Tanda Tangan</span>
+                              )}
+                            </div>
+                            <div className="flex justify-center">
+                              {renderSignatureStatus(sigValetDelivery)}
+                            </div>
+                          </div>
+
+                          {/* 2. Petugas RS */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-center flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Petugas RS</span>
+                              <span className="text-xs font-bold text-slate-800 block truncate mt-0.5">
+                                {hospitalStaffDelivery || "—"}
+                              </span>
+                            </div>
+                            <div className="h-24 w-full rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                              {sigHospitalDelivery ? (
+                                <img src={getSignatureUrl(sigHospitalDelivery)} alt="TTD Petugas RS Delivery" className="max-h-full max-w-full object-contain" />
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Belum Tanda Tangan</span>
+                              )}
+                            </div>
+                            <div className="flex justify-center">
+                              {renderSignatureStatus(sigHospitalDelivery)}
+                            </div>
+                          </div>
+
+                          {/* 3. Perawat RS */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-center flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Perawat RS</span>
+                              <span className="text-xs font-bold text-slate-800 block truncate mt-0.5">
+                                {hospitalAssistantDelivery || "—"}
+                              </span>
+                            </div>
+                            <div className="h-24 w-full rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                              {sigAssistantDelivery ? (
+                                <img src={getSignatureUrl(sigAssistantDelivery)} alt="TTD Perawat RS Delivery" className="max-h-full max-w-full object-contain" />
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Belum Tanda Tangan</span>
+                              )}
+                            </div>
+                            <div className="flex justify-center">
+                              {renderSignatureStatus(sigAssistantDelivery)}
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
                 </div>
               )}
 
-            </div>
-          )}
+                {/* ── SECTION 5: Riwayat Audit ─────────────────────────────── */}
+                {mode !== "create" && auditLogs.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/50 overflow-hidden">
+                    <div
+                      onClick={() => setShowAuditLogs(prev => !prev)}
+                      className={cn(
+                        "flex items-center justify-between bg-slate-50 px-4 py-2.5 cursor-pointer hover:bg-slate-100/80 transition select-none",
+                        showAuditLogs && "border-b border-slate-200"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-200 text-slate-600">
+                          <HiOutlineClock className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Riwayat Perubahan</span>
+                        <span className="rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5">{auditLogs.length}</span>
+                      </div>
+                      <div className="text-slate-400 p-0.5">
+                        {showAuditLogs ? (
+                          <HiOutlineChevronDown className="h-4 w-4" />
+                        ) : (
+                          <HiOutlineChevronRight className="h-4 w-4" />
+                        )}
+                      </div>
+                    </div>
+                    {showAuditLogs && (
+                      <div className="max-h-[350px] overflow-y-auto p-4 space-y-4 divide-y divide-slate-100 bg-white animate-fade-in">
+                        {/* Render Group 1: PICKUP_KOTOR */}
+                        {categorizedLogs.PICKUP_KOTOR.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Pickup Linen Kotor</h4>
+                            <div className="space-y-1.5 pl-1">
+                              {categorizedLogs.PICKUP_KOTOR.map((item) => (
+                                <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                                  <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-700 font-bold">{item.fullName}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-600 font-medium">{item.changeText}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-        </form>
+                        {/* Render Group 2: DELIVERY_BERSIH */}
+                        {categorizedLogs.DELIVERY_BERSIH.length > 0 && (
+                          <div className="space-y-2 pt-4 first:pt-0">
+                            <h4 className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Pengantaran Linen Bersih</h4>
+                            <div className="space-y-1.5 pl-1">
+                              {categorizedLogs.DELIVERY_BERSIH.map((item) => (
+                                <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                                  <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-700 font-bold">{item.fullName}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-600 font-medium">{item.changeText}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Render Group 3: KURANG_KIRIM */}
+                        {categorizedLogs.KURANG_KIRIM.length > 0 && (
+                          <div className="space-y-2 pt-4 first:pt-0">
+                            <h4 className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Linen Kurang Kirim</h4>
+                            <div className="space-y-1.5 pl-1">
+                              {categorizedLogs.KURANG_KIRIM.map((item) => (
+                                <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                                  <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-700 font-bold">{item.fullName}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-600 font-medium">{item.changeText}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Render Group 4: ADMIN */}
+                        {categorizedLogs.ADMIN.length > 0 && (
+                          <div className="space-y-2 pt-4 first:pt-0">
+                            <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Perubahan Oleh Admin</h4>
+                            <div className="space-y-1.5 pl-1">
+                              {categorizedLogs.ADMIN.map((item) => (
+                                <div key={item.id} className="text-[11px] flex flex-wrap items-center gap-1.5 leading-relaxed">
+                                  <span className="text-slate-400 font-medium">{item.dateStr}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-700 font-bold">{item.fullName}</span>
+                                  <span className="text-slate-300 font-bold">•</span>
+                                  <span className="text-slate-600 font-medium">{item.changeText}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            )}
+
+          </form>
+        )}
+
+        {/* TAB 2: Riwayat Surat Jalan */}
+        {activeTab === "suratJalan" && (
+          <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1.5 pb-4">
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+                <p className="text-sm text-slate-500">Memuat riwayat surat jalan...</p>
+              </div>
+            )}
+
+            {!loading && (
+              kurangKirimDeliveries.length > 0 ? (
+                selectedDelivery ? (
+                  /* Detail View of Selected Surat Jalan */
+                  <div className="space-y-4 animate-fade-in">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDelivery(null)}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-1.5"
+                    >
+                      <HiOutlineChevronLeft className="h-4 w-4" />
+                      <span>Kembali ke Daftar Surat Jalan</span>
+                    </button>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold shrink-0">
+                            <HiOutlineTruck className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-800">
+                              Surat Jalan: <span className="font-mono text-indigo-600">{selectedDelivery.surat_jalan_number || "—"}</span>
+                            </h4>
+                            <p className="text-[11px] text-slate-400">
+                              Tanggal Pengiriman: <span className="font-semibold text-slate-600">{fmtLogDateTime(selectedDelivery.delivery_date)}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => exportSuratJalanKurangKirim(selectedDelivery, selectedDelivery.details || [])}
+                          className="rounded-xl bg-indigo-50 border border-indigo-200 px-3.5 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <HiOutlinePrinter className="h-4 w-4" />
+                          <span>Cetak Surat Jalan</span>
+                        </button>
+                      </div>
+
+                      {/* Info Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Petugas Valet</span>
+                          <span className="font-semibold text-slate-700">{selectedDelivery.valet_name || "-"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Penerima RS / Staff</span>
+                          <span className="font-semibold text-slate-700">{selectedDelivery.recipient_name || selectedDelivery.hospital_staff || "-"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">No. Kendaraan</span>
+                          <span className="font-semibold text-slate-700">{selectedDelivery.vehicle_number || "-"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Catatan</span>
+                          <span className="font-semibold text-slate-700">{selectedDelivery.notes || "-"}</span>
+                        </div>
+                      </div>
+
+                      {/* Items Table */}
+                      {selectedDelivery.details && selectedDelivery.details.length > 0 && (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-3 py-2 text-center text-[10px] font-bold text-slate-500 uppercase w-10">No</th>
+                                <th className="px-3 py-2 font-bold text-slate-500 uppercase">Nama Linen</th>
+                                <th className="px-3 py-2 text-center font-bold text-slate-500 uppercase w-24">Jumlah (Pcs)</th>
+                                <th className="px-3 py-2 text-center font-bold text-slate-500 uppercase w-28">Berat (Gram)</th>
+                                <th className="px-3 py-2 font-bold text-slate-500 uppercase">Catatan</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {selectedDelivery.details.map((item, idx) => {
+                                const qty = item.qty_delivered || 0;
+                                const grammage = parseFloat(item.grammage || 0);
+                                const weight = item.total_weight || (grammage * qty);
+                                const linenName = item.hospital_linen_name || [item.linen_name, item.size_name, item.color_name, item.material_name].filter(Boolean).join(" ") || `Linen #${item.hospital_linen_id}`;
+                                return (
+                                  <tr key={item.id || idx} className="hover:bg-slate-50/50">
+                                    <td className="px-3 py-2 text-center text-slate-400 tabular-nums">{idx + 1}</td>
+                                    <td className="px-3 py-2 font-semibold text-slate-800">{linenName}</td>
+                                    <td className="px-3 py-2 text-center font-bold text-emerald-600 tabular-nums">{qty}</td>
+                                    <td className="px-3 py-2 text-center font-semibold text-slate-600 tabular-nums">{weight > 0 ? weight.toLocaleString("id-ID") : "—"}</td>
+                                    <td className="px-3 py-2 text-slate-500 italic">{item.notes || "—"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Summary List View of Compact Cards */
+                  <div className="space-y-3">
+                    {kurangKirimDeliveries.map((delivery, index) => {
+                      const totalPcs = delivery.details ? delivery.details.reduce((sum, item) => sum + Number(item.qty_delivered || 0), 0) : 0;
+                      return (
+                        <div
+                          key={delivery.id || index}
+                          onClick={() => setSelectedDelivery(delivery)}
+                          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-indigo-300 hover:shadow-md transition cursor-pointer flex flex-wrap items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">
+                              <HiOutlineTruck className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold text-slate-800">
+                                  Surat Jalan: <span className="font-mono text-indigo-600">{delivery.surat_jalan_number || "—"}</span>
+                                </h4>
+                                {totalPcs > 0 && (
+                                  <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5">
+                                    {totalPcs} Pcs
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                Tanggal: <span className="font-semibold text-slate-600">{fmtLogDateTime(delivery.delivery_date)}</span> • Valet: <span className="font-semibold text-slate-700">{delivery.valet_name || "-"}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                exportSuratJalanKurangKirim(delivery, delivery.details || []);
+                              }}
+                              className="rounded-xl bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition inline-flex items-center gap-1 shadow-sm"
+                            >
+                              <HiOutlinePrinter className="h-3.5 w-3.5" />
+                              <span>Cetak</span>
+                            </button>
+                            <div className="flex items-center text-xs font-bold text-indigo-600 group-hover:translate-x-0.5 transition pl-1">
+                              <span>Detail</span>
+                              <HiOutlineChevronRight className="h-4 w-4 ml-0.5" />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : hasGap ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-8 text-center space-y-2">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 border border-amber-200">
+                    <HiOutlineClock className="h-6 w-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-amber-900">Pengiriman Linen akan segera di proses oleh Team Valet</h4>
+                  <p className="text-xs text-amber-700 max-w-md mx-auto">
+                    Terdapat selisih kotor dan bersih (kurang kirim) pada transaksi ini, namun surat jalan pengiriman kurang kirim belum diterbitkan oleh tim valet.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-8 text-center space-y-2">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 border border-emerald-200">
+                    <HiOutlineCheckCircle className="h-6 w-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">Tidak ada proses kurang kirim dalam transaksi ini</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Jumlah linen bersih telah lengkap memenuhi jumlah linen kotor (tidak ada selisih kurang kirim).
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">

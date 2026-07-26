@@ -16,11 +16,14 @@ function fmtDateTime(v) {
   }).format(d);
 }
 
-function buildProxySigUrl(fileName) {
-  if (!fileName) return null;
+function buildProxySigUrl(sig) {
+  if (!sig) return null;
+  if (sig.startsWith("data:") || sig.startsWith("http://") || sig.startsWith("https://") || sig.startsWith("blob:")) {
+    return sig;
+  }
+  const filename = sig.split("/").pop();
   const base = (BASE_URL || "").replace(/\/$/, "");
-  const safe = encodeURIComponent(String(fileName).replace(/^\/+/, ""));
-  return `${base}/ikm/linen-transactions/signature-proxy?name=${safe}`;
+  return `${base}/ikm/linen-transactions/signature-proxy?name=${encodeURIComponent(filename)}`;
 }
 
 async function fetchImageBuffer(url) {
