@@ -80,6 +80,12 @@ const TRANSAKSI_LINEN_MENU = [
 		label: "Serah Terima Linen",
 		description: "Penerimaan & pengiriman linen",
 	},
+	{
+		to: "/transaksi-linen-custom-ikm",
+		icon: HiOutlineDocumentText,
+		label: "Serah Terima Khusus",
+		description: "Penerimaan & pengiriman linen khusus",
+	},
 ];
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
@@ -291,6 +297,50 @@ export default function AbsensiIKM() {
 	const [desktopCollapsed, setDesktopCollapsed] = useState(false);
 	const drawerRef = useRef(null);
 
+	const [sidebarWidth, setSidebarWidth] = useState(() => {
+		const saved = localStorage.getItem("sidebar_width");
+		return saved ? Number(saved) : 256;
+	});
+	const isResizingRef = useRef(false);
+
+	const handleMouseDown = (e) => {
+		e.preventDefault();
+		isResizingRef.current = true;
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+	};
+
+	useEffect(() => {
+		const handleMouseMove = (e) => {
+			if (!isResizingRef.current) return;
+			// Constrain width between 180px and 450px
+			const newWidth = Math.max(180, Math.min(450, e.clientX));
+			setSidebarWidth(newWidth);
+		};
+
+		const handleMouseUp = () => {
+			if (isResizingRef.current) {
+				isResizingRef.current = false;
+				document.body.style.cursor = "";
+				document.body.style.userSelect = "";
+			}
+		};
+
+		document.addEventListener("mousemove", handleMouseMove);
+		document.addEventListener("mouseup", handleMouseUp);
+		return () => {
+			document.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("mouseup", handleMouseUp);
+		};
+	}, []);
+
+	// Save to localStorage when it changes
+	useEffect(() => {
+		if (!desktopCollapsed) {
+			localStorage.setItem("sidebar_width", String(sidebarWidth));
+		}
+	}, [sidebarWidth, desktopCollapsed]);
+
 	// Close on Escape key
 	useEffect(() => {
 		const onKey = (e) => { if (e.key === "Escape") setMobileOpen(false); };
@@ -308,12 +358,20 @@ export default function AbsensiIKM() {
 		<div className="flex h-screen overflow-hidden bg-indigo-50">
 			{/* ── Desktop sidebar ─────────────────────────────────────────── */}
 			<aside
-				className={cn(
-					"hidden lg:flex shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden",
-					desktopCollapsed ? "w-20" : "w-64",
-				)}
+				style={{ width: desktopCollapsed ? 80 : sidebarWidth }}
+				className="hidden lg:flex shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm relative overflow-hidden"
 			>
 				<Sidebar collapsed={desktopCollapsed} />
+
+				{/* Drag handle */}
+				{!desktopCollapsed && (
+					<div
+						onMouseDown={handleMouseDown}
+						className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/20 active:bg-blue-600/30 hover:w-1.5 transition-all group z-30"
+					>
+						<div className="absolute top-1/2 -translate-y-1/2 right-[1px] w-[2px] h-8 bg-slate-350 rounded group-hover:bg-blue-400 group-active:bg-blue-500" />
+					</div>
+				)}
 			</aside>
 
 			{/* ─── Mobile overlay ────────────────────────────────────────────── */}

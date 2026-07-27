@@ -390,11 +390,16 @@ function buildAuditLines(log) {
 
   // Updated / added items
   newD.forEach(n => {
-    const o = oldD.find(x => x.hospital_linen_id === n.hospital_linen_id);
+    const o = oldD.find(x => x.id === n.id);
     const name = n.linen_display_name || `Item #${n.hospital_linen_id}`;
     if (!o) {
       lines.push(`+ ${name} ditambahkan (Qty ${n.qty})`);
     } else {
+      if (o.hospital_linen_id !== n.hospital_linen_id) {
+        const oldOwner = o.ownership_type === "SEWA" ? "Sewa" : "RS";
+        const newOwner = n.ownership_type === "SEWA" ? "Sewa" : "RS";
+        lines.push(`${n.linen_display_name || name} — Kepemilikan: ${oldOwner} → ${newOwner}`);
+      }
       if (normNum(o.qty) !== normNum(n.qty))
         lines.push(`${name} — Qty: ${normNum(o.qty)} → ${normNum(n.qty)}`);
       if (normNum(o.clear) !== normNum(n.clear))
@@ -408,7 +413,7 @@ function buildAuditLines(log) {
 
   // Deleted items
   oldD.forEach(o => {
-    if (!newD.find(n => n.hospital_linen_id === o.hospital_linen_id)) {
+    if (!newD.find(n => n.id === o.id)) {
       const name = o.linen_display_name || `Item #${o.hospital_linen_id}`;
       lines.push(`− ${name} dihapus`);
     }
@@ -495,13 +500,28 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       const newQty   = item.edit_qty   !== "" && item.edit_qty   !== undefined ? Number(item.edit_qty)   : item.qty;
       const newClear = item.edit_clear !== "" && item.edit_clear !== undefined ? Number(item.edit_clear) : (item.clear ?? 0);
       const newNotes = item.edit_notes !== undefined ? item.edit_notes : item.detail_notes;
+      const newHli   = item.edit_hospital_linen_id !== undefined ? Number(item.edit_hospital_linen_id) : item.hospital_linen_id;
       await api(`/ikm/rewash-linen/${item.id}`, {
         method: "PUT",
-        body: JSON.stringify({ qty: newQty, clear: newClear, detail_notes: newNotes }),
+        body: JSON.stringify({ qty: newQty, clear: newClear, detail_notes: newNotes, hospital_linen_id: newHli }),
       });
+      const updatedLinenInfo = linens.find(l => l.id === newHli);
+      const parts = [updatedLinenInfo?.master_linen_name, updatedLinenInfo?.size_name, updatedLinenInfo?.color_name, updatedLinenInfo?.material_name].filter(Boolean);
       setItems(prev => prev.map(i =>
         i.id === item.id
-          ? { ...i, qty: newQty, clear: newClear, detail_notes: newNotes, edit_qty: undefined, edit_clear: undefined, edit_notes: undefined }
+          ? {
+              ...i,
+              qty: newQty,
+              clear: newClear,
+              detail_notes: newNotes,
+              hospital_linen_id: newHli,
+              ownership_type: updatedLinenInfo?.ownership_type || i.ownership_type,
+              linen_display_name: updatedLinenInfo ? parts.join(" ") : i.linen_display_name,
+              edit_qty: undefined,
+              edit_clear: undefined,
+              edit_notes: undefined,
+              edit_hospital_linen_id: undefined
+            }
           : i
       ));
       setEditId(null);
@@ -658,9 +678,38 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
                         )}
                       </td>
                       <td className="py-2.5 px-2 text-xs text-slate-600 align-top pt-3">
-                        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", item.ownership_type === "SEWA" ? "bg-purple-50 text-purple-700" : "bg-emerald-50 text-emerald-700")}>
-                          {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
-                        </span>
+                        {editId === item.id ? (
+                          <select
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-400 bg-white"
+                            value={item.edit_hospital_linen_id ?? item.hospital_linen_id}
+                            onChange={(e) => {
+                              const newHli = Number(e.target.value);
+                              setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_hospital_linen_id: newHli } : i));
+                            }}
+                          >
+                            {(() => {
+                              const currentLinenInfo = linens.find(l => l.id === item.hospital_linen_id);
+                              const linenId = currentLinenInfo?.linen_id;
+                              const matchingLinens = linens.filter(l => l.linen_id === linenId);
+                              if (matchingLinens.length === 0) {
+                                return (
+                                  <option value={item.hospital_linen_id}>
+                                    {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                                  </option>
+                                );
+                              }
+                              return matchingLinens.map(l => (
+                                <option key={l.id} value={l.id}>
+                                  {l.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                                </option>
+                              ));
+                            })()}
+                          </select>
+                        ) : (
+                          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", item.ownership_type === "SEWA" ? "bg-purple-50 text-purple-700" : "bg-emerald-50 text-emerald-700")}>
+                            {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                          </span>
+                        )}
                       </td>
                       {/* Qty */}
                       <td className="py-2.5 px-2 text-center align-top pt-3">
@@ -709,14 +758,14 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
                               className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
                               {savingId === item.id ? <HiOutlineClock className="h-3 w-3 animate-spin" /> : "Simpan"}
                             </button>
-                            <button onClick={() => { setEditId(null); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: undefined } : i)); }}
+                            <button onClick={() => { setEditId(null); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: undefined, edit_hospital_linen_id: undefined } : i)); }}
                               className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
                               Batal
                             </button>
                           </div>
                         ) : (
                           <div className="inline-flex items-center gap-1">
-                            <button onClick={() => { setEditId(item.id); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: i.detail_notes || "" } : i)); }}
+                            <button onClick={() => { setEditId(item.id); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: i.detail_notes || "", edit_hospital_linen_id: i.hospital_linen_id } : i)); }}
                               className="rounded-lg border border-slate-200 bg-white p-1 text-slate-500 hover:border-blue-300 hover:text-blue-600 transition" title="Edit">
                               <HiOutlinePencilSquare className="h-3.5 w-3.5" />
                             </button>
