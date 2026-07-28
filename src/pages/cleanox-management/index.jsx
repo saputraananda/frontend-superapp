@@ -31,6 +31,13 @@ const MENU_ITEMS = [
     end: true,
   },
   {
+    to: "/cleanox-management-system/target",
+    icon: HiOutlineChartBar,
+    label: "Target Cleanox",
+    description: "Kelola target bulanan Cleanox",
+    end: true,
+  },
+  {
     to: "/cleanox-management-system/category",
     icon: HiOutlineTag,
     label: "Master Kategori",

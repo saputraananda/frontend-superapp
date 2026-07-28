@@ -99,6 +99,7 @@ import EmployeeCleanox from "./pages/cleanox-management/components/EmployeeClean
 import MasterService from "./pages/cleanox-management/components/MasterService";
 import MasterCategory from "./pages/cleanox-management/components/MasterCategory";
 import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduksiCleanox";
+import TargetCleanox from "./pages/cleanox-management/components/TargetCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
 import DashboardPage from "./pages/my-waschen/components/DashboardPage";
@@ -580,6 +581,7 @@ export default function App() {
           <Route path="/cleanox-management-system" element={<EmployeeCleanox />} />
           <Route path="/cleanox-management-system/service" element={<MasterService />} />
           <Route path="/cleanox-management-system/category" element={<MasterCategory />} />
+          <Route path="/cleanox-management-system/target" element={<TargetCleanox />} />
           <Route path="/cleanox-management-system/kpi" element={<KpiProduksiCleanox />} />
           <Route path="/cleanox-management-system/:id" element={<EmployeeCleanoxDetail />} />
         </Route>
