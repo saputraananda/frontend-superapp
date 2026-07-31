@@ -593,27 +593,13 @@ export default function EmployeeDetail() {
   }, [employee]);
 
   const showPayslipTab = useMemo(() => {
-    try {
-      const rawUser = localStorage.getItem("user");
-      if (!rawUser) return false;
-      const userObj = JSON.parse(rawUser);
-
-      // Check the logged-in user's employee_id (from employee sub-object or main user ID)
-      const loggedInEmpId = Number(userObj.employee?.employee_id || userObj.id);
-      const isAllowedId = [25, 30, 31, 42, 43].includes(loggedInEmpId);
-
-      const position = userObj.employee?.position_name?.toUpperCase() || "";
-      const jobLevel = userObj.employee?.job_level_name?.toUpperCase() || "";
-      const role = userObj.role?.toUpperCase() || "";
-
-      const isBod = position === "BOD" || jobLevel === "BOD" || role === "BOD";
-
-      return isAllowedId || isBod;
-    } catch (e) {
-      console.error("Error parsing logged-in user for payslip permission:", e);
-      return false;
-    }
-  }, []);
+    if (!employee) return false;
+    const empId = Number(employee.employee_id);
+    const isAllowedId = [25, 30, 31, 42, 43].includes(empId);
+    const isBod = employee.position_name?.toUpperCase() === "BOD" ||
+      employee.job_level_name?.toUpperCase() === "BOD";
+    return isAllowedId || isBod;
+  }, [employee]);
 
   const visibleTabs = useMemo(() => {
     return TABS.filter((tab) => tab.id !== "payslip" || showPayslipTab);
@@ -842,8 +828,8 @@ export default function EmployeeDetail() {
                 {visibleTabs.map(({ id: tid, label, Icon }) => (
                   <button key={tid} type="button" onClick={() => handleTabChange(tid)}
                     className={cn(
-                       "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
-                       activeTab === tid ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                      "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
+                      activeTab === tid ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}>
                     <span className="flex items-center gap-2.5"><Icon className="w-4 h-4 shrink-0" />{label}</span>
                     {tid === "docs" && (
@@ -1479,7 +1465,7 @@ export default function EmployeeDetail() {
                 <div className="border-t border-slate-100 bg-slate-50 px-4 sm:px-6 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex gap-2">
-                       {activeTabIdx > 0 && (
+                      {activeTabIdx > 0 && (
                         <button type="button" onClick={() => handleTabChange(visibleTabs[activeTabIdx - 1].id)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
                           <HiOutlineChevronLeft className="w-4 h-4" /> Sebelumnya
