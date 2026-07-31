@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, assetUrl } from "../../lib/api";
+import { api, assetUrl, apiUpload, BASE_URL } from "../../lib/api";
 import LoadingScreen from "../../components/LoadingScreen";
 import AlertSuccess from "../../components/AlertSuccess";
 import JSZip from "jszip";
@@ -254,6 +254,7 @@ const TABS = [
   { id: "financial", label: "Data Keuangan", Icon: HiOutlineBanknotes },
   { id: "emergency", label: "Kontak Darurat", Icon: HiOutlinePhone },
   { id: "docs", label: "Dokumen", Icon: HiOutlineDocumentText },
+  { id: "payslip", label: "Slip Gaji", Icon: HiOutlineBanknotes },
   { id: "notes", label: "Catatan", Icon: HiOutlineDocumentText },
 ];
 
@@ -325,6 +326,133 @@ export default function EmployeeDetail() {
 
   // ── Preview modal state ──
   const [previewDoc, setPreviewDoc] = useState(null); // { url, fileName, label }
+
+  const fileInputRef = useRef(null);
+  const [payslips, setPayslips] = useState([]);
+  const [payslipsLoading, setPayslipsLoading] = useState(false);
+  const [payslipFilterMonth, setPayslipFilterMonth] = useState("");
+  const [selectedUploadMonth, setSelectedUploadMonth] = useState(() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}`;
+  });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Custom delete confirmation modal state
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null, monthLabel: "" });
+
+  const monthsOptions = useMemo(() => {
+    const opts = [];
+    const date = new Date();
+    date.setDate(1); // Set day to 1 to prevent month overflow bugs on months with 31 days
+    for (let i = 0; i < 18; i++) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const label = date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+      opts.push({ value: `${y}-${m}`, label });
+      date.setMonth(date.getMonth() - 1);
+    }
+    return opts;
+  }, []);
+
+  const formatMonthLabel = (monthStr) => {
+    if (!monthStr || !monthStr.includes("-")) return monthStr;
+    const [year, month] = monthStr.split("-");
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  };
+
+  const fetchPayslips = async () => {
+    setPayslipsLoading(true);
+    try {
+      const res = await api(`/ikm/employees/${id}/payslips`);
+      if (res.success) {
+        setPayslips(res.data || []);
+      }
+    } catch (err) {
+      console.error("Gagal memuat slip gaji:", err);
+    } finally {
+      setPayslipsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "payslip" && id) {
+      fetchPayslips();
+    }
+  }, [id, activeTab]);
+
+  const handleUploadPayslip = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      alert("Pilih file slip gaji terlebih dahulu.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", selectedFile);
+      formDataUpload.append("payslip_month", selectedUploadMonth);
+
+      const res = await apiUpload(`/ikm/employees/${id}/payslips`, {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      if (res.success) {
+        setSuccess("Slip gaji berhasil diupload.");
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        fetchPayslips();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err) {
+      setError(err.message || "Gagal mengupload slip gaji");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerDeleteConfirm = (payslipId, monthStr) => {
+    setDeleteConfirm({ show: true, id: payslipId, monthLabel: formatMonthLabel(monthStr) });
+  };
+
+  const handleDeletePayslip = async () => {
+    const payslipId = deleteConfirm.id;
+    if (!payslipId) return;
+    try {
+      const res = await api(`/ikm/employees/${id}/payslips/${payslipId}`, {
+        method: "DELETE",
+      });
+      if (res.success) {
+        setSuccess("Slip gaji berhasil dihapus.");
+        setDeleteConfirm({ show: false, id: null, monthLabel: "" });
+        fetchPayslips();
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch (err) {
+      setError(err.message || "Gagal menghapus slip gaji");
+      setTimeout(() => setError(""), 5000);
+    }
+  };
+
+  // Derive unique months for filtering from database data
+  const filterMonthOptions = useMemo(() => {
+    const unique = [...new Set(payslips.map((slip) => slip.payslip_month))];
+    unique.sort((a, b) => b.localeCompare(a));
+    return unique.map((m) => ({
+      value: m,
+      label: formatMonthLabel(m),
+    }));
+  }, [payslips]);
+
+  // Client-side filtered payslips
+  const filteredPayslips = useMemo(() => {
+    if (!payslipFilterMonth) return payslips;
+    return payslips.filter((slip) => slip.payslip_month === payslipFilterMonth);
+  }, [payslips, payslipFilterMonth]);
 
   // ── ZIP download ──
   const [zipping, setZipping] = useState(false);
@@ -464,8 +592,35 @@ export default function EmployeeDetail() {
     return EMPLOYEE_DOCS.filter(({ pathKey }) => !!employee[pathKey]).length;
   }, [employee]);
 
-  const activeTabIdx = TABS.findIndex((t) => t.id === activeTab);
-  const activeTabObj = TABS.find((t) => t.id === activeTab);
+  const showPayslipTab = useMemo(() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (!rawUser) return false;
+      const userObj = JSON.parse(rawUser);
+
+      // Check the logged-in user's employee_id (from employee sub-object or main user ID)
+      const loggedInEmpId = Number(userObj.employee?.employee_id || userObj.id);
+      const isAllowedId = [25, 30, 31, 42, 43].includes(loggedInEmpId);
+
+      const position = userObj.employee?.position_name?.toUpperCase() || "";
+      const jobLevel = userObj.employee?.job_level_name?.toUpperCase() || "";
+      const role = userObj.role?.toUpperCase() || "";
+
+      const isBod = position === "BOD" || jobLevel === "BOD" || role === "BOD";
+
+      return isAllowedId || isBod;
+    } catch (e) {
+      console.error("Error parsing logged-in user for payslip permission:", e);
+      return false;
+    }
+  }, []);
+
+  const visibleTabs = useMemo(() => {
+    return TABS.filter((tab) => tab.id !== "payslip" || showPayslipTab);
+  }, [showPayslipTab]);
+
+  const activeTabIdx = visibleTabs.findIndex((t) => t.id === activeTab);
+  const activeTabObj = visibleTabs.find((t) => t.id === activeTab);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -539,6 +694,45 @@ export default function EmployeeDetail() {
               <button disabled={!resignDate || resignSaving} onClick={handleResign}
                 className="flex-1 rounded-lg bg-rose-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 transition">
                 {resignSaving ? "Menyimpan..." : "Konfirmasi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Delete Confirmation Modal ── */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteConfirm({ show: false, id: null, monthLabel: "" })} />
+          <div className="relative z-50 w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-800">Hapus Slip Gaji</h2>
+              <button onClick={() => setDeleteConfirm({ show: false, id: null, monthLabel: "" })} className="text-slate-400 hover:text-slate-600 transition">
+                <HiOutlineXMark className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Apakah Anda yakin ingin menghapus slip gaji untuk periode <strong className="text-slate-800 font-bold">{deleteConfirm.monthLabel}</strong>?
+              </p>
+              <p className="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
+                Tindakan ini permanen dan tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm({ show: false, id: null, monthLabel: "" })}
+                className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePayslip}
+                className="flex-1 rounded-lg bg-rose-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-rose-700 transition"
+              >
+                Hapus
               </button>
             </div>
           </div>
@@ -645,11 +839,11 @@ export default function EmployeeDetail() {
                   </div>
                 </div>
 
-                {TABS.map(({ id: tid, label, Icon }) => (
+                {visibleTabs.map(({ id: tid, label, Icon }) => (
                   <button key={tid} type="button" onClick={() => handleTabChange(tid)}
                     className={cn(
-                      "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
-                      activeTab === tid ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                       "flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-left w-full transition-all",
+                       activeTab === tid ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}>
                     <span className="flex items-center gap-2.5"><Icon className="w-4 h-4 shrink-0" />{label}</span>
                     {tid === "docs" && (
@@ -708,7 +902,7 @@ export default function EmployeeDetail() {
 
               {/* Tab list */}
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-3 space-y-1">
-                {TABS.map(({ id: tid, label, Icon }) => (
+                {visibleTabs.map(({ id: tid, label, Icon }) => (
                   <button key={tid} type="button" onClick={() => handleTabChange(tid)}
                     className={cn(
                       "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-left w-full transition-all",
@@ -786,6 +980,11 @@ export default function EmployeeDetail() {
                       {activeTab === "docs" && (
                         <p className="text-xs text-slate-400 mt-0.5">
                           {uploadedDocCount} dari {EMPLOYEE_DOCS.length} dokumen tersedia
+                        </p>
+                      )}
+                      {activeTab === "payslip" && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {payslips.length} riwayat slip gaji diupload
                         </p>
                       )}
                     </div>
@@ -1085,6 +1284,185 @@ export default function EmployeeDetail() {
                     </div>
                   )}
 
+                  {/* ── SLIP GAJI ── */}
+                  {activeTab === "payslip" && (
+                    <div className="space-y-6">
+                      {/* Upload Form Panel */}
+                      <Panel title="Upload Slip Gaji Baru">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <Field label="Pilih Bulan Slip Gaji" required>
+                              <select
+                                value={selectedUploadMonth}
+                                onChange={(e) => setSelectedUploadMonth(e.target.value)}
+                                className={selectCls()}
+                              >
+                                {monthsOptions.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+
+                            <Field label="File Slip Gaji (PDF / Gambar)" required>
+                              <div className="relative flex items-center">
+                                <input
+                                  type="file"
+                                  ref={fileInputRef}
+                                  accept=".pdf,image/jpeg,image/png,image/webp"
+                                  onChange={(e) => setSelectedFile(e.target.files[0] || null)}
+                                  className={cn(
+                                    "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800",
+                                    "file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0",
+                                    "file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700",
+                                    "file:hover:bg-blue-100 file:cursor-pointer"
+                                  )}
+                                />
+                              </div>
+                            </Field>
+
+                            <div>
+                              <button
+                                type="button"
+                                onClick={handleUploadPayslip}
+                                disabled={uploading || !selectedFile}
+                                className={cn(
+                                  "w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+                                  selectedFile && !uploading
+                                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                )}
+                              >
+                                {uploading ? (
+                                  <>
+                                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    Mengupload...
+                                  </>
+                                ) : (
+                                  <>
+                                    <HiOutlineDocumentText className="w-4 h-4" />
+                                    Upload Slip Gaji
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </Panel>
+
+                      {/* History & Filter Panel */}
+                      <Panel title="Riwayat Slip Gaji">
+                        <div className="space-y-4">
+                          {/* Filter Bar */}
+                          <div className="flex items-center justify-between gap-4 flex-wrap bg-white pb-2">
+                            <div className="w-full sm:w-64">
+                              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Filter Bulan
+                              </label>
+                              <select
+                                value={payslipFilterMonth}
+                                onChange={(e) => setPayslipFilterMonth(e.target.value)}
+                                className={selectCls()}
+                              >
+                                <option value="">Semua Bulan</option>
+                                {filterMonthOptions.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <span className="text-xs text-slate-400 mt-5">
+                              Menampilkan {filteredPayslips.length} entri
+                            </span>
+                          </div>
+
+                          {/* Table or Loading / Empty state */}
+                          {payslipsLoading ? (
+                            <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
+                              <span className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                              <p className="text-sm">Memuat data slip gaji...</p>
+                            </div>
+                          ) : filteredPayslips.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 flex flex-col items-center justify-center gap-2">
+                              <HiOutlineDocumentText className="w-10 h-10 text-slate-300" />
+                              <p className="text-sm text-slate-500 font-medium">Belum ada slip gaji diupload</p>
+                              <p className="text-xs text-slate-400">Pilih file dan upload slip gaji di atas</p>
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                                <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                  <tr>
+                                    <th className="px-6 py-3">Bulan</th>
+                                    <th className="px-6 py-3">Nama File</th>
+                                    <th className="px-6 py-3">Tanggal Upload</th>
+                                    <th className="px-6 py-3 text-right">Aksi</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-slate-700">
+                                  {filteredPayslips.map((slip) => {
+                                    const viewUrl = `${BASE_URL}/ikm/employees/${id}/payslips/${slip.id}/view`;
+                                    return (
+                                      <tr key={slip.id} className="hover:bg-slate-50/50 transition">
+                                        <td className="px-6 py-4 font-semibold text-slate-800">
+                                          {formatMonthLabel(slip.payslip_month)}
+                                        </td>
+                                        <td className="px-6 py-4 truncate max-w-xs" title={slip.file_name}>
+                                          {slip.file_name}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-slate-400">
+                                          {slip.created_at ? new Date(slip.created_at).toLocaleString("id-ID", {
+                                            dateStyle: "medium",
+                                            timeStyle: "short"
+                                          }) : "—"}
+                                        </td>
+                                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                                          <div className="flex justify-end gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setPreviewDoc({
+                                                  url: viewUrl,
+                                                  fileName: slip.file_name,
+                                                  label: `Slip Gaji - ${formatMonthLabel(slip.payslip_month)}`,
+                                                })
+                                              }
+                                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+                                            >
+                                              Buka
+                                            </button>
+                                            <a
+                                              href={viewUrl}
+                                              download={slip.file_name}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+                                            >
+                                              Unduh
+                                            </a>
+                                            <button
+                                              type="button"
+                                              onClick={() => triggerDeleteConfirm(slip.id, slip.payslip_month)}
+                                              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition"
+                                            >
+                                              Hapus
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </Panel>
+                    </div>
+                  )}
+
                   {/* ── NOTES ── */}
                   {activeTab === "notes" && (
                     <Panel title="Catatan HR">
@@ -1101,14 +1479,14 @@ export default function EmployeeDetail() {
                 <div className="border-t border-slate-100 bg-slate-50 px-4 sm:px-6 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex gap-2">
-                      {activeTabIdx > 0 && (
-                        <button type="button" onClick={() => handleTabChange(TABS[activeTabIdx - 1].id)}
+                       {activeTabIdx > 0 && (
+                        <button type="button" onClick={() => handleTabChange(visibleTabs[activeTabIdx - 1].id)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
                           <HiOutlineChevronLeft className="w-4 h-4" /> Sebelumnya
                         </button>
                       )}
-                      {activeTabIdx < TABS.length - 1 && (
-                        <button type="button" onClick={() => handleTabChange(TABS[activeTabIdx + 1].id)}
+                      {activeTabIdx < visibleTabs.length - 1 && (
+                        <button type="button" onClick={() => handleTabChange(visibleTabs[activeTabIdx + 1].id)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 transition">
                           Berikutnya <HiOutlineChevronRight className="w-4 h-4" />
                         </button>
