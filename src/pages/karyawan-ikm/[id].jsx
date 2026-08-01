@@ -315,6 +315,20 @@ export default function EmployeeDetail() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [activeTab, setActiveTab] = useState("personal");
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        const userData = parsed.user ?? parsed;
+        setCurrentUser(userData.employee ?? null);
+      }
+    } catch (err) {
+      console.error("Error parsing user data:", err);
+    }
+  }, []);
 
   const [showResignModal, setShowResignModal] = useState(false);
   const [resignDate, setResignDate] = useState("");
@@ -593,13 +607,12 @@ export default function EmployeeDetail() {
   }, [employee]);
 
   const showPayslipTab = useMemo(() => {
-    if (!employee) return false;
-    const empId = Number(employee.employee_id);
-    const isAllowedId = [25, 30, 31, 42, 43].includes(empId);
-    const isBod = employee.position_name?.toUpperCase() === "BOD" ||
-      employee.job_level_name?.toUpperCase() === "BOD";
-    return isAllowedId || isBod;
-  }, [employee]);
+    if (!currentUser) return false;
+    const currentEmpId = Number(currentUser.employee_id);
+    const isAllowedId = [25, 30, 31, 42, 43].includes(currentEmpId);
+    const isDirektur = Number(currentUser.job_level_id) === 1;
+    return isAllowedId || isDirektur;
+  }, [currentUser]);
 
   const visibleTabs = useMemo(() => {
     return TABS.filter((tab) => tab.id !== "payslip" || showPayslipTab);
