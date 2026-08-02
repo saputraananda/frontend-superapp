@@ -938,7 +938,7 @@ export default function RumahSakitPage() {
 							{/* Akses Valet */}
 							<div className="sm:col-span-2 bg-slate-50/50 border border-slate-150 rounded-xl p-3.5 space-y-2">
 								<div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
-									🚗 Akses Valet
+									Akses Valet
 								</div>
 								<div className="grid grid-cols-2 gap-4">
 									<div>
