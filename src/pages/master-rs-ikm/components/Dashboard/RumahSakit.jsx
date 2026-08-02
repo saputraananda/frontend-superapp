@@ -122,6 +122,8 @@ const EMPTY_FORM = {
 	longitude: "",
 	username: "",
 	password: "",
+	username_unit: "",
+	password_unit: "",
 	rooms: [],
 };
 
@@ -156,14 +158,14 @@ function Modal({ open, title, onClose, className = "max-w-lg", children }) {
 	return (
 		<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
 			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
-			<div className={`relative w-full ${className} rounded-2xl bg-white shadow-2xl overflow-hidden`}>
-				<div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+			<div className={`relative w-full ${className} max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden`}>
+				<div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
 					<h3 className="text-base font-bold text-slate-800">{title}</h3>
 					<button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
 						<HiOutlineXMark className="h-5 w-5" />
 					</button>
 				</div>
-				<div className="px-6 py-5">{children}</div>
+				<div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
 			</div>
 		</div>
 	);
@@ -187,15 +189,30 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 		return {
 			...initial,
 			rooms: Array.isArray(initial.rooms)
-				? initial.rooms.map((r) => (typeof r === "string" ? r : r.room_name))
+				? initial.rooms.map((r) => {
+					if (typeof r === "string") {
+						return { room_name: r, user_1: "", user_2: "", user_3: "", user_4: "", user_5: "" };
+					}
+					return {
+						id: r.id,
+						room_name: r.room_name,
+						user_1: r.user_1 ?? "",
+						user_2: r.user_2 ?? "",
+						user_3: r.user_3 ?? "",
+						user_4: r.user_4 ?? "",
+						user_5: r.user_5 ?? "",
+					};
+				})
 				: [],
 			username: initial.username ?? "",
 			password: initial.password ?? "",
+			username_unit: initial.username_unit ?? "",
+			password_unit: initial.password_unit ?? "",
 		};
 	});
 	const [newRoom, setNewRoom] = useState("");
 	const [editingIdx, setEditingIdx] = useState(null);
-	const [editingName, setEditingName] = useState("");
+	const [editingRoom, setEditingRoom] = useState(null);
 	const [deleteRoomIdx, setDeleteRoomIdx] = useState(null);
 
 	const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -203,37 +220,50 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 	const addRoom = () => {
 		const val = newRoom.trim();
 		if (!val) return;
-		if (form.rooms.some((r) => r.toLowerCase() === val.toLowerCase())) {
+		if (form.rooms.some((r) => r.room_name.toLowerCase() === val.toLowerCase())) {
 			alert("Nama ruangan sudah ditambahkan!");
 			return;
 		}
-		setForm((f) => ({ ...f, rooms: [...f.rooms, val] }));
+		setForm((f) => ({
+			...f,
+			rooms: [
+				...f.rooms,
+				{ room_name: val, user_1: "", user_2: "", user_3: "", user_4: "", user_5: "" }
+			]
+		}));
 		setNewRoom("");
 	};
 
-	const startEdit = (idx, name) => {
+	const startEdit = (idx, roomObj) => {
 		setEditingIdx(idx);
-		setEditingName(name);
+		setEditingRoom({
+			room_name: roomObj.room_name,
+			user_1: roomObj.user_1 ?? "",
+			user_2: roomObj.user_2 ?? "",
+			user_3: roomObj.user_3 ?? "",
+			user_4: roomObj.user_4 ?? "",
+			user_5: roomObj.user_5 ?? "",
+		});
 	};
 
 	const saveEdit = (idx) => {
-		const val = editingName.trim();
+		const val = editingRoom.room_name.trim();
 		if (!val) return;
-		if (form.rooms.some((r, i) => i !== idx && r.toLowerCase() === val.toLowerCase())) {
+		if (form.rooms.some((r, i) => i !== idx && r.room_name.toLowerCase() === val.toLowerCase())) {
 			alert("Nama ruangan sudah digunakan!");
 			return;
 		}
 		setForm((f) => ({
 			...f,
-			rooms: f.rooms.map((r, i) => (i === idx ? val : r)),
+			rooms: f.rooms.map((r, i) => (i === idx ? { ...r, ...editingRoom, room_name: val } : r)),
 		}));
 		setEditingIdx(null);
-		setEditingName("");
+		setEditingRoom(null);
 	};
 
 	const cancelEdit = () => {
 		setEditingIdx(null);
-		setEditingName("");
+		setEditingRoom(null);
 	};
 
 	const requestDelete = (idx) => {
@@ -302,6 +332,16 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 							<input type="text" className={inputCls} value={form.password} onChange={set("password")} placeholder="••••••••" />
 						</div>
 					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className={labelCls}>Username Unit</label>
+							<input className={inputCls} value={form.username_unit} onChange={set("username_unit")} placeholder="username_unit" />
+						</div>
+						<div>
+							<label className={labelCls}>Password Unit</label>
+							<input type="text" className={inputCls} value={form.password_unit} onChange={set("password_unit")} placeholder="••••••••" />
+						</div>
+					</div>
 				</div>
 
 				{/* Kanan: Daftar Ruangan */}
@@ -332,7 +372,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 						</button>
 					</div>
 
-					<div className="flex-1 overflow-y-auto min-h-[220px] max-h-[260px] pr-1 space-y-2 border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
+					<div className="flex-1 overflow-y-auto min-h-[260px] max-h-[380px] pr-1 space-y-2 border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
 						{form.rooms.length === 0 ? (
 							<div className="flex flex-col items-center justify-center py-10 text-slate-400">
 								<HiOutlineBuildingOffice2 className="h-8 w-8 text-slate-300 mb-1" />
@@ -345,48 +385,80 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 									className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-150 shadow-sm text-sm text-slate-700 hover:border-slate-300 transition"
 								>
 									{editingIdx === idx ? (
-										<div className="flex items-center gap-1.5 w-full">
-											<input
-												type="text"
-												value={editingName}
-												onChange={(e) => setEditingName(e.target.value)}
-												onKeyDown={(e) => {
-													if (e.key === "Enter") {
-														e.preventDefault();
-														saveEdit(idx);
-													} else if (e.key === "Escape") {
-														cancelEdit();
-													}
-												}}
-												className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-400 focus:ring-1 focus:ring-red-200 font-semibold"
-												autoFocus
-											/>
-											<button
-												type="button"
-												onClick={() => saveEdit(idx)}
-												className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
-												title="Simpan Edit"
-											>
-												<HiOutlineCheck className="h-4.5 w-4.5" />
-											</button>
-											<button
-												type="button"
-												onClick={cancelEdit}
-												className="p-1 rounded-lg text-slate-400 hover:bg-slate-50 transition"
-												title="Batal Edit"
-											>
-												<HiOutlineXMark className="h-4.5 w-4.5" />
-											</button>
+										<div className="flex flex-col gap-3 w-full p-3 bg-slate-50 border border-slate-200 rounded-xl">
+											<div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center justify-between">
+												<span>Edit Detail Ruangan</span>
+												<div className="flex items-center gap-1">
+													<button
+														type="button"
+														onClick={() => saveEdit(idx)}
+														className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-100 transition"
+														title="Simpan Edit"
+													>
+														<HiOutlineCheck className="h-4.5 w-4.5" />
+													</button>
+													<button
+														type="button"
+														onClick={cancelEdit}
+														className="p-1 rounded-lg text-slate-400 hover:bg-slate-200 transition"
+														title="Batal Edit"
+													>
+														<HiOutlineXMark className="h-4.5 w-4.5" />
+													</button>
+												</div>
+											</div>
+											<div>
+												<label className="block text-[10px] font-semibold text-slate-500 mb-1">Nama Ruangan</label>
+												<input
+													type="text"
+													value={editingRoom.room_name}
+													onChange={(e) => setEditingRoom({ ...editingRoom, room_name: e.target.value })}
+													className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-red-400 focus:ring-1 focus:ring-red-100 font-semibold text-slate-800"
+													autoFocus
+												/>
+											</div>
+											<div className="space-y-2">
+												<label className="block text-[10px] font-semibold text-slate-500">Penanggung Jawab (Maks 5 User)</label>
+												<div className="grid grid-cols-1 gap-2">
+													{[1, 2, 3, 4, 5].map((num) => (
+														<div key={num} className="flex items-center gap-2">
+															<span className="text-[10px] text-slate-400 font-bold w-4">{num}</span>
+															<input
+																type="text"
+																value={editingRoom[`user_${num}`]}
+																onChange={(e) => setEditingRoom({ ...editingRoom, [`user_${num}`]: e.target.value })}
+																placeholder={`Nama penanggung jawab ${num}`}
+																className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-red-400 text-slate-700"
+															/>
+														</div>
+													))}
+												</div>
+											</div>
 										</div>
 									) : (
 										<>
-											<span className="font-semibold truncate">{room}</span>
-											<div className="flex items-center gap-1">
+											<div className="flex flex-col gap-1 py-1 max-w-[80%]">
+												<span className="font-semibold text-slate-800 break-words">{room.room_name}</span>
+												{(() => {
+													const users = [room.user_1, room.user_2, room.user_3, room.user_4, room.user_5].filter(Boolean);
+													if (users.length === 0) return null;
+													return (
+														<div className="flex flex-wrap gap-1 mt-1">
+															{users.map((u, ui) => (
+																<span key={ui} className="inline-flex items-center bg-slate-100 text-slate-650 px-1.5 py-0.5 rounded text-[10px] font-medium border border-slate-200">
+																	👤 {u}
+																</span>
+															))}
+														</div>
+													);
+												})()}
+											</div>
+											<div className="flex items-center gap-1 shrink-0">
 												<button
 													type="button"
 													onClick={() => startEdit(idx, room)}
 													className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
-													title="Edit Nama Ruangan"
+													title="Edit Detail Ruangan"
 												>
 													<HiOutlinePencilSquare className="h-4 w-4" />
 												</button>
@@ -429,7 +501,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 							<h4 className="text-sm font-bold text-slate-800">Hapus Ruangan?</h4>
 						</div>
 						<p className="text-xs text-slate-500 leading-relaxed">
-							Apakah Anda yakin ingin menghapus ruangan <span className="font-bold text-slate-800">"{form.rooms[deleteRoomIdx]}"</span>? Tindakan ini akan menghapus semua catatan stok linen di dalam ruangan ini secara permanen setelah disimpan.
+							Apakah Anda yakin ingin menghapus ruangan <span className="font-bold text-slate-800">"{form.rooms[deleteRoomIdx]?.room_name}"</span>? Tindakan ini akan menghapus semua catatan stok linen di dalam ruangan ini secara permanen setelah disimpan.
 						</p>
 						<div className="flex justify-end gap-2 pt-2">
 							<button
@@ -462,6 +534,7 @@ export default function RumahSakitPage() {
 	const [modal, setModal] = useState(null); // { mode: "add"|"edit", data: null|{...} }
 	const [deleteTarget, setDeleteTarget] = useState(null);
 	const [detailModal, setDetailModal] = useState(null);
+	const [showDetailRooms, setShowDetailRooms] = useState(false);
 	const [formLoading, setFormLoading] = useState(false);
 	useEffect(() => { document.title = "Data Rumah Sakit IKM | Alora Group Indonesia"; }, []);
 	
@@ -768,7 +841,10 @@ export default function RumahSakitPage() {
 													<button
 														type="button"
 														title="Detail"
-														onClick={() => setDetailModal(h)}
+														onClick={() => {
+															setDetailModal(h);
+															setShowDetailRooms(false);
+														}}
 														className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 transition"
 													>
 														<HiOutlineEye className="h-4 w-4" />
@@ -853,6 +929,7 @@ export default function RumahSakitPage() {
 				open={detailModal !== null}
 				title="Detail Rumah Sakit"
 				onClose={() => setDetailModal(null)}
+				className="max-w-2xl"
 			>
 				{detailModal && (
 					<div className="space-y-4">
@@ -877,19 +954,55 @@ export default function RumahSakitPage() {
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Password</label>
 								<div className="text-sm text-slate-700 font-mono">{detailModal.password || "-"}</div>
 							</div>
+							<div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Username Unit</label>
+								<div className="text-sm text-slate-700 font-mono">{detailModal.username_unit || "-"}</div>
+							</div>
+							<div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1">Password Unit</label>
+								<div className="text-sm text-slate-700 font-mono">{detailModal.password_unit || "-"}</div>
+							</div>
 							<div className="sm:col-span-2">
-								<label className="block text-xs font-semibold text-slate-500 mb-1">Daftar Ruangan</label>
-								<div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto border border-slate-100 bg-slate-50/50 rounded-xl p-2">
-									{!detailModal.rooms || detailModal.rooms.length === 0 ? (
-										<span className="text-xs text-slate-400 font-medium">— Belum ada ruangan ditambahkan —</span>
-									) : (
-										detailModal.rooms.map((r, i) => (
-											<span key={i} className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm">
-												{typeof r === "string" ? r : r.room_name}
-											</span>
-										))
-									)}
-								</div>
+								<label className="block text-xs font-semibold text-slate-500 mb-1.5">Ruangan & Penanggung Jawab</label>
+								<button
+									type="button"
+									onClick={() => setShowDetailRooms(!showDetailRooms)}
+									className="flex items-center justify-between w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-700 transition"
+								>
+									<span>Daftar Ruangan ({detailModal.rooms?.length || 0})</span>
+									<span className="text-slate-400">
+										{showDetailRooms ? "▲ Sembunyikan" : "▼ Tampilkan"}
+									</span>
+								</button>
+								
+								{showDetailRooms && (
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto border border-slate-200 bg-white rounded-xl p-3 mt-2 shadow-inner">
+										{!detailModal.rooms || detailModal.rooms.length === 0 ? (
+											<span className="col-span-2 text-xs text-slate-400 font-medium py-4 text-center">— Belum ada ruangan ditambahkan —</span>
+										) : (
+											detailModal.rooms.map((r, i) => {
+												const roomName = typeof r === "string" ? r : r.room_name;
+												const roomUsers = typeof r === "string" ? [] : [r.user_1, r.user_2, r.user_3, r.user_4, r.user_5].filter(Boolean);
+												return (
+													<div key={i} className="bg-slate-50/50 border border-slate-150 rounded-xl p-2.5 flex flex-col gap-1 hover:border-slate-300 transition">
+														<div className="text-xs font-bold text-slate-800">{roomName}</div>
+														{roomUsers.length > 0 ? (
+															<div className="flex flex-wrap gap-1 mt-0.5">
+																{roomUsers.map((u, ui) => (
+																	<span key={ui} className="inline-flex items-center bg-white text-slate-650 px-1.5 py-0.5 rounded text-[10px] font-medium border border-slate-200 font-sans">
+																		👤 {u}
+																	</span>
+																))}
+															</div>
+														) : (
+															<span className="text-[10px] text-slate-400 italic">Tidak ada penanggung jawab</span>
+														)}
+													</div>
+												);
+											})
+										)}
+									</div>
+								)}
 							</div>
 							<div className="sm:col-span-2">
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Alamat Lengkap</label>
