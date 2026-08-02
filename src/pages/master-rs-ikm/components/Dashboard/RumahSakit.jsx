@@ -183,26 +183,13 @@ function MapController({ target }) {
 }
 
 // ── Form ─────────────────────────────────────────────────────────────────
-function HospitalForm({ initial, onSubmit, onClose, loading }) {
+function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 	const [form, setForm] = useState(() => {
 		if (!initial) return EMPTY_FORM;
 		return {
 			...initial,
 			rooms: Array.isArray(initial.rooms)
-				? initial.rooms.map((r) => {
-					if (typeof r === "string") {
-						return { room_name: r, user_1: "", user_2: "", user_3: "", user_4: "", user_5: "" };
-					}
-					return {
-						id: r.id,
-						room_name: r.room_name,
-						user_1: r.user_1 ?? "",
-						user_2: r.user_2 ?? "",
-						user_3: r.user_3 ?? "",
-						user_4: r.user_4 ?? "",
-						user_5: r.user_5 ?? "",
-					};
-				})
+				? initial.rooms.map((r) => (typeof r === "string" ? { room_name: r } : { id: r.id, room_name: r.room_name }))
 				: [],
 			username: initial.username ?? "",
 			password: initial.password ?? "",
@@ -212,71 +199,91 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 	});
 	const [newRoom, setNewRoom] = useState("");
 	const [editingIdx, setEditingIdx] = useState(null);
-	const [editingRoom, setEditingRoom] = useState(null);
-	const [deleteRoomIdx, setDeleteRoomIdx] = useState(null);
+	const [editingRoom, setEditingRoom] = useState("");
 
 	const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-	const addRoom = () => {
+	const addRoom = async () => {
 		const val = newRoom.trim();
 		if (!val) return;
-		if (form.rooms.some((r) => r.room_name.toLowerCase() === val.toLowerCase())) {
-			alert("Nama ruangan sudah ditambahkan!");
-			return;
+		if (form.rooms.some((r) => r.room_name.toLowerCase() === val.toLowerCase())) return;
+
+		if (initial?.id) {
+			try {
+				const res = await api(`/ikm/master-rs/hospitals/${initial.id}/rooms`, {
+					method: "POST",
+					body: JSON.stringify({ room_name: val }),
+				});
+				setForm((f) => ({ ...f, rooms: [...f.rooms, { id: res.id, room_name: val }] }));
+				if (onRefresh) onRefresh();
+			} catch (e) {
+				alert("Gagal menambahkan ruangan: " + e.message);
+			}
+		} else {
+			setForm((f) => ({ ...f, rooms: [...f.rooms, { room_name: val }] }));
 		}
-		setForm((f) => ({
-			...f,
-			rooms: [
-				...f.rooms,
-				{ room_name: val, user_1: "", user_2: "", user_3: "", user_4: "", user_5: "" }
-			]
-		}));
 		setNewRoom("");
 	};
 
 	const startEdit = (idx, roomObj) => {
 		setEditingIdx(idx);
-		setEditingRoom({
-			room_name: roomObj.room_name,
-			user_1: roomObj.user_1 ?? "",
-			user_2: roomObj.user_2 ?? "",
-			user_3: roomObj.user_3 ?? "",
-			user_4: roomObj.user_4 ?? "",
-			user_5: roomObj.user_5 ?? "",
-		});
+		setEditingRoom(roomObj.room_name);
 	};
 
-	const saveEdit = (idx) => {
-		const val = editingRoom.room_name.trim();
+	const saveEdit = async (idx) => {
+		const val = editingRoom.trim();
 		if (!val) return;
 		if (form.rooms.some((r, i) => i !== idx && r.room_name.toLowerCase() === val.toLowerCase())) {
 			alert("Nama ruangan sudah digunakan!");
 			return;
 		}
-		setForm((f) => ({
-			...f,
-			rooms: f.rooms.map((r, i) => (i === idx ? { ...r, ...editingRoom, room_name: val } : r)),
-		}));
+
+		const roomObj = form.rooms[idx];
+		if (roomObj?.id) {
+			try {
+				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
+					method: "PUT",
+					body: JSON.stringify({ room_name: val }),
+				});
+				setForm((f) => ({
+					...f,
+					rooms: f.rooms.map((r, i) => (i === idx ? { ...r, room_name: val } : r)),
+				}));
+				if (onRefresh) onRefresh();
+			} catch (e) {
+				alert("Gagal mengupdate ruangan: " + e.message);
+			}
+		} else {
+			setForm((f) => ({
+				...f,
+				rooms: f.rooms.map((r, i) => (i === idx ? { ...r, room_name: val } : r)),
+			}));
+		}
 		setEditingIdx(null);
-		setEditingRoom(null);
+		setEditingRoom("");
 	};
 
 	const cancelEdit = () => {
 		setEditingIdx(null);
-		setEditingRoom(null);
+		setEditingRoom("");
 	};
 
-	const requestDelete = (idx) => {
-		setDeleteRoomIdx(idx);
-	};
-
-	const confirmDelete = () => {
-		if (deleteRoomIdx !== null) {
-			setForm((f) => ({
-				...f,
-				rooms: f.rooms.filter((_, i) => i !== deleteRoomIdx),
-			}));
-			setDeleteRoomIdx(null);
+	const removeRoom = async (idx) => {
+		const roomObj = form.rooms[idx];
+		if (roomObj?.id) {
+			const confirmDel = window.confirm(`Apakah Anda yakin ingin menghapus ruangan "${roomObj.room_name}"? Tindakan ini akan menghapus data stok linen di dalam ruangan tersebut secara permanen.`);
+			if (!confirmDel) return;
+			try {
+				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
+					method: "DELETE",
+				});
+				setForm((f) => ({ ...f, rooms: f.rooms.filter((_, i) => i !== idx) }));
+				if (onRefresh) onRefresh();
+			} catch (e) {
+				alert("Gagal menghapus ruangan: " + e.message);
+			}
+		} else {
+			setForm((f) => ({ ...f, rooms: f.rooms.filter((_, i) => i !== idx) }));
 		}
 	};
 
@@ -372,7 +379,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 						</button>
 					</div>
 
-					<div className="flex-1 overflow-y-auto min-h-[260px] max-h-[380px] pr-1 space-y-2 border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
+					<div className="flex-1 overflow-y-auto min-h-[380px] max-h-[460px] pr-1 space-y-2">
 						{form.rooms.length === 0 ? (
 							<div className="flex flex-col items-center justify-center py-10 text-slate-400">
 								<HiOutlineBuildingOffice2 className="h-8 w-8 text-slate-300 mb-1" />
@@ -382,90 +389,60 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 							form.rooms.map((room, idx) => (
 								<div
 									key={idx}
-									className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-150 shadow-sm text-sm text-slate-700 hover:border-slate-300 transition"
+									className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm text-sm text-slate-700 hover:border-slate-350 transition min-h-[50px]"
 								>
 									{editingIdx === idx ? (
-										<div className="flex flex-col gap-3 w-full p-3 bg-slate-50 border border-slate-200 rounded-xl">
-											<div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center justify-between">
-												<span>Edit Detail Ruangan</span>
-												<div className="flex items-center gap-1">
-													<button
-														type="button"
-														onClick={() => saveEdit(idx)}
-														className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-100 transition"
-														title="Simpan Edit"
-													>
-														<HiOutlineCheck className="h-4.5 w-4.5" />
-													</button>
-													<button
-														type="button"
-														onClick={cancelEdit}
-														className="p-1 rounded-lg text-slate-400 hover:bg-slate-200 transition"
-														title="Batal Edit"
-													>
-														<HiOutlineXMark className="h-4.5 w-4.5" />
-													</button>
-												</div>
-											</div>
-											<div>
-												<label className="block text-[10px] font-semibold text-slate-500 mb-1">Nama Ruangan</label>
-												<input
-													type="text"
-													value={editingRoom.room_name}
-													onChange={(e) => setEditingRoom({ ...editingRoom, room_name: e.target.value })}
-													className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-red-400 focus:ring-1 focus:ring-red-100 font-semibold text-slate-800"
-													autoFocus
-												/>
-											</div>
-											<div className="space-y-2">
-												<label className="block text-[10px] font-semibold text-slate-500">Penanggung Jawab (Maks 5 User)</label>
-												<div className="grid grid-cols-1 gap-2">
-													{[1, 2, 3, 4, 5].map((num) => (
-														<div key={num} className="flex items-center gap-2">
-															<span className="text-[10px] text-slate-400 font-bold w-4">{num}</span>
-															<input
-																type="text"
-																value={editingRoom[`user_${num}`]}
-																onChange={(e) => setEditingRoom({ ...editingRoom, [`user_${num}`]: e.target.value })}
-																placeholder={`Nama penanggung jawab ${num}`}
-																className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-red-400 text-slate-700"
-															/>
-														</div>
-													))}
-												</div>
+										<div className="flex items-center gap-2 w-full">
+											<input
+												type="text"
+												value={editingRoom}
+												onChange={(e) => setEditingRoom(e.target.value)}
+												className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs outline-none focus:border-red-400 font-semibold text-slate-800"
+												autoFocus
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														e.preventDefault();
+														saveEdit(idx);
+													} else if (e.key === "Escape") {
+														cancelEdit();
+													}
+												}}
+											/>
+											<div className="flex items-center gap-1 shrink-0">
+												<button
+													type="button"
+													onClick={() => saveEdit(idx)}
+													className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-100 transition"
+													title="Simpan"
+												>
+													<HiOutlineCheck className="h-4.5 w-4.5" />
+												</button>
+												<button
+													type="button"
+													onClick={cancelEdit}
+													className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 transition"
+													title="Batal"
+												>
+													<HiOutlineXMark className="h-4.5 w-4.5" />
+												</button>
 											</div>
 										</div>
 									) : (
 										<>
-											<div className="flex flex-col gap-1 py-1 max-w-[80%]">
-												<span className="font-semibold text-slate-800 break-words">{room.room_name}</span>
-												{(() => {
-													const users = [room.user_1, room.user_2, room.user_3, room.user_4, room.user_5].filter(Boolean);
-													if (users.length === 0) return null;
-													return (
-														<div className="flex flex-wrap gap-1 mt-1">
-															{users.map((u, ui) => (
-																<span key={ui} className="inline-flex items-center bg-slate-100 text-slate-650 px-1.5 py-0.5 rounded text-[10px] font-medium border border-slate-200">
-																	👤 {u}
-																</span>
-															))}
-														</div>
-													);
-												})()}
-											</div>
+											<span className="font-semibold text-slate-800 break-all">{room.room_name}</span>
 											<div className="flex items-center gap-1 shrink-0">
 												<button
 													type="button"
 													onClick={() => startEdit(idx, room)}
-													className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
-													title="Edit Detail Ruangan"
+													className="p-1 rounded-lg text-slate-400 hover:text-blue-605 hover:bg-blue-50 transition"
+													title="Edit Nama Ruangan"
 												>
 													<HiOutlinePencilSquare className="h-4 w-4" />
 												</button>
 												<button
 													type="button"
-													onClick={() => requestDelete(idx)}
-													className="p-1 rounded-lg text-slate-400 hover:text-red-650 hover:bg-red-50 transition"
+													onClick={() => removeRoom(idx)}
+													className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-red-650 transition active:scale-90"
 													title="Hapus Ruangan"
 												>
 													<HiOutlineTrash className="h-4 w-4" />
@@ -491,37 +468,6 @@ function HospitalForm({ initial, onSubmit, onClose, loading }) {
 					{loading ? "Menyimpan..." : "Simpan"}
 				</button>
 			</div>
-
-			{/* Inline Delete Confirmation Overlay */}
-			{deleteRoomIdx !== null && (
-				<div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm rounded-2xl">
-					<div className="bg-white border border-slate-100 shadow-2xl rounded-2xl p-6 max-w-sm w-full mx-auto space-y-4">
-						<div className="flex items-center gap-3 text-red-600">
-							<HiOutlineExclamationCircle className="h-6 w-6 shrink-0" />
-							<h4 className="text-sm font-bold text-slate-800">Hapus Ruangan?</h4>
-						</div>
-						<p className="text-xs text-slate-500 leading-relaxed">
-							Apakah Anda yakin ingin menghapus ruangan <span className="font-bold text-slate-800">"{form.rooms[deleteRoomIdx]?.room_name}"</span>? Tindakan ini akan menghapus semua catatan stok linen di dalam ruangan ini secara permanen setelah disimpan.
-						</p>
-						<div className="flex justify-end gap-2 pt-2">
-							<button
-								type="button"
-								onClick={() => setDeleteRoomIdx(null)}
-								className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition"
-							>
-								Batal
-							</button>
-							<button
-								type="button"
-								onClick={confirmDelete}
-								className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition active:scale-95"
-							>
-								Hapus Ruangan
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
 		</form>
 	);
 }
@@ -897,6 +843,7 @@ export default function RumahSakitPage() {
 					onSubmit={modal?.mode === "edit" ? handleUpdate : handleCreate}
 					onClose={() => setModal(null)}
 					loading={formLoading}
+					onRefresh={fetchHospitals}
 				/>
 			</Modal>
 
@@ -963,7 +910,7 @@ export default function RumahSakitPage() {
 								<div className="text-sm text-slate-700 font-mono">{detailModal.password_unit || "-"}</div>
 							</div>
 							<div className="sm:col-span-2">
-								<label className="block text-xs font-semibold text-slate-500 mb-1.5">Ruangan & Penanggung Jawab</label>
+								<label className="block text-xs font-semibold text-slate-500 mb-1.5">Daftar Ruangan</label>
 								<button
 									type="button"
 									onClick={() => setShowDetailRooms(!showDetailRooms)}
@@ -976,28 +923,19 @@ export default function RumahSakitPage() {
 								</button>
 								
 								{showDetailRooms && (
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto border border-slate-200 bg-white rounded-xl p-3 mt-2 shadow-inner">
+									<div className="flex flex-wrap gap-1.5 border border-slate-200 bg-white rounded-xl p-3 mt-2 shadow-inner max-h-[200px] overflow-y-auto">
 										{!detailModal.rooms || detailModal.rooms.length === 0 ? (
-											<span className="col-span-2 text-xs text-slate-400 font-medium py-4 text-center">— Belum ada ruangan ditambahkan —</span>
+											<span className="text-xs text-slate-400 font-medium py-1">— Belum ada ruangan ditambahkan —</span>
 										) : (
 											detailModal.rooms.map((r, i) => {
-												const roomName = typeof r === "string" ? r : r.room_name;
-												const roomUsers = typeof r === "string" ? [] : [r.user_1, r.user_2, r.user_3, r.user_4, r.user_5].filter(Boolean);
+												const name = typeof r === "string" ? r : r.room_name;
 												return (
-													<div key={i} className="bg-slate-50/50 border border-slate-150 rounded-xl p-2.5 flex flex-col gap-1 hover:border-slate-300 transition">
-														<div className="text-xs font-bold text-slate-800">{roomName}</div>
-														{roomUsers.length > 0 ? (
-															<div className="flex flex-wrap gap-1 mt-0.5">
-																{roomUsers.map((u, ui) => (
-																	<span key={ui} className="inline-flex items-center bg-white text-slate-650 px-1.5 py-0.5 rounded text-[10px] font-medium border border-slate-200 font-sans">
-																		👤 {u}
-																	</span>
-																))}
-															</div>
-														) : (
-															<span className="text-[10px] text-slate-400 italic">Tidak ada penanggung jawab</span>
-														)}
-													</div>
+													<span
+														key={i}
+														className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 border border-slate-200"
+													>
+														{name}
+													</span>
 												);
 											})
 										)}
