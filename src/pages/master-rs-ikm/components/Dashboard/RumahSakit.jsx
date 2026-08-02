@@ -124,6 +124,7 @@ const EMPTY_FORM = {
 	password: "",
 	username_unit: "",
 	password_unit: "",
+	password_to_valet: "",
 	rooms: [],
 };
 
@@ -195,6 +196,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			password: initial.password ?? "",
 			username_unit: initial.username_unit ?? "",
 			password_unit: initial.password_unit ?? "",
+			password_to_valet: initial.password_to_valet ?? "",
 		};
 	});
 	const [newRoom, setNewRoom] = useState("");
@@ -349,6 +351,12 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 							<input type="text" className={inputCls} value={form.password_unit} onChange={set("password_unit")} placeholder="••••••••" />
 						</div>
 					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className={labelCls}>Password Valet</label>
+							<input type="text" className={inputCls} value={form.password_to_valet} onChange={set("password_to_valet")} placeholder="••••••••" />
+						</div>
+					</div>
 				</div>
 
 				{/* Kanan: Daftar Ruangan */}
@@ -379,7 +387,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 						</button>
 					</div>
 
-					<div className="flex-1 overflow-y-auto min-h-[380px] max-h-[460px] pr-1 space-y-2">
+					<div className="flex-1 overflow-y-auto min-h-[430px] max-h-[510px] pr-1 space-y-2">
 						{form.rooms.length === 0 ? (
 							<div className="flex flex-col items-center justify-center py-10 text-slate-400">
 								<HiOutlineBuildingOffice2 className="h-8 w-8 text-slate-300 mb-1" />
@@ -893,21 +901,51 @@ export default function RumahSakitPage() {
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Nama Perusahaan</label>
 								<div className="text-sm text-slate-700">{detailModal.company_name || "-"}</div>
 							</div>
-							<div>
-								<label className="block text-xs font-semibold text-slate-500 mb-1">Username</label>
-								<div className="text-sm text-slate-700 font-mono">{detailModal.username || "-"}</div>
+							{/* Akses Rumah Sakit -> Tim Linen */}
+							<div className="sm:col-span-2 bg-slate-50/50 border border-slate-150 rounded-xl p-3.5 space-y-2">
+								<div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+									Akses Rumah Sakit → Tim Linen
+								</div>
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Username</label>
+										<div className="text-xs text-slate-700 font-mono">{detailModal.username || "-"}</div>
+									</div>
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Password</label>
+										<div className="text-xs text-slate-700 font-mono">{detailModal.password || "-"}</div>
+									</div>
+								</div>
 							</div>
-							<div>
-								<label className="block text-xs font-semibold text-slate-500 mb-1">Password</label>
-								<div className="text-sm text-slate-700 font-mono">{detailModal.password || "-"}</div>
+
+							{/* Akses Untuk Tim Ruangan (Opsional) */}
+							<div className="sm:col-span-2 bg-slate-50/50 border border-slate-150 rounded-xl p-3.5 space-y-2">
+								<div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+									Akses Untuk Tim Ruangan (Opsional)
+								</div>
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Username Unit</label>
+										<div className="text-xs text-slate-700 font-mono">{detailModal.username_unit || "-"}</div>
+									</div>
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Password Unit</label>
+										<div className="text-xs text-slate-700 font-mono">{detailModal.password_unit || "-"}</div>
+									</div>
+								</div>
 							</div>
-							<div>
-								<label className="block text-xs font-semibold text-slate-500 mb-1">Username Unit</label>
-								<div className="text-sm text-slate-700 font-mono">{detailModal.username_unit || "-"}</div>
-							</div>
-							<div>
-								<label className="block text-xs font-semibold text-slate-500 mb-1">Password Unit</label>
-								<div className="text-sm text-slate-700 font-mono">{detailModal.password_unit || "-"}</div>
+
+							{/* Akses Valet */}
+							<div className="sm:col-span-2 bg-slate-50/50 border border-slate-150 rounded-xl p-3.5 space-y-2">
+								<div className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+									🚗 Akses Valet
+								</div>
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Password Akses</label>
+										<div className="text-xs text-slate-700 font-mono">{detailModal.password_to_valet || "-"}</div>
+									</div>
+								</div>
 							</div>
 							<div className="sm:col-span-2">
 								<label className="block text-xs font-semibold text-slate-500 mb-1.5">Daftar Ruangan</label>
