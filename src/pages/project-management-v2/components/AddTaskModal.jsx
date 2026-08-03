@@ -132,7 +132,7 @@ function PositionSelect({ label, placeholder, value, onChange, positions, disabl
   return (
     <div ref={ref} className="relative">
       <label className="block mb-1.5 text-xs font-bold text-slate-700">
-        {label} {required && <span className="text-rose-500">*</span>}
+        {label} {required ? <span className="text-rose-500">*</span> : <span className="text-slate-400 font-normal"> (opsional)</span>}
       </label>
       <button type="button" onClick={() => { if (!disabled) setOpen(v => !v); }}
         className={cn(
