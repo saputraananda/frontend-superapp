@@ -307,7 +307,26 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
   const [evidences, setEvidences] = useState([]);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [dragActiveEmpty, setDragActiveEmpty] = useState(false);
   const evidenceInputRef = useRef(null);
+
+  // Custom Confirmation Dialog state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+
+  const triggerConfirm = (title, message, onConfirm) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    });
+  };
 
   const commentsEndRef = useRef(null);
 
@@ -413,8 +432,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     }
   };
 
-  const handleUploadEvidence = async (e) => {
-    const file = e.target.files?.[0];
+  const uploadSingleFile = async (file) => {
     if (!file) return;
     setUploadingEvidence(true);
     setEvidenceError("");
@@ -436,14 +454,66 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     }
   };
 
-  const handleDeleteEvidence = async (evidenceId) => {
-    if (!window.confirm("Yakin ingin menghapus file lampiran ini?")) return;
-    try {
-      await api(`/api/pm2/tasks/${taskId}/evidence/${evidenceId}`, { method: "DELETE" });
-      setEvidences(prev => prev.filter(ev => ev.id !== evidenceId));
-    } catch (err) {
-      console.error("Gagal menghapus evidence:", err);
+  const handleUploadEvidence = async (e) => {
+    const file = e.target.files?.[0];
+    await uploadSingleFile(file);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      await uploadSingleFile(file);
+    }
+  };
+
+  const handleDragEmpty = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActiveEmpty(true);
+    } else if (e.type === "dragleave") {
+      setDragActiveEmpty(false);
+    }
+  };
+
+  const handleDropEmpty = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveEmpty(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      await uploadSingleFile(file);
+    }
+  };
+
+  const handleDeleteEvidence = (evidenceId) => {
+    triggerConfirm(
+      "Hapus File Lampiran",
+      "Apakah Anda yakin ingin menghapus file lampiran ini secara permanen?",
+      async () => {
+        try {
+          await api(`/api/pm2/tasks/${taskId}/evidence/${evidenceId}`, { method: "DELETE" });
+          setEvidences(prev => prev.filter(ev => ev.id !== evidenceId));
+        } catch (err) {
+          console.error("Gagal menghapus evidence:", err);
+        }
+      }
+    );
   };
 
   const handlePostComment = async (e) => {
@@ -467,6 +537,11 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
   if (!open) return null;
 
   const isOwner = me && task && me.id === task.owner_employee_id;
+  const isPicOrCoPic = me && task && (
+    me.id === task.pic_employee_id ||
+    (Array.isArray(task.co_pics) && task.co_pics.map(String).includes(String(me.id)))
+  );
+  const canUpdate = isOwner || isPicOrCoPic;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -502,6 +577,13 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
             )}>
             <HiOutlineDocumentText className="h-4 w-4" />
             Detail &amp; Edit
+          </button>
+          <button onClick={() => setActiveTab("evidence")}
+            className={cn("px-4 py-3 text-xs font-bold transition-all border-b-2 -mb-px flex items-center gap-2",
+              activeTab === "evidence" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400 hover:text-slate-600"
+            )}>
+            <HiOutlinePaperClip className="h-4 w-4" />
+            Lampiran ({evidences.length + (task?.link ? 1 : 0)})
           </button>
           <button onClick={() => setActiveTab("discuss")}
             className={cn("px-4 py-3 text-xs font-bold transition-all border-b-2 -mb-px flex items-center gap-2",
@@ -592,153 +674,6 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
 
                   <MultiEmployeeSelect label="Reviewer (Pengawas / CC)" values={reviewers} onChange={setReviewers} employees={employees} />
 
-                  {/* ── Evidence / Lampiran Section ── */}
-                  <div>
-                    <label className="block mb-2 text-xs font-bold text-slate-700">
-                      Lampiran / Evidence
-                      <span className="ml-1 text-slate-400 font-normal text-[10px]">(opsional)</span>
-                    </label>
-
-                    {/* Daftar file evidence yang sudah ada */}
-                    {evidences.length > 0 && (
-                      <div className="mb-3 space-y-1.5">
-                        {evidences.map((ev) => {
-                          const isImage = ev.file_type?.startsWith("image/");
-                          return (
-                            <div key={ev.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
-                                {isImage
-                                  ? <HiOutlinePhoto className="h-4 w-4" />
-                                  : <HiOutlinePaperClip className="h-4 w-4" />}
-                              </div>
-                              <a
-                                href={`${BASE_URL}${ev.file_path}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex-1 truncate text-xs font-medium text-indigo-700 hover:underline"
-                              >
-                                {ev.file_name}
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteEvidence(ev.id)}
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition"
-                                title="Hapus lampiran ini"
-                              >
-                                <HiOutlineTrash className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Pilihan tipe lampiran baru */}
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 space-y-3">
-                      {/* Tab selector */}
-                      <div className="flex items-center gap-1.5">
-                        {[
-                          { key: "none",   label: "Tidak Ada",    icon: HiOutlineXMark },
-                          { key: "link",   label: "Link URL",     icon: HiOutlineLink },
-                          { key: "file",   label: "Upload File",  icon: HiOutlineArrowUpTray },
-                        ].map(({ key, label, icon: Icon }) => (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => setForm(f => ({ ...f, _lampType: key }))}
-                            className={cn(
-                              "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-bold transition",
-                              (form._lampType ?? (form.link ? "link" : "none")) === key
-                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                                : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
-                            )}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Panel: Link URL */}
-                      {(form._lampType ?? (form.link ? "link" : "none")) === "link" && (
-                        <div className="space-y-2">
-                          <div>
-                            <label className="block mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">URL Referensi *</label>
-                            <div className="relative">
-                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                                <HiOutlineLink className="h-3.5 w-3.5" />
-                              </span>
-                              <input
-                                type="url"
-                                placeholder="https://contoh.com/referensi"
-                                value={form.link || ""}
-                                onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
-                                className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-indigo-400 focus:bg-white transition"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">Label / Judul Link</label>
-                            <input
-                              type="text"
-                              placeholder="Contoh: Lihat Referensi Desain"
-                              value={form.link_title || ""}
-                              onChange={e => setForm(f => ({ ...f, link_title: e.target.value }))}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-indigo-400 transition"
-                            />
-                          </div>
-                          {form.link && (
-                            <button
-                              type="button"
-                              onClick={() => setForm(f => ({ ...f, link: "", link_title: "", _lampType: "none" }))}
-                              className="flex items-center gap-1 text-[10px] text-rose-500 hover:text-rose-600 font-semibold transition"
-                            >
-                              <HiOutlineTrash className="h-3 w-3" /> Hapus Link
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Panel: Upload File */}
-                      {(form._lampType ?? (form.link ? "link" : "none")) === "file" && (
-                        <div>
-                          <input
-                            ref={evidenceInputRef}
-                            type="file"
-                            id="evidence-upload-edit"
-                            className="hidden"
-                            onChange={handleUploadEvidence}
-                            disabled={uploadingEvidence}
-                          />
-                          <label
-                            htmlFor="evidence-upload-edit"
-                            className={cn(
-                              "flex items-center gap-2 w-fit cursor-pointer rounded-xl border border-dashed px-4 py-2 text-xs font-bold transition",
-                              uploadingEvidence
-                                ? "border-slate-200 text-slate-400 cursor-not-allowed"
-                                : "border-indigo-300 text-indigo-600 hover:bg-indigo-50 bg-white"
-                            )}
-                          >
-                            <HiOutlineArrowUpTray className="h-4 w-4" />
-                            {uploadingEvidence ? "Mengunggah..." : "Pilih File untuk Diunggah"}
-                          </label>
-                          {evidenceError && (
-                            <p className="mt-1 text-[10px] text-rose-500 font-medium">{evidenceError}</p>
-                          )}
-                          <p className="mt-1.5 text-[10px] text-slate-400">Maks. 20MB · PDF, Gambar, Word, Excel, dll.</p>
-                        </div>
-                      )}
-
-                      {/* Panel: Tidak Ada — tampilkan info jika ada link existing */}
-                      {(form._lampType ?? (form.link ? "link" : "none")) === "none" && form.link && (
-                        <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
-                          <HiOutlineExclamationTriangle className="h-3.5 w-3.5" />
-                          Link yang ada akan tetap tersimpan. Pilih &quot;Link URL&quot; untuk menghapusnya.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
                   <div className="flex justify-end gap-2 pt-2">
                     <button type="button" onClick={() => setEditing(false)}
                       className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
@@ -764,7 +699,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                         <span>Dibuat pada {new Date(task.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
                       </div>
                     </div>
-                    {isOwner && (
+                    {canUpdate && (
                       <button onClick={() => setEditing(true)}
                         className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:border-indigo-400 hover:text-indigo-600 shadow-sm transition">
                         <HiOutlinePencilSquare className="h-4 w-4" />
@@ -857,34 +792,297 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                     </div>
                   </div>
 
-                  {/* Evidence / Attachments */}
-                  {(task.link || task.evidance_path) && (
-                    <div className="pt-4 border-t border-slate-100">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide">Lampiran &amp; Referensi</h3>
-                      <div className="mt-2.5 flex flex-wrap gap-3">
-                        {task.link && (
-                          <a href={formatExternalUrl(task.link)} target="_blank" rel="noreferrer"
-                            className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 transition">
-                            <HiOutlineLink className="h-4 w-4" />
-                            {task.link_title || "Buka Link Referensi"}
-                          </a>
-                        )}
-                        {task.evidance_path && (
-                          <a href={`${BASE_URL}${task.evidance_path}`} target="_blank" rel="noreferrer"
-                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 transition">
-                            <HiOutlinePaperClip className="h-4 w-4 text-slate-400" />
-                            {task.link_title || "Buka File Lampiran"}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
+          ) : activeTab === "evidence" ? (
+            <div className="p-6 space-y-6">
+              {/* Header Info */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Lampiran &amp; Bukti Kerja (Evidence)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Kelola link referensi dan file bukti pengerjaan task ini</p>
+                </div>
+                {canUpdate && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-250">
+                    Akses Upload Aktif
+                  </span>
+                )}
+              </div>
 
+              {/* List of current attachments */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">File &amp; Link Terunggah</h4>
+                
+                {evidences.length === 0 && !task.link ? (
+                  <div 
+                    onDragEnter={handleDragEmpty}
+                    onDragOver={handleDragEmpty}
+                    onDragLeave={handleDragEmpty}
+                    onDrop={handleDropEmpty}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-2xl text-center transition-all duration-200",
+                      dragActiveEmpty
+                        ? "border-indigo-500 bg-indigo-50/35 ring-4 ring-indigo-500/10 scale-[1.01] text-indigo-600"
+                        : "border-slate-200 bg-slate-50/30 text-slate-400"
+                    )}
+                  >
+                    {dragActiveEmpty ? (
+                      <>
+                        <HiOutlineArrowUpTray className="h-10 w-10 animate-bounce text-indigo-500 mb-2" />
+                        <p className="text-xs font-extrabold text-indigo-700">Lepaskan file di sini...</p>
+                        <p className="text-[10px] text-indigo-400 mt-0.5">File akan langsung diunggah sebagai lampiran</p>
+                      </>
+                    ) : (
+                      <>
+                        <HiOutlinePaperClip className="h-8 w-8 text-slate-300 mb-2 font-normal" />
+                        <p className="text-xs font-bold text-slate-700">Belum ada lampiran</p>
+                        <p className="text-[10px] text-slate-450 mt-1 leading-relaxed px-4">
+                          Tarik &amp; lepas file di sini untuk mengunggah, atau tambahkan file &amp; link di bawah.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Link URL Attachment */}
+                    {task.link && (
+                      <div className="relative group flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/20 p-4 hover:border-indigo-200 transition">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-inner">
+                          <HiOutlineLink className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <a
+                            href={formatExternalUrl(task.link)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-xs font-bold text-indigo-900 hover:underline truncate"
+                          >
+                            {task.link_title || "Link Referensi"}
+                          </a>
+                          <span className="block text-[10px] text-indigo-500 truncate mt-0.5 font-medium">{task.link}</span>
+                        </div>
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerConfirm(
+                                "Hapus Link Referensi",
+                                "Apakah Anda yakin ingin menghapus link referensi ini?",
+                                async () => {
+                                  try {
+                                    await api(`/api/pm2/tasks/${taskId}`, {
+                                      method: "PUT",
+                                      body: JSON.stringify({
+                                        ...form,
+                                        desc,
+                                        co_pics: coPics,
+                                        reviewers,
+                                        id_pm_detail: form.id_pm_detail ? Number(form.id_pm_detail) : null,
+                                        link: "",
+                                        link_title: ""
+                                      }),
+                                    });
+                                    setForm(f => ({ ...f, link: "", link_title: "" }));
+                                    loadDetails();
+                                    onSuccess?.();
+                                  } catch (err) {
+                                    console.error("Gagal menghapus link:", err);
+                                  }
+                                }
+                              );
+                            }}
+                            className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition active:scale-95"
+                            title="Hapus Link"
+                          >
+                            <HiOutlineTrash className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Files Attachments */}
+                    {evidences.map((ev) => {
+                      const isImage = ev.file_type?.startsWith("image/");
+                      const formattedSize = ev.file_size 
+                        ? (ev.file_size / (1024 * 1024)).toFixed(2) + " MB"
+                        : "—";
+
+                      return (
+                        <div key={ev.id} className="relative group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-350 transition">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 border border-slate-100 shadow-inner">
+                            {isImage
+                              ? <HiOutlinePhoto className="h-5 w-5 text-indigo-500" />
+                              : <HiOutlinePaperClip className="h-5 w-5 text-slate-500" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <a
+                              href={`${BASE_URL}${ev.file_path}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block text-xs font-bold text-slate-800 hover:text-indigo-600 hover:underline truncate"
+                            >
+                              {ev.file_name}
+                            </a>
+                            <span className="block text-[10px] text-slate-400 mt-0.5 font-medium">{formattedSize}</span>
+                          </div>
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEvidence(ev.id)}
+                              className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition active:scale-95"
+                              title="Hapus file"
+                            >
+                              <HiOutlineTrash className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Upload interface (only for owners/PIC/Co-PICs) */}
+              {canUpdate && (
+                <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <h4 className="text-xs font-bold text-slate-800">Tambah Lampiran Baru</h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Panel Kiri: Upload File */}
+                    <div 
+                      onDragEnter={handleDrag}
+                      onDragOver={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDrop={handleDrop}
+                      className={cn(
+                        "rounded-2xl border p-5 flex flex-col justify-between min-h-[160px] transition-all duration-200 relative",
+                        dragActive 
+                          ? "border-indigo-500 bg-indigo-50/35 ring-4 ring-indigo-500/10 scale-[1.01]" 
+                          : "border-slate-200 bg-slate-50/50"
+                      )}
+                    >
+                      {dragActive ? (
+                        <div className="flex flex-col items-center justify-center flex-1 py-4 text-indigo-600">
+                          <HiOutlineArrowUpTray className="h-8 w-8 animate-bounce mb-1" />
+                          <p className="text-xs font-bold">Lepaskan file di sini...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <h5 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                              <HiOutlineArrowUpTray className="h-4 w-4 text-indigo-500" />
+                              Unggah File Lampiran
+                            </h5>
+                            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                              Dukung format PDF, Word, Excel, Gambar, Zip, dll. Maksimal ukuran file adalah 20MB.
+                            </p>
+                          </div>
+
+                          <div className="mt-4">
+                            <input
+                              ref={evidenceInputRef}
+                              type="file"
+                              id="evidence-upload-tab"
+                              className="hidden"
+                              onChange={handleUploadEvidence}
+                              disabled={uploadingEvidence}
+                            />
+                            <label
+                              htmlFor="evidence-upload-tab"
+                              className={cn(
+                                "flex items-center justify-center gap-2 w-full cursor-pointer rounded-xl border border-dashed py-3 text-xs font-bold transition shadow-sm",
+                                uploadingEvidence
+                                  ? "border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed"
+                                  : "border-indigo-300 text-indigo-600 hover:bg-indigo-50 bg-white"
+                              )}
+                            >
+                              {uploadingEvidence ? (
+                                <>
+                                  <div className="h-3 w-3 animate-spin rounded-full border border-indigo-600 border-t-transparent" />
+                                  Mengunggah...
+                                </>
+                              ) : (
+                                <>
+                                  <HiOutlineArrowUpTray className="h-4 w-4" />
+                                  Pilih File untuk Diunggah
+                                </>
+                              )}
+                            </label>
+                            {evidenceError && (
+                              <p className="mt-1.5 text-[10px] text-rose-500 font-semibold">{evidenceError}</p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Panel Kanan: Tambah Link */}
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 space-y-3 flex flex-col justify-between min-h-[160px]">
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <HiOutlineLink className="h-4 w-4 text-indigo-500" />
+                          Tambah Link URL
+                        </h5>
+                        
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                              <HiOutlineLink className="h-3.5 w-3.5" />
+                            </span>
+                            <input
+                              type="url"
+                              placeholder="https://contoh.com/referensi"
+                              value={form.link || ""}
+                              onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
+                              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-indigo-400 transition placeholder:text-slate-400"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Judul / Label Link (opsional)"
+                            value={form.link_title || ""}
+                            onChange={e => setForm(f => ({ ...f, link_title: e.target.value }))}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-indigo-400 transition placeholder:text-slate-400"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={!form.link?.trim()}
+                        onClick={async () => {
+                          if (!form.link?.trim()) return;
+                          setUploadingEvidence(true);
+                          try {
+                            await api(`/api/pm2/tasks/${taskId}`, {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                ...form,
+                                desc,
+                                co_pics: coPics,
+                                reviewers,
+                                id_pm_detail: form.id_pm_detail ? Number(form.id_pm_detail) : null,
+                              }),
+                            });
+                            loadDetails();
+                            onSuccess?.();
+                          } catch (err) {
+                            console.error("Gagal menyimpan link:", err);
+                          } finally {
+                            setUploadingEvidence(false);
+                          }
+                        }}
+                        className="w-full bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-xs font-bold transition shadow-md shadow-indigo-150 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
+                      >
+                        Simpan Link URL
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
-
             /* ── DISCUSS TAB (Diskusi & Komentar) ── */
             <div className="flex flex-col h-full bg-slate-50/30">
               {/* List comments */}
@@ -969,6 +1167,56 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
           )}
         </div>
       </div>
+
+      {/* ── Custom Confirmation Modal ── */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
+            onClick={() => setConfirmModal(c => ({ ...c, isOpen: false }))} 
+          />
+
+          {/* Modal Container */}
+          <div className="relative w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl transition-all scale-100 flex flex-col items-center text-center">
+            {/* Warning Icon */}
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 mb-4 ring-8 ring-rose-500/5">
+              <HiOutlineExclamationTriangle className="h-6 w-6" />
+            </div>
+
+            {/* Title & Message */}
+            <h3 className="text-sm font-extrabold text-slate-800 leading-snug">
+              {confirmModal.title}
+            </h3>
+            <p className="mt-2 text-xs text-slate-500 leading-relaxed px-2">
+              {confirmModal.message}
+            </p>
+
+            {/* Actions */}
+            <div className="mt-6 flex items-center gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(c => ({ ...c, isOpen: false }))}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98]"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setConfirmModal(c => ({ ...c, isOpen: false }));
+                  if (confirmModal.onConfirm) {
+                    await confirmModal.onConfirm();
+                  }
+                }}
+                className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-200 transition active:scale-[0.98]"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );

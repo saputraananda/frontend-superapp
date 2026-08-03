@@ -190,7 +190,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 		return {
 			...initial,
 			rooms: Array.isArray(initial.rooms)
-				? initial.rooms.map((r) => (typeof r === "string" ? { room_name: r } : { id: r.id, room_name: r.room_name }))
+				? initial.rooms.map((r) => (typeof r === "string" ? { room_name: r, is_gudang_linen: 0 } : { id: r.id, room_name: r.room_name, is_gudang_linen: r.is_gudang_linen || 0 }))
 				: [],
 			username: initial.username ?? "",
 			password: initial.password ?? "",
@@ -205,6 +205,53 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 
 	const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+	const toggleGudangLinen = async (idx) => {
+		const roomObj = form.rooms[idx];
+		const currentStatus = roomObj.is_gudang_linen === 1 || roomObj.is_gudang_linen === true;
+		const nextStatus = !currentStatus;
+
+		const updatedRooms = form.rooms.map((r, i) => {
+			if (i === idx) {
+				return { ...r, is_gudang_linen: nextStatus ? 1 : 0 };
+			}
+			return nextStatus ? { ...r, is_gudang_linen: 0 } : r;
+		});
+
+		if (roomObj?.id) {
+			try {
+				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
+					method: "PUT",
+					body: JSON.stringify({ 
+						room_name: roomObj.room_name, 
+						is_gudang_linen: nextStatus ? 1 : 0 
+					}),
+				});
+
+				if (nextStatus) {
+					const otherActiveRooms = form.rooms.filter((r, i) => i !== idx && (r.is_gudang_linen === 1 || r.is_gudang_linen === true));
+					for (const otherRoom of otherActiveRooms) {
+						if (otherRoom.id) {
+							await api(`/ikm/master-rs/hospitals/rooms/${otherRoom.id}`, {
+								method: "PUT",
+								body: JSON.stringify({ 
+									room_name: otherRoom.room_name, 
+									is_gudang_linen: 0 
+								}),
+							});
+						}
+					}
+				}
+
+				setForm((f) => ({ ...f, rooms: updatedRooms }));
+				if (onRefresh) onRefresh();
+			} catch (e) {
+				alert("Gagal memperbarui status Gudang Linen: " + e.message);
+			}
+		} else {
+			setForm((f) => ({ ...f, rooms: updatedRooms }));
+		}
+	};
+
 	const addRoom = async () => {
 		const val = newRoom.trim();
 		if (!val) return;
@@ -214,15 +261,15 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			try {
 				const res = await api(`/ikm/master-rs/hospitals/${initial.id}/rooms`, {
 					method: "POST",
-					body: JSON.stringify({ room_name: val }),
+					body: JSON.stringify({ room_name: val, is_gudang_linen: 0 }),
 				});
-				setForm((f) => ({ ...f, rooms: [...f.rooms, { id: res.id, room_name: val }] }));
+				setForm((f) => ({ ...f, rooms: [...f.rooms, { id: res.id, room_name: val, is_gudang_linen: 0 }] }));
 				if (onRefresh) onRefresh();
 			} catch (e) {
 				alert("Gagal menambahkan ruangan: " + e.message);
 			}
 		} else {
-			setForm((f) => ({ ...f, rooms: [...f.rooms, { room_name: val }] }));
+			setForm((f) => ({ ...f, rooms: [...f.rooms, { room_name: val, is_gudang_linen: 0 }] }));
 		}
 		setNewRoom("");
 	};
@@ -245,7 +292,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			try {
 				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
 					method: "PUT",
-					body: JSON.stringify({ room_name: val }),
+					body: JSON.stringify({ room_name: val, is_gudang_linen: roomObj.is_gudang_linen ? 1 : 0 }),
 				});
 				setForm((f) => ({
 					...f,
@@ -437,7 +484,27 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 										</div>
 									) : (
 										<>
-											<span className="font-semibold text-slate-800 break-all">{room.room_name}</span>
+											<div className="flex items-center gap-2.5 min-w-0">
+												<input
+													type="checkbox"
+													checked={room.is_gudang_linen === 1 || room.is_gudang_linen === true}
+													onChange={() => toggleGudangLinen(idx)}
+													className="rounded border-slate-350 text-teal-600 focus:ring-teal-500/20 cursor-pointer h-4 w-4 shrink-0"
+													title="Tandai sebagai Gudang Linen (Bumper Stock)"
+												/>
+												<span className={`font-semibold break-all ${
+													(room.is_gudang_linen === 1 || room.is_gudang_linen === true)
+														? "text-teal-705 font-bold"
+														: "text-slate-800"
+												}`}>
+													{room.room_name}
+													{(room.is_gudang_linen === 1 || room.is_gudang_linen === true) && (
+														<span className="ml-1.5 inline-flex items-center rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 border border-teal-100 whitespace-nowrap">
+															Gudang Linen
+														</span>
+													)}
+												</span>
+											</div>
 											<div className="flex items-center gap-1 shrink-0">
 												<button
 													type="button"
@@ -967,12 +1034,19 @@ export default function RumahSakitPage() {
 										) : (
 											detailModal.rooms.map((r, i) => {
 												const name = typeof r === "string" ? r : r.room_name;
+												const isGudang = typeof r === "object" && r !== null && (r.is_gudang_linen === 1 || r.is_gudang_linen === true);
 												return (
 													<span
 														key={i}
-														className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 border border-slate-200"
+														className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${
+															isGudang
+																? "bg-teal-50 text-teal-700 border-teal-200 shadow-sm animate-pulse"
+																: "bg-slate-100 text-slate-600 border-slate-200"
+														}`}
 													>
+														{isGudang && <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
 														{name}
+														{isGudang && <span className="text-[10px] text-teal-500 font-bold ml-0.5">(Gudang)</span>}
 													</span>
 												);
 											})

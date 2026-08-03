@@ -66,6 +66,7 @@ export default function WorkspaceDetail() {
 
   const [subWorkspace, setSubWorkspace] = useState(null);
   const [subWorkspaces, setSubWorkspaces] = useState([]);
+  const [me, setMe] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("board");
@@ -191,7 +192,10 @@ export default function WorkspaceDetail() {
   useEffect(() => {
     loadSubWorkspace();
     loadTasks();
+    api("/api/pm2/me").then(setMe).catch(console.error);
   }, [workspaceId, subId]);
+
+  const isOwner = (task) => me && task && me.id === task.owner_employee_id;
 
   const filteredTasks = tasks.filter((task) => {
     // 1. Search term match
@@ -668,12 +672,14 @@ export default function WorkspaceDetail() {
                           <h4 className="text-xs font-bold text-slate-800 leading-snug line-clamp-2 group-hover:text-indigo-600 flex-1">
                             {task.title}
                           </h4>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
-                            className="opacity-0 group-hover:opacity-100 shrink-0 text-rose-400 hover:text-rose-600 transition"
-                          >
-                            <HiOutlineTrash className="h-3.5 w-3.5" />
-                          </button>
+                          {isOwner(task) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
+                              className="opacity-0 group-hover:opacity-100 shrink-0 text-rose-400 hover:text-rose-600 transition"
+                            >
+                              <HiOutlineTrash className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
 
                         {task.desc && (
@@ -833,12 +839,14 @@ export default function WorkspaceDetail() {
                                 <option key={s} value={s}>{s}</option>
                               ))}
                             </select>
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="flex h-6 w-6 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                            >
-                              <HiOutlineTrash className="h-3.5 w-3.5" />
-                            </button>
+                             {isOwner(task) && (
+                              <button
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="flex h-6 w-6 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                              >
+                                <HiOutlineTrash className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
