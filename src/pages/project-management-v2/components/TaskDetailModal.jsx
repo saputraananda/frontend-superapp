@@ -27,8 +27,8 @@ function cn(...c) { return c.filter(Boolean).join(" "); }
 
 const PRIORITY_OPTIONS = [
   { value: "critical", label: "Critical", icon: HiOutlineExclamationTriangle, cls: "border-rose-400 bg-rose-50/50 text-rose-600", activeCls: "bg-rose-500 text-white border-rose-500 shadow-rose-200" },
-  { value: "medium",   label: "Medium",   icon: HiOutlineMinus,                cls: "border-amber-400 bg-amber-50/50 text-amber-600", activeCls: "bg-amber-500 text-white border-amber-500 shadow-amber-200" },
-  { value: "low",      label: "Low",      icon: HiOutlineCheckCircle,          cls: "border-emerald-400 bg-emerald-50/50 text-emerald-600", activeCls: "bg-emerald-500 text-white border-emerald-500 shadow-emerald-200" },
+  { value: "medium", label: "Medium", icon: HiOutlineMinus, cls: "border-amber-400 bg-amber-50/50 text-amber-600", activeCls: "bg-amber-500 text-white border-amber-500 shadow-amber-200" },
+  { value: "low", label: "Low", icon: HiOutlineCheckCircle, cls: "border-emerald-400 bg-emerald-50/50 text-emerald-600", activeCls: "bg-emerald-500 text-white border-emerald-500 shadow-emerald-200" },
 ];
 
 const PRIORITY_BADGES = {
@@ -473,7 +473,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       await uploadSingleFile(file);
@@ -494,7 +494,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     e.preventDefault();
     e.stopPropagation();
     setDragActiveEmpty(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       await uploadSingleFile(file);
@@ -813,9 +813,9 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
               {/* List of current attachments */}
               <div className="space-y-4">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">File &amp; Link Terunggah</h4>
-                
+
                 {evidences.length === 0 && !task.link ? (
-                  <div 
+                  <div
                     onDragEnter={handleDragEmpty}
                     onDragOver={handleDragEmpty}
                     onDragLeave={handleDragEmpty}
@@ -904,7 +904,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                     {/* Files Attachments */}
                     {evidences.map((ev) => {
                       const isImage = ev.file_type?.startsWith("image/");
-                      const formattedSize = ev.file_size 
+                      const formattedSize = ev.file_size
                         ? (ev.file_size / (1024 * 1024)).toFixed(2) + " MB"
                         : "—";
 
@@ -950,15 +950,15 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Panel Kiri: Upload File */}
-                    <div 
+                    <div
                       onDragEnter={handleDrag}
                       onDragOver={handleDrag}
                       onDragLeave={handleDrag}
                       onDrop={handleDrop}
                       className={cn(
                         "rounded-2xl border p-5 flex flex-col justify-between min-h-[160px] transition-all duration-200 relative",
-                        dragActive 
-                          ? "border-indigo-500 bg-indigo-50/35 ring-4 ring-indigo-500/10 scale-[1.01]" 
+                        dragActive
+                          ? "border-indigo-500 bg-indigo-50/35 ring-4 ring-indigo-500/10 scale-[1.01]"
                           : "border-slate-200 bg-slate-50/50"
                       )}
                     >
@@ -1024,7 +1024,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                           <HiOutlineLink className="h-4 w-4 text-indigo-500" />
                           Tambah Link URL
                         </h5>
-                        
+
                         <div className="space-y-2">
                           <div className="relative">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -1073,8 +1073,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                             setUploadingEvidence(false);
                           }
                         }}
-                        className="w-full bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-xs font-bold transition shadow-md shadow-indigo-150 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
-                      >
+                        className="w-full bg-indigo-650 hover:bg-white text-black hover:text-indigo-650 border border-transparent hover:border-indigo-650 rounded-xl py-2.5 text-xs font-bold transition-all duration-200 shadow-md shadow-indigo-150 hover:shadow-lg disabled:bg-slate-200 disabled:text-slate-400 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed">
                         Simpan Link URL
                       </button>
                     </div>
@@ -1172,9 +1171,9 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
-            onClick={() => setConfirmModal(c => ({ ...c, isOpen: false }))} 
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setConfirmModal(c => ({ ...c, isOpen: false }))}
           />
 
           {/* Modal Container */}
