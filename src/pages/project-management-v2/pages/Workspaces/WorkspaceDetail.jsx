@@ -22,6 +22,7 @@ import AddTaskModal from "../../components/AddTaskModal";
 import TaskDetailModal from "../../components/TaskDetailModal";
 import EditWorkspaceModal from "../../components/EditWorkspaceModal";
 import EditSubWorkspaceModal from "../../components/EditSubWorkspaceModal";
+import MultiSelectDropdown from "../../components/MultiSelectDropdown";
 
 const STATUS_COLUMNS = {
   "To Do":      { label: "To Do",       color: "border-t-slate-400" },
@@ -84,16 +85,16 @@ export default function WorkspaceDetail() {
   // Search & Filters states
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [filterPriority, setFilterPriority] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterPosition, setFilterPosition] = useState("");
-  const [filterMonth, setFilterMonth] = useState("");
-  const [filterYear, setFilterYear] = useState("");
+  const [filterPriority, setFilterPriority] = useState([]);
+  const [filterStatus, setFilterStatus] = useState([]);
+  const [filterPosition, setFilterPosition] = useState([]);
+  const [filterMonth, setFilterMonth] = useState([]);
+  const [filterYear, setFilterYear] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [dueDateType, setDueDateType] = useState(""); // '', 'today', 'this-week', 'overdue', 'custom'
   const [customDueDate, setCustomDueDate] = useState("");
-  const [filterSubWorkspace, setFilterSubWorkspace] = useState("");
+  const [filterSubWorkspace, setFilterSubWorkspace] = useState([]);
 
   // Dynamic Month & Year options from task data
   const availableMonths = Array.from(
@@ -210,13 +211,13 @@ export default function WorkspaceDetail() {
     }
 
     // 2. Priority match
-    if (filterPriority && task.priority !== filterPriority) return false;
+    if (filterPriority.length > 0 && !filterPriority.includes(task.priority)) return false;
 
     // 3. Status match
-    if (filterStatus && task.status !== filterStatus) return false;
+    if (filterStatus.length > 0 && !filterStatus.includes(task.status)) return false;
 
     // 3b. Position match
-    if (filterPosition && task.position_name !== filterPosition) return false;
+    if (filterPosition.length > 0 && !filterPosition.includes(task.position_name)) return false;
 
     // 4. Date Range match
     if (startDate) {
@@ -234,10 +235,10 @@ export default function WorkspaceDetail() {
     const taskDateStr = task.enddate || task.startdate;
     if (taskDateStr) {
       const d = new Date(taskDateStr);
-      if (filterMonth && String(d.getMonth() + 1) !== String(filterMonth)) return false;
-      if (filterYear && String(d.getFullYear()) !== String(filterYear)) return false;
+      if (filterMonth.length > 0 && !filterMonth.map(String).includes(String(d.getMonth() + 1))) return false;
+      if (filterYear.length > 0 && !filterYear.map(String).includes(String(d.getFullYear()))) return false;
     } else {
-      if (filterMonth || filterYear) return false;
+      if (filterMonth.length > 0 || filterYear.length > 0) return false;
     }
 
     // 6. Due Date (Deadline) Filter
@@ -269,12 +270,14 @@ export default function WorkspaceDetail() {
     }
 
     // 7. Sub-Workspace match (only applies if we are in main Workspace detail page where subId is missing)
-    if (!subId && filterSubWorkspace) {
-      if (filterSubWorkspace === "none") {
-        if (task.id_pm_detail !== null) return false;
-      } else {
-        if (String(task.id_pm_detail) !== String(filterSubWorkspace)) return false;
-      }
+    if (!subId && filterSubWorkspace.length > 0) {
+      const matched = filterSubWorkspace.some((fs) => {
+        if (fs === "none") {
+          return task.id_pm_detail === null;
+        }
+        return String(task.id_pm_detail) === String(fs);
+      });
+      if (!matched) return false;
     }
 
     return true;
@@ -454,7 +457,7 @@ export default function WorkspaceDetail() {
           >
             <HiOutlineFunnel className="h-4 w-4 text-slate-450" />
             Filter {showFilters ? "Tutup" : "Buka"}
-            {(filterPriority || filterStatus || filterPosition || filterMonth || filterYear || startDate || endDate || dueDateType || filterSubWorkspace) && (
+            {(filterPriority.length > 0 || filterStatus.length > 0 || filterPosition.length > 0 || filterMonth.length > 0 || filterYear.length > 0 || startDate || endDate || dueDateType || filterSubWorkspace.length > 0) && (
               <span className="h-2 w-2 rounded-full bg-indigo-600 inline-block animate-pulse" />
             )}
           </button>
@@ -464,80 +467,64 @@ export default function WorkspaceDetail() {
         {showFilters && (
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-fadeIn">
             {/* Priority */}
-            <div>
-              <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Prioritas</label>
-              <select
-                value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition"
-              >
-                <option value="">Semua Prioritas</option>
-                <option value="critical">Critical</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="Prioritas"
+              options={[
+                { value: "critical", label: "Critical" },
+                { value: "medium", label: "Medium" },
+                { value: "low", label: "Low" }
+              ]}
+              selectedValues={filterPriority}
+              onChange={setFilterPriority}
+              placeholder="Semua Prioritas"
+            />
 
             {/* Status */}
-            <div>
-              <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition"
-              >
-                <option value="">Semua Status</option>
-                <option value="To Do">To Do</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Review">Review</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="Status"
+              options={[
+                { value: "To Do", label: "To Do" },
+                { value: "In Progress", label: "In Progress" },
+                { value: "Review", label: "Review" },
+                { value: "Completed", label: "Completed" }
+              ]}
+              selectedValues={filterStatus}
+              onChange={setFilterStatus}
+              placeholder="Semua Status"
+            />
 
             {/* Position */}
-            <div>
-              <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Position</label>
-              <select
-                value={filterPosition}
-                onChange={(e) => setFilterPosition(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition"
-              >
-                <option value="">Semua Position</option>
-                {availablePositions.map((pos) => (
-                  <option key={pos} value={pos}>{pos}</option>
-                ))}
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="Position"
+              options={availablePositions}
+              selectedValues={filterPosition}
+              onChange={setFilterPosition}
+              placeholder="Semua Position"
+            />
 
             {/* Bulan */}
-            <div>
-              <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bulan</label>
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition"
-              >
-                <option value="">Semua Bulan</option>
-                {availableMonths.map((m) => (
-                  <option key={m} value={m}>{MONTH_NAMES[m] || `Bulan ${m}`}</option>
-                ))}
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="Bulan"
+              options={availableMonths.map((m) => ({
+                value: m,
+                label: MONTH_NAMES[m] || `Bulan ${m}`
+              }))}
+              selectedValues={filterMonth}
+              onChange={setFilterMonth}
+              placeholder="Semua Bulan"
+            />
 
             {/* Tahun */}
-            <div>
-              <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Tahun</label>
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition"
-              >
-                <option value="">Semua Tahun</option>
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="Tahun"
+              options={availableYears.map((y) => ({
+                value: y,
+                label: String(y)
+              }))}
+              selectedValues={filterYear}
+              onChange={setFilterYear}
+              placeholder="Semua Tahun"
+            />
 
             {/* Date Range Start (Dari) */}
             <div>
@@ -563,20 +550,19 @@ export default function WorkspaceDetail() {
 
             {/* Sub-Workspace Filter (Only visible on main Workspace page) */}
             {!subId && (
-              <div>
-                <label className="block mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sub-Workspace</label>
-                <select
-                  value={filterSubWorkspace}
-                  onChange={(e) => setFilterSubWorkspace(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:bg-white focus:border-indigo-400 transition text-slate-800"
-                >
-                  <option value="">Semua Sub-Workspace &amp; Tanpa Sub</option>
-                  <option value="none">Hanya Tanpa Sub-Workspace</option>
-                  {subWorkspaces.map((sub) => (
-                    <option key={sub.id} value={sub.id}>{sub.title}</option>
-                  ))}
-                </select>
-              </div>
+              <MultiSelectDropdown
+                label="Sub-Workspace"
+                options={[
+                  { value: "none", label: "Hanya Tanpa Sub-Workspace" },
+                  ...subWorkspaces.map((sub) => ({
+                    value: String(sub.id),
+                    label: sub.title
+                  }))
+                ]}
+                selectedValues={filterSubWorkspace}
+                onChange={setFilterSubWorkspace}
+                placeholder="Semua Sub-Workspace & Tanpa Sub"
+              />
             )}
 
             {/* Due Date Filter */}
@@ -613,17 +599,17 @@ export default function WorkspaceDetail() {
               <button
                 type="button"
                 onClick={() => {
-                  setFilterPriority("");
-                  setFilterStatus("");
-                  setFilterPosition("");
-                  setFilterMonth("");
-                  setFilterYear("");
+                  setFilterPriority([]);
+                  setFilterStatus([]);
+                  setFilterPosition([]);
+                  setFilterMonth([]);
+                  setFilterYear([]);
                   setStartDate("");
                   setEndDate("");
                   setDueDateType("");
                   setCustomDueDate("");
                   setSearchTerm("");
-                  setFilterSubWorkspace("");
+                  setFilterSubWorkspace([]);
                 }}
                 className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition shadow-sm"
               >
