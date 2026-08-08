@@ -91,7 +91,14 @@ const EMPTY_PROGRESS_FORM = {
   note: "",
   pic_employee_id: "",
   pic_name: "",
+  logged_at: "",
 };
+
+function getLocalDatetimeString(date = new Date()) {
+  const tzoffset = date.getTimezoneOffset() * 60000;
+  const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+  return localISOTime;
+}
 
 // ── Small helpers ──────────────────────────────────────────────────────────────
 
@@ -182,7 +189,7 @@ function Lightbox({ src, name, onClose }) {
 
 // ── Field components ───────────────────────────────────────────────────────────
 
-function SelectField({ label, required, value, onChange, children, error }) {
+function SelectField({ label, required, value, onChange, children, error, ...props }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs font-semibold text-slate-500">
@@ -192,8 +199,9 @@ function SelectField({ label, required, value, onChange, children, error }) {
         <select
           value={value}
           onChange={onChange}
+          {...props}
           className={cn(
-            "w-full appearance-none rounded-xl border bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-800 outline-none transition",
+            "w-full appearance-none rounded-xl border bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-800 outline-none transition disabled:bg-slate-50 disabled:text-slate-400",
             "focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20",
             error ? "border-fuchsia-500 bg-fuchsia-50/40" : "border-slate-200 hover:border-slate-300",
           )}
@@ -207,9 +215,9 @@ function SelectField({ label, required, value, onChange, children, error }) {
   );
 }
 
-function TextField({ label, required, value, onChange, error, placeholder, type = "text", as: As = "input", hint }) {
+function TextField({ label, required, value, onChange, error, placeholder, type = "text", as: As = "input", hint, ...props }) {
   const cls = cn(
-    "w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-300",
+    "w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-300 disabled:bg-slate-50 disabled:text-slate-400",
     "focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-600/20",
     error ? "border-fuchsia-500 bg-fuchsia-50/40" : "border-slate-200 hover:border-slate-300",
   );
@@ -222,8 +230,8 @@ function TextField({ label, required, value, onChange, error, placeholder, type 
         {hint && <span className="text-[10px] text-slate-400">{hint}</span>}
       </div>
       {As === "textarea"
-        ? <textarea rows={4} value={value} onChange={onChange} placeholder={placeholder} className={cn(cls, "resize-none")} />
-        : <input type={type} value={value} onChange={onChange} placeholder={placeholder} className={cls} />
+        ? <textarea rows={4} value={value} onChange={onChange} placeholder={placeholder} {...props} className={cn(cls, "resize-none")} />
+        : <input type={type} value={value} onChange={onChange} placeholder={placeholder} {...props} className={cls} />
       }
       {error && <p className="flex items-center gap-1 text-xs text-fuchsia-700"><span>⚠</span> {error}</p>}
     </div>
@@ -318,16 +326,16 @@ function ProgressTimeline({ logs, complaint, onPreviewDoc, onEditLog, onDeleteLo
                     <span className="text-[11px] text-slate-500">— PIC: <b>{log.pic_name}</b></span>
                   )}
                 </div>
-                {!isCreatedLog && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onEditLog?.(log)}
-                      className="p-1 text-slate-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded transition"
-                      title="Edit progress"
-                    >
-                      <HiOutlinePencilSquare className="h-3.5 w-3.5" />
-                    </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onEditLog?.(log)}
+                    className="p-1 text-slate-400 hover:text-fuchsia-600 hover:bg-fuchsia-50 rounded transition"
+                    title="Edit progress"
+                  >
+                    <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                  </button>
+                  {!isCreatedLog && (
                     <button
                       type="button"
                       onClick={() => onDeleteLog?.(log)}
@@ -336,8 +344,8 @@ function ProgressTimeline({ logs, complaint, onPreviewDoc, onEditLog, onDeleteLo
                     >
                       <HiOutlineTrash className="h-3.5 w-3.5" />
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               {log.note && <p className="text-sm text-slate-700 whitespace-pre-line">{log.note}</p>}
               {log.documents?.length > 0 && (
@@ -514,7 +522,10 @@ export default function DaftarKomplain() {
   // ── Progress log ──────────────────────────────────────────────────
 
   const openProgressModal = () => {
-    setProgressForm(EMPTY_PROGRESS_FORM);
+    setProgressForm({
+      ...EMPTY_PROGRESS_FORM,
+      logged_at: getLocalDatetimeString(),
+    });
     setProgressFiles([]);
     setProgressOpen(true);
   };
@@ -532,6 +543,7 @@ export default function DaftarKomplain() {
             progress: progressForm.progress,
             note: progressForm.note,
             pic_name: progressForm.pic_name,
+            logged_at: progressForm.logged_at,
           }),
         });
       } else {
@@ -554,12 +566,18 @@ export default function DaftarKomplain() {
   };
 
   const handleEditProgress = (log) => {
+    const isCreatedLog = log.note === "Komplain dibuat." || log.progress === "Open" && detailData.progressLogs.indexOf(log) === 0;
+    const logDate = isCreatedLog && detailData.complaint?.submitted_at
+      ? new Date(detailData.complaint.submitted_at)
+      : new Date(log.logged_at);
+
     setEditProgressTarget(log);
     setProgressForm({
       progress: log.progress,
       note: log.note || "",
       pic_employee_id: log.pic_employee_id || "",
       pic_name: log.pic_name || "",
+      logged_at: getLocalDatetimeString(logDate),
     });
     setProgressFiles([]);
     setProgressOpen(true);
@@ -1136,10 +1154,19 @@ export default function DaftarKomplain() {
             required
             value={progressForm.progress}
             onChange={(e) => setProgressForm((f) => ({ ...f, progress: e.target.value }))}
+            disabled={editProgressTarget && editProgressTarget.progress === "Open" && detailData?.progressLogs?.[0]?.log_id === editProgressTarget.log_id}
           >
             <option value="">— Pilih Progress —</option>
             {PROGRESS_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
           </SelectField>
+
+          <TextField
+            type="datetime-local"
+            label="Tanggal & Waktu Progress"
+            required
+            value={progressForm.logged_at}
+            onChange={(e) => setProgressForm((f) => ({ ...f, logged_at: e.target.value }))}
+          />
 
           <TextField
             label="Catatan"
