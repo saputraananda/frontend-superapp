@@ -81,10 +81,10 @@ const TRANSAKSI_LINEN_MENU = [
 		description: "Penerimaan & pengiriman linen",
 	},
 	{
-		to: "/transaksi-linen-custom-ikm",
+		to: "/transaksi-linen-komersil-ikm",
 		icon: HiOutlineDocumentText,
-		label: "Serah Terima Khusus",
-		description: "Penerimaan & pengiriman linen khusus",
+		label: "Serah Terima Komersil",
+		description: "Penerimaan & pengiriman linen komersil",
 	},
 ];
 
