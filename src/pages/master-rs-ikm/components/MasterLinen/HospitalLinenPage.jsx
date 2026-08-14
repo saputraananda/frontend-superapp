@@ -88,6 +88,7 @@ const EMPTY_FORM = {
   stock_in_rs: "",
   is_active: true,
   room_stocks: [],
+  ikm_room_stocks: [],
 };
 
 const sumRoomStocks = (roomStocks) => {
@@ -95,12 +96,18 @@ const sumRoomStocks = (roomStocks) => {
   return roomStocks.reduce((sum, r) => sum + (Number(r.stock_in_rs) || 0), 0);
 };
 
+const sumIkmRoomStocks = (ikmRoomStocks) => {
+  if (!Array.isArray(ikmRoomStocks)) return 0;
+  return ikmRoomStocks.reduce((sum, r) => sum + (Number(r.stock_in_ikm) || 0), 0);
+};
+
 // null  = ikuti auto (IKM + RS)
 // number = override manual
 const autoTotal = (form, override, hasRooms = false) => {
   if (override !== null) return override === 0 ? "" : override;
   const rsStock = hasRooms ? sumRoomStocks(form.room_stocks) : (Number(form.stock_in_rs) || 0);
-  const val = (Number(form.stock_in_ikm) || 0) + rsStock;
+  const ikmStock = sumIkmRoomStocks(form.ikm_room_stocks) || (Number(form.stock_in_ikm) || 0);
+  const val = ikmStock + rsStock;
   return val === 0 ? "" : val;
 };
 
@@ -110,6 +117,7 @@ export default function HospitalLinenPage({ hospitalId }) {
   const [loading, setLoading] = useState(true);
   const [hospitalName, setHospitalName] = useState("");
   const [hospitalRooms, setHospitalRooms] = useState([]);
+  const [ikmRooms, setIkmRooms] = useState([]);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -173,6 +181,7 @@ export default function HospitalLinenPage({ hospitalId }) {
     try {
       const r = await api(basePath);
       setItems(r.data || []);
+      setIkmRooms(r.ikm_rooms || []);
     } catch { showToast("error", "Gagal memuat data linen RS"); }
     finally { setLoading(false); }
   }, [basePath, showToast]);
@@ -241,6 +250,20 @@ export default function HospitalLinenPage({ hospitalId }) {
     });
   };
 
+  const handleIkmRoomStockChange = (roomIkmId, val) => {
+    const stockVal = val === "" ? "" : Number(val) || 0;
+    setForm(f => {
+      const idx = f.ikm_room_stocks.findIndex(r => r.room_ikm_id === roomIkmId);
+      let next;
+      if (idx !== -1) {
+        next = f.ikm_room_stocks.map((r, i) => i === idx ? { ...r, stock_in_ikm: stockVal } : r);
+      } else {
+        next = [...f.ikm_room_stocks, { room_ikm_id: roomIkmId, stock_in_ikm: stockVal }];
+      }
+      return { ...f, ikm_room_stocks: next };
+    });
+  };
+
   const openEdit = (item) => {
     setEditTarget(item);
     setModalTab("form");
@@ -265,6 +288,7 @@ export default function HospitalLinenPage({ hospitalId }) {
       stock_in_rs: item.stock_in_rs != null && item.stock_in_rs !== 0 ? String(item.stock_in_rs) : "",
       is_active: Boolean(item.is_active),
       room_stocks: item.room_stocks || [],
+      ikm_room_stocks: item.ikm_room_stocks || [],
     });
     setErrors({});
     setDdSearch("");
@@ -287,6 +311,7 @@ export default function HospitalLinenPage({ hospitalId }) {
     if (!validate()) return;
     setSaving(true);
     const hasRooms = hospitalRooms.length > 0;
+    const totalIkmStock = sumIkmRoomStocks(form.ikm_room_stocks);
     const totalRsStock = hasRooms ? sumRoomStocks(form.room_stocks) : (parseInt(form.stock_in_rs) || 0);
     const computedTotal = autoTotal(form, totalStockOverride, hasRooms);
     const payload = {
@@ -296,10 +321,11 @@ export default function HospitalLinenPage({ hospitalId }) {
       rental_price: parseFloat(form.rental_price),
       par_stock: parseInt(form.par_stock) || 0,
       min_stock: parseInt(form.min_stock) || 0,
-      stock_in_ikm: parseInt(form.stock_in_ikm) || 0,
+      stock_in_ikm: totalIkmStock,
       stock_in_rs: totalRsStock,
       current_stock: Number(computedTotal) || 0,
       room_stocks: hasRooms ? form.room_stocks : [],
+      ikm_room_stocks: form.ikm_room_stocks,
     };
     try {
       if (editTarget) {
@@ -308,15 +334,16 @@ export default function HospitalLinenPage({ hospitalId }) {
         setItems(prev => prev.map(item =>
           item.id === editTarget.id
             ? {
-                ...item,
-                ...payload,
-                // Preserve kolom yang hanya dari DB (nama master, dll)
-                master_linen_name: item.master_linen_name,
-                size_name: item.size_name,
-                color_name: item.color_name,
-                material_name: item.material_name,
-                room_stocks: hasRooms ? form.room_stocks : [],
-              }
+                 ...item,
+                 ...payload,
+                 // Preserve kolom yang hanya dari DB (nama master, dll)
+                 master_linen_name: item.master_linen_name,
+                 size_name: item.size_name,
+                 color_name: item.color_name,
+                 material_name: item.material_name,
+                 room_stocks: hasRooms ? form.room_stocks : [],
+                 ikm_room_stocks: form.ikm_room_stocks,
+               }
             : item
         ));
         showToast("success", "Linen RS berhasil diperbarui");
@@ -714,10 +741,9 @@ export default function HospitalLinenPage({ hospitalId }) {
                         onChange={(e) => setForm({ ...form, rental_price: parseRupiahInput(e.target.value) })} />
                     </div>
                   </Field>
-                  <Field label="Stok di IKM">
-                    <input className={inputCls} type="number" min="0" placeholder="0"
-                      value={form.stock_in_ikm}
-                      onChange={(e) => setForm({ ...form, stock_in_ikm: e.target.value })}
+                  <Field label="Stok di IKM (Akumulasi Ruangan)">
+                    <input className={inputCls} type="number" disabled placeholder="0"
+                      value={sumIkmRoomStocks(form.ikm_room_stocks) || ""}
                       onWheel={(e) => e.target.blur()} />
                   </Field>
                   {hospitalRooms.length > 0 ? (
@@ -754,11 +780,37 @@ export default function HospitalLinenPage({ hospitalId }) {
                             </button>
                           </>
                         ) : (
-                          <span className="text-[11px] text-slate-400">⚡ Otomatis: IKM + RS = <strong>{(Number(form.stock_in_ikm) || 0) + (hospitalRooms.length > 0 ? sumRoomStocks(form.room_stocks) : (Number(form.stock_in_rs) || 0))}</strong> · Edit angka untuk override</span>
+                          <span className="text-[11px] text-slate-400">⚡ Otomatis: IKM + RS = <strong>{sumIkmRoomStocks(form.ikm_room_stocks) + (hospitalRooms.length > 0 ? sumRoomStocks(form.room_stocks) : (Number(form.stock_in_rs) || 0))}</strong> · Edit angka untuk override</span>
                         )}
                       </div>
                     </div>
                   </Field>
+
+                  {/* Detail Stok per Ruangan IKM */}
+                  {ikmRooms.length > 0 && (
+                    <div className="col-span-1 md:col-span-2 border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                      <p className="text-xs font-bold text-slate-700 mb-2">Detail Stok per Ruangan IKM</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {ikmRooms.map(room => {
+                          const roomStock = form.ikm_room_stocks?.find(r => r.room_ikm_id === room.id)?.stock_in_ikm ?? "";
+                          return (
+                            <div key={room.id} className="flex flex-col gap-1">
+                              <label className="text-[11px] font-semibold text-slate-500 truncate" title={room.room_name}>{room.room_name}</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                className={inputCls}
+                                value={roomStock}
+                                onChange={(e) => handleIkmRoomStockChange(room.id, e.target.value)}
+                                onWheel={(e) => e.target.blur()}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Detail Stok per Ruangan */}
                   {hospitalRooms.length > 0 && (

@@ -54,6 +54,7 @@ import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor
 import MasterMaterial from "./pages/master-rs-ikm/components/MasterData/MasterMaterial";
 import MasterLinenCategory from "./pages/master-rs-ikm/components/MasterData/MasterLinenCategory";
 import MasterVendorIKM from "./pages/master-rs-ikm/components/MasterData/MasterVendor";
+import MasterRoomsIKM from "./pages/master-rs-ikm/components/MasterData/MasterRoomsIKM";
 import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
 import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
@@ -365,6 +366,7 @@ export default function App() {
           <Route path="/master-data-ikm/material" element={<MasterMaterial />} />
           <Route path="/master-data-ikm/category" element={<MasterLinenCategory />} />
           <Route path="/master-data-ikm/vendor" element={<MasterVendorIKM />} />
+          <Route path="/master-data-ikm/rooms" element={<MasterRoomsIKM />} />
         </Route>
 
         {/* ── Target Waschen ── */}
