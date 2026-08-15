@@ -232,7 +232,7 @@ function EmployeeCard({ employee, rank, onClick, maxTotal }) {
     );
 }
 
-function DetailModal({ employee, dateStart, dateEnd, onClose }) {
+function DetailModal({ employee, dateStart, dateEnd, dataSource = "waschen", serviceMode = "home_service", onClose }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeStage, setActiveStage] = useState(null);
@@ -244,7 +244,14 @@ function DetailModal({ employee, dateStart, dateEnd, onClose }) {
             try {
                 setLoading(true);
                 setError("");
-                const res = await api(`/kpi/detail?${new URLSearchParams({ employee_name: employee.name, date_start: dateStart, date_end: dateEnd })}`);
+                const path = dataSource === "only" ? "/kpi/only/detail" : "/kpi/detail";
+                const params = new URLSearchParams({
+                    employee_name: employee.name,
+                    date_start: dateStart,
+                    date_end: dateEnd,
+                });
+                if (dataSource === "only") params.set("service_mode", serviceMode);
+                const res = await api(`${path}?${params.toString()}`);
                 setItems(res.items || []);
             } catch (err) {
                 setError(err.message || "Gagal memuat detail");
@@ -254,7 +261,7 @@ function DetailModal({ employee, dateStart, dateEnd, onClose }) {
             }
         };
         fetchDetail();
-    }, [employee, dateStart, dateEnd]);
+    }, [employee, dateStart, dateEnd, dataSource, serviceMode]);
 
     const filtered = useMemo(() => {
         if (!activeStage) return items;
@@ -342,7 +349,11 @@ function DetailModal({ employee, dateStart, dateEnd, onClose }) {
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-black text-slate-800 font-mono bg-slate-100 px-1.5 py-0.5 rounded">{it.invoice || "-"}</span>
-                                                {it.outlet && <span className="rounded-md bg-blue-50 border border-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 uppercase tracking-wider">{it.outlet}</span>}
+                                                {it.outlet ? (
+                                                    <span className="rounded-md bg-blue-50 border border-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 uppercase tracking-wider">{it.outlet}</span>
+                                                ) : (
+                                                    <span className="rounded-md bg-slate-50 border border-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">-</span>
+                                                )}
                                             </div>
                                             <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-wide">{it.customer_name || "-"}</p>
                                         </div>
@@ -353,7 +364,9 @@ function DetailModal({ employee, dateStart, dateEnd, onClose }) {
                                     <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
                                         <p className="text-xs font-semibold text-slate-700 truncate max-w-[60%]">{it.item_name || "-"}</p>
                                         <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
-                                            <span className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{it.jumlah} {it.satuan_item}</span>
+                                            <span className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                                                {it.jumlah != null ? `${it.jumlah}${it.satuan_item ? ` ${it.satuan_item}` : ""}` : "-"}
+                                            </span>
                                             <span>&bull;</span>
                                             <span className="flex items-center gap-1"><HiOutlineClock className="h-3 w-3" />{it.date ? formatDateShort(it.date) : "-"}</span>
                                         </div>
@@ -586,9 +599,11 @@ export default function KpiProduksiPage() {
     const [dataLoading, setDataLoading] = useState(false);
     const [error, setError] = useState("");
 
+    const [dataSource, setDataSource] = useState("waschen");
     const [outlets, setOutlets] = useState([]);
     const [periods, setPeriods] = useState([]);
     const [selectedOutlet, setSelectedOutlet] = useState("");
+    const [serviceMode, setServiceMode] = useState("home_service");
 
     const defaultRange = getDefaultDateRange();
     const [dateStart, setDateStart] = useState(defaultRange.date_start);
@@ -612,21 +627,31 @@ export default function KpiProduksiPage() {
     useEffect(() => {
         const init = async () => {
             try {
-                const [outletsRes, periodsRes] = await Promise.all([
-                    api("/kpi/outlets"),
-                    api("/kpi/available-periods"),
-                ]);
-                setOutlets(outletsRes.outlets || []);
-                setPeriods(periodsRes.periods || []);
+                if (dataSource === "only") {
+                    const periodsRes = await api("/kpi/only/available-periods");
+                    setPeriods(periodsRes.periods || []);
+                    setOutlets([]);
+                } else {
+                    const [outletsRes, periodsRes] = await Promise.all([
+                        api("/kpi/outlets"),
+                        api("/kpi/available-periods"),
+                    ]);
+                    setOutlets(outletsRes.outlets || []);
+                    setPeriods(periodsRes.periods || []);
+                }
             } catch (err) {
                 console.error("Init fetch error:", err);
             }
         };
         init();
-    }, []);
+    }, [dataSource]);
 
     useEffect(() => {
-        if (periods.length > 0 && !selectedYear && !selectedMonth) {
+        if (periods.length === 0) return;
+        const stillValid = periods.some(
+            (p) => Number(p.yr) === Number(selectedYear) && Number(p.mo) === Number(selectedMonth)
+        );
+        if (!selectedYear || !selectedMonth || !stillValid) {
             setSelectedYear(periods[0].yr);
             setSelectedMonth(periods[0].mo);
         }
@@ -656,14 +681,28 @@ export default function KpiProduksiPage() {
         }
     }, []);
 
-    const fetchSummary = useCallback(async (start, end, outlet) => {
+    const handleDataSourceChange = useCallback((next) => {
+        if (next === dataSource) return;
+        setDataSource(next);
+        setSelectedEmployee(null);
+        setSlaCategory(null);
+        if (next === "only") {
+            setSelectedOutlet("");
+            setServiceMode("home_service");
+        }
+        setLoading(true);
+    }, [dataSource]);
+
+    const fetchSummary = useCallback(async (start, end, outlet, source, mode) => {
         if (!start || !end) return;
         try {
             setDataLoading(true);
             setError("");
             const params = new URLSearchParams({ date_start: start, date_end: end });
-            if (outlet) params.set("outlet", outlet);
-            const res = await api(`/kpi/summary?${params.toString()}`);
+            if (source === "waschen" && outlet) params.set("outlet", outlet);
+            if (source === "only") params.set("service_mode", mode || "home_service");
+            const path = source === "only" ? "/kpi/only/summary" : "/kpi/summary";
+            const res = await api(`${path}?${params.toString()}`);
             setSummaryData(res.summary || []);
             setOverall(res.overall || null);
             setInsights(res.insights || EMPTY_INSIGHTS);
@@ -679,8 +718,8 @@ export default function KpiProduksiPage() {
     }, []);
 
     useEffect(() => {
-        fetchSummary(dateStart, dateEnd, selectedOutlet);
-    }, [dateStart, dateEnd, selectedOutlet, fetchSummary]);
+        fetchSummary(dateStart, dateEnd, selectedOutlet, dataSource, serviceMode);
+    }, [dateStart, dateEnd, selectedOutlet, dataSource, serviceMode, fetchSummary]);
 
     const uniqueYears = useMemo(() => {
         const yrs = new Set(periods.map(p => p.yr));
@@ -749,12 +788,43 @@ export default function KpiProduksiPage() {
                                     KPI Produksi Cleanox
                                 </h1>
                                 <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                                    Pantau kinerja produksi berdasarkan tahapan Pickup, Cuci &amp; Jemur, Packing, dan Pengantaran.
+                                    {dataSource === "only"
+                                        ? "Pantau kinerja produksi Cleanox Only — filter Home Service / Take Home berdasarkan tahapan Pickup, Cuci & Jemur, Packing, dan Pengantaran."
+                                        : "Pantau kinerja produksi Cleanox by Waschen berdasarkan tahapan Pickup, Cuci & Jemur, Packing, dan Pengantaran."}
                                 </p>
                             </div>
                         </div>
                     </div>
                 </section>
+
+                {/* Data source tabs */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => handleDataSourceChange("waschen")}
+                        className={cn(
+                            "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all border",
+                            dataSource === "waschen"
+                                ? "bg-[#1b3459] text-white border-[#1b3459] shadow-sm"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+                        )}
+                    >
+                        Cleanox by Waschen
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDataSourceChange("only")}
+                        className={cn(
+                            "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all border",
+                            dataSource === "only"
+                                ? "bg-[#1b3459] text-white border-[#1b3459] shadow-sm"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+                        )}
+                    >
+                        Cleanox Only
+                    </button>
+                </div>
+
                 {/* Filter Card */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -810,19 +880,37 @@ export default function KpiProduksiPage() {
                                     </div>
                                 </>
                             )}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Outlet</label>
-                                <select
-                                    value={selectedOutlet}
-                                    onChange={(e) => setSelectedOutlet(e.target.value)}
-                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
-                                >
-                                    <option value="">Semua Outlet</option>
-                                    {outlets.map((o) => (
-                                        <option key={o} value={o}>{o}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {dataSource === "waschen" && (
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Outlet</label>
+                                    <select
+                                        value={selectedOutlet}
+                                        onChange={(e) => setSelectedOutlet(e.target.value)}
+                                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
+                                    >
+                                        <option value="">Semua Outlet</option>
+                                        {outlets.map((o) => (
+                                            <option key={o} value={o}>{o}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {dataSource === "only" && (
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mode Layanan</label>
+                                    <select
+                                        value={serviceMode}
+                                        onChange={(e) => {
+                                            setServiceMode(e.target.value);
+                                            setSelectedEmployee(null);
+                                        }}
+                                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#1b3459] focus:ring-2 focus:ring-[#1b3459]/10 cursor-pointer"
+                                    >
+                                        <option value="home_service">Home Service</option>
+                                        <option value="take_home">Take Home</option>
+                                    </select>
+                                </div>
+                            )}
 
                             <button
                                 type="button"
@@ -992,8 +1080,8 @@ export default function KpiProduksiPage() {
                         )}
                     </section>
                 </div>
-                {/* SLA Ketepatan Pengantaran */}
-                {insights.sla && (
+                {/* SLA Ketepatan Pengantaran — Waschen only */}
+                {dataSource === "waschen" && insights.sla && (
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -1286,12 +1374,14 @@ export default function KpiProduksiPage() {
                     employee={selectedEmployee}
                     dateStart={dateStart}
                     dateEnd={dateEnd}
+                    dataSource={dataSource}
+                    serviceMode={serviceMode}
                     onClose={() => setSelectedEmployee(null)}
                 />
             )}
 
-            {/* SLA Items Modal */}
-            {slaCategory && (
+            {/* SLA Items Modal — Waschen only */}
+            {dataSource === "waschen" && slaCategory && (
                 <SlaItemsModal
                     category={slaCategory}
                     dateStart={dateStart}

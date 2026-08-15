@@ -9,49 +9,98 @@ import {
   HiOutlineSparkles,
   HiOutlineChartBar,
   HiOutlineTag,
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineMapPin,
+  HiOutlineCalendarDays,
+  HiOutlineBanknotes,
 } from "react-icons/hi2";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-const MENU_ITEMS = [
+const MENU_GROUPS = [
   {
-    to: "/cleanox-management-system",
-    icon: HiOutlineUser,
-    label: "Data Karyawan",
-    description: "Master data karyawan Cleanox",
-    end: true,
+    label: "Menu Karyawan",
+    items: [
+      {
+        to: "/cleanox-management-system",
+        icon: HiOutlineUser,
+        label: "Data Karyawan",
+        description: "Master data karyawan Cleanox",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/absensi",
+        icon: HiOutlineClipboardDocumentCheck,
+        label: "Absensi Karyawan",
+        description: "Lihat absensi dan foto grooming",
+        end: false,
+      },
+      {
+        to: "/cleanox-management-system/perizinan",
+        icon: HiOutlineCalendarDays,
+        label: "Cuti & Perizinan",
+        description: "Approve izin, sakit, dan cuti",
+        end: false,
+      },
+      {
+        to: "/cleanox-management-system/report-area-kebersihan",
+        icon: HiOutlineMapPin,
+        label: "Report Area Kebersihan",
+        description: "Laporan kebersihan pagi & sore",
+        end: false,
+      },
+      {
+        to: "/cleanox-management-system/kasbon-pinjaman",
+        icon: HiOutlineBanknotes,
+        label: "Kasbon & Pinjaman",
+        description: "Approval kasbon dan pinjaman karyawan",
+        end: false,
+      },
+    ],
   },
   {
-    to: "/cleanox-management-system/kpi",
-    icon: HiOutlineChartBar,
-    label: "KPI Produksi",
-    description: "Performa karyawan produksi",
-    end: true,
+    label: "Menu Analisis",
+    items: [
+      {
+        to: "/cleanox-management-system/kpi",
+        icon: HiOutlineChartBar,
+        label: "KPI Produksi",
+        description: "Performa karyawan produksi",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/target",
+        icon: HiOutlineChartBar,
+        label: "Target Cleanox",
+        description: "Kelola target bulanan Cleanox",
+        end: true,
+      },
+    ],
   },
   {
-    to: "/cleanox-management-system/target",
-    icon: HiOutlineChartBar,
-    label: "Target Cleanox",
-    description: "Kelola target bulanan Cleanox",
-    end: true,
-  },
-  {
-    to: "/cleanox-management-system/category",
-    icon: HiOutlineTag,
-    label: "Master Kategori",
-    description: "Kelola kategori layanan",
-    end: true,
-  },
-  {
-    to: "/cleanox-management-system/service",
-    icon: HiOutlineBriefcase,
-    label: "Master Service",
-    description: "Kelola layanan Cleanox",
-    end: true,
+    label: "Menu Master",
+    items: [
+      {
+        to: "/cleanox-management-system/category",
+        icon: HiOutlineTag,
+        label: "Master Kategori",
+        description: "Kelola kategori layanan",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/service",
+        icon: HiOutlineBriefcase,
+        label: "Master Service",
+        description: "Kelola layanan Cleanox",
+        end: true,
+      },
+    ],
   },
 ];
+
+const ALL_MENU_ITEMS = MENU_GROUPS.flatMap((g) => g.items);
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
   return (
@@ -140,16 +189,24 @@ function Sidebar({ collapsed = false, onClose }) {
         )}
       </div>
 
-      {/* Menu label */}
-      {!collapsed && (
-        <p className="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Menu</p>
-      )}
       {collapsed && <div className="pt-3" />}
+      {!collapsed && <div className="pt-3" />}
 
-      {/* Navigation items */}
-      <nav className={cn("flex-1 overflow-y-auto space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
-        {MENU_ITEMS.map((item) => (
-          <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+      {/* Navigation groups */}
+      <nav className={cn("flex-1 overflow-y-auto space-y-4 py-2", collapsed ? "px-1.5" : "px-3")}>
+        {MENU_GROUPS.map((group) => (
+          <div key={group.label}>
+            {!collapsed && (
+              <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                {group.label}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
@@ -180,8 +237,8 @@ function Sidebar({ collapsed = false, onClose }) {
 function ActiveMenuTitle() {
   const { pathname } = useLocation();
   const active =
-    MENU_ITEMS.find((m) => m.end && pathname === m.to) ??
-    MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to));
+    ALL_MENU_ITEMS.find((m) => !m.end && pathname.startsWith(m.to)) ??
+    ALL_MENU_ITEMS.find((m) => m.end && pathname === m.to);
 
   const label = active?.label ?? "Cleanox System";
   const description = active?.description ?? "Kelola unit bisnis Cleanox";

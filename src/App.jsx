@@ -96,6 +96,10 @@ import DashboardKYE from "./pages/knowyour-employee/components/DashboardKYE";
 import AnalisisBurnout from "./pages/knowyour-employee/components/AnalisisBurnout";
 import CleanoxManagement from "./pages/cleanox-management";
 import EmployeeCleanox from "./pages/cleanox-management/components/EmployeeCleanox";
+import AbsensiKaryawanCleanox from "./pages/cleanox-management/components/AbsensiKaryawanCleanox";
+import PerizinanCleanox from "./pages/cleanox-management/components/PerizinanCleanox";
+import KasbonPinjamanCleanox from "./pages/cleanox-management/components/KasbonPinjamanCleanox";
+import MasterAreaKebersihanCleanox from "./pages/cleanox-management/components/MasterAreaKebersihanCleanox";
 import MasterService from "./pages/cleanox-management/components/MasterService";
 import MasterCategory from "./pages/cleanox-management/components/MasterCategory";
 import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduksiCleanox";
@@ -579,6 +583,14 @@ export default function App() {
           }
         >
           <Route path="/cleanox-management-system" element={<EmployeeCleanox />} />
+          <Route path="/cleanox-management-system/absensi" element={<AbsensiKaryawanCleanox />} />
+          <Route path="/cleanox-management-system/absensi/:employeeId" element={<Navigate to="/cleanox-management-system/absensi" replace />} />
+          <Route path="/cleanox-management-system/perizinan" element={<PerizinanCleanox />} />
+          <Route path="/cleanox-management-system/kasbon-pinjaman" element={<KasbonPinjamanCleanox />} />
+          <Route path="/cleanox-management-system/report-area-kebersihan" element={<MasterAreaKebersihanCleanox />} />
+          <Route path="/cleanox-management-system/report-area-kebersihan/:employeeId" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />
+          <Route path="/cleanox-management-system/master-area" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />
+          <Route path="/cleanox-management-system/master-area/:employeeId" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />
           <Route path="/cleanox-management-system/service" element={<MasterService />} />
           <Route path="/cleanox-management-system/category" element={<MasterCategory />} />
           <Route path="/cleanox-management-system/target" element={<TargetCleanox />} />
