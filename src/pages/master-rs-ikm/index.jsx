@@ -195,6 +195,12 @@ const MENU_SECTIONS = [
 				label: "Vendor",
 				description: "Master vendor pemasok",
 			},
+			{
+				to: "/master-data-ikm/rooms",
+				icon: HiOutlineBuildingOffice2,
+				label: "Ruangan IKM",
+				description: "Master data ruangan IKM",
+			},
 		],
 	},
 ];

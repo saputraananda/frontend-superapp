@@ -56,6 +56,7 @@ export default function DashboardTraining() {
   const [detailTarget, setDetailTarget] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Fetch all training data
   const fetchDashboardData = useCallback(async () => {
@@ -728,7 +729,10 @@ export default function DashboardTraining() {
                             if (isImage) {
                               return (
                                 <div key={ev.id} className="relative group overflow-hidden border border-slate-200 bg-slate-50 rounded-2xl flex flex-col p-2 transition hover:shadow-md hover:border-amber-500">
-                                  <div className="h-28 w-full rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                                  <div 
+                                    className="h-28 w-full rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden relative cursor-pointer"
+                                    onClick={() => setPreviewImage(`${BASE_URL}/assets/${filepath}`)}
+                                  >
                                     <img 
                                       src={`${BASE_URL}/assets/${filepath}`} 
                                       alt={filename} 
@@ -739,19 +743,25 @@ export default function DashboardTraining() {
                                       }}
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                                      <a 
-                                        href={`${BASE_URL}/assets/${filepath}`} 
-                                        target="_blank" 
-                                        rel="noreferrer" 
+                                      <button 
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setPreviewImage(`${BASE_URL}/assets/${filepath}`);
+                                        }}
                                         className="bg-white text-slate-800 p-2 rounded-full shadow hover:bg-slate-100 transition" 
-                                        title="Buka di tab baru"
+                                        title="Preview Foto"
                                       >
                                         <HiOutlineEye className="h-4 w-4" />
-                                      </a>
+                                      </button>
                                     </div>
                                   </div>
                                   <div className="mt-2 flex items-center justify-between px-1">
-                                    <span className="text-[10px] font-semibold text-slate-700 truncate max-w-[80%]" title={filename}>
+                                    <span 
+                                      className="text-[10px] font-semibold text-slate-700 truncate max-w-[80%] cursor-pointer hover:text-amber-600 transition" 
+                                      title={filename}
+                                      onClick={() => setPreviewImage(`${BASE_URL}/assets/${filepath}`)}
+                                    >
                                       {filename}
                                     </span>
                                     <a 
@@ -868,6 +878,38 @@ export default function DashboardTraining() {
                 </>
               )}
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Photo Preview Modal (Portal) */}
+      {previewImage && createPortal(
+        <div 
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md transition-opacity duration-300"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-6 right-6 z-[10001] rounded-full bg-white/10 hover:bg-white/20 p-2.5 text-white transition-all shadow-lg active:scale-95 border border-white/10"
+          >
+            <HiOutlineXMark className="h-6 w-6" />
+          </button>
+          
+          {/* Image Container */}
+          <div 
+            className="relative max-w-4xl max-h-[85vh] md:max-h-[90vh] flex items-center justify-center transition-all duration-300 scale-95 hover:scale-100"
+            onClick={e => e.stopPropagation()}
+          >
+            <img 
+              src={previewImage} 
+              alt="Preview" 
+              className="max-w-full max-h-[85vh] md:max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "https://placehold.co/800x600?text=Error+Loading+Image";
+              }}
+            />
           </div>
         </div>,
         document.body

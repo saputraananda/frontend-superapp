@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../../lib/api";
+import { showError, showConfirm } from "../../../../utils/alert";
 import {
 	HiOutlineBuildingOffice2,
 	HiOutlineCheck,
@@ -11,6 +12,8 @@ import {
 	HiOutlineTrash,
 	HiOutlineEye,
 	HiOutlineXMark,
+	HiOutlineArchiveBox,
+	HiOutlineStar,
 } from "react-icons/hi2";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -190,7 +193,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 		return {
 			...initial,
 			rooms: Array.isArray(initial.rooms)
-				? initial.rooms.map((r) => (typeof r === "string" ? { room_name: r, is_gudang_linen: 0 } : { id: r.id, room_name: r.room_name, is_gudang_linen: r.is_gudang_linen || 0 }))
+				? initial.rooms.map((r) => (typeof r === "string" ? { room_name: r, is_gudang_linen: 0, is_special_unit: 0 } : { id: r.id, room_name: r.room_name, is_gudang_linen: r.is_gudang_linen || 0, is_special_unit: r.is_special_unit || 0 }))
 				: [],
 			username: initial.username ?? "",
 			password: initial.password ?? "",
@@ -223,7 +226,8 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 					method: "PUT",
 					body: JSON.stringify({ 
 						room_name: roomObj.room_name, 
-						is_gudang_linen: nextStatus ? 1 : 0 
+						is_gudang_linen: nextStatus ? 1 : 0,
+						is_special_unit: roomObj.is_special_unit ? 1 : 0
 					}),
 				});
 
@@ -235,7 +239,8 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 								method: "PUT",
 								body: JSON.stringify({ 
 									room_name: otherRoom.room_name, 
-									is_gudang_linen: 0 
+									is_gudang_linen: 0,
+									is_special_unit: otherRoom.is_special_unit ? 1 : 0
 								}),
 							});
 						}
@@ -245,7 +250,35 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 				setForm((f) => ({ ...f, rooms: updatedRooms }));
 				if (onRefresh) onRefresh();
 			} catch (e) {
-				alert("Gagal memperbarui status Gudang Linen: " + e.message);
+				showError("Gagal memperbarui status Gudang Linen: " + e.message);
+			}
+		} else {
+			setForm((f) => ({ ...f, rooms: updatedRooms }));
+		}
+	};
+
+	const toggleSpecialUnit = async (idx) => {
+		const roomObj = form.rooms[idx];
+		const currentStatus = roomObj.is_special_unit === 1 || roomObj.is_special_unit === true;
+		const nextStatus = !currentStatus;
+
+		const updatedRooms = form.rooms.map((r, i) => (i === idx ? { ...r, is_special_unit: nextStatus ? 1 : 0 } : r));
+
+		if (roomObj?.id) {
+			try {
+				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
+					method: "PUT",
+					body: JSON.stringify({ 
+						room_name: roomObj.room_name, 
+						is_gudang_linen: roomObj.is_gudang_linen ? 1 : 0,
+						is_special_unit: nextStatus ? 1 : 0 
+					}),
+				});
+
+				setForm((f) => ({ ...f, rooms: updatedRooms }));
+				if (onRefresh) onRefresh();
+			} catch (e) {
+				showError("Gagal memperbarui status Unit Khusus: " + e.message);
 			}
 		} else {
 			setForm((f) => ({ ...f, rooms: updatedRooms }));
@@ -261,15 +294,15 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			try {
 				const res = await api(`/ikm/master-rs/hospitals/${initial.id}/rooms`, {
 					method: "POST",
-					body: JSON.stringify({ room_name: val, is_gudang_linen: 0 }),
+					body: JSON.stringify({ room_name: val, is_gudang_linen: 0, is_special_unit: 0 }),
 				});
-				setForm((f) => ({ ...f, rooms: [...f.rooms, { id: res.id, room_name: val, is_gudang_linen: 0 }] }));
+				setForm((f) => ({ ...f, rooms: [...f.rooms, { id: res.id, room_name: val, is_gudang_linen: 0, is_special_unit: 0 }] }));
 				if (onRefresh) onRefresh();
 			} catch (e) {
-				alert("Gagal menambahkan ruangan: " + e.message);
+				showError("Gagal menambahkan ruangan: " + e.message);
 			}
 		} else {
-			setForm((f) => ({ ...f, rooms: [...f.rooms, { room_name: val, is_gudang_linen: 0 }] }));
+			setForm((f) => ({ ...f, rooms: [...f.rooms, { room_name: val, is_gudang_linen: 0, is_special_unit: 0 }] }));
 		}
 		setNewRoom("");
 	};
@@ -283,7 +316,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 		const val = editingRoom.trim();
 		if (!val) return;
 		if (form.rooms.some((r, i) => i !== idx && r.room_name.toLowerCase() === val.toLowerCase())) {
-			alert("Nama ruangan sudah digunakan!");
+			showError("Nama ruangan sudah digunakan!");
 			return;
 		}
 
@@ -292,7 +325,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			try {
 				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
 					method: "PUT",
-					body: JSON.stringify({ room_name: val, is_gudang_linen: roomObj.is_gudang_linen ? 1 : 0 }),
+					body: JSON.stringify({ room_name: val, is_gudang_linen: roomObj.is_gudang_linen ? 1 : 0, is_special_unit: roomObj.is_special_unit ? 1 : 0 }),
 				});
 				setForm((f) => ({
 					...f,
@@ -300,7 +333,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 				}));
 				if (onRefresh) onRefresh();
 			} catch (e) {
-				alert("Gagal mengupdate ruangan: " + e.message);
+				showError("Gagal mengupdate ruangan: " + e.message);
 			}
 		} else {
 			setForm((f) => ({
@@ -320,7 +353,11 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 	const removeRoom = async (idx) => {
 		const roomObj = form.rooms[idx];
 		if (roomObj?.id) {
-			const confirmDel = window.confirm(`Apakah Anda yakin ingin menghapus ruangan "${roomObj.room_name}"? Tindakan ini akan menghapus data stok linen di dalam ruangan tersebut secara permanen.`);
+			const confirmDel = await showConfirm(
+				"Hapus Ruangan",
+				`Apakah Anda yakin ingin menghapus ruangan "${roomObj.room_name}"? Tindakan ini akan menghapus data stok linen di dalam ruangan tersebut secara permanen.`,
+				"Ya, Hapus"
+			);
 			if (!confirmDel) return;
 			try {
 				await api(`/ikm/master-rs/hospitals/rooms/${roomObj.id}`, {
@@ -329,7 +366,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 				setForm((f) => ({ ...f, rooms: f.rooms.filter((_, i) => i !== idx) }));
 				if (onRefresh) onRefresh();
 			} catch (e) {
-				alert("Gagal menghapus ruangan: " + e.message);
+				showError("Gagal menghapus ruangan: " + e.message);
 			}
 		} else {
 			setForm((f) => ({ ...f, rooms: f.rooms.filter((_, i) => i !== idx) }));
@@ -484,23 +521,47 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 										</div>
 									) : (
 										<>
-											<div className="flex items-center gap-2.5 min-w-0">
-												<input
-													type="checkbox"
-													checked={room.is_gudang_linen === 1 || room.is_gudang_linen === true}
-													onChange={() => toggleGudangLinen(idx)}
-													className="rounded border-slate-350 text-teal-600 focus:ring-teal-500/20 cursor-pointer h-4 w-4 shrink-0"
-													title="Tandai sebagai Gudang Linen (Bumper Stock)"
-												/>
-												<span className={`font-semibold break-all ${
+											<div className="flex items-center gap-3 min-w-0 flex-1">
+												<div className="flex items-center gap-1.5 shrink-0">
+													<button
+														type="button"
+														onClick={() => toggleGudangLinen(idx)}
+														className={`p-1.5 rounded-lg border transition ${
+															(room.is_gudang_linen === 1 || room.is_gudang_linen === true)
+																? "bg-teal-50 border-teal-200 text-teal-600 shadow-sm"
+																: "border-slate-200 bg-white text-slate-400 hover:text-teal-600 hover:bg-slate-50"
+														}`}
+														title="Tandai sebagai Gudang Linen (Bumper Stock)"
+													>
+														<HiOutlineArchiveBox className="h-4 w-4" />
+													</button>
+													<button
+														type="button"
+														onClick={() => toggleSpecialUnit(idx)}
+														className={`p-1.5 rounded-lg border transition ${
+															(room.is_special_unit === 1 || room.is_special_unit === true)
+																? "bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm"
+																: "border-slate-200 bg-white text-slate-400 hover:text-indigo-600 hover:bg-slate-50"
+														}`}
+														title="Tandai sebagai Unit Khusus (Special Unit)"
+													>
+														<HiOutlineStar className="h-4 w-4" />
+													</button>
+												</div>
+												<span className={`font-semibold break-all flex flex-wrap items-center gap-1.5 ${
 													(room.is_gudang_linen === 1 || room.is_gudang_linen === true)
 														? "text-teal-705 font-bold"
 														: "text-slate-800"
 												}`}>
 													{room.room_name}
 													{(room.is_gudang_linen === 1 || room.is_gudang_linen === true) && (
-														<span className="ml-1.5 inline-flex items-center rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 border border-teal-100 whitespace-nowrap">
+														<span className="inline-flex items-center rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 border border-teal-100 whitespace-nowrap">
 															Gudang Linen
+														</span>
+													)}
+													{(room.is_special_unit === 1 || room.is_special_unit === true) && (
+														<span className="inline-flex items-center rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-100 whitespace-nowrap">
+															Unit Khusus
 														</span>
 													)}
 												</span>
@@ -1035,18 +1096,23 @@ export default function RumahSakitPage() {
 											detailModal.rooms.map((r, i) => {
 												const name = typeof r === "string" ? r : r.room_name;
 												const isGudang = typeof r === "object" && r !== null && (r.is_gudang_linen === 1 || r.is_gudang_linen === true);
+												const isSpecial = typeof r === "object" && r !== null && (r.is_special_unit === 1 || r.is_special_unit === true);
+												let badgeCls = "bg-slate-100 text-slate-600 border-slate-200";
+												if (isGudang) {
+													badgeCls = "bg-teal-50 text-teal-700 border-teal-200 shadow-sm animate-pulse";
+												} else if (isSpecial) {
+													badgeCls = "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm";
+												}
 												return (
 													<span
 														key={i}
-														className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${
-															isGudang
-																? "bg-teal-50 text-teal-700 border-teal-200 shadow-sm animate-pulse"
-																: "bg-slate-100 text-slate-600 border-slate-200"
-														}`}
+														className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${badgeCls}`}
 													>
 														{isGudang && <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+														{isSpecial && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
 														{name}
 														{isGudang && <span className="text-[10px] text-teal-500 font-bold ml-0.5">(Gudang)</span>}
+														{isSpecial && <span className="text-[10px] text-indigo-500 font-bold ml-0.5">(Unit Khusus)</span>}
 													</span>
 												);
 											})

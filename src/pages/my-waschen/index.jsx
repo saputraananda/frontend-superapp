@@ -1,29 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  HiOutlineArchiveBox,
   HiOutlineArrowLeft,
-  HiOutlineBanknotes,
   HiOutlineBars3,
-  HiOutlineBuildingStorefront,
-  HiOutlineCalendarDays,
-  HiOutlineChartBarSquare,
-  HiOutlineCheckCircle,
-  HiOutlineClipboardDocumentList,
-  HiOutlineClock,
-  HiOutlineCog6Tooth,
-  HiOutlineCurrencyDollar,
-  HiOutlineDocumentText,
-  HiOutlineExclamationTriangle,
-  HiOutlineGift,
-  HiOutlineMapPin,
-  HiOutlineServer,
-  HiOutlineShoppingCart,
   HiOutlineSquares2X2,
-  HiOutlineTag,
-  HiOutlineArrowTrendingUp,
   HiOutlineUsers,
-  HiOutlineWrenchScrewdriver,
   HiOutlineXMark,
 } from "react-icons/hi2";
 
@@ -41,221 +22,17 @@ const MENU_ITEMS = [
     category: "dashboard",
     end: true,
   },
-
-  // ── Admin ──
   {
-    to: "/my-waschen/admin-laporan",
-    icon: HiOutlineDocumentText,
-    label: "Admin Laporan",
-    description: "Laporan & reporting",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-settings",
-    icon: HiOutlineCog6Tooth,
-    label: "Admin Settings",
-    description: "Pengaturan sistem",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-target",
-    icon: HiOutlineChartBarSquare,
-    label: "Admin Target",
-    description: "Target management",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-target-detail",
-    icon: HiOutlineClipboardDocumentList,
-    label: "Admin Target Detail",
-    description: "Detail target",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-promo-sla-stok",
-    icon: HiOutlineTag,
-    label: "Admin Promo / SLA / Stok",
-    description: "Promo, SLA & stok",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-period-close",
-    icon: HiOutlineCalendarDays,
-    label: "Admin Period Close",
-    description: "Penutupan periode",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-shift-report",
-    icon: HiOutlineClock,
-    label: "Admin Shift Report",
-    description: "Laporan shift",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-kas-overview",
-    icon: HiOutlineBanknotes,
-    label: "Admin Kas Overview",
-    description: "Ringkasan kas",
-    category: "admin",
-  },
-  {
-    to: "/my-waschen/admin-sub-session",
-    icon: HiOutlineClipboardDocumentList,
-    label: "Admin Sub-Session",
-    description: "Sub-session management",
-    category: "admin",
-  },
-
-  // ── Approval ──
-  {
-    to: "/my-waschen/approval-center",
-    icon: HiOutlineCheckCircle,
-    label: "Approval Center",
-    description: "Pusat persetujuan",
-    category: "approval",
-  },
-  {
-    to: "/my-waschen/approval",
-    icon: HiOutlineCheckCircle,
-    label: "Approval List",
-    description: "Daftar persetujuan",
-    category: "approval",
-  },
-  {
-    to: "/my-waschen/purchase-requests",
-    icon: HiOutlineShoppingCart,
-    label: "Purchase Requests",
-    description: "Permintaan pembelian",
-    category: "approval",
-  },
-  {
-    to: "/my-waschen/purchase-request-approval",
-    icon: HiOutlineShoppingCart,
-    label: "PR Approval",
-    description: "Approval purchase request",
-    category: "approval",
-  },
-  {
-    to: "/my-waschen/setor-approval",
-    icon: HiOutlineCurrencyDollar,
-    label: "Setor Approval",
-    description: "Approval setoran",
-    category: "approval",
-  },
-  {
-    to: "/my-waschen/cash-deposit-approval",
-    icon: HiOutlineCurrencyDollar,
-    label: "Cash Deposit Approval",
-    description: "Approval deposit tunai",
-    category: "approval",
-  },
-  {
-    to: "/my-waschen/kas-approval",
-    icon: HiOutlineBanknotes,
-    label: "Kas Approval",
-    description: "Approval kas",
-    category: "approval",
-  },
-
-  // ── CRM / Marketing ──
-  {
-    to: "/my-waschen/birthday",
-    icon: HiOutlineGift,
-    label: "Birthday Program",
-    description: "Program ulang tahun",
-    category: "crm",
-  },
-
-  // ── Laporan & Monitoring ──
-  {
-    to: "/my-waschen/comparison-report",
-    icon: HiOutlineChartBarSquare,
-    label: "Comparison Report",
-    description: "Perbandingan outlet",
-    category: "reports",
-  },
-  {
-    to: "/my-waschen/forecast",
-    icon: HiOutlineArrowTrendingUp,
-    label: "Forecast",
-    description: "Prediksi pendapatan",
-    category: "reports",
-  },
-  {
-    to: "/my-waschen/general-report",
-    icon: HiOutlineDocumentText,
-    label: "General Report",
-    description: "Laporan umum",
-    category: "reports",
-  },
-  {
-    to: "/my-waschen/error-dashboard",
-    icon: HiOutlineExclamationTriangle,
-    label: "Error Tracking",
-    description: "Pelacakan error",
-    category: "reports",
-  },
-
-  // ── Outlet & Layanan ──
-  {
-    to: "/my-waschen/info-outlet",
-    icon: HiOutlineBuildingStorefront,
-    label: "Info Outlet",
-    description: "Informasi outlet",
-    category: "outlet",
-  },
-  {
-    to: "/my-waschen/kelola-layanan-outlet",
-    icon: HiOutlineWrenchScrewdriver,
-    label: "Kelola Layanan Outlet",
-    description: "Layanan per outlet",
-    category: "outlet",
-  },
-  {
-    to: "/my-waschen/manajemen-layanan",
-    icon: HiOutlineClipboardDocumentList,
-    label: "Manajemen Layanan",
-    description: "CRUD layanan",
-    category: "outlet",
-  },
-  {
-    to: "/my-waschen/manajemen-outlet",
-    icon: HiOutlineMapPin,
-    label: "Manajemen Outlet",
-    description: "CRUD outlet",
-    category: "outlet",
-  },
-  {
-    to: "/my-waschen/manajemen-user",
+    to: "/my-waschen/employees",
     icon: HiOutlineUsers,
-    label: "Manajemen User",
-    description: "Pengelolaan pengguna",
-    category: "outlet",
-  },
-  {
-    to: "/my-waschen/inventory-master",
-    icon: HiOutlineArchiveBox,
-    label: "Inventory Master",
-    description: "Master inventaris",
-    category: "outlet",
-  },
-  {
-    to: "/my-waschen/all-outlet-stocks",
-    icon: HiOutlineServer,
-    label: "All Outlet Stocks",
-    description: "Stok semua outlet",
-    category: "outlet",
+    label: "Data Karyawan",
+    description: "Pengelolaan staff Waschen",
+    category: "dashboard",
   },
 ];
 
 const CATEGORY_LABELS = {
   dashboard: "Dashboard",
-  admin: "Admin",
-  approval: "Approval",
-  crm: "CRM & Marketing",
-  reports: "Laporan & Monitoring",
-  outlet: "Outlet & Layanan",
 };
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
@@ -270,7 +47,7 @@ function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }
           "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all",
           collapsed && "justify-center px-2",
           isActive
-            ? "bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-md shadow-violet-500/30"
+            ? "bg-gradient-to-r from-[#5f1340] to-[#4a0d31] text-white shadow-md shadow-[#5f1340]/30"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
         )
       }
@@ -293,7 +70,7 @@ function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }
               <p
                 className={cn(
                   "mt-0.5 truncate text-[11px] leading-none",
-                  isActive ? "text-violet-100" : "text-slate-400",
+                  isActive ? "text-pink-100" : "text-slate-400",
                 )}
               >
                 {description}
@@ -316,7 +93,7 @@ function Sidebar({ collapsed = false, onClose }) {
     return acc;
   }, {});
 
-  const categoryOrder = ["dashboard", "admin", "approval", "crm", "reports", "outlet"];
+  const categoryOrder = ["dashboard"];
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -333,7 +110,7 @@ function Sidebar({ collapsed = false, onClose }) {
       >
         {!collapsed && (
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-purple-400 shadow-md">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#5f1340] to-[#4a0d31] shadow-md">
               <svg className="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19.5 3.5A2 2 0 0 0 17.5 2h-11A2 2 0 0 0 4.5 3.5v17a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-17ZM12 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm-5.5 13.5c0-2.485 2.485-4.5 5.5-4.5s5.5 2.015 5.5 4.5h-11Z" />
               </svg>
@@ -345,7 +122,7 @@ function Sidebar({ collapsed = false, onClose }) {
           </div>
         )}
         {collapsed && (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-purple-400 shadow-md">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#5f1340] to-[#4a0d31] shadow-md">
             <svg className="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19.5 3.5A2 2 0 0 0 17.5 2h-11A2 2 0 0 0 4.5 3.5v17a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-17ZM12 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm-5.5 13.5c0-2.485 2.485-4.5 5.5-4.5s5.5 2.015 5.5 4.5h-11Z" />
             </svg>
@@ -423,12 +200,12 @@ function ActiveMenuTitle() {
 
   return (
     <div className="flex items-center gap-2.5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 border border-violet-200 text-violet-600 shrink-0">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-50 border border-pink-200 text-[#5f1340] shrink-0">
         <Icon className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-sm font-semibold leading-tight text-slate-800">{label}</p>
-        <p className="text-[11px] leading-tight text-slate-400">{description}</p>
+        <p className="text-sm font-semibold leading-tight text-[#313030]">{label}</p>
+        <p className="text-[11px] leading-tight text-slate-500">{description}</p>
       </div>
     </div>
   );
@@ -510,10 +287,6 @@ export default function MyWaschen() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">
-            <div className="h-2 w-2 rounded-full bg-violet-500" />
-            My Waschen POS
-          </div>
         </header>
 
         {/* ── Mobile topbar ── */}
@@ -532,12 +305,12 @@ export default function MyWaschen() {
             )}
           </button>
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-purple-400">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#5f1340] to-[#4a0d31]">
               <svg className="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19.5 3.5A2 2 0 0 0 17.5 2h-11A2 2 0 0 0 4.5 3.5v17a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-17ZM12 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm-5.5 13.5c0-2.485 2.485-4.5 5.5-4.5s5.5 2.015 5.5 4.5h-11Z" />
               </svg>
             </div>
-            <span className="text-sm font-bold text-slate-700">My Waschen</span>
+            <span className="text-sm font-bold text-[#313030]">My Waschen</span>
           </div>
         </header>
 

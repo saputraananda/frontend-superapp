@@ -134,8 +134,17 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
       );
     if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen"))
       return (
-        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19.5 3.5A2 2 0 0 0 17.5 2h-11A2 2 0 0 0 4.5 3.5v17a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-17ZM12 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm-5.5 13.5c0-2.485 2.485-4.5 5.5-4.5s5.5 2.015 5.5 4.5h-11Z" />
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text
+            x="12"
+            y="18"
+            textAnchor="middle"
+            fontFamily="Georgia, 'Times New Roman', serif"
+            fontSize="17"
+            fontWeight="bold"
+            fill="white"
+            letterSpacing="-1"
+          >W</text>
         </svg>
       );
     if (name.includes("training"))
@@ -173,7 +182,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("document") || name.includes("dokumen")) return "bg-blue-900";
     if (name.includes("know your employee") || name.includes("employee mood") || name.includes("know your")) return "bg-violet-500";
     if (name.includes("cleanox")) return "bg-slate-900";
-    if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen")) return "bg-cyan-600";
+    if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen")) return "__waschen__";
     if (name.includes("training")) return "bg-violet-600";
     return "bg-blue-600";
   };
@@ -219,7 +228,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
               className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
             >
               <div className="relative flex-shrink-0">
-                <div className={`h-10 w-10 rounded-lg ${getAppIconBg(app.name)} text-white flex items-center justify-center shadow-sm`}>
+                <div
+                  className={`h-10 w-10 rounded-lg text-white flex items-center justify-center shadow-sm ${
+                    getAppIconBg(app.name) === "__waschen__" ? "" : getAppIconBg(app.name)
+                  }`}
+                  style={getAppIconBg(app.name) === "__waschen__" ? { background: "linear-gradient(135deg, #3d0728 0%, #5f1340 50%, #4a0d31 100%)" } : {}}
+                >
                   {getAppIcon(app.name)}
                 </div>
                 {(app.name.toLowerCase().includes("project management 2.0") || app.name.toLowerCase().includes("project-management-v2") || app.name.toLowerCase().includes("pm 2.0")) && (

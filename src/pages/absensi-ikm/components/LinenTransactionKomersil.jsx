@@ -214,8 +214,8 @@ function getLogChanges(log, employeeMap) {
     if (Array.isArray(detailsObj.items)) {
       detailsObj.items.forEach(item => {
         const linenName = item.item_name || item.linen_name || item.name || `Item #${item.hospital_linen_id || ""}`;
-        if (item.qty_kotor !== undefined) changes.push(`Linen Custom Kotor ${linenName}: ${item.qty_kotor}`);
-        if (item.qty_bersih !== undefined) changes.push(`Linen Custom Bersih ${linenName}: ${item.qty_bersih}`);
+        if (item.qty_kotor !== undefined) changes.push(`Linen Komersil Kotor ${linenName}: ${item.qty_kotor}`);
+        if (item.qty_bersih !== undefined) changes.push(`Linen Komersil Bersih ${linenName}: ${item.qty_bersih}`);
       });
     }
 
@@ -223,10 +223,10 @@ function getLogChanges(log, employeeMap) {
       detailsObj.item_changes.forEach(item => {
         const linenName = item.item_name || item.linen_name || `Item #${item.hospital_linen_id || ""}`;
         if (item.old_qty_kotor !== undefined || item.new_qty_kotor !== undefined) {
-          changes.push(`Linen Custom Kotor ${linenName}: ${item.old_qty_kotor ?? "-"} -> ${item.new_qty_kotor ?? "-"}`);
+          changes.push(`Linen Komersil Kotor ${linenName}: ${item.old_qty_kotor ?? "-"} -> ${item.new_qty_kotor ?? "-"}`);
         }
         if (item.old_qty_bersih !== undefined || item.new_qty_bersih !== undefined) {
-          changes.push(`Linen Custom Bersih ${linenName}: ${item.old_qty_bersih ?? "-"} -> ${item.new_qty_bersih ?? "-"}`);
+          changes.push(`Linen Komersil Bersih ${linenName}: ${item.old_qty_bersih ?? "-"} -> ${item.new_qty_bersih ?? "-"}`);
         }
       });
     }
@@ -269,10 +269,10 @@ function getLogChanges(log, employeeMap) {
       const linenName = newItem.item_name || oldItem.item_name || key;
 
       if (Number(oldItem.qty_kotor || 0) !== Number(newItem.qty_kotor || 0)) {
-        changes.push(`Linen Custom Kotor ${linenName}: ${oldItem.qty_kotor || 0} -> ${newItem.qty_kotor || 0}`);
+        changes.push(`Linen Komersil Kotor ${linenName}: ${oldItem.qty_kotor || 0} -> ${newItem.qty_kotor || 0}`);
       }
       if (Number(oldItem.qty_bersih || 0) !== Number(newItem.qty_bersih || 0)) {
-        changes.push(`Linen Custom Bersih ${linenName}: ${oldItem.qty_bersih || 0} -> ${newItem.qty_bersih || 0}`);
+        changes.push(`Linen Komersil Bersih ${linenName}: ${oldItem.qty_bersih || 0} -> ${newItem.qty_bersih || 0}`);
       }
       if (parseFloat(oldItem.length_cm || 0) !== parseFloat(newItem.length_cm || 0) || parseFloat(oldItem.width_cm || 0) !== parseFloat(newItem.width_cm || 0)) {
         changes.push(`Dimensi ${linenName}: ${oldItem.length_cm || 0}x${oldItem.width_cm || 0} cm -> ${newItem.length_cm || 0}x${newItem.width_cm || 0} cm`);
@@ -311,7 +311,7 @@ function getSignatureUrl(sig) {
   }
   const filename = sig.split("/").pop();
   const base = (BASE_URL || "").replace(/\/$/, "");
-  return `${base}/ikm/linen-transactions-custom/signature-proxy?name=${encodeURIComponent(filename)}`;
+  return `${base}/ikm/linen-transactions-komersil/signature-proxy?name=${encodeURIComponent(filename)}`;
 }
 
 // Helper to render signature verification badge/status
@@ -459,7 +459,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     if (!open) return;
     const fetchEmployees = async () => {
       try {
-        const res = await api("/ikm/linen-transactions-custom/employees");
+        const res = await api("/ikm/linen-transactions-komersil/employees");
         if (res.success) setEmployees(res.data);
       } catch (err) {
         console.error("Gagal memuat karyawan:", err.message);
@@ -476,7 +476,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       setLoading(true);
       setError("");
       try {
-        const res = await api(`/ikm/linen-transactions-custom/${transactionId}`);
+        const res = await api(`/ikm/linen-transactions-komersil/${transactionId}`);
         if (res.success) {
           const { header, details: det, auditLogs, kurangKirimDeliveries } = res.data;
           setHospitalId(header.hospital_id || "");
@@ -531,12 +531,12 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     }
     const loadCustomLinens = async () => {
       try {
-        const res = await api(`/ikm/linen-transactions-custom/hospitals/${hospitalId}/linens`);
+        const res = await api(`/ikm/linen-transactions-komersil/hospitals/${hospitalId}/linens`);
         if (res.success) {
           setHospitalCustomLinens(res.data);
         }
       } catch (err) {
-        console.error("Gagal memuat linen custom rumah sakit:", err);
+        console.error("Gagal memuat linen komersil rumah sakit:", err);
       }
     };
     loadCustomLinens();
@@ -615,7 +615,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
         notes_delivery: notesDelivery || null,
         details: details.map(d => ({
           hospital_linen_id: d.hospital_linen_id ? Number(d.hospital_linen_id) : null,
-          item_name: d.item_name || 'Linen Custom',
+          item_name: d.item_name || 'Linen Komersil',
           category: d.category || 'LAINNYA',
           qty_kotor: Number(d.qty_kotor || 0),
           qty_bersih: d.qty_bersih !== "" && d.qty_bersih !== null ? Number(d.qty_bersih) : null,
@@ -632,12 +632,12 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       }
       let res;
       if (mode === "create") {
-        res = await api("/ikm/linen-transactions-custom", {
+        res = await api("/ikm/linen-transactions-komersil", {
           method: "POST",
           body: JSON.stringify(payload)
         });
       } else {
-        res = await api(`/ikm/linen-transactions-custom/${transactionId}`, {
+        res = await api(`/ikm/linen-transactions-komersil/${transactionId}`, {
           method: "PUT",
           body: JSON.stringify(payload)
         });
@@ -668,9 +668,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-800">
-                {mode === "create" ? "Tambah Transaksi Linen Custom IKM" : "Edit Transaksi Linen Custom IKM"}
+                {mode === "create" ? "Tambah Transaksi Linen Komersil IKM" : "Edit Transaksi Linen Komersil IKM"}
               </h3>
-              <p className="text-xs text-slate-400">Kelola dan pantau catatan serah terima linen custom rumah sakit</p>
+              <p className="text-xs text-slate-400">Kelola dan pantau catatan serah terima linen komersil rumah sakit</p>
             </div>
           </div>
           <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
@@ -969,7 +969,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                         <HiOutlineDocumentText className="h-3.5 w-3.5" />
                       </div>
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen Custom</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen Komersil</span>
                       {details.length > 0 && (
                         <span className="rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5">
                           {details.length} item
@@ -1542,7 +1542,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                             <tbody className="divide-y divide-slate-100 bg-white">
                               {selectedDelivery.details.map((item, idx) => {
                                 const qty = item.qty_delivered || 0;
-                                const name = item.item_name || 'Linen Custom';
+                                const name = item.item_name || 'Linen Komersil';
                                 return (
                                   <tr key={item.id || idx} className="hover:bg-slate-50/50">
                                     <td className="px-3 py-2 text-center text-slate-400 tabular-nums">{idx + 1}</td>
@@ -1677,7 +1677,7 @@ function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
   const handleConfirm = async () => {
     setDeleting(true);
     try {
-      const res = await api(`/ikm/linen-transactions-custom/${transaction.id}`, { method: "DELETE" });
+      const res = await api(`/ikm/linen-transactions-komersil/${transaction.id}`, { method: "DELETE" });
       if (res.success) {
         onDeleteConfirm("Transaksi berhasil dihapus");
         onClose();
@@ -1701,7 +1701,7 @@ function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
           <div>
             <h3 className="text-base font-bold text-slate-800">Konfirmasi Hapus Transaksi</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Apakah Anda yakin ingin menghapus transaksi linen custom untuk rumah sakit <strong className="text-slate-800">{transaction.hospital_name}</strong>?
+              Apakah Anda yakin ingin menghapus transaksi linen komersil untuk rumah sakit <strong className="text-slate-800">{transaction.hospital_name}</strong>?
               Tindakan ini permanen dan akan menghapus semua rincian item beserta data audit log terkait.
             </p>
           </div>
@@ -1731,7 +1731,7 @@ function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
 }
 
 // ─── Page Component ───────────────────────────────────────────────────────────
-export default function LinenTransactionCustom() {
+export default function LinenTransactionKomersil() {
   const [data, setData] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1741,7 +1741,7 @@ export default function LinenTransactionCustom() {
   const handleDownloadExcel = async (rowId) => {
     setDownloadingId(rowId);
     try {
-      const res = await api(`/ikm/linen-transactions-custom/${rowId}`);
+      const res = await api(`/ikm/linen-transactions-komersil/${rowId}`);
       if (res.success) {
         // Map details format to suit exportSerahTerimaLinenExcel
         const mappedDetails = res.data.details.map(d => ({
@@ -1814,7 +1814,7 @@ export default function LinenTransactionCustom() {
 
   // Set Document Title
   useEffect(() => {
-    document.title = "Serah Terima Linen Custom IKM | Alora Group Indonesia";
+    document.title = "Serah Terima Linen Komersil IKM | Alora Group Indonesia";
   }, []);
 
   const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
@@ -1842,7 +1842,7 @@ export default function LinenTransactionCustom() {
       if (hospitalFilter) q.append("hospital_id", hospitalFilter);
       q.append("ownership_type", ownershipType);
 
-      const res = await api(`/ikm/linen-transactions-custom/rekap/cuci?${q.toString()}`);
+      const res = await api(`/ikm/linen-transactions-komersil/rekap/cuci?${q.toString()}`);
       if (res.success) {
         await exportRekapCuciLinenKhusus(res, activePeriod.startDate, activePeriod.endDate, ownershipType);
         showToast("success", `File rekap ${ownershipType === "SEWA" ? "Linen Sewa" : "Linen RS"} berhasil diunduh`);
@@ -1860,7 +1860,7 @@ export default function LinenTransactionCustom() {
   useEffect(() => {
     const loadHospitals = async () => {
       try {
-        const res = await api("/ikm/linen-transactions-custom/hospitals");
+        const res = await api("/ikm/linen-transactions-komersil/hospitals");
         if (res.success) {
           setHospitals(res.data);
         }
@@ -1884,7 +1884,7 @@ export default function LinenTransactionCustom() {
       q.append("page", String(page));
       q.append("limit", String(limit));
 
-      const res = await api(`/ikm/linen-transactions-custom?${q.toString()}`);
+      const res = await api(`/ikm/linen-transactions-komersil?${q.toString()}`);
       if (res.success) {
         setData(res.data);
         setPagination(res.pagination || { page, limit, total: res.data.length, totalPages: 1 });
@@ -1959,8 +1959,8 @@ export default function LinenTransactionCustom() {
                 <HiOutlineDocumentText className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white sm:text-2xl font-sans">Serah Terima Linen Khusus</h1>
-                <p className="text-sm text-white/70">Monitoring data penerimaan linen custom kotor &amp; pengiriman linen custom bersih</p>
+                <h1 className="text-xl font-bold text-white sm:text-2xl font-sans">Serah Terima Linen Komersil</h1>
+                <p className="text-sm text-white/70">Monitoring data penerimaan linen komersil kotor &amp; pengiriman linen komersil bersih</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2132,7 +2132,7 @@ export default function LinenTransactionCustom() {
           <div className="border-b border-slate-100 px-5 py-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <HiOutlineDocumentText className="h-5 w-5 text-blue-500" />
-              <h2 className="text-base font-bold text-slate-800">Daftar Transaksi Linen Custom</h2>
+              <h2 className="text-base font-bold text-slate-800">Daftar Transaksi Linen Komersil</h2>
             </div>
             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
               {pagination.total.toLocaleString("id-ID")} data
@@ -2147,8 +2147,8 @@ export default function LinenTransactionCustom() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Rumah Sakit</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tanggal Pickup</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tanggal Pengantaran</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Custom Kotor</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Custom Bersih</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Komersil Kotor</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Komersil Bersih</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Kurang Kirim</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Aksi</th>
                 </tr>
@@ -2165,7 +2165,7 @@ export default function LinenTransactionCustom() {
                 ) : data.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">
-                      Tidak ada data transaksi linen custom yang ditemukan.
+                      Tidak ada data transaksi linen komersil yang ditemukan.
                     </td>
                   </tr>
                 ) : (

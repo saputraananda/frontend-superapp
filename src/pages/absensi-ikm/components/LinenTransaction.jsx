@@ -405,7 +405,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [status, setStatus] = useState("PROSES");
   const [notesPickup, setNotesPickup] = useState("");
   const [notesDelivery, setNotesDelivery] = useState("");
-  const [details, setDetails] = useState([]); // Array of { hospital_linen_id, linen_display_name, ownership_type, qty_kotor, qty_bersih, notes }
+  const [details, setDetails] = useState([]); // Array of { hospital_linen_id, linen_display_name, ownership_type, qty_kotor, qty_bersih, notes, room_ids }
+  const [rooms, setRooms] = useState([]);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [masterLinens, setMasterLinens] = useState([]);
 
   // Signature States for Verification Indicators
   const [sigValetPickup, setSigValetPickup] = useState(null);
@@ -445,6 +448,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     setShowItemDetails(false);
     setShowAuditLogs(false);
     setShowSignatures(false);
+    setSelectedRoomId("");
+    setRooms([]);
+    setMasterLinens([]);
     if (mode === "create") {
       setHospitalId("");
       setFormNumber("");
@@ -483,6 +489,26 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     };
     fetchEmployees();
   }, [open]);
+
+  // Load Rooms list when selected hospital changes
+  useEffect(() => {
+    if (!open || !hospitalId) {
+      setRooms([]);
+      setSelectedRoomId("");
+      return;
+    }
+    const fetchRooms = async () => {
+      try {
+        const res = await api(`/ikm/linen-transactions/hospitals/${hospitalId}/rooms`);
+        if (res.success) {
+          setRooms(res.data);
+        }
+      } catch (err) {
+        console.error("Gagal memuat ruangan:", err.message);
+      }
+    };
+    fetchRooms();
+  }, [open, hospitalId]);
 
   // Load Form Data in EDIT mode
   useEffect(() => {
@@ -530,9 +556,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     loadData();
   }, [open, transactionId, mode]);
 
-  // Fetch active linens when selected hospital changes (Only in CREATE mode)
+  // Fetch active linens when selected hospital changes (In both modes)
   useEffect(() => {
-    if (mode !== "create" || !hospitalId) {
+    if (!open || !hospitalId) {
+      setMasterLinens([]);
       if (mode === "create") setDetails([]);
       return;
     }
@@ -543,16 +570,10 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       try {
         const res = await api(`/ikm/linen-transactions/hospitals/${hospitalId}/linens`);
         if (res.success) {
-          setDetails(
-            res.data.map(l => ({
-              hospital_linen_id: l.hospital_linen_id,
-              linen_display_name: l.linen_display_name,
-              ownership_type: l.ownership_type,
-              qty_kotor: 0,
-              qty_bersih: null,
-              notes: ""
-            }))
-          );
+          setMasterLinens(res.data);
+          if (mode === "create") {
+            setDetails([]); // Start with empty details in CREATE mode, added as rooms are selected/edited
+          }
         } else {
           throw new Error(res.message || "Gagal memuat item linen RS");
         }
@@ -564,24 +585,135 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     };
 
     loadLinens();
-  }, [hospitalId, mode]);
+  }, [open, hospitalId, mode]);
+
+  const handleQtyChange = (hospitalLinenId, field, value) => {
+    if (!selectedRoomId) return; // Cannot edit in Todos/All rooms mode
+
+    setDetails(prev => {
+      const existingIdx = prev.findIndex(
+        d => Number(d.hospital_linen_id) === Number(hospitalLinenId) && Number(d.room_id) === Number(selectedRoomId)
+      );
+
+      const val = value === "" ? "" : Number(value);
+
+      if (existingIdx > -1) {
+        // Update existing row
+        const updated = [...prev];
+        updated[existingIdx] = { ...updated[existingIdx], [field]: val };
+        return updated;
+      } else {
+        // Insert new row for this room
+        return [
+          ...prev,
+          {
+            hospital_linen_id: Number(hospitalLinenId),
+            room_id: Number(selectedRoomId),
+            qty_kotor: field === "qty_kotor" ? val : 0,
+            qty_bersih: field === "qty_bersih" ? val : null,
+            notes: ""
+          }
+        ];
+      }
+    });
+  };
+
+  const handleItemNoteChange = (hospitalLinenId, value) => {
+    if (!selectedRoomId) return;
+
+    setDetails(prev => {
+      const existingIdx = prev.findIndex(
+        d => Number(d.hospital_linen_id) === Number(hospitalLinenId) && Number(d.room_id) === Number(selectedRoomId)
+      );
+
+      if (existingIdx > -1) {
+        const updated = [...prev];
+        updated[existingIdx] = { ...updated[existingIdx], notes: value };
+        return updated;
+      } else {
+        return [
+          ...prev,
+          {
+            hospital_linen_id: Number(hospitalLinenId),
+            room_id: Number(selectedRoomId),
+            qty_kotor: 0,
+            qty_bersih: null,
+            notes: value
+          }
+        ];
+      }
+    });
+  };
+
+  const filteredDetails = useMemo(() => {
+    if (!hospitalId || masterLinens.length === 0) return [];
+
+    if (selectedRoomId) {
+      // 1. Specific Room Filter Mode:
+      // Filter masterLinens to only those allowed in this room
+      const allowedLinens = masterLinens.filter(l => {
+        const roomIds = String(l.room_ids || "").split(",");
+        return roomIds.includes(String(selectedRoomId));
+      });
+
+      // Map each allowed linen to its entry in `details` state (for this specific room)
+      return allowedLinens.map(l => {
+        const existing = details.find(
+          d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id) && Number(d.room_id) === Number(selectedRoomId)
+        );
+        return {
+          hospital_linen_id: l.hospital_linen_id,
+          linen_display_name: l.linen_display_name,
+          ownership_type: l.ownership_type,
+          room_id: Number(selectedRoomId),
+          qty_kotor: existing ? existing.qty_kotor : "",
+          qty_bersih: existing ? (existing.qty_bersih ?? "") : "",
+          notes: existing ? (existing.notes || "") : "",
+          isEditable: true // Mark as editable
+        };
+      });
+    } else {
+      // 2. "Semua Ruangan" Aggregate Mode:
+      // Show all masterLinens, and for each, sum the quantities in `details`
+      return masterLinens.map(l => {
+        const matchedDetails = details.filter(d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id));
+        
+        let totalKotor = 0;
+        let totalBersih = null;
+        let hasKotor = false;
+        let hasBersih = false;
+        let notesArr = [];
+
+        matchedDetails.forEach(d => {
+          if (d.qty_kotor !== "" && d.qty_kotor !== null && d.qty_kotor !== undefined) {
+            totalKotor += Number(d.qty_kotor);
+            hasKotor = true;
+          }
+          if (d.qty_bersih !== "" && d.qty_bersih !== null && d.qty_bersih !== undefined) {
+            if (totalBersih === null) totalBersih = 0;
+            totalBersih += Number(d.qty_bersih);
+            hasBersih = true;
+          }
+          if (d.notes) notesArr.push(d.notes);
+        });
+
+        return {
+          hospital_linen_id: l.hospital_linen_id,
+          linen_display_name: l.linen_display_name,
+          ownership_type: l.ownership_type,
+          room_id: null,
+          qty_kotor: hasKotor ? totalKotor : 0,
+          qty_bersih: hasBersih ? totalBersih : null,
+          notes: notesArr.join("; "),
+          isEditable: false // Grouped sum view is read-only
+        };
+      });
+    }
+  }, [masterLinens, details, selectedRoomId, hospitalId]);
 
   if (!open) return null;
 
   const selectedHospitalName = hospitals.find(h => Number(h.id) === Number(hospitalId))?.hospital_name || "-";
-
-  const handleQtyChange = (index, field, value) => {
-    const updated = [...details];
-    const val = value === "" ? "" : Number(value);
-    updated[index][field] = val;
-    setDetails(updated);
-  };
-
-  const handleItemNoteChange = (index, value) => {
-    const updated = [...details];
-    updated[index].notes = value;
-    setDetails(updated);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -608,6 +740,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
         notes_delivery: notesDelivery || null,
         details: details.map(d => ({
           hospital_linen_id: d.hospital_linen_id,
+          room_id: d.room_id ? Number(d.room_id) : null,
           qty_kotor: Number(d.qty_kotor || 0),
           qty_bersih: d.qty_bersih !== "" && d.qty_bersih !== null ? Number(d.qty_bersih) : null,
           notes: d.notes
@@ -959,7 +1092,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen</span>
                       {details.length > 0 && (
                         <span className="rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5">
-                          {details.length} item
+                          {selectedRoomId ? `${filteredDetails.length} dari ${details.length}` : `${details.length}`} item
                         </span>
                       )}
                     </div>
@@ -979,88 +1112,136 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 
                   {showItemDetails && (
                     hospitalId ? (
-                      <div className="overflow-x-auto animate-fade-in">
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-slate-50 border-b border-slate-100">
-                            <tr>
-                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
-                              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen</th>
-                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16">Tipe</th>
-                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-orange-500 w-24">Kotor (Pcs)</th>
-                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-600 w-24">Bersih (Pcs)</th>
-                              <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20">Selisih</th>
-                              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Catatan</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {details.map((detail, idx) => {
-                              const kotor = Number(detail.qty_kotor || 0);
-                              const bersih = detail.qty_bersih !== null && detail.qty_bersih !== "" ? Number(detail.qty_bersih) : null;
-                              const selisih = bersih !== null ? kotor - bersih : null;
-                              return (
-                                <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                                  <td className="px-3 py-2 text-center text-xs text-slate-400 tabular-nums">{idx + 1}</td>
-                                  <td className="px-3 py-2 text-xs font-semibold text-slate-800 min-w-[140px]">{detail.linen_display_name}</td>
-                                  <td className="px-3 py-2 text-center">
-                                    <span className={cn(
-                                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase",
-                                      detail.ownership_type === "SEWA"
-                                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                                        : "bg-teal-50 text-teal-700 border-teal-200"
+                      <div className="animate-fade-in">
+                        {/* Filter Ruangan Dropdown */}
+                        <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-500">Filter Ruangan:</span>
+                            <select
+                              value={selectedRoomId}
+                              onChange={(e) => setSelectedRoomId(e.target.value)}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 font-medium text-slate-700 cursor-pointer"
+                            >
+                              <option value="">Semua Ruangan</option>
+                              {rooms.map(room => (
+                                <option key={room.id} value={room.id}>{room.room_name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {!selectedRoomId ? (
+                            <span className="text-[11px] text-amber-600 font-semibold flex items-center gap-1 animate-pulse">
+                              ⚠️ Pilih ruangan untuk mengisi/mengubah jumlah kotor & bersih.
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-indigo-600 font-semibold">
+                              Menampilkan linen khusus ruangan ini
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 border-b border-slate-100">
+                              <tr>
+                                <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
+                                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen</th>
+                                <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16">Tipe</th>
+                                <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-orange-500 w-24">Kotor (Pcs)</th>
+                                <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-600 w-24">Bersih (Pcs)</th>
+                                <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20">Selisih</th>
+                                <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Catatan</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {filteredDetails.map((detail, index) => {
+                                const kotor = Number(detail.qty_kotor || 0);
+                                const bersih = detail.qty_bersih !== null && detail.qty_bersih !== "" ? Number(detail.qty_bersih) : null;
+                                const selisih = bersih !== null ? kotor - bersih : null;
+                                return (
+                                  <tr key={detail.id || detail.hospital_linen_id} className="hover:bg-slate-50/60 transition-colors">
+                                    <td className="px-3 py-2 text-center text-xs text-slate-400 tabular-nums">{index + 1}</td>
+                                    <td className="px-3 py-2 text-xs font-semibold text-slate-800 min-w-[140px]">{detail.linen_display_name}</td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className={cn(
+                                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase",
+                                        detail.ownership_type === "SEWA"
+                                          ? "bg-purple-50 text-purple-700 border-purple-200"
+                                          : "bg-teal-50 text-teal-700 border-teal-200"
+                                      )}>
+                                        {detail.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        disabled={!detail.isEditable}
+                                        required={detail.isEditable}
+                                        value={detail.qty_kotor}
+                                        onChange={(e) => handleQtyChange(detail.hospital_linen_id, "qty_kotor", e.target.value)}
+                                        className={cn(
+                                          "w-full text-center rounded-lg border py-1.5 px-2 text-xs outline-none font-bold",
+                                          !detail.isEditable
+                                            ? "border-slate-200 bg-slate-100/80 text-slate-500 cursor-not-allowed shadow-inner"
+                                            : "border-orange-200 bg-orange-50/50 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-orange-700"
+                                        )}
+                                      />
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        disabled={!detail.isEditable}
+                                        placeholder="—"
+                                        value={detail.qty_bersih ?? ""}
+                                        onChange={(e) => handleQtyChange(detail.hospital_linen_id, "qty_bersih", e.target.value)}
+                                        className={cn(
+                                          "w-full text-center rounded-lg border py-1.5 px-2 text-xs outline-none font-bold",
+                                          !detail.isEditable
+                                            ? "border-slate-200 bg-slate-100/80 text-slate-500 cursor-not-allowed shadow-inner"
+                                            : "border-emerald-200 bg-emerald-50/50 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 text-emerald-700"
+                                        )}
+                                      />
+                                    </td>
+                                    <td className={cn(
+                                      "px-3 py-2 text-center text-xs font-bold tabular-nums",
+                                      selisih === null ? "text-slate-300"
+                                        : selisih > 0 ? "text-rose-600"
+                                          : selisih < 0 ? "text-blue-600"
+                                            : "text-slate-400"
                                     )}>
-                                      {detail.ownership_type === "SEWA" ? "Sewa" : "RS"}
-                                    </span>
-                                  </td>
-                                  <td className="px-2 py-2">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      required
-                                      value={detail.qty_kotor}
-                                      onChange={(e) => handleQtyChange(idx, "qty_kotor", e.target.value)}
-                                      className="w-full text-center rounded-lg border border-orange-200 bg-orange-50/50 py-1.5 px-2 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-bold text-orange-700"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-2">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      placeholder="—"
-                                      value={detail.qty_bersih ?? ""}
-                                      onChange={(e) => handleQtyChange(idx, "qty_bersih", e.target.value)}
-                                      className="w-full text-center rounded-lg border border-emerald-200 bg-emerald-50/50 py-1.5 px-2 text-xs outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 font-bold text-emerald-700"
-                                    />
-                                  </td>
-                                  <td className={cn(
-                                    "px-3 py-2 text-center text-xs font-bold tabular-nums",
-                                    selisih === null ? "text-slate-300"
-                                      : selisih > 0 ? "text-rose-600"
-                                        : selisih < 0 ? "text-blue-600"
-                                          : "text-slate-400"
-                                  )}>
-                                    {selisih === null ? "—" : selisih === 0 ? "✓" : selisih > 0 ? `+${selisih}` : selisih}
-                                  </td>
-                                  <td className="px-2 py-2">
-                                    <input
-                                      type="text"
-                                      value={detail.notes || ""}
-                                      onChange={(e) => handleItemNoteChange(idx, e.target.value)}
-                                      placeholder="Catatan item..."
-                                      className="w-full rounded-lg border border-slate-200 bg-white py-1.5 px-2 text-xs outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                                    />
+                                      {selisih === null ? "—" : selisih === 0 ? "✓" : selisih > 0 ? `+${selisih}` : selisih}
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      <input
+                                        type="text"
+                                        disabled={!detail.isEditable}
+                                        value={detail.notes || ""}
+                                        onChange={(e) => handleItemNoteChange(detail.hospital_linen_id, e.target.value)}
+                                        placeholder={detail.isEditable ? "Catatan item..." : "—"}
+                                        className={cn(
+                                          "w-full rounded-lg border py-1.5 px-2 text-xs outline-none",
+                                          !detail.isEditable
+                                            ? "border-slate-200 bg-slate-100/80 text-slate-500 cursor-not-allowed shadow-inner"
+                                            : "border-slate-200 bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                        )}
+                                      />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              {filteredDetails.length === 0 && (
+                                <tr>
+                                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400 italic">
+                                    {selectedRoomId
+                                      ? "Tidak ada item linen aktif untuk ruangan ini."
+                                      : "Rumah sakit ini belum dikonfigurasi memiliki item linen aktif."}
                                   </td>
                                 </tr>
-                              );
-                            })}
-                            {details.length === 0 && (
-                              <tr>
-                                <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400 italic">
-                                  Rumah sakit ini belum dikonfigurasi memiliki item linen aktif.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     ) : (
                       <div className="p-4 text-center text-xs text-rose-500 italic">
