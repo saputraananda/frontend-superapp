@@ -99,7 +99,7 @@ function generatePages(current, total) {
 
 const EMPTY_FORM = {
   reporter_name: "", report_date: todayISO(), hospital_id: "",
-  hospital_linen_id: "", qty: 1, notes: "",
+  hospital_linen_id: "", qty: "", notes: "",
 };
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -190,6 +190,36 @@ function DeleteModal({ open, onClose, onConfirm, target, loading }) {
   );
 }
 
+// ─── DeleteItemModal (React Portal) ──────────────────────────────────────────
+function DeleteItemModal({ open, onClose, onConfirm, target, loading }) {
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 mb-4">
+          <HiOutlineTrash className="h-6 w-6" />
+        </div>
+        <h3 className="text-base font-bold text-slate-800">Hapus Linen Rewash?</h3>
+        <p className="mt-1 text-sm text-slate-500 mb-5">
+          Item linen <span className="font-semibold text-slate-700">{target?.linen_display_name}</span> (Qty: <span className="font-semibold text-slate-700">{target?.qty}</span>) akan dihapus dari laporan ini.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} disabled={loading}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50">
+            Batal
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 transition disabled:opacity-50 flex items-center gap-2">
+            {loading && <HiOutlineClock className="h-4 w-4 animate-spin" />}
+            Hapus
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ─── FormModal (React Portal) ─────────────────────────────────────────────────
 function FormModal({ open, onClose, onSaved, editData, hospitals }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -206,7 +236,7 @@ function FormModal({ open, onClose, onSaved, editData, hospitals }) {
         report_date: editData.report_date?.slice(0, 10) || todayISO(),
         hospital_id: String(editData.hospital_id || ""),
         hospital_linen_id: String(editData.hospital_linen_id || ""),
-        qty: editData.qty ?? 1,
+        qty: editData.qty ?? "",
         notes: editData.notes || "",
       });
     } else {
@@ -312,7 +342,7 @@ function FormModal({ open, onClose, onSaved, editData, hospitals }) {
             </div>
             <div>
               <label className={labelClass}>Jumlah Qty <span className="text-rose-500">*</span></label>
-              <input type="number" min="0" className={inputClass} value={form.qty} onChange={(e) => setForm({ ...form, qty: Number(e.target.value) })} required disabled={saving} />
+              <input type="number" min="1" placeholder="0" className={inputClass} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} required disabled={saving} />
             </div>
           </div>
 
@@ -429,9 +459,10 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   const [items, setItems] = useState([]);
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const [adding, setAdding] = useState(false);
   const [addLinenId, setAddLinenId] = useState("");
-  const [addQty, setAddQty] = useState(1);
+  const [addQty, setAddQty] = useState("");
   const [addError, setAddError] = useState("");
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState("");
@@ -460,7 +491,8 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       setEditId(null);
       setAdding(false);
       setAddLinenId("");
-      setAddQty(1);
+      setAddQty("");
+      setItemToDelete(null);
       setAddError("");
       setError("");
       fetchAuditLogs();
@@ -541,6 +573,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
     try {
       await api(`/ikm/rewash-linen/${itemId}`, { method: "DELETE" });
       setItems(prev => prev.filter(i => i.id !== itemId));
+      setItemToDelete(null);
       onRefresh?.();
       fetchAuditLogs();
     } catch (err) {
@@ -553,7 +586,8 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   // Add new linen
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!addLinenId || !addQty) return;
+    const parsedQty = Number(addQty);
+    if (!addLinenId || !addQty || parsedQty <= 0) return;
     setAdding(true);
     setAddError("");
     try {
@@ -564,7 +598,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
           report_date: group.report_date?.slice(0, 10),
           hospital_id: group.hospital_id,
           hospital_linen_id: Number(addLinenId),
-          qty: addQty,
+          qty: parsedQty,
         }),
       });
       // Add to local items with basic info (full name comes from next fetch)
@@ -575,10 +609,10 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
         hospital_linen_id: Number(addLinenId),
         linen_display_name: parts.join(" "),
         master_linen_name: sel?.master_linen_name || "",
-        qty: addQty,
+        qty: parsedQty,
       }]);
       setAddLinenId("");
-      setAddQty(1);
+      setAddQty("");
       setAdding(false);
       onRefresh?.();
       fetchAuditLogs();
@@ -593,294 +627,304 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-50";
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-6xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-white/95">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
-              <HiOutlineRectangleGroup className="h-5 w-5" />
+    <>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="w-full max-w-6xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+          {/* Header */}
+          <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-white/95">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+                <HiOutlineRectangleGroup className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Detail Laporan Rewash</h2>
+                <p className="text-xs text-slate-500">{fmtDate(group.report_date)}</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">Detail Laporan Rewash</h2>
-              <p className="text-xs text-slate-500">{fmtDate(group.report_date)}</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
-            <HiOutlineXMark className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Info pelapor */}
-        <div className="shrink-0 px-6 py-4 bg-slate-50/50 border-b border-slate-100">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Pelapor</span>
-              <span className="text-sm font-bold text-slate-800">{group.reporter_name}</span>
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Rumah Sakit</span>
-              <span className="text-sm font-semibold text-slate-700">{group.hospital_name}</span>
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Qty</span>
-              <span className="inline-flex items-center justify-center h-7 rounded-full bg-orange-50 px-3 text-sm font-bold text-orange-700">{totalQty} Pcs</span>
-            </div>
-          </div>
-          {group.notes && (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-              <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Catatan</span>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">{group.notes}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
-              <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
-
-          {/* Tabel linen */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Daftar Linen Rewash</h3>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">No</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">Nama Linen</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">Kepemilikan</th>
-                  <th className="text-center text-xs font-semibold text-slate-500 pb-2 px-2 w-20">Qty</th>
-                  <th className="text-center text-xs font-semibold text-emerald-600 pb-2 px-2 w-20">Bersih</th>
-                  <th className="text-center text-xs font-semibold text-rose-500 pb-2 px-2 w-20">Kotor</th>
-                  <th className="text-right text-xs font-semibold text-slate-500 pb-2 px-2 w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, idx) => (
-                  <>
-                    {/* Baris utama */}
-                    <tr key={item.id} className={cn("border-b border-slate-50", editId === item.id ? "border-b-0" : "last:border-0")}>
-                      <td className="py-2.5 px-2 text-xs text-slate-400 tabular-nums align-top pt-3">{idx + 1}</td>
-                      <td className="py-2.5 px-2 align-top pt-3">
-                        <span className="text-xs font-semibold text-slate-800">{item.linen_display_name}</span>
-                        {/* Catatan item — hanya muncul jika ada & tidak dalam mode edit */}
-                        {editId !== item.id && item.detail_notes && (
-                          <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-100 px-2 py-1.5">
-                            <svg className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            <span className="text-[11px] text-amber-700 whitespace-pre-wrap leading-relaxed">{item.detail_notes}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2 text-xs text-slate-600 align-top pt-3">
-                        {editId === item.id ? (
-                          <select
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-400 bg-white"
-                            value={item.edit_hospital_linen_id ?? item.hospital_linen_id}
-                            onChange={(e) => {
-                              const newHli = Number(e.target.value);
-                              setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_hospital_linen_id: newHli } : i));
-                            }}
-                          >
-                            {(() => {
-                              const currentLinenInfo = linens.find(l => l.id === item.hospital_linen_id);
-                              const linenId = currentLinenInfo?.linen_id;
-                              const matchingLinens = linens.filter(l => l.linen_id === linenId);
-                              if (matchingLinens.length === 0) {
-                                return (
-                                  <option value={item.hospital_linen_id}>
-                                    {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
-                                  </option>
-                                );
-                              }
-                              return matchingLinens.map(l => (
-                                <option key={l.id} value={l.id}>
-                                  {l.ownership_type === "SEWA" ? "Sewa" : "RS"}
-                                </option>
-                              ));
-                            })()}
-                          </select>
-                        ) : (
-                          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", item.ownership_type === "SEWA" ? "bg-purple-50 text-purple-700" : "bg-emerald-50 text-emerald-700")}>
-                            {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
-                          </span>
-                        )}
-                      </td>
-                      {/* Qty */}
-                      <td className="py-2.5 px-2 text-center align-top pt-3">
-                        {editId === item.id ? (
-                          <input type="number" min="1" placeholder={String(item.qty)}
-                            className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-xs text-center outline-none focus:border-blue-400"
-                            value={item.edit_qty ?? ""}
-                            onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: e.target.value } : i))} />
-                        ) : (
-                          <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-blue-50 px-2 text-xs font-bold text-blue-700">
-                            {item.qty}
-                          </span>
-                        )}
-                      </td>
-                      {/* Bersih (clear) */}
-                      <td className="py-2.5 px-2 text-center align-top pt-3">
-                        {editId === item.id ? (
-                          <input type="number" min="0" max={item.edit_qty !== "" && item.edit_qty !== undefined ? Number(item.edit_qty) : item.qty}
-                            placeholder={String(item.clear ?? 0)}
-                            className="w-16 rounded-lg border border-emerald-300 px-2 py-1 text-xs text-center outline-none focus:border-emerald-500"
-                            value={item.edit_clear ?? ""}
-                            onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_clear: e.target.value } : i))} />
-                        ) : (
-                          <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-emerald-50 px-2 text-xs font-bold text-emerald-700">
-                            {item.clear ?? 0}
-                          </span>
-                        )}
-                      </td>
-                      {/* Kotor = qty - clear (frontend only) */}
-                      <td className="py-2.5 px-2 text-center align-top pt-3">
-                        {editId === item.id ? (
-                          <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-rose-50 px-2 text-xs font-bold text-rose-500">
-                            {Math.max(0, (item.edit_qty !== "" && item.edit_qty !== undefined ? Number(item.edit_qty) : item.qty) - (item.edit_clear !== "" && item.edit_clear !== undefined ? Number(item.edit_clear) : (item.clear ?? 0)))}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-rose-50 px-2 text-xs font-bold text-rose-500">
-                            {Math.max(0, (item.qty || 0) - (item.clear ?? 0))}
-                          </span>
-                        )}
-                      </td>
-                      {/* Aksi */}
-                      <td className="py-2.5 px-2 text-right align-top pt-3">
-                        {editId === item.id ? (
-                          <div className="inline-flex items-center gap-1">
-                            <button onClick={() => handleSaveQty(item)} disabled={savingId === item.id}
-                              className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-                              {savingId === item.id ? <HiOutlineClock className="h-3 w-3 animate-spin" /> : "Simpan"}
-                            </button>
-                            <button onClick={() => { setEditId(null); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: undefined, edit_hospital_linen_id: undefined } : i)); }}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
-                              Batal
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-1">
-                            <button onClick={() => { setEditId(item.id); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: i.detail_notes || "", edit_hospital_linen_id: i.hospital_linen_id } : i)); }}
-                              className="rounded-lg border border-slate-200 bg-white p-1 text-slate-500 hover:border-blue-300 hover:text-blue-600 transition" title="Edit">
-                              <HiOutlinePencilSquare className="h-3.5 w-3.5" />
-                            </button>
-                            <button onClick={() => handleDeleteItem(item.id)} disabled={deletingId === item.id}
-                              className="rounded-lg border border-slate-200 bg-white p-1 text-slate-500 hover:border-rose-300 hover:text-rose-600 transition disabled:opacity-50" title="Hapus">
-                              {deletingId === item.id ? <HiOutlineClock className="h-3.5 w-3.5 animate-spin" /> : <HiOutlineTrash className="h-3.5 w-3.5" />}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                    {/* Baris textarea catatan — full width, hanya saat mode edit */}
-                    {editId === item.id && (
-                      <tr key={`${item.id}-notes`} className="border-b border-slate-50">
-                        <td colSpan={7} className="px-2 pb-3">
-                          <textarea
-                            rows={2}
-                            placeholder="Catatan (opsional)..."
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 resize-none"
-                            value={item.edit_notes !== undefined ? item.edit_notes : (item.detail_notes || "")}
-                            onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_notes: e.target.value } : i))}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                ))}
-              </tbody>
-            </table>
+            <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+              <HiOutlineXMark className="h-5 w-5" />
+            </button>
           </div>
 
-          {/* Tambah linen baru */}
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Tambah Linen Baru</h4>
-            {addError && (
-              <div className="mb-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                <HiOutlineExclamationTriangle className="h-3.5 w-3.5 shrink-0" />
-                {addError}
+          {/* Info pelapor */}
+          <div className="shrink-0 px-6 py-4 bg-slate-50/50 border-b border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Pelapor</span>
+                <span className="text-sm font-bold text-slate-800">{group.reporter_name}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Rumah Sakit</span>
+                <span className="text-sm font-semibold text-slate-700">{group.hospital_name}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Qty</span>
+                <span className="inline-flex items-center justify-center h-7 rounded-full bg-orange-50 px-3 text-sm font-bold text-orange-700">{totalQty} Pcs</span>
+              </div>
+            </div>
+            {group.notes && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Catatan</span>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{group.notes}</p>
               </div>
             )}
-            <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3 items-end">
-              <div className="flex-1 w-full">
-                <label className="mb-1 block text-[10px] font-semibold text-slate-400">Pilih Linen</label>
-                <select className={inputClass} value={addLinenId} onChange={(e) => setAddLinenId(e.target.value)} required disabled={adding || loadingLinens}>
-                  {loadingLinens ? (
-                    <option value="">Memuat...</option>
-                  ) : availableLinens.length === 0 ? (
-                    <option value="">Semua linen sudah ditambahkan</option>
-                  ) : (
-                    <>
-                      <option value="">-- Pilih Linen --</option>
-                      {availableLinens.map(l => {
-                        const parts = [l.master_linen_name, l.size_name, l.color_name, l.material_name].filter(Boolean);
-                        const ownershipLabel = l.ownership_type === "SEWA" ? "Sewa" : "RS";
-                        return <option key={l.id} value={l.id}>{parts.join(" ")} ({ownershipLabel})</option>;
-                      })}
-                    </>
-                  )}
-                </select>
-              </div>
-              <div className="w-24 shrink-0">
-                <label className="mb-1 block text-[10px] font-semibold text-slate-400">Qty</label>
-                <input type="number" min="1" className={inputClass} value={addQty} onChange={(e) => setAddQty(Number(e.target.value))} required disabled={adding} />
-              </div>
-              <button type="submit" disabled={adding || !addLinenId || !addQty}
-                className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
-                {adding ? <HiOutlineClock className="h-4 w-4 animate-spin" /> : <HiOutlinePlus className="h-4 w-4" />}
-                Tambah
-              </button>
-            </form>
           </div>
 
-          {/* Audit Log / History Section */}
-          {auditLogs.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-0 mt-4 shrink-0">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-600 border-b border-slate-200/50 pb-2 mb-2">
-                <HiOutlineClock className="h-4 w-4 text-slate-400" />
-                <span>Riwayat Pengisian / Perubahan Laporan</span>
+          {/* Body — scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+                <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
+                {error}
               </div>
-              <div className="max-h-56 overflow-y-auto">
-                {auditLogs.map((log) => {
-                  const lines = buildAuditLines(log);
-                  return (
-                    <div key={log.id} className="py-1.5 border-b border-slate-100 last:border-0">
-                      {/* Baris aksi */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] text-slate-700">
-                          {log.action === "INSERT" ? (
-                            <span className="inline-flex rounded bg-emerald-50 text-emerald-700 border border-emerald-100 px-1 py-0.5 text-[9px] font-bold mr-1">BUAT</span>
-                          ) : (
-                            <span className="inline-flex rounded bg-blue-50 text-blue-700 border border-blue-100 px-1 py-0.5 text-[9px] font-bold mr-1">UPDATE</span>
+            )}
+
+            {/* Tabel linen */}
+            <div>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Daftar Linen Rewash</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">No</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">Nama Linen</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 pb-2 px-2">Kepemilikan</th>
+                    <th className="text-center text-xs font-semibold text-slate-500 pb-2 px-2 w-20">Qty</th>
+                    <th className="text-center text-xs font-semibold text-emerald-600 pb-2 px-2 w-20">Bersih</th>
+                    <th className="text-center text-xs font-semibold text-rose-500 pb-2 px-2 w-20">Kotor</th>
+                    <th className="text-right text-xs font-semibold text-slate-500 pb-2 px-2 w-24">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, idx) => (
+                    <>
+                      {/* Baris utama */}
+                      <tr key={item.id} className={cn("border-b border-slate-50", editId === item.id ? "border-b-0" : "last:border-0")}>
+                        <td className="py-2.5 px-2 text-xs text-slate-400 tabular-nums align-top pt-3">{idx + 1}</td>
+                        <td className="py-2.5 px-2 align-top pt-3">
+                          <span className="text-xs font-semibold text-slate-800">{item.linen_display_name}</span>
+                          {/* Catatan item — hanya muncul jika ada & tidak dalam mode edit */}
+                          {editId !== item.id && item.detail_notes && (
+                            <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-100 px-2 py-1.5">
+                              <svg className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              <span className="text-[11px] text-amber-700 whitespace-pre-wrap leading-relaxed">{item.detail_notes}</span>
+                            </div>
                           )}
-                          oleh <strong className="text-slate-800">{log.changed_by_employee_name || log.changed_by_name}</strong>
-                        </span>
-                        <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{fmtDateTime(log.changed_at)}</span>
-                      </div>
-                      {/* Detail perubahan — satu baris per item */}
-                      {lines.length > 0 && (
-                        <ul className="mt-0.5 space-y-0.5 pl-2">
-                          {lines.map((line, i) => (
-                            <li key={i} className="text-[10px] text-slate-500 leading-snug before:content-['·'] before:mr-1 before:text-slate-300">
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
+                        </td>
+                        <td className="py-2.5 px-2 text-xs text-slate-600 align-top pt-3">
+                          {editId === item.id ? (
+                            <select
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-400 bg-white"
+                              value={item.edit_hospital_linen_id ?? item.hospital_linen_id}
+                              onChange={(e) => {
+                                const newHli = Number(e.target.value);
+                                setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_hospital_linen_id: newHli } : i));
+                              }}
+                            >
+                              {(() => {
+                                const currentLinenInfo = linens.find(l => l.id === item.hospital_linen_id);
+                                const linenId = currentLinenInfo?.linen_id;
+                                const matchingLinens = linens.filter(l => l.linen_id === linenId);
+                                if (matchingLinens.length === 0) {
+                                  return (
+                                    <option value={item.hospital_linen_id}>
+                                      {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                                    </option>
+                                  );
+                                }
+                                return matchingLinens.map(l => (
+                                  <option key={l.id} value={l.id}>
+                                    {l.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                                  </option>
+                                ));
+                              })()}
+                            </select>
+                          ) : (
+                            <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", item.ownership_type === "SEWA" ? "bg-purple-50 text-purple-700" : "bg-emerald-50 text-emerald-700")}>
+                              {item.ownership_type === "SEWA" ? "Sewa" : "RS"}
+                            </span>
+                          )}
+                        </td>
+                        {/* Qty */}
+                        <td className="py-2.5 px-2 text-center align-top pt-3">
+                          {editId === item.id ? (
+                            <input type="number" min="1" placeholder={String(item.qty)}
+                              className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-xs text-center outline-none focus:border-blue-400"
+                              value={item.edit_qty ?? ""}
+                              onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: e.target.value } : i))} />
+                          ) : (
+                            <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-blue-50 px-2 text-xs font-bold text-blue-700">
+                              {item.qty}
+                            </span>
+                          )}
+                        </td>
+                        {/* Bersih (clear) */}
+                        <td className="py-2.5 px-2 text-center align-top pt-3">
+                          {editId === item.id ? (
+                            <input type="number" min="0" max={item.edit_qty !== "" && item.edit_qty !== undefined ? Number(item.edit_qty) : item.qty}
+                              placeholder={String(item.clear ?? 0)}
+                              className="w-16 rounded-lg border border-emerald-300 px-2 py-1 text-xs text-center outline-none focus:border-emerald-500"
+                              value={item.edit_clear ?? ""}
+                              onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_clear: e.target.value } : i))} />
+                          ) : (
+                            <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-emerald-50 px-2 text-xs font-bold text-emerald-700">
+                              {item.clear ?? 0}
+                            </span>
+                          )}
+                        </td>
+                        {/* Kotor = qty - clear (frontend only) */}
+                        <td className="py-2.5 px-2 text-center align-top pt-3">
+                          {editId === item.id ? (
+                            <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-rose-50 px-2 text-xs font-bold text-rose-500">
+                              {Math.max(0, (item.edit_qty !== "" && item.edit_qty !== undefined ? Number(item.edit_qty) : item.qty) - (item.edit_clear !== "" && item.edit_clear !== undefined ? Number(item.edit_clear) : (item.clear ?? 0)))}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center h-6 min-w-6 rounded-full bg-rose-50 px-2 text-xs font-bold text-rose-500">
+                              {Math.max(0, (item.qty || 0) - (item.clear ?? 0))}
+                            </span>
+                          )}
+                        </td>
+                        {/* Aksi */}
+                        <td className="py-2.5 px-2 text-right align-top pt-3">
+                          {editId === item.id ? (
+                            <div className="inline-flex items-center gap-1">
+                              <button onClick={() => handleSaveQty(item)} disabled={savingId === item.id}
+                                className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                                {savingId === item.id ? <HiOutlineClock className="h-3 w-3 animate-spin" /> : "Simpan"}
+                              </button>
+                              <button onClick={() => { setEditId(null); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: undefined, edit_hospital_linen_id: undefined } : i)); }}
+                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
+                                Batal
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1">
+                              <button onClick={() => { setEditId(item.id); setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_qty: undefined, edit_clear: undefined, edit_notes: i.detail_notes || "", edit_hospital_linen_id: i.hospital_linen_id } : i)); }}
+                                className="rounded-lg border border-slate-200 bg-white p-1 text-slate-500 hover:border-blue-300 hover:text-blue-600 transition" title="Edit">
+                                <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                              </button>
+                              <button onClick={() => setItemToDelete(item)} disabled={deletingId === item.id}
+                                className="rounded-lg border border-slate-200 bg-white p-1 text-slate-500 hover:border-rose-300 hover:text-rose-600 transition disabled:opacity-50" title="Hapus">
+                                {deletingId === item.id ? <HiOutlineClock className="h-3.5 w-3.5 animate-spin" /> : <HiOutlineTrash className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                      {/* Baris textarea catatan — full width, hanya saat mode edit */}
+                      {editId === item.id && (
+                        <tr key={`${item.id}-notes`} className="border-b border-slate-50">
+                          <td colSpan={7} className="px-2 pb-3">
+                            <textarea
+                              rows={2}
+                              placeholder="Catatan (opsional)..."
+                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 resize-none"
+                              value={item.edit_notes !== undefined ? item.edit_notes : (item.detail_notes || "")}
+                              onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, edit_notes: e.target.value } : i))}
+                            />
+                          </td>
+                        </tr>
                       )}
-                    </div>
-                  );
-                })}
-              </div>
+                    </>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+
+            {/* Tambah linen baru */}
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Tambah Linen Baru</h4>
+              {addError && (
+                <div className="mb-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  <HiOutlineExclamationTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {addError}
+                </div>
+              )}
+              <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex-1 w-full">
+                  <label className="mb-1 block text-[10px] font-semibold text-slate-400">Pilih Linen</label>
+                  <select className={inputClass} value={addLinenId} onChange={(e) => setAddLinenId(e.target.value)} required disabled={adding || loadingLinens}>
+                    {loadingLinens ? (
+                      <option value="">Memuat...</option>
+                    ) : availableLinens.length === 0 ? (
+                      <option value="">Semua linen sudah ditambahkan</option>
+                    ) : (
+                      <>
+                        <option value="">-- Pilih Linen --</option>
+                        {availableLinens.map(l => {
+                          const parts = [l.master_linen_name, l.size_name, l.color_name, l.material_name].filter(Boolean);
+                          const ownershipLabel = l.ownership_type === "SEWA" ? "Sewa" : "RS";
+                          return <option key={l.id} value={l.id}>{parts.join(" ")} ({ownershipLabel})</option>;
+                        })}
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div className="w-24 shrink-0">
+                  <label className="mb-1 block text-[10px] font-semibold text-slate-400">Qty</label>
+                  <input type="number" min="1" placeholder="0" className={inputClass} value={addQty} onChange={(e) => setAddQty(e.target.value)} required disabled={adding} />
+                </div>
+                <button type="submit" disabled={adding || !addLinenId || !addQty || Number(addQty) <= 0}
+                  className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+                  {adding ? <HiOutlineClock className="h-4 w-4 animate-spin" /> : <HiOutlinePlus className="h-4 w-4" />}
+                  Tambah
+                </button>
+              </form>
+            </div>
+
+            {/* Audit Log / History Section */}
+            {auditLogs.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-0 mt-4 shrink-0">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600 border-b border-slate-200/50 pb-2 mb-2">
+                  <HiOutlineClock className="h-4 w-4 text-slate-400" />
+                  <span>Riwayat Pengisian / Perubahan Laporan</span>
+                </div>
+                <div className="max-h-56 overflow-y-auto">
+                  {auditLogs.map((log) => {
+                    const lines = buildAuditLines(log);
+                    return (
+                      <div key={log.id} className="py-1.5 border-b border-slate-100 last:border-0">
+                        {/* Baris aksi */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-slate-700">
+                            {log.action === "INSERT" ? (
+                              <span className="inline-flex rounded bg-emerald-50 text-emerald-700 border border-emerald-100 px-1 py-0.5 text-[9px] font-bold mr-1">BUAT</span>
+                            ) : (
+                              <span className="inline-flex rounded bg-blue-50 text-blue-700 border border-blue-100 px-1 py-0.5 text-[9px] font-bold mr-1">UPDATE</span>
+                            )}
+                            oleh <strong className="text-slate-800">{log.changed_by_employee_name || log.changed_by_name}</strong>
+                          </span>
+                          <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{fmtDateTime(log.changed_at)}</span>
+                        </div>
+                        {/* Detail perubahan — satu baris per item */}
+                        {lines.length > 0 && (
+                          <ul className="mt-0.5 space-y-0.5 pl-2">
+                            {lines.map((line, i) => (
+                              <li key={i} className="text-[10px] text-slate-500 leading-snug before:content-['·'] before:mr-1 before:text-slate-300">
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>,
+
+      <DeleteItemModal
+        open={Boolean(itemToDelete)}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={() => itemToDelete && handleDeleteItem(itemToDelete.id)}
+        target={itemToDelete}
+        loading={deletingId === itemToDelete?.id}
+      />
+    </>,
     document.body
   );
 }
