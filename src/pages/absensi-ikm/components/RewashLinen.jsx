@@ -594,6 +594,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
       const res = await api("/ikm/rewash-linen", {
         method: "POST",
         body: JSON.stringify({
+          rewash_id: group.id,
           reporter_name: group.reporter_name,
           report_date: group.report_date?.slice(0, 10),
           hospital_id: group.hospital_id,
@@ -933,7 +934,7 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
 export default function RewashLinen() {
   const [records, setRecords] = useState([]);
   const [hospitals, setHospitals] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0, totalQty: 0 });
   const [loading, setLoading] = useState(true);
 
   const todayStr = useMemo(() => toDateInput(new Date()), []);
@@ -981,7 +982,7 @@ export default function RewashLinen() {
   }, [periodMode, todayStr, customStartDate, customEndDate, cutoffMonth, cutoffYear]);
 
   // Load Data function
-  const fetchData = useCallback(async (pg = pagination.page) => {
+  const fetchData = useCallback(async (pg = 1, currentSort = sort) => {
     setLoading(true);
     try {
       const qs = new URLSearchParams({
@@ -992,17 +993,28 @@ export default function RewashLinen() {
       if (activePeriod.endDate) qs.set("endDate", activePeriod.endDate);
       if (filterRS) qs.set("hospital_id", filterRS);
       if (search) qs.set("search", search);
+      if (currentSort?.col) {
+        qs.set("sortCol", currentSort.col);
+        qs.set("sortDir", currentSort.dir);
+      }
 
       const res = await api(`/ikm/rewash-linen?${qs.toString()}`);
       setRecords(res.data || []);
-      setPagination((p) => ({ ...p, page: pg, total: res.pagination?.total || 0, totalPages: res.pagination?.totalPages || 0 }));
+      setPagination((p) => ({
+        ...p,
+        page: pg,
+        total: res.pagination?.total || 0,
+        totalPages: res.pagination?.totalPages || 0,
+        totalQty: res.totalQty ?? res.pagination?.totalQty ?? 0
+      }));
       if (res.hospitals) setHospitals(res.hospitals);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
-  }, [activePeriod.startDate, activePeriod.endDate, filterRS, search, pagination.limit, showToast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePeriod.startDate, activePeriod.endDate, filterRS, search, pagination.limit, sort.col, sort.dir, showToast]);
 
   useEffect(() => {
     api("/ikm/rewash-linen/meta").then((r) => {
@@ -1012,7 +1024,8 @@ export default function RewashLinen() {
 
   useEffect(() => {
     fetchData(1);
-  }, [activePeriod.startDate, activePeriod.endDate, filterRS, search, pagination.limit]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePeriod.startDate, activePeriod.endDate, filterRS, search, pagination.limit]);
 
   useEffect(() => {
     if (formOpen || Boolean(detailGroup) || Boolean(deleteTarget)) {
@@ -1027,39 +1040,25 @@ export default function RewashLinen() {
     document.title = "Linen Rewash IKM | Alora Group Indonesia";
   }, []);
 
-  // Sorting logic
+  // Sorting logic via backend fetch
   const handleSort = (col) => {
-    setSort((prev) => ({
-      col,
-      dir: prev.col === col && prev.dir === "desc" ? "asc" : "desc",
-    }));
+    const nextDir = sort.col === col && sort.dir === "desc" ? "asc" : "desc";
+    const nextSort = { col, dir: nextDir };
+    setSort(nextSort);
+    fetchData(1, nextSort);
   };
 
   const sortedGroups = useMemo(() => {
-    if (!sort.col) return records;
-    const sorted = [...records];
-    sorted.sort((a, b) => {
-      let valA, valB;
-
-      if (sort.col === "report_date") {
-        valA = new Date(a.report_date).getTime();
-        valB = new Date(b.report_date).getTime();
-        return sort.dir === "asc" ? valA - valB : valB - valA;
-      }
-
-      valA = String(a[sort.col] ?? "").toLowerCase();
-      valB = String(b[sort.col] ?? "").toLowerCase();
-      if (valA < valB) return sort.dir === "asc" ? -1 : 1;
-      if (valA > valB) return sort.dir === "asc" ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [records, sort]);
-
-  // Total qty across all groups
-  const totalQty = useMemo(() => {
-    return records.reduce((sum, g) => sum + g.items.reduce((s, i) => s + (i.qty || 0), 0), 0);
+    return records;
   }, [records]);
+
+  // Overall total qty across the entire filtered period
+  const totalQty = useMemo(() => {
+    if (pagination.totalQty !== undefined && pagination.totalQty !== null) {
+      return pagination.totalQty;
+    }
+    return records.reduce((sum, g) => sum + g.items.reduce((s, i) => s + (i.qty || 0), 0), 0);
+  }, [records, pagination.totalQty]);
 
 
   // Delete Action
@@ -1279,7 +1278,7 @@ export default function RewashLinen() {
                     </tr>
                   ) : (
                     sortedGroups.map((g, idx) => (
-                      <tr key={`${g.report_date}|${g.hospital_id}|${g.reporter_name}`}
+                      <tr key={g.id || `${g.report_date}-${g.hospital_id}-${idx}`}
                         className="border-t border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
                         onClick={() => setDetailGroup(g)}>
                         <td className="px-4 py-3.5 text-xs font-medium text-slate-400 tabular-nums">
@@ -1342,8 +1341,8 @@ export default function RewashLinen() {
               ) : sortedGroups.length === 0 ? (
                 <div className="p-8 text-center text-sm text-slate-400">Tidak ada data</div>
               ) : (
-                sortedGroups.map((g) => (
-                  <div key={`${g.report_date}|${g.hospital_id}|${g.reporter_name}`} className="p-4 space-y-2.5 cursor-pointer hover:bg-slate-50 hover:border-amber-100 transition rounded-xl mx-2 my-1 border border-transparent" onClick={() => setDetailGroup(g)}>
+                sortedGroups.map((g, idx) => (
+                  <div key={g.id || `card-${g.report_date}-${g.hospital_id}-${idx}`} className="p-4 space-y-2.5 cursor-pointer hover:bg-slate-50 hover:border-amber-100 transition rounded-xl mx-2 my-1 border border-transparent" onClick={() => setDetailGroup(g)}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-slate-800">{g.reporter_name}</p>
