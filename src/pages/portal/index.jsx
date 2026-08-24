@@ -21,9 +21,12 @@ export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [employeeData, setEmployeeData] = useState(null);
+  const [userRole, setUserRole] = useState(user?.role ?? null);
   const [loading, setLoading] = useState(true);
   const [appsLoaded, setAppsLoaded] = useState(false);
   const [employeeLoaded, setEmployeeLoaded] = useState(false);
+
+  const isEmployeeRole = (userRole || user?.role) === "employee";
 
   const youtubeVideos = useMemo(
     () => [
@@ -47,6 +50,7 @@ export default function Portal({ user, onLogout }) {
       try {
         const d = await api("/apps");
         setApps(d.apps || []);
+        if (d.role) setUserRole(d.role);
       } catch (err) {
         console.error("Error loading apps:", err);
         setApps([]);
@@ -123,11 +127,13 @@ export default function Portal({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Tasks Section — full width, dibagi 2 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <PersonalTasksCard />
-          <DailyTasksCard />
-        </div>
+        {/* Tasks Section — full width, dibagi 2 (disembunyikan untuk role employee) */}
+        {!isEmployeeRole && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <PersonalTasksCard />
+            <DailyTasksCard />
+          </div>
+        )}
 
       </div>
       <AloraChatBot />
