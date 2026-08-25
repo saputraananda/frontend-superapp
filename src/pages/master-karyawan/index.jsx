@@ -7,6 +7,8 @@ import {
     HiOutlineChartBar,
     HiOutlineUsers,
     HiOutlineClipboardDocumentList,
+    HiOutlineCalendarDays,
+    HiOutlineHeart,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -33,6 +35,20 @@ const MENU_ITEMS = [
         icon: HiOutlineClipboardDocumentList,
         label: "Cuti & Perizinan",
         description: "Approval izin, sakit & cuti Alora",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/report-absensi",
+        icon: HiOutlineCalendarDays,
+        label: "Report Absensi",
+        description: "Rekap absensi Alora mobile",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/report-bugar",
+        icon: HiOutlineHeart,
+        label: "Report Alora Bugar",
+        description: "Rekap sesi olahraga Alora Bugar",
         end: false,
     },
 ];

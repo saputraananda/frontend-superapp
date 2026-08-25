@@ -26,6 +26,8 @@ import MasterKaryawan from "./pages/master-karyawan/index";
 import DashboardMaster from "./pages/master-karyawan/components/DashboardMaster";
 import DataKaryawan from "./pages/master-karyawan/components/DataKaryawan";
 import PerizinanAlora from "./pages/master-karyawan/components/PerizinanAlora";
+import ReportAbsensiAlora from "./pages/master-karyawan/components/ReportAbsensiAlora";
+import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
@@ -295,6 +297,8 @@ export default function App() {
           <Route path="/master-karyawan" element={<DashboardMaster />} />
           <Route path="/master-karyawan/list" element={<DataKaryawan />} />
           <Route path="/master-karyawan/perizinan" element={<PerizinanAlora />} />
+          <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
+          <Route path="/master-karyawan/report-bugar" element={<ReportBugarAlora />} />
         </Route>
 
         <Route
