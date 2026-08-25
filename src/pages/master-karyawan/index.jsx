@@ -6,6 +6,7 @@ import {
     HiOutlineXMark,
     HiOutlineChartBar,
     HiOutlineUsers,
+    HiOutlineClipboardDocumentList,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -25,6 +26,13 @@ const MENU_ITEMS = [
         icon: HiOutlineUsers,
         label: "Data Karyawan",
         description: "Kelola data karyawan",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/perizinan",
+        icon: HiOutlineClipboardDocumentList,
+        label: "Cuti & Perizinan",
+        description: "Approval izin, sakit & cuti Alora",
         end: false,
     },
 ];
