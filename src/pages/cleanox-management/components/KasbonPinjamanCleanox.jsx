@@ -85,6 +85,15 @@ function toRupiahDigits(value) {
 	return String(n);
 }
 
+/** ≤3 digit shorthand → ×1000 (350 → 350000); ≥4 digit stays. */
+function scaleShortRupiahDigits(digitStr) {
+	if (digitStr === null || digitStr === undefined || digitStr === "") return "";
+	const normalized = String(digitStr).replace(/^0+/, "");
+	if (!normalized) return "";
+	if (normalized.length <= 3) return String(Number(normalized) * 1000);
+	return String(Number(normalized));
+}
+
 function todayISO() {
 	const d = new Date();
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -283,6 +292,10 @@ function RupiahInput({ value, onChange, placeholder = "Contoh: 1.500.000", class
 					inputMode="numeric"
 					value={formatted}
 					onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+					onBlur={() => {
+						const scaled = scaleShortRupiahDigits(value);
+						if (scaled !== String(value || "")) onChange(scaled);
+					}}
 					placeholder={placeholder}
 					className={cn(
 						"w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300",
@@ -628,7 +641,7 @@ function FormModal({ open, onClose, onSaved, employees, editData }) {
 				employee_id: editData.employee_id || "",
 				type: editData.type || "kasbon",
 				submission_date: toDateOnly(editData.submission_date),
-				amount_requested: toRupiahDigits(editData.amount_requested),
+				amount_requested: scaleShortRupiahDigits(toRupiahDigits(editData.amount_requested)),
 				purpose: editData.purpose || "",
 				notes: editData.notes || "",
 			});
@@ -662,11 +675,12 @@ function FormModal({ open, onClose, onSaved, employees, editData }) {
 		setSaving(true);
 		setErr("");
 		try {
+			const amount = scaleShortRupiahDigits(form.amount_requested);
 			const fd = new FormData();
 			fd.append("employee_id", form.employee_id);
 			fd.append("type", form.type);
 			fd.append("submission_date", form.submission_date);
-			fd.append("amount_requested", form.amount_requested);
+			fd.append("amount_requested", amount);
 			fd.append("purpose", form.purpose);
 			fd.append("notes", form.notes || "");
 			if (file) fd.append("proof_file", file);
@@ -859,7 +873,9 @@ function StatusModal({ open, onClose, onSaved, row }) {
 			setProcessNote(row.process_note || "");
 			setApprovedNote(row.approved_note || "");
 			setRejectionNote(row.rejection_note || "");
-			setAmountApproved(toRupiahDigits(row.amount_approved ?? row.amount_requested));
+			setAmountApproved(
+				scaleShortRupiahDigits(toRupiahDigits(row.amount_approved ?? row.amount_requested))
+			);
 			setErr("");
 		}
 	}, [open, row]);
@@ -884,6 +900,8 @@ function StatusModal({ open, onClose, onSaved, row }) {
 		setErr("");
 		try {
 			const actor = getCurrentUser();
+			const approvedAmount =
+				targetStatus === "disetujui" ? scaleShortRupiahDigits(amountApproved) : undefined;
 			await api(`${API}/${row.id}/status`, {
 				method: "PUT",
 				body: JSON.stringify({
@@ -891,7 +909,7 @@ function StatusModal({ open, onClose, onSaved, row }) {
 					process_note: processNote || undefined,
 					approved_note: approvedNote || undefined,
 					rejection_note: rejectionNote || undefined,
-					amount_approved: targetStatus === "disetujui" ? amountApproved : undefined,
+					amount_approved: approvedAmount,
 					actor_id: actor.id,
 					actor_name: actor.name,
 				}),
@@ -1080,7 +1098,8 @@ function DetailModal({ open, onClose, rowId, onRefresh }) {
 	}, [open, rowId, fetchDetail]);
 
 	const handleAddPayment = async () => {
-		if (!payForm.payment_date || !payForm.amount || Number(payForm.amount) <= 0) {
+		const amount = scaleShortRupiahDigits(payForm.amount);
+		if (!payForm.payment_date || !amount || Number(amount) <= 0) {
 			setPayErr("Tanggal dan jumlah wajib diisi");
 			return;
 		}
@@ -1089,7 +1108,7 @@ function DetailModal({ open, onClose, rowId, onRefresh }) {
 		try {
 			await api(`${API}/${rowId}/payment`, {
 				method: "POST",
-				body: JSON.stringify(payForm),
+				body: JSON.stringify({ ...payForm, amount }),
 			});
 			setPayForm({ payment_date: todayISO(), amount: "", payment_method: "potong_gaji", notes: "" });
 			await fetchDetail();
