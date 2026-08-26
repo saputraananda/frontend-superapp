@@ -77,6 +77,14 @@ function fmtRupiah(v) {
 	}).format(Number(v));
 }
 
+/** Parse API/DB DECIMAL (e.g. "200000.00") to digit string without stripping decimal point. */
+function toRupiahDigits(value) {
+	if (value === null || value === undefined || value === "") return "";
+	const n = Math.round(Number(value));
+	if (!Number.isFinite(n) || n < 0) return "";
+	return String(n);
+}
+
 function todayISO() {
 	const d = new Date();
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -620,7 +628,7 @@ function FormModal({ open, onClose, onSaved, employees, editData }) {
 				employee_id: editData.employee_id || "",
 				type: editData.type || "kasbon",
 				submission_date: toDateOnly(editData.submission_date),
-				amount_requested: String(editData.amount_requested || "").replace(/\D/g, ""),
+				amount_requested: toRupiahDigits(editData.amount_requested),
 				purpose: editData.purpose || "",
 				notes: editData.notes || "",
 			});
@@ -851,7 +859,7 @@ function StatusModal({ open, onClose, onSaved, row }) {
 			setProcessNote(row.process_note || "");
 			setApprovedNote(row.approved_note || "");
 			setRejectionNote(row.rejection_note || "");
-			setAmountApproved(String(row.amount_approved || row.amount_requested || "").replace(/\D/g, ""));
+			setAmountApproved(toRupiahDigits(row.amount_approved ?? row.amount_requested));
 			setErr("");
 		}
 	}, [open, row]);
