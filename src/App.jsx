@@ -25,6 +25,9 @@ import EmployeeSatisfaction from "./pages/employee-satisfaction";
 import MasterKaryawan from "./pages/master-karyawan/index";
 import DashboardMaster from "./pages/master-karyawan/components/DashboardMaster";
 import DataKaryawan from "./pages/master-karyawan/components/DataKaryawan";
+import PerizinanAlora from "./pages/master-karyawan/components/PerizinanAlora";
+import ReportAbsensiAlora from "./pages/master-karyawan/components/ReportAbsensiAlora";
+import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
@@ -100,6 +103,8 @@ import EmployeeCleanox from "./pages/cleanox-management/components/EmployeeClean
 import AbsensiKaryawanCleanox from "./pages/cleanox-management/components/AbsensiKaryawanCleanox";
 import PerizinanCleanox from "./pages/cleanox-management/components/PerizinanCleanox";
 import KasbonPinjamanCleanox from "./pages/cleanox-management/components/KasbonPinjamanCleanox";
+import LemburCleanox from "./pages/cleanox-management/components/LemburCleanox";
+import MakanSiangCleanox from "./pages/cleanox-management/components/MakanSiangCleanox";
 import MasterAreaKebersihanCleanox from "./pages/cleanox-management/components/MasterAreaKebersihanCleanox";
 import MasterService from "./pages/cleanox-management/components/MasterService";
 import MasterCategory from "./pages/cleanox-management/components/MasterCategory";
@@ -306,6 +311,9 @@ export default function App() {
         >
           <Route path="/master-karyawan" element={<DashboardMaster />} />
           <Route path="/master-karyawan/list" element={<DataKaryawan />} />
+          <Route path="/master-karyawan/perizinan" element={<PerizinanAlora />} />
+          <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
+          <Route path="/master-karyawan/report-bugar" element={<ReportBugarAlora />} />
         </Route>
 
         <Route
@@ -573,8 +581,10 @@ export default function App() {
           <Route path="/cleanox-management-system" element={<EmployeeCleanox />} />
           <Route path="/cleanox-management-system/absensi" element={<AbsensiKaryawanCleanox />} />
           <Route path="/cleanox-management-system/absensi/:employeeId" element={<Navigate to="/cleanox-management-system/absensi" replace />} />
+          <Route path="/cleanox-management-system/lembur" element={<LemburCleanox />} />
           <Route path="/cleanox-management-system/perizinan" element={<PerizinanCleanox />} />
           <Route path="/cleanox-management-system/kasbon-pinjaman" element={<KasbonPinjamanCleanox />} />
+          <Route path="/cleanox-management-system/makan-siang" element={<MakanSiangCleanox />} />
           <Route path="/cleanox-management-system/report-area-kebersihan" element={<MasterAreaKebersihanCleanox />} />
           <Route path="/cleanox-management-system/report-area-kebersihan/:employeeId" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />
           <Route path="/cleanox-management-system/master-area" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />

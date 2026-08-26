@@ -13,6 +13,8 @@ import {
   HiOutlineMapPin,
   HiOutlineCalendarDays,
   HiOutlineBanknotes,
+  HiOutlineClock,
+  HiOutlineBuildingStorefront,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -38,6 +40,13 @@ const MENU_GROUPS = [
         end: false,
       },
       {
+        to: "/cleanox-management-system/lembur",
+        icon: HiOutlineClock,
+        label: "Monitoring Lembur",
+        description: "Pantau lembur karyawan Cleanox",
+        end: false,
+      },
+      {
         to: "/cleanox-management-system/perizinan",
         icon: HiOutlineCalendarDays,
         label: "Cuti & Perizinan",
@@ -56,6 +65,13 @@ const MENU_GROUPS = [
         icon: HiOutlineBanknotes,
         label: "Kasbon & Pinjaman",
         description: "Approval kasbon dan pinjaman karyawan",
+        end: false,
+      },
+      {
+        to: "/cleanox-management-system/makan-siang",
+        icon: HiOutlineBuildingStorefront,
+        label: "Makan Siang",
+        description: "Pengajuan & rekap uang makan",
         end: false,
       },
     ],
