@@ -15,6 +15,7 @@ import {
   HiOutlineArrowsUpDown,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import PageHero from "../PageHero";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -66,7 +67,7 @@ function StatusBadge({ isActive }) {
 function SkeletonRow() {
   return (
     <tr className="border-t border-slate-100 animate-pulse">
-      {[16, 36, 48, 20, 24, 24].map((w, i) => (
+      {[16, 36, 48, 24, 24].map((w, i) => (
         <td key={i} className="px-4 py-4">
           <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
         </td>
@@ -79,7 +80,6 @@ const EMPTY_FORM = {
   id: null,
   name: "",
   description: "",
-  sort_order: 0,
   is_active: 1,
 };
 
@@ -88,7 +88,7 @@ export default function Parfume() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState("");
-  const [sortBy, setSortBy] = useState("sort_order");
+  const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
 
   // Modal Form State
@@ -152,7 +152,6 @@ export default function Parfume() {
       id: item.id,
       name: item.name,
       description: item.description || "",
-      sort_order: item.sort_order || 0,
       is_active: item.is_active,
     });
     setFormError("");
@@ -233,16 +232,11 @@ export default function Parfume() {
       )}
 
       {/* Hero Header */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#e0e0e0] bg-gradient-to-br from-[#3d0728] via-[#5f1340] to-[#4a0d31] shadow-sm">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-60 w-60 rounded-full bg-[#5f1340]/20 blur-3xl" />
-
-        <div className="relative p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <PageHero>
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Aroma Parfum Laundry</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Kelola daftar varian aroma parfum eksklusif POS Waschen Laundry
+                Kelola pilihan aroma parfum laundry
               </p>
             </div>
             <button
@@ -253,9 +247,9 @@ export default function Parfume() {
               <HiOutlinePlus className="h-4 w-4" />
               <span>Tambah Parfum</span>
             </button>
-          </div>
-        </div>
-      </section>
+          
+        
+      </PageHero>
 
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -326,7 +320,6 @@ export default function Parfume() {
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider w-12 text-center">No</th>
                 <SortTh col="name" label="Nama Aroma" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider">Deskripsi</th>
-                <SortTh col="sort_order" label="Urutan" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
               </tr>
@@ -336,7 +329,7 @@ export default function Parfume() {
                 Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data aroma parfum
                   </td>
                 </tr>
@@ -346,7 +339,6 @@ export default function Parfume() {
                     <td className="px-4 py-3.5 text-center text-slate-400 font-medium tabular-nums">{idx + 1}</td>
                     <td className="px-4 py-3.5 font-semibold text-slate-800 whitespace-nowrap">{item.name}</td>
                     <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.description || "-"}</td>
-                    <td className="px-4 py-3.5 text-slate-600 font-medium tabular-nums">{item.sort_order}</td>
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <StatusBadge isActive={item.is_active} />
                     </td>
@@ -426,28 +418,16 @@ export default function Parfume() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Urutan (Sort Order)</label>
-                  <input
-                    type="number"
-                    value={formData.sort_order}
-                    onChange={(e) => setFormData((p) => ({ ...p, sort_order: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Status</label>
-                  <select
-                    value={formData.is_active}
-                    onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
-                  >
-                    <option value={1}>Aktif</option>
-                    <option value={0}>Nonaktif</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                <select
+                  value={formData.is_active}
+                  onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
+                >
+                  <option value={1}>Aktif</option>
+                  <option value={0}>Nonaktif</option>
+                </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

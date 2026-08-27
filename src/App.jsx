@@ -112,21 +112,24 @@ import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduks
 import TargetCleanox from "./pages/cleanox-management/components/TargetCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
-import DashboardPage from "./pages/my-waschen/components/DashboardPage";
-import EmployeeWaschen from "./pages/my-waschen/components/EmployeeWaschen";
+import DashboardPage from "./pages/my-waschen/components/General/DashboardPage";
+import EmployeeWaschen from "./pages/my-waschen/components/General/EmployeeWaschen";
 import CategoryServices from "./pages/my-waschen/components/MasterData/CategoryServices";
 import ServicesMaster from "./pages/my-waschen/components/MasterData/Services";
 import ServiceSpeed from "./pages/my-waschen/components/MasterData/ServiceSpeed";
 import ParfumeMaster from "./pages/my-waschen/components/MasterData/Parfume";
 import MembershipPackage from "./pages/my-waschen/components/MasterData/MembershipPackage";
 import UnitMaster from "./pages/my-waschen/components/MasterData/Unit";
-import CustomerMaster from "./pages/my-waschen/components/MasterData/Customer";
+import CustomerPage from "./pages/my-waschen/components/General/Customer";
 import PaymentMethodMaster from "./pages/my-waschen/components/MasterData/PaymentMethod";
 import PettyCashCategoryMaster from "./pages/my-waschen/components/MasterData/PettyCashCategory";
 import PromoMaster from "./pages/my-waschen/components/MasterData/Promo";
 import StatusWorkMaster from "./pages/my-waschen/components/MasterData/StatusWork";
 import CustomerTierMaster from "./pages/my-waschen/components/MasterData/CustomerTier";
 import CustomerSourceMaster from "./pages/my-waschen/components/MasterData/CustomerSource";
+import MaterialMaster from "./pages/my-waschen/components/MasterData/Material";
+import MethodLaundryMaster from "./pages/my-waschen/components/MasterData/MethodLaundry";
+import OutletWaschenMaster from "./pages/my-waschen/components/MasterData/Outlet";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -612,13 +615,17 @@ export default function App() {
           <Route path="/my-waschen/master/parfumes" element={<ParfumeMaster />} />
           <Route path="/my-waschen/master/membership-packages" element={<MembershipPackage />} />
           <Route path="/my-waschen/master/units" element={<UnitMaster />} />
-          <Route path="/my-waschen/master/customers" element={<CustomerMaster />} />
+          <Route path="/my-waschen/customers" element={<CustomerPage />} />
+          <Route path="/my-waschen/master/customers" element={<CustomerPage />} />
           <Route path="/my-waschen/master/payment-methods" element={<PaymentMethodMaster />} />
           <Route path="/my-waschen/master/petty-cash-categories" element={<PettyCashCategoryMaster />} />
           <Route path="/my-waschen/master/promos" element={<PromoMaster />} />
           <Route path="/my-waschen/master/work-statuses" element={<StatusWorkMaster />} />
           <Route path="/my-waschen/master/customer-tiers" element={<CustomerTierMaster />} />
           <Route path="/my-waschen/master/customer-sources" element={<CustomerSourceMaster />} />
+          <Route path="/my-waschen/master/materials" element={<MaterialMaster />} />
+          <Route path="/my-waschen/master/method-laundries" element={<MethodLaundryMaster />} />
+          <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
         </Route>
 
         {/* ── Training Management System ── */}

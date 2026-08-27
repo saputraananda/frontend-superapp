@@ -21,6 +21,9 @@ import {
   HiOutlineChevronDown,
   HiOutlineHome,
   HiOutlineCircleStack,
+  HiOutlineSwatch,
+  HiOutlineBeaker,
+  HiOutlineBuildingStorefront,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -68,7 +71,7 @@ const MENU_SECTIONS = [
         description: "Pengelolaan staff Waschen",
       },
       {
-        to: "/my-waschen/master/customers",
+        to: "/my-waschen/customers",
         icon: HiOutlineUserGroup,
         label: "Data Customer",
         description: "Database pelanggan & membership",
@@ -87,6 +90,12 @@ const MENU_SECTIONS = [
         description: "Pengelolaan grup jenis layanan",
       },
       {
+        to: "/my-waschen/master/outlets",
+        icon: HiOutlineBuildingStorefront,
+        label: "Master Outlet",
+        description: "Cabang & kode singkatan outlet",
+      },
+      {
         to: "/my-waschen/master/units",
         icon: HiOutlineScale,
         label: "Master Satuan",
@@ -103,6 +112,18 @@ const MENU_SECTIONS = [
         icon: HiOutlineBolt,
         label: "Kecepatan Layanan",
         description: "Durasi & surcharge express",
+      },
+      {
+        to: "/my-waschen/master/materials",
+        icon: HiOutlineSwatch,
+        label: "Master Material",
+        description: "Jenis bahan pakaian / laundry",
+      },
+      {
+        to: "/my-waschen/master/method-laundries",
+        icon: HiOutlineBeaker,
+        label: "Metode Laundry",
+        description: "Wet Clean & Dry Clean",
       },
       {
         to: "/my-waschen/master/parfumes",

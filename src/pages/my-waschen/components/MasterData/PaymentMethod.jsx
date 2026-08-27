@@ -15,6 +15,7 @@ import {
   HiOutlineArrowsUpDown,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import PageHero from "../PageHero";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -68,8 +69,8 @@ const EMPTY_FORM = {
   code: "",
   name: "",
   label: "",
+  group: "Tunai",
   requires_member_balance: 0,
-  sort_order: 0,
   is_active: 1,
 };
 
@@ -78,7 +79,7 @@ export default function PaymentMethod() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState("");
-  const [sortBy, setSortBy] = useState("sort_order");
+  const [sortBy, setSortBy] = useState("id");
   const [sortDir, setSortDir] = useState("asc");
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -177,16 +178,12 @@ export default function PaymentMethod() {
       )}
 
       {/* Hero Header */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#e0e0e0] bg-gradient-to-br from-[#3d0728] via-[#5f1340] to-[#4a0d31] shadow-sm">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-60 w-60 rounded-full bg-[#5f1340]/20 blur-3xl" />
-
-        <div className="relative p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <PageHero>
+
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Metode Pembayaran</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Master opsi pembayaran di POS Waschen
+                Kelola pilihan cara bayar di kasir
               </p>
             </div>
             <button
@@ -196,9 +193,9 @@ export default function PaymentMethod() {
             >
               <HiOutlinePlus className="h-4 w-4" /><span>Tambah Metode</span>
             </button>
-          </div>
-        </div>
-      </section>
+          
+        
+      </PageHero>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
@@ -238,10 +235,10 @@ export default function PaymentMethod() {
               <tr>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider w-12 text-center">No</th>
                 <SortTh col="code" label="Kode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="group" label="Grup" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="name" label="Nama" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="label" label="Label Tampilan" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Saldo Member</th>
-                <SortTh col="sort_order" label="Urutan" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} className="text-center" />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
               </tr>
@@ -258,6 +255,7 @@ export default function PaymentMethod() {
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-3.5 text-center text-slate-400 font-medium tabular-nums">{idx + 1}</td>
                     <td className="px-4 py-3.5 font-bold font-mono text-[#5f1340]">{item.code}</td>
+                    <td className="px-4 py-3.5 text-slate-600">{item.group || "—"}</td>
                     <td className="px-4 py-3.5 font-semibold text-slate-800">{item.name}</td>
                     <td className="px-4 py-3.5 text-slate-600">{item.label}</td>
                     <td className="px-4 py-3.5 text-center">
@@ -267,11 +265,10 @@ export default function PaymentMethod() {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-center font-mono text-slate-500">{item.sort_order}</td>
                     <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active} /></td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="inline-flex items-center gap-1">
-                        <button type="button" onClick={() => { setFormData({ ...item, requires_member_balance: Number(item.requires_member_balance) }); setFormError(""); setModalOpen(true); }}
+                        <button type="button" onClick={() => { setFormData({ id: item.id, code: item.code || "", name: item.name || "", label: item.label || "", group: item.group || "Tunai", requires_member_balance: Number(item.requires_member_balance), is_active: Number(item.is_active) }); setFormError(""); setModalOpen(true); }}
                           className="rounded-lg border border-slate-200 p-1.5 text-slate-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 transition">
                           <HiOutlinePencilSquare className="h-4 w-4" />
                         </button>
@@ -317,19 +314,17 @@ export default function PaymentMethod() {
                 <input type="text" value={formData.label} onChange={(e) => setFormData((p) => ({ ...p, label: e.target.value }))}
                   placeholder="Teks yang muncul di POS" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]" required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Urutan</label>
-                  <input type="number" min="0" value={formData.sort_order} onChange={(e) => setFormData((p) => ({ ...p, sort_order: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]" />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Status</label>
-                  <select value={formData.is_active} onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]">
-                    <option value={1}>Aktif</option><option value={0}>Nonaktif</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Grup</label>
+                <input type="text" value={formData.group} onChange={(e) => setFormData((p) => ({ ...p, group: e.target.value }))}
+                  placeholder="Tunai / EDC BCA / Transfer Bank" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]" />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                <select value={formData.is_active} onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]">
+                  <option value={1}>Aktif</option><option value={0}>Nonaktif</option>
+                </select>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={Number(formData.requires_member_balance) === 1}

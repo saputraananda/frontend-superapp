@@ -37,7 +37,8 @@ import {
     HiOutlineSparkles as SparklesIcon,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
-import { api } from "../../../lib/api";
+import { api } from "../../../../lib/api";
+import PageHero from "../PageHero";
 
 function cn(...classes) {
     return classes.filter(Boolean).join(" ");
@@ -782,23 +783,18 @@ export default function EmployeeWaschen() {
             )}
             <div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
                 {/* Hero header */}
-                <section className="relative overflow-hidden rounded-3xl border border-[#e0e0e0] bg-gradient-to-br from-[#3d0728] via-[#5f1340] to-[#4a0d31] shadow-sm">
-                    <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-                    <div className="absolute -left-20 bottom-0 h-60 w-60 rounded-full bg-[#5f1340]/20 blur-3xl" />
-
-                    <div className="relative p-5 sm:p-6 lg:p-8">
-                        <div className="flex items-start justify-between gap-4">
+                <PageHero>
                             <div className="min-w-0">
                                 <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                                     Master Data Karyawan Waschen
                                 </h1>
                                 <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                                    Kelola data frontliner, washing, ironing, packing, dan delivery staff yang ditugaskan pada unit bisnis Waschen Laundry.
+                                    Kelola karyawan dan peran di outlet Waschen
                                 </p>
                             </div>
-                        </div>
-                    </div>
-                </section>
+                        
+                    
+                </PageHero>
 
                 {/* Search & Filters */}
                 <section className="rounded-2xl border border-[#e0e0e0] bg-white p-4 shadow-sm sm:p-5">

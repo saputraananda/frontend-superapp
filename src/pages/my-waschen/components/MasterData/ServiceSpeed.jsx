@@ -15,6 +15,7 @@ import {
   HiOutlineArrowsUpDown,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import PageHero from "../PageHero";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -254,16 +255,11 @@ export default function ServiceSpeed() {
       )}
 
       {/* Hero Header */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#e0e0e0] bg-gradient-to-br from-[#3d0728] via-[#5f1340] to-[#4a0d31] shadow-sm">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-60 w-60 rounded-full bg-[#5f1340]/20 blur-3xl" />
-
-        <div className="relative p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <PageHero>
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Kecepatan Layanan</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Pengaturan multiplier durasi pengerjaan & tarif express / kilat Waschen POS
+                Atur pilihan kecepatan, seperti Reguler dan Express
               </p>
             </div>
             <button
@@ -274,9 +270,9 @@ export default function ServiceSpeed() {
               <HiOutlinePlus className="h-4 w-4" />
               <span>Tambah Kecepatan</span>
             </button>
-          </div>
-        </div>
-      </section>
+          
+        
+      </PageHero>
 
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

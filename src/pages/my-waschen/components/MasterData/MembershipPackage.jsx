@@ -16,6 +16,7 @@ import {
   HiOutlineSparkles,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import PageHero from "../PageHero";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -141,16 +142,11 @@ export default function MembershipPackage() {
       {toast && <div className={cn("fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold text-white shadow-xl", toast.type === "error" ? "bg-rose-600" : "bg-emerald-600")}><span>{toast.message}</span></div>}
 
       {/* Hero Header */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#e0e0e0] bg-gradient-to-br from-[#3d0728] via-[#5f1340] to-[#4a0d31] shadow-sm">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-60 w-60 rounded-full bg-[#5f1340]/20 blur-3xl" />
-
-        <div className="relative p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <PageHero>
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Paket Membership</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Paket top-up deposit Member Gold & Diamond (180 hari)
+                Kelola paket deposit member Gold dan Diamond
               </p>
             </div>
             <button
@@ -161,9 +157,9 @@ export default function MembershipPackage() {
               <HiOutlinePlus className="h-4 w-4" />
               Tambah Paket
             </button>
-          </div>
-        </div>
-      </section>
+          
+        
+      </PageHero>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[{ l: "Total Paket", v: stats.total }, { l: "Aktif", v: stats.active, c: "text-emerald-600" }, { l: "Gold", v: stats.gold, c: "text-amber-600" }, { l: "Diamond", v: stats.diamond, c: "text-cyan-600" }].map((s) => (
