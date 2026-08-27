@@ -384,7 +384,7 @@ export default function MakanSiangCleanox() {
 					<div className="relative p-5 sm:p-6 lg:p-8">
 						<h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Makan Siang Cleanox</h1>
 						<p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-							Rekap keuangan uang makan per periode cutoff — kantor Rp 10.000/hari, half day Rp 25.000, full day Rp 20.000.
+							Rekap keuangan uang makan per periode cutoff — kantor Rp 10.000/hari, half day Rp 25.000, full day Rp 30.000.
 						</p>
 						<div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">
 							{activePeriodLabel}
