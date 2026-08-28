@@ -50,7 +50,7 @@ const MENU_GROUPS = [
         to: "/cleanox-management-system/perizinan",
         icon: HiOutlineCalendarDays,
         label: "Cuti & Perizinan",
-        description: "Approve izin, sakit, dan cuti",
+        description: "Approve izin, sakit, cuti & plot libur karyawan",
         end: false,
       },
       {
@@ -71,7 +71,7 @@ const MENU_GROUPS = [
         to: "/cleanox-management-system/makan-siang",
         icon: HiOutlineBuildingStorefront,
         label: "Makan Siang",
-        description: "Pengajuan & rekap uang makan",
+        description: "Plot pengajuan, rekap & bukti TF uang makan",
         end: false,
       },
     ],

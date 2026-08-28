@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	HiOutlineAdjustmentsHorizontal,
 	HiOutlineArrowDownTray,
 	HiOutlineBanknotes,
 	HiOutlineBuildingStorefront,
 	HiOutlineCheckCircle,
+	HiOutlineChevronDown,
 	HiOutlineClock,
 	HiOutlineDocumentCheck,
 	HiOutlineExclamationTriangle,
 	HiOutlineMagnifyingGlass,
+	HiOutlinePencil,
+	HiOutlinePlus,
+	HiOutlineTrash,
 	HiOutlineXMark,
 } from "react-icons/hi2";
 import { api, apiUpload, BASE_URL } from "../../../lib/api";
@@ -129,6 +133,326 @@ const PERIOD_MONTHS = [
 
 const TYPE_LABEL = { half_day: "Half Day", full_day: "Full Day" };
 
+function AddEditMealModal({ open, onClose, onSaved, editRecord, employees }) {
+	const todayVal = useMemo(() => toDateInput(new Date()), []);
+	const isEdit = Boolean(editRecord?.id);
+
+	const [employeeId, setEmployeeId] = useState("");
+	const [mealDate, setMealDate] = useState(todayVal);
+	const [type, setType] = useState("half_day");
+	const [notes, setNotes] = useState("");
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState("");
+	const [empSearch, setEmpSearch] = useState("");
+	const [empDropOpen, setEmpDropOpen] = useState(false);
+	const empDropRef = useRef(null);
+
+	useEffect(() => {
+		if (!open) return;
+		setError("");
+		if (editRecord) {
+			setEmployeeId(String(editRecord.worker_id || editRecord.employee_id || ""));
+			setMealDate(editRecord.meal_date?.slice?.(0, 10) || editRecord.meal_date || todayVal);
+			setType(editRecord.type || "half_day");
+			setNotes(editRecord.notes || "");
+		} else {
+			setEmployeeId("");
+			setMealDate(todayVal);
+			setType("half_day");
+			setNotes("");
+		}
+		setEmpSearch("");
+		setEmpDropOpen(false);
+	}, [open, editRecord, todayVal]);
+
+	const filteredEmps = useMemo(() => {
+		const kw = empSearch.trim().toLowerCase();
+		if (!kw) return employees;
+		return employees.filter(
+			(e) =>
+				String(e.employee_name || "").toLowerCase().includes(kw) ||
+				String(e.employee_code || "").toLowerCase().includes(kw) ||
+				String(e.employee_id || "").includes(kw),
+		);
+	}, [employees, empSearch]);
+
+	const selectedEmp = useMemo(
+		() => employees.find((e) => String(e.employee_id) === String(employeeId)) || null,
+		[employees, employeeId],
+	);
+
+	useEffect(() => {
+		if (!empDropOpen) return undefined;
+		const onDown = (e) => {
+			if (empDropRef.current && !empDropRef.current.contains(e.target)) setEmpDropOpen(false);
+		};
+		window.addEventListener("mousedown", onDown);
+		return () => window.removeEventListener("mousedown", onDown);
+	}, [empDropOpen]);
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		setError("");
+		if (!isEdit && !employeeId) {
+			setError("Pilih karyawan terlebih dahulu");
+			return;
+		}
+		if (!mealDate) {
+			setError("Tanggal makan wajib diisi");
+			return;
+		}
+
+		try {
+			setSaving(true);
+			if (isEdit) {
+				await api(`/cleanox/meal/${editRecord.id}`, {
+					method: "PUT",
+					body: JSON.stringify({
+						meal_date: mealDate,
+						type,
+						notes: notes.trim() || null,
+					}),
+				});
+			} else {
+				await api("/cleanox/meal", {
+					method: "POST",
+					body: JSON.stringify({
+						worker_id: Number(employeeId),
+						meal_date: mealDate,
+						type,
+						notes: notes.trim() || null,
+					}),
+				});
+			}
+			onSaved();
+		} catch (err) {
+			setError(err?.message || "Gagal menyimpan pengajuan");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	if (!open) return null;
+
+	return (
+		<div
+			className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+			onClick={onClose}
+			role="presentation"
+		>
+			<div
+				className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+				onClick={(e) => e.stopPropagation()}
+				role="dialog"
+			>
+				<div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+					<div>
+						<h3 className="text-base font-bold text-slate-800">
+							{isEdit ? "Edit Pengajuan Makan Siang" : "Tambah Pengajuan Makan Siang"}
+						</h3>
+						<p className="text-xs text-slate-400">
+							{isEdit ? "Ubah tanggal, tipe, atau catatan" : "Plot pengajuan half/full day karyawan"}
+						</p>
+					</div>
+					<button
+						type="button"
+						onClick={onClose}
+						className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"
+					>
+						<HiOutlineXMark className="h-4 w-4" />
+					</button>
+				</div>
+
+				<form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+					{!isEdit ? (
+						<div ref={empDropRef} className="relative">
+							<label className="mb-1 block text-xs font-semibold text-slate-500">Karyawan</label>
+							<button
+								type="button"
+								onClick={() => setEmpDropOpen((v) => !v)}
+								className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm"
+							>
+								<span className={selectedEmp ? "text-slate-800" : "text-slate-400"}>
+									{selectedEmp
+										? `${selectedEmp.employee_name}${selectedEmp.employee_code ? ` (${selectedEmp.employee_code})` : ""}`
+										: "Pilih karyawan..."}
+								</span>
+								<HiOutlineChevronDown className="h-4 w-4 text-slate-400" />
+							</button>
+							{empDropOpen && (
+								<div className="absolute z-20 mt-1 max-h-56 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+									<div className="border-b border-slate-100 p-2">
+										<input
+											type="text"
+											value={empSearch}
+											onChange={(ev) => setEmpSearch(ev.target.value)}
+											placeholder="Cari nama / kode..."
+											className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+										/>
+									</div>
+									<ul className="max-h-44 overflow-y-auto py-1">
+										{filteredEmps.length === 0 ? (
+											<li className="px-3 py-2 text-xs text-slate-400">Tidak ditemukan</li>
+										) : (
+											filteredEmps.map((emp) => (
+												<li key={emp.employee_id}>
+													<button
+														type="button"
+														onClick={() => {
+															setEmployeeId(String(emp.employee_id));
+															setEmpDropOpen(false);
+														}}
+														className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+													>
+														{emp.employee_name}
+														{emp.employee_code ? (
+															<span className="text-slate-400"> ({emp.employee_code})</span>
+														) : null}
+													</button>
+												</li>
+											))
+										)}
+									</ul>
+								</div>
+							)}
+						</div>
+					) : (
+						<div>
+							<label className="mb-1 block text-xs font-semibold text-slate-500">Karyawan</label>
+							<p className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-800">
+								{editRecord.full_name || editRecord.employee_name}
+								{editRecord.employee_code ? (
+									<span className="font-normal text-slate-400"> ({editRecord.employee_code})</span>
+								) : null}
+							</p>
+						</div>
+					)}
+
+					<label className="block text-sm text-slate-600">
+						<span className="mb-1 block text-xs font-semibold text-slate-500">Tanggal Makan</span>
+						<input
+							type="date"
+							value={mealDate}
+							max={todayVal}
+							onChange={(ev) => setMealDate(ev.target.value)}
+							className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+							required
+						/>
+					</label>
+
+					<label className="block text-sm text-slate-600">
+						<span className="mb-1 block text-xs font-semibold text-slate-500">Tipe</span>
+						<select
+							value={type}
+							onChange={(ev) => setType(ev.target.value)}
+							className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+						>
+							<option value="half_day">Half Day (Rp 25.000)</option>
+							<option value="full_day">Full Day (Rp 30.000)</option>
+						</select>
+					</label>
+
+					<label className="block text-sm text-slate-600">
+						<span className="mb-1 block text-xs font-semibold text-slate-500">Catatan (opsional)</span>
+						<textarea
+							value={notes}
+							onChange={(ev) => setNotes(ev.target.value)}
+							rows={2}
+							maxLength={1000}
+							className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+						/>
+					</label>
+
+					{error ? (
+						<div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+							<HiOutlineExclamationTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+							<p>{error}</p>
+						</div>
+					) : null}
+
+					<div className="flex gap-2 pt-1">
+						<button
+							type="button"
+							disabled={saving}
+							onClick={onClose}
+							className="flex-1 rounded-xl border py-2.5 text-sm font-semibold text-slate-600"
+						>
+							Batal
+						</button>
+						<button
+							type="submit"
+							disabled={saving}
+							className="flex-1 rounded-xl bg-[#1b3459] py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+						>
+							{saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Tambah Pengajuan"}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
+}
+
+function ConfirmDeleteMealModal({ item, onClose, onDeleted }) {
+	const [deleting, setDeleting] = useState(false);
+	const [error, setError] = useState("");
+
+	const handleDelete = async () => {
+		if (!item?.id) return;
+		setError("");
+		try {
+			setDeleting(true);
+			await api(`/cleanox/meal/${item.id}`, { method: "DELETE" });
+			onDeleted();
+		} catch (err) {
+			setError(err?.message || "Gagal menghapus pengajuan");
+		} finally {
+			setDeleting(false);
+		}
+	};
+
+	if (!item) return null;
+
+	return (
+		<div
+			className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+			onClick={() => !deleting && onClose()}
+			role="presentation"
+		>
+			<div
+				className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+				onClick={(e) => e.stopPropagation()}
+				role="dialog"
+			>
+				<h3 className="text-base font-bold text-slate-800">Hapus pengajuan?</h3>
+				<p className="mt-2 text-sm text-slate-500">
+					{capitalEachWord(item.full_name || item.employee_name)} · {formatDate(item.meal_date)} ·{" "}
+					{TYPE_LABEL[item.type] || item.type}
+				</p>
+				{error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
+				<div className="mt-4 flex gap-2">
+					<button
+						type="button"
+						disabled={deleting}
+						onClick={onClose}
+						className="flex-1 rounded-xl border py-2.5 text-sm font-semibold"
+					>
+						Batal
+					</button>
+					<button
+						type="button"
+						disabled={deleting}
+						onClick={handleDelete}
+						className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+					>
+						{deleting ? "Menghapus..." : "Hapus"}
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function StatCard({ title, value, subtitle, tone = "blue", Icon }) {
 	return (
 		<div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm text-left w-full">
@@ -194,6 +518,11 @@ export default function MakanSiangCleanox() {
 	const [processNote, setProcessNote] = useState("");
 	const [completing, setCompleting] = useState(false);
 
+	const [employees, setEmployees] = useState([]);
+	const [addEditOpen, setAddEditOpen] = useState(false);
+	const [editRecord, setEditRecord] = useState(null);
+	const [deleteTarget, setDeleteTarget] = useState(null);
+
 	const yearOptions = useMemo(() => {
 		const base = new Date().getFullYear();
 		return Array.from({ length: 7 }, (_, idx) => base - 3 + idx);
@@ -227,6 +556,28 @@ export default function MakanSiangCleanox() {
 
 	useEffect(() => {
 		document.title = "Makan Siang Cleanox | Alora Group Indonesia";
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			try {
+				const data = await api("/cleanox/kasbon/employee-options");
+				if (cancelled) return;
+				setEmployees(
+					(data?.data || []).map((row) => ({
+						employee_id: row.employee_id,
+						employee_code: row.employee_code,
+						employee_name: row.full_name || row.employee_name || `ID ${row.employee_id}`,
+					})),
+				);
+			} catch {
+				if (!cancelled) setEmployees([]);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
 	}, []);
 
 	useEffect(() => {
@@ -382,12 +733,29 @@ export default function MakanSiangCleanox() {
 				<section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-[#1b3459] via-[#12233c] to-[#0f1f37] shadow-sm">
 					<div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
 					<div className="relative p-5 sm:p-6 lg:p-8">
-						<h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Makan Siang Cleanox</h1>
-						<p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-							Rekap keuangan uang makan per periode cutoff — kantor Rp 10.000/hari, half day Rp 25.000, full day Rp 30.000.
-						</p>
-						<div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">
-							{activePeriodLabel}
+						<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+							<div>
+								<h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Makan Siang Cleanox</h1>
+								<p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
+									Plot pengajuan, rekap keuangan uang makan per periode cutoff — kantor Rp 10.000/hari, half day Rp
+									25.000, full day Rp 30.000.
+								</p>
+								<div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">
+									{activePeriodLabel}
+								</div>
+							</div>
+							<button
+								type="button"
+								onClick={() => {
+									setEditRecord(null);
+									setAddEditOpen(true);
+									setFetchError("");
+								}}
+								className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-[#1b3459] shadow-sm transition hover:bg-white/90"
+							>
+								<HiOutlinePlus className="h-4 w-4" />
+								Tambah Pengajuan
+							</button>
 						</div>
 					</div>
 				</section>
@@ -624,7 +992,7 @@ export default function MakanSiangCleanox() {
 						<div>
 							<h2 className="text-base font-bold text-slate-800">Detail Pengajuan Makan Siang</h2>
 							<p className="mt-0.5 text-xs text-slate-500">
-								Pengajuan half/full day dari mobile — selesaikan dengan upload bukti TF.
+								Plot pengajuan half/full day karyawan — selesaikan dengan upload bukti TF.
 							</p>
 							<p className="mt-1 text-xs text-slate-400">
 								{loading
@@ -746,18 +1114,40 @@ export default function MakanSiangCleanox() {
 											</td>
 											<td className="whitespace-nowrap px-4 py-3">
 												{row.status === "menunggu_tf" ? (
-													<button
-														type="button"
-														onClick={() => {
-															setCompleteItem(row);
-															setProofFile(null);
-															setProcessNote("");
-															setFetchError("");
-														}}
-														className="rounded-lg bg-[#1b3459] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#152a4a]"
-													>
-														Selesai
-													</button>
+													<div className="flex flex-wrap items-center gap-1.5">
+														<button
+															type="button"
+															onClick={() => {
+																setEditRecord(row);
+																setAddEditOpen(true);
+																setFetchError("");
+															}}
+															className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+														>
+															<HiOutlinePencil className="h-3.5 w-3.5" />
+															Edit
+														</button>
+														<button
+															type="button"
+															onClick={() => {
+																setCompleteItem(row);
+																setProofFile(null);
+																setProcessNote("");
+																setFetchError("");
+															}}
+															className="rounded-lg bg-[#1b3459] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#152a4a]"
+														>
+															Selesai
+														</button>
+														<button
+															type="button"
+															onClick={() => setDeleteTarget(row)}
+															className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+														>
+															<HiOutlineTrash className="h-3.5 w-3.5" />
+															Hapus
+														</button>
+													</div>
 												) : (
 													<button
 														type="button"
@@ -898,6 +1288,30 @@ export default function MakanSiangCleanox() {
 					</div>
 				</div>
 			) : null}
+
+			<AddEditMealModal
+				open={addEditOpen}
+				editRecord={editRecord}
+				employees={employees}
+				onClose={() => {
+					setAddEditOpen(false);
+					setEditRecord(null);
+				}}
+				onSaved={() => {
+					setAddEditOpen(false);
+					setEditRecord(null);
+					setRefreshKey((k) => k + 1);
+				}}
+			/>
+
+			<ConfirmDeleteMealModal
+				item={deleteTarget}
+				onClose={() => setDeleteTarget(null)}
+				onDeleted={() => {
+					setDeleteTarget(null);
+					setRefreshKey((k) => k + 1);
+				}}
+			/>
 		</div>
 	);
 }

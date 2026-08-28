@@ -459,6 +459,27 @@ function AttendancePhotoList({ record, onSaved }) {
 }
 
 function AttendanceDateRow({ record, selected, onToggle, onSaved }) {
+  if (record.is_off_day) {
+    return (
+      <div className="overflow-hidden border-b border-slate-100 last:border-b-0 bg-slate-50/60">
+        <div className="flex w-full items-center gap-3 px-4 py-3.5 sm:px-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-bold text-slate-800">{formatDate(record.attendance_date)}</p>
+              <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                Libur
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              {record.off_note || "Hari libur — tidak ada absensi"}
+              {record.created_by_name ? ` · Dibuat oleh ${record.created_by_name}` : ""}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("overflow-hidden border-b border-slate-100 last:border-b-0", selected && "bg-[#97bd3f]/5")}>
       <button
