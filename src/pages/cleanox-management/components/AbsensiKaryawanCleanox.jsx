@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   HiOutlineAdjustmentsHorizontal,
   HiOutlineArrowDownTray,
+  HiOutlineCalendarDays,
   HiOutlineCheckCircle,
   HiOutlineChevronDown,
   HiOutlineClock,
@@ -150,6 +151,7 @@ function toDateTimeLocalInput(value) {
 function StatusBadge({ label }) {
   const map = {
     Lengkap: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: HiOutlineCheckCircle },
+    Libur: { cls: "bg-slate-100 text-slate-700 border-slate-300", Icon: HiOutlineCalendarDays },
     "Belum check-out": { cls: "bg-amber-50 text-amber-700 border-amber-200", Icon: HiOutlineClock },
     "Belum check-in": { cls: "bg-rose-50 text-rose-700 border-rose-200", Icon: HiOutlineExclamationTriangle },
     "Foto belum lengkap": { cls: "bg-orange-50 text-orange-700 border-orange-200", Icon: HiOutlinePhoto },
@@ -888,25 +890,27 @@ function MobileAttendanceCard({ row, onOpenReview, onOpenIn, onOpenOut, onEdit, 
         </div>
       </div>
 
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => onEdit(row)}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          <HiOutlinePencilSquare className="h-3.5 w-3.5" />
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(row)}
-          disabled={deleting}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
-        >
-          <HiOutlineTrash className="h-3.5 w-3.5" />
-          {deleting ? "Menghapus..." : "Delete"}
-        </button>
-      </div>
+      {!row.is_off_day && (
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => onEdit(row)}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(row)}
+            disabled={deleting}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
+          >
+            <HiOutlineTrash className="h-3.5 w-3.5" />
+            {deleting ? "Menghapus..." : "Delete"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1500,27 +1504,31 @@ export default function AbsensiKaryawanCleanox() {
                           <StatusBadge label={row.status_label} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setEditModal(row)}
-                              title="Edit jam absensi"
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                            >
-                              <HiOutlinePencilSquare className="h-3.5 w-3.5" />
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openDeleteModal(row)}
-                              disabled={deletingId === row.id}
-                              title="Hapus absensi"
-                              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-                            >
-                              <HiOutlineTrash className="h-3.5 w-3.5" />
-                              {deletingId === row.id ? "Menghapus..." : "Delete"}
-                            </button>
-                          </div>
+                          {row.is_off_day ? (
+                            <span className="text-xs text-slate-400">—</span>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditModal(row)}
+                                title="Edit jam absensi"
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                              >
+                                <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openDeleteModal(row)}
+                                disabled={deletingId === row.id}
+                                title="Hapus absensi"
+                                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                              >
+                                <HiOutlineTrash className="h-3.5 w-3.5" />
+                                {deletingId === row.id ? "Menghapus..." : "Delete"}
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
