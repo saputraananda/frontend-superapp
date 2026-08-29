@@ -130,6 +130,9 @@ import CustomerSourceMaster from "./pages/my-waschen/components/MasterData/Custo
 import MaterialMaster from "./pages/my-waschen/components/MasterData/Material";
 import MethodLaundryMaster from "./pages/my-waschen/components/MasterData/MethodLaundry";
 import OutletWaschenMaster from "./pages/my-waschen/components/MasterData/Outlet";
+import HistoryTransactionPage from "./pages/my-waschen/components/Transaction/History";
+import DetailTransactionPage from "./pages/my-waschen/components/Transaction/DetailTransaction";
+import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -626,6 +629,9 @@ export default function App() {
           <Route path="/my-waschen/master/materials" element={<MaterialMaster />} />
           <Route path="/my-waschen/master/method-laundries" element={<MethodLaundryMaster />} />
           <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
+          <Route path="/my-waschen/transactions" element={<HistoryTransactionPage />} />
+          <Route path="/my-waschen/transactions/:id" element={<DetailTransactionPage />} />
+          <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
         </Route>
 
         {/* ── Training Management System ── */}

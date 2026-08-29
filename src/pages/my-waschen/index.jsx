@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ThermalPrinterProvider } from "./context/ThermalPrinterContext";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   HiOutlineArrowLeft,
@@ -24,6 +25,9 @@ import {
   HiOutlineSwatch,
   HiOutlineBeaker,
   HiOutlineBuildingStorefront,
+  HiOutlineClipboardDocumentList,
+  HiOutlineReceiptPercent,
+  HiOutlinePrinter,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -79,10 +83,29 @@ const MENU_SECTIONS = [
     ],
   },
   {
+    id: "transaksi",
+    label: "Transaksi",
+    icon: HiOutlineReceiptPercent,
+    items: [
+      {
+        to: "/my-waschen/transactions",
+        icon: HiOutlineClipboardDocumentList,
+        label: "Riwayat Transaksi",
+        description: "Nota, refund, dan pengajuan hapus",
+      },
+    ],
+  },
+  {
     id: "master",
     label: "Master Data",
     icon: HiOutlineCircleStack,
     items: [
+      {
+        to: "/my-waschen/master/nota-settings",
+        icon: HiOutlinePrinter,
+        label: "Konfigurasi Nota",
+        description: "Preview & toggle field nota thermal",
+      },
       {
         to: "/my-waschen/master/category-services",
         icon: HiOutlineTag,
@@ -323,7 +346,7 @@ function Sidebar({ collapsed = false, onClose }) {
     } catch {
       /* ignore */
     }
-    return { general: true, master: false };
+    return { general: true, transaksi: true, master: false };
   });
 
   useEffect(() => {
@@ -526,6 +549,7 @@ export default function MyWaschen() {
   const currentDesktopWidth = desktopCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
 
   return (
+    <ThermalPrinterProvider>
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <aside
         className={cn(
@@ -631,5 +655,6 @@ export default function MyWaschen() {
         </div>
       </div>
     </div>
+    </ThermalPrinterProvider>
   );
 }
