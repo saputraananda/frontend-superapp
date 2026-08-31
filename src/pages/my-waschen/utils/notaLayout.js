@@ -1,138 +1,173 @@
-export const PERHATIAN_ITEMS = [
-  "Cucian yang tidak diambil lebih dari 14 hari akan dikenakan biaya penyimpanan.",
-  "Cucian yang tidak diambil lebih dari 30 hari dianggap sudah tidak diambil.",
-  "Waschen Laundry tidak bertanggung jawab atas kehilangan barang berharga.",
-  "Klaim kehilangan/kerusakan maksimal 3 hari setelah pengambilan.",
-  "Nota wajib dibawa saat pengambilan cucian.",
-  "Periksa cucian Anda sebelum meninggalkan outlet.",
-  "Barang hilang/rusak tanpa nota tidak dapat diproses.",
-  "Terima kasih atas kepercayaan Anda.",
-];
+import { PERHATIAN_ITEMS } from './printerSettings.js';
 
-const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+export { PERHATIAN_ITEMS };
 
-export function rupiah(n) {
-  const v = Math.round(Number(n) || 0);
-  return `Rp${v.toLocaleString("id-ID")}`;
+export function formatEmployeeName(name) {
+  if (!name) return 'Kasir';
+  return String(name)
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+export function rupiah(n) {
+  return `Rp${Number(n || 0).toLocaleString('id-ID')}`;
+}
+
+/** Format tanggal nota: "Kamis, 27/08/26 14:03" */
 export function formatNotaDateTime(value, addDays = 0) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  if (addDays) d.setDate(d.getDate() + addDays);
-  const day = DAY_NAMES[d.getDay()];
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  if (!value && addDays === 0) return '-';
+
+  let d = null;
+  if (value instanceof Date) {
+    d = value;
+  } else if (typeof value === 'string') {
+    // Sudah format nota lama / teks estimasi bebas
+    if (/^\s*[A-Za-zÀ-ÿ]+,/.test(value) || value.includes('Jam') || value.includes('Hari')) {
+      if (addDays === 0) return value;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) d = parsed;
+  } else if (typeof value === 'number') {
+    d = new Date(value);
+  }
+
+  if (!d || Number.isNaN(d.getTime())) {
+    d = new Date();
+  }
+  if (addDays) d = new Date(d.getTime() + addDays * 24 * 60 * 60 * 1000);
+
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${day}, ${dd}/${mm}/${yy} ${hh}:${min}`;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${HARI[d.getDay()]}, ${dd}/${mm}/${yy} ${hh}:${mi}`;
 }
 
 export function getQrValue(receipt) {
-  const id = encodeURIComponent(receipt?.id || receipt?.barcode || "");
-  return `${window.location.origin}/my-waschen/transactions/${id}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/dashboard?trackingNo=${encodeURIComponent(receipt?.id || '')}`;
 }
 
 export function getRemaining(receipt) {
-  const total = Number(receipt?.grandTotal) || 0;
-  const paid = Number(receipt?.paidAmount) || 0;
-  return Math.max(0, total - paid);
+  return Math.max(0, (Number(receipt?.grandTotal) || 0) - (Number(receipt?.paidAmount) || 0));
 }
 
 export function getPaymentStatusShort(receipt) {
-  const ps = receipt?.paymentStatus || "Outstanding";
-  if (ps === "Lunas") return "Lunas";
-  if (ps === "DP") return "DP";
-  return "Belum Lunas";
+  const ps = receipt?.paymentStatus || 'Lunas';
+  if (ps === 'Lunas') return 'Lunas';
+  if (ps === 'DP') return 'DP';
+  return 'Belum Lunas';
 }
 
 export function getReceivedLabel(receipt) {
-  return formatNotaDateTime(receipt?.createdAtRaw || receipt?.orderDate || receipt?.createdAt);
+  return formatNotaDateTime(receipt?.createdAtRaw || receipt?.createdAt || new Date());
 }
 
 export function getEstimasiLabel(receipt) {
-  if (receipt?.estimatedFinishedAt) {
-    return formatNotaDateTime(receipt.estimatedFinishedAt);
+  if (receipt?.estimatedCompletion
+    && !/Jam|Hari Kerja/i.test(String(receipt.estimatedCompletion))) {
+    return formatNotaDateTime(receipt.estimatedCompletion);
   }
-  if (receipt?.estimatedAt || receipt?.estimatedCompletion) {
-    return receipt.estimatedAt || receipt.estimatedCompletion;
-  }
-  const addDays = receipt?.isExpress ? 1 : 2;
-  return formatNotaDateTime(receipt?.createdAtRaw || receipt?.orderDate || receipt?.createdAt, addDays);
+  if (receipt?.estimatedAt) return formatNotaDateTime(receipt.estimatedAt);
+
+  const base = receipt?.createdAtRaw || receipt?.createdAt || new Date();
+  const days = receipt?.isExpress ? 1 : 2;
+  // Kalau estimasi teks bebas (1x24 Jam), tetap hitung tanggal konkret untuk nota
+  return formatNotaDateTime(base, days);
 }
 
 export function getOutletPhone(receipt) {
-  return receipt?.outletPhone || receipt?.customerPhone || "—";
+  return receipt?.outletPhone
+    || localStorage.getItem('activeOutletPhone')
+    || localStorage.getItem('outletPhone')
+    || '';
 }
 
 export function getOutletAddress(receipt) {
-  return receipt?.outletAddress || receipt?.branch || "—";
+  return receipt?.outletAddress
+    || receipt?.branchAddress
+    || receipt?.branch
+    || '';
 }
 
-export function countTotalBarang(items) {
-  return (items || []).reduce((sum, it) => {
-    const q = Number(it.qty ?? it.qtyCount);
-    return sum + (Number.isFinite(q) ? Math.max(1, Math.round(q)) : 1);
+export function countTotalBarang(items = []) {
+  return items.reduce((sum, it) => {
+    const q = Number(it.qty);
+    if (!Number.isNaN(q) && q > 0) return sum + q;
+    // fallback: parse dari qtyDisplay "3 kg" / "2 Pcs"
+    const m = String(it.qtyDisplay || '').match(/([\d.]+)/);
+    return sum + (m ? parseFloat(m[1]) || 1 : 1);
   }, 0);
 }
 
 export function formatItemTitle(item) {
-  const qty = item.qtyDisplay || `${Number(item.qty) || 0} ${item.unit || ""}`.trim();
-  const name = item.name || item.serviceName || "Layanan";
-  const unitLabel = item.unit ? `(${item.unit})` : "";
-  return `${qty} - ${name} ${unitLabel}`.trim();
+  // Internal style: "12.6 KG - Setrika (Kg)"
+  const qty = item.qtyDisplay || (item.qty != null ? `${item.qty}` : '');
+  const name = item.name || item.serviceName || 'Layanan';
+  if (qty) return `${qty} - ${name}`;
+  return name;
 }
 
 export function formatCustomerItemName(item) {
-  const name = item.name || item.serviceName || "Layanan";
-  const qty = Number(item.qty) || 0;
-  const unit = item.unit || (item.qtyDisplay || "").split(" ").slice(1).join(" ") || "Pcs";
-  return `${name} ${qty} ${unit}`.trim();
+  // Customer style: "Sandal Dewasa 1 PCS"
+  const name = item.name || item.serviceName || 'Layanan';
+  const qty = item.qtyDisplay || '';
+  if (!qty) return name;
+  // Jika nama belum mengandung qty
+  if (String(name).toLowerCase().includes(String(qty).toLowerCase().split(' ')[0])) {
+    return name;
+  }
+  return `${name} ${qty}`.trim();
 }
 
 export function getUnitPrice(item) {
   if (item.unitPrice != null) return Number(item.unitPrice) || 0;
-  const qty = Number(item.qty) || 1;
-  const sub = Number(item.effectiveSubtotal ?? item.subtotal) || 0;
-  return qty > 0 ? sub / qty : sub;
+  const qty = Number(item.qty);
+  const sub = Number(item.effectiveSubtotal || item.subtotal) || 0;
+  if (qty > 0) return Math.round(sub / qty);
+  return sub;
 }
 
 export function getItemQtyCount(item) {
   const q = Number(item.qty);
-  return Number.isFinite(q) && q > 0 ? Math.round(q) : 1;
+  if (!Number.isNaN(q) && q > 0) {
+    // untuk kg tampilkan sebagai 1 barang per line item di style referensi "N Barang"
+    // referensi: "- 2 Barang" untuk 2 pasang
+    return Number.isInteger(q) ? q : 1;
+  }
+  const m = String(item.qtyDisplay || '').match(/([\d.]+)/);
+  if (!m) return 1;
+  const n = parseFloat(m[1]);
+  return Number.isInteger(n) ? n : 1;
 }
 
 export function getCashierStamp(receipt) {
-  const raw = receipt?.createdAtRaw || receipt?.orderDate || receipt?.createdAt;
-  const d = raw ? new Date(raw) : new Date();
-  const dateStr = Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleString("id-ID", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-  const name = receipt?.cashierName || "—";
-  return `${dateStr}  ${name}`;
+  const when = (() => {
+    try {
+      const d = receipt?.createdAtRaw ? new Date(receipt.createdAtRaw) : new Date();
+      if (Number.isNaN(d.getTime())) return new Date().toLocaleString('id-ID');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+    } catch {
+      return '';
+    }
+  })();
+  const name = formatEmployeeName(receipt?.cashierName || receipt?.cashierFullName || 'Kasir');
+  return `${when} ${name}`.trim();
 }
 
 export function getRackOrMeta(receipt) {
-  if (receipt?.rackNo) return String(receipt.rackNo);
-  if (receipt?.queueNo) return String(receipt.queueNo);
-  const pcs = Number(receipt?.totalPcs);
-  if (pcs > 0) return String(pcs);
-  return countTotalBarang(receipt?.items).toString();
-}
-
-export function formatEmployeeName(name) {
-  if (!name) return "—";
-  return String(name)
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
+  if (receipt?.rackNo != null && receipt.rackNo !== '') return String(receipt.rackNo);
+  if (receipt?.queueNo != null && receipt.queueNo !== '') return String(receipt.queueNo);
+  const total = Math.round(countTotalBarang(receipt?.items || []));
+  return total > 0 ? String(total) : '';
 }

@@ -89,9 +89,9 @@ export default function NotaSettings() {
     try {
       await loadOutlets();
       const settingsData = await fetchPrinterSettings(outletId);
-      setCustomer(settingsData.customer || DEFAULT_CUSTOMER_SETTINGS);
-      setInternal(settingsData.internal || DEFAULT_INTERNAL_SETTINGS);
-      setFieldLabels(settingsData.fieldLabels || []);
+      setCustomer({ ...DEFAULT_CUSTOMER_SETTINGS, ...settingsData.customer });
+      setInternal({ ...DEFAULT_INTERNAL_SETTINGS, ...settingsData.internal });
+      setFieldLabels(settingsData.fieldLabels || FIELD_LABELS);
 
       const receipt = await fetchLatestReceiptFromDb(outletId || null);
       setPreviewReceipt(receipt);

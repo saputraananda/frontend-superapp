@@ -1,5 +1,4 @@
 const BAUD_CANDIDATES = [9600, 115200, 38400, 19200, 57600];
-const CHUNK = 512;
 const CHUNK_DELAY_MS = 20;
 
 let activePort = null;
@@ -103,18 +102,31 @@ export async function connectThermalPrinter() {
   return getConnectedPortInfo();
 }
 
-export async function writeToThermalPrinter(data) {
+/**
+ * Kirim ESC/POS ke printer.
+ * Satu segment harus utuh — jangan potong di tengah perintah raster (GS v 0).
+ */
+let writeInProgress = false;
+
+export async function writeToThermalPrinter(bytes) {
   if (!activeWriter) {
     throw new Error("Printer belum terhubung. Klik Hubungkan Printer terlebih dahulu.");
   }
+  if (writeInProgress) {
+    throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
+  }
 
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    const slice = bytes.subarray(i, i + CHUNK);
-    await activeWriter.write(slice);
-    if (i + CHUNK < bytes.length) {
-      await sleep(CHUNK_DELAY_MS);
-    }
+  const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (!data.length) return;
+
+  writeInProgress = true;
+  try {
+    await activeWriter.ready;
+    await activeWriter.write(data);
+    await activeWriter.ready;
+    await sleep(200);
+  } finally {
+    writeInProgress = false;
   }
 }
 

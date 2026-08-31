@@ -30,6 +30,7 @@ import {
   HiOutlinePrinter,
   HiOutlineArchiveBox,
   HiOutlineChartBarSquare,
+  HiOutlineCalendarDays,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -94,6 +95,12 @@ const MENU_SECTIONS = [
         icon: HiOutlineClipboardDocumentList,
         label: "Riwayat Transaksi",
         description: "Nota, refund, dan pengajuan hapus",
+      },
+      {
+        to: "/my-waschen/daily-report",
+        icon: HiOutlineCalendarDays,
+        label: "Daily Report",
+        description: "Pantau & koreksi saldo shift frontliner",
       },
       {
         to: "/my-waschen/petty-cash",

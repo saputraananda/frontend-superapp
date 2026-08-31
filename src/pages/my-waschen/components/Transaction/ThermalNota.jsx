@@ -11,6 +11,8 @@ import {
 import ThermalNotaBody from "./ThermalNotaBody";
 import { useThermalPrinter } from "../../context/ThermalPrinterContext";
 import {
+  DEFAULT_CUSTOMER_SETTINGS,
+  DEFAULT_INTERNAL_SETTINGS,
   fetchPrinterSettings,
   mapDbTransactionToReceipt,
   mapTxnToThermalReceipt,
@@ -23,17 +25,20 @@ function cn(...classes) {
 }
 
 export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0 }) {
-  const { supported, connected, connecting, printing, connect, printDualNota } = useThermalPrinter();
+  const { supported, connected, connecting, printing, connect, printNota } = useThermalPrinter();
 
   const receiptKey = createdOrderReceipt?.id ?? null;
-  const [printedFor, setPrintedFor] = useState(null);
-  const [settings, setSettings] = useState(null);
-  const [loadedKey, setLoadedKey] = useState(null);
+  const [settings, setSettings] = useState({
+    customer: DEFAULT_CUSTOMER_SETTINGS,
+    internal: DEFAULT_INTERNAL_SETTINGS,
+  });
+  const [printingVariant, setPrintingVariant] = useState(null);
   const [printError, setPrintError] = useState("");
-  const printDone = printedFor != null && printedFor === receiptKey;
+  const [printSuccess, setPrintSuccess] = useState("");
 
   const resolvedOutletId = outletId || createdOrderReceipt?.outletId || 0;
   const fetchKey = createdOrderReceipt ? `${receiptKey}-${resolvedOutletId}` : null;
+  const [loadedKey, setLoadedKey] = useState(null);
   const loadingSettings = Boolean(fetchKey && loadedKey !== fetchKey);
 
   useEffect(() => {
@@ -51,13 +56,19 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
     fetchPrinterSettings(resolvedOutletId)
       .then((data) => {
         if (!cancelled) {
-          setSettings(data);
+          setSettings({
+            customer: { ...DEFAULT_CUSTOMER_SETTINGS, ...(data?.customer || {}) },
+            internal: { ...DEFAULT_INTERNAL_SETTINGS, ...(data?.internal || {}) },
+          });
           setLoadedKey(fetchKey);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setSettings(null);
+          setSettings({
+            customer: DEFAULT_CUSTOMER_SETTINGS,
+            internal: DEFAULT_INTERNAL_SETTINGS,
+          });
           setLoadedKey(fetchKey);
         }
       });
@@ -81,8 +92,9 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
     }
   };
 
-  const handlePrint = async () => {
+  const handlePrintVariant = async (variant) => {
     setPrintError("");
+    setPrintSuccess("");
     if (!connected) {
       setPrintError("Hubungkan printer thermal terlebih dahulu");
       return;
@@ -91,13 +103,22 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
       setPrintError("Pengaturan nota belum dimuat");
       return;
     }
+
+    setPrintingVariant(variant);
     try {
-      await printDualNota(createdOrderReceipt, settings.customer, settings.internal);
-      setPrintedFor(receiptKey);
+      const variantSettings = variant === "internal" ? settings.internal : settings.customer;
+      await printNota(createdOrderReceipt, variantSettings, variant);
+      setPrintSuccess(
+        `Nota ${variant === "internal" ? "Internal" : "Customer"} berhasil dikirim ke printer`
+      );
     } catch (err) {
       setPrintError(err.message || "Gagal mencetak nota");
+    } finally {
+      setPrintingVariant(null);
     }
   };
+
+  const printDisabled = loadingSettings || !connected || Boolean(printing) || Boolean(printingVariant);
 
   return createPortal(
     <div
@@ -116,7 +137,7 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-slate-800 truncate">Preview & Cetak Nota</h3>
-                <p className="text-[10px] text-slate-500 font-mono truncate">{createdOrderReceipt.id}</p>
+                <p className="text-[10px] text-slate-500">Pilih nota Internal atau Customer untuk dicetak</p>
               </div>
             </div>
             <button
@@ -134,24 +155,24 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
                 <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#5f1340] border-t-transparent" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-3xl mx-auto">
-                <div>
-                  <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-3xl mx-auto justify-items-center">
+                <div className="w-full max-w-[280px] flex flex-col items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#5f1340] bg-white/80 px-2.5 py-1 rounded-lg border border-[#5f1340]/15">
                     Nota Internal
-                  </p>
+                  </span>
                   <ThermalNotaBody
                     receipt={createdOrderReceipt}
-                    settings={settings?.internal}
+                    settings={settings.internal}
                     variant="internal"
                   />
                 </div>
-                <div>
-                  <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                <div className="w-full max-w-[280px] flex flex-col items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200">
                     Nota Customer
-                  </p>
+                  </span>
                   <ThermalNotaBody
                     receipt={createdOrderReceipt}
-                    settings={settings?.customer}
+                    settings={settings.customer}
                     variant="customer"
                   />
                 </div>
@@ -186,10 +207,10 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
               </div>
             )}
 
-            {printDone && (
+            {printSuccess && (
               <div className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
                 <HiOutlineCheckCircle className="h-4 w-4" />
-                Nota internal + customer berhasil dikirim ke printer
+                {printSuccess}
               </div>
             )}
 
@@ -201,15 +222,37 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
               >
                 Tutup
               </button>
-              <button
-                type="button"
-                onClick={handlePrint}
-                disabled={loadingSettings || printing || !connected}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#5f1340] hover:bg-[#4d0f33] disabled:opacity-50 px-4 py-2.5 text-xs font-bold text-white shadow-sm"
-              >
-                <HiOutlinePrinter className={cn("h-4 w-4", printing && "animate-pulse")} />
-                {printing ? "Mencetak..." : "Cetak (Internal + Customer)"}
-              </button>
+              {!connected ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-300 px-4 py-2.5 text-xs font-bold text-white cursor-not-allowed"
+                >
+                  <HiOutlinePrinter className="h-4 w-4" />
+                  Hubungkan Printer Dulu
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintVariant("internal")}
+                    disabled={printDisabled}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#5f1340] bg-white text-[#5f1340] hover:bg-[#5f1340]/5 disabled:opacity-50 px-3 py-2.5 text-xs font-bold"
+                  >
+                    <HiOutlinePrinter className={cn("h-4 w-4", printingVariant === "internal" && "animate-pulse")} />
+                    {printingVariant === "internal" ? "Mencetak..." : "Cetak Internal"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintVariant("customer")}
+                    disabled={printDisabled}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#5f1340] hover:bg-[#4d0f33] disabled:opacity-50 px-3 py-2.5 text-xs font-bold text-white shadow-sm"
+                  >
+                    <HiOutlinePrinter className={cn("h-4 w-4", printingVariant === "customer" && "animate-pulse")} />
+                    {printingVariant === "customer" ? "Mencetak..." : "Cetak Customer"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

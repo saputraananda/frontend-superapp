@@ -50,6 +50,7 @@ export function ThermalPrinterProvider({ children }) {
   const printNota = useCallback(async (receipt, settings, variant = "customer") => {
     if (!receipt) throw new Error("Data nota preview tidak tersedia");
     if (!isPrinterConnected()) throw new Error("Printer belum terhubung");
+    if (printing) throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
 
     setPrinting(true);
     setLastError("");
@@ -68,6 +69,7 @@ export function ThermalPrinterProvider({ children }) {
   const printDualNota = useCallback(async (receipt, customerSettings, internalSettings) => {
     if (!receipt) throw new Error("Data nota tidak tersedia");
     if (!isPrinterConnected()) throw new Error("Printer belum terhubung");
+    if (printing) throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
 
     setPrinting(true);
     setLastError("");

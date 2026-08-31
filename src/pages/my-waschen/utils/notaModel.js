@@ -1,211 +1,237 @@
+import { on, PERHATIAN_ITEMS } from './printerSettings.js';
 import {
-  countTotalBarang,
-  formatCustomerItemName,
-  formatItemTitle,
-  getCashierStamp,
-  getEstimasiLabel,
-  getItemQtyCount,
-  getOutletAddress,
-  getOutletPhone,
-  getPaymentStatusShort,
-  getQrValue,
-  getRackOrMeta,
-  getReceivedLabel,
-  getRemaining,
-  getUnitPrice,
-  PERHATIAN_ITEMS,
   rupiah,
-} from "./notaLayout.js";
-import { on } from "./printerSettings.js";
+  getQrValue,
+  getRemaining,
+  getPaymentStatusShort,
+  getReceivedLabel,
+  getEstimasiLabel,
+  getOutletPhone,
+  getOutletAddress,
+  countTotalBarang,
+  formatItemTitle,
+  formatCustomerItemName,
+  getUnitPrice,
+  getItemQtyCount,
+  getCashierStamp,
+  getRackOrMeta
+} from './notaLayout.js';
 
+/** Lebar karakter efektif 58mm */
 export const NOTA_WIDTH = 32;
-export const NOTA_DASH = "-".repeat(26);
+export const NOTA_DASH = '-'.repeat(26);
 
 export function wrapNotaText(str, width = NOTA_WIDTH) {
-  const text = String(str || "").trim();
-  if (!text) return [""];
-  const words = text.split(/\s+/);
+  const raw = String(str ?? '');
+  if (!raw) return [''];
+  const words = raw.split(/\s+/);
   const lines = [];
-  let line = "";
-  for (const w of words) {
-    const next = line ? `${line} ${w}` : w;
-    if (next.length <= width) {
-      line = next;
-    } else {
-      if (line) lines.push(line);
-      line = w.length > width ? w.slice(0, width) : w;
+  let cur = '';
+
+  const flushLong = (word) => {
+    for (let i = 0; i < word.length; i += width) {
+      lines.push(word.slice(i, i + width));
+    }
+  };
+
+  for (const word of words) {
+    if (!word) continue;
+    if (word.length > width) {
+      if (cur) {
+        lines.push(cur);
+        cur = '';
+      }
+      flushLong(word);
+      continue;
+    }
+    if (!cur) cur = word;
+    else if (`${cur} ${word}`.length <= width) cur = `${cur} ${word}`;
+    else {
+      lines.push(cur);
+      cur = word;
     }
   }
-  if (line) lines.push(line);
-  return lines.length ? lines : [""];
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
 }
 
 export function padNotaRow(left, right, width = NOTA_WIDTH) {
-  const l = String(left || "");
-  const r = String(right || "");
-  const gap = Math.max(1, width - l.length - r.length);
-  return `${l}${" ".repeat(gap)}${r}`.slice(0, width);
-}
-
-function pushText(rows, text, opts = {}) {
-  if (!text && text !== 0) return;
-  rows.push({ type: "text", text: String(text), align: "left", bold: false, size: "normal", ...opts });
-}
-
-function pushDash(rows) {
-  rows.push({ type: "dash" });
-}
-
-function pushBlank(rows) {
-  rows.push({ type: "blank" });
-}
-
-function buildHeaderRows(receipt, settings, variant) {
-  const lines = [];
-  if (variant === "internal") {
-    if (on(settings, "show_customer_name")) lines.push(receipt.customerName || "—");
-    if (on(settings, "show_customer_phone")) lines.push(receipt.customerPhone || "—");
-    lines.push(getRackOrMeta(receipt));
-  } else {
-    lines.push("Waschen Laundry");
-    if (on(settings, "show_outlet_name")) lines.push(receipt.branch || "—");
-    if (on(settings, "show_outlet_name")) lines.push(getOutletAddress(receipt));
-    lines.push(getOutletPhone(receipt));
+  const L = String(left ?? '');
+  const R = String(right ?? '');
+  if (L.length + R.length >= width) {
+    const maxL = Math.max(0, width - R.length - 1);
+    return `${L.slice(0, maxL)} ${R}`.slice(0, width);
   }
+  return L + ' '.repeat(width - L.length - R.length) + R;
+}
 
+function T(text, extra = {}) {
+  return { type: 'text', text: String(text ?? ''), align: 'left', bold: false, size: 'normal', ...extra };
+}
+
+function header(qrValue, lines) {
   return {
-    type: "header",
-    qr: on(settings, "show_qr") ? getQrValue(receipt) : null,
-    lines: lines.filter(Boolean),
+    type: 'header',
+    qr: qrValue || null,
+    lines: (lines || []).filter((l) => l != null && String(l).length)
   };
 }
 
+/**
+ * INTERNAL — QR kiri + nama/telp/rak kanan (referensi gambar 1)
+ */
 export function buildInternalNotaModel(receipt, settings) {
   const rows = [];
-  rows.push(buildHeaderRows(receipt, settings, "internal"));
-  pushBlank(rows);
+  const rack = getRackOrMeta(receipt);
+  const headLines = [];
 
-  pushText(rows, receipt.id || receipt.barcode, { size: "huge", bold: true });
+  if (on(settings, 'show_customer_name')) headLines.push(receipt.customerName || '-');
+  if (on(settings, 'show_customer_phone')) headLines.push(receipt.customerPhone || '-');
+  if (rack) headLines.push(String(rack));
 
-  if (on(settings, "show_outlet_name")) {
-    pushText(rows, `Outlet : ${receipt.branch || "—"}`);
-  }
-  if (on(settings, "show_datetime")) {
-    pushText(rows, `Terima : ${getReceivedLabel(receipt)}`);
-    pushText(rows, `Estimasi Selesai : ${getEstimasiLabel(receipt)}`);
-  }
-  if (on(settings, "show_perfume")) {
-    pushText(rows, padNotaRow("Parfum :", receipt.perfume || "—"));
-  }
-  if (on(settings, "show_notes") && receipt.generalNotes && receipt.generalNotes !== "-") {
-    pushText(rows, receipt.generalNotes);
+  if (on(settings, 'show_qr') || headLines.length) {
+    rows.push(header(
+      on(settings, 'show_qr') ? getQrValue(receipt) : null,
+      headLines
+    ));
   }
 
-  pushDash(rows);
-  pushText(rows, "Layanan :", { bold: true });
+  rows.push(T(receipt.id || '', { bold: true, size: 'huge' }));
+
+  if (on(settings, 'show_outlet_name')) {
+    wrapNotaText(`Outlet : ${receipt.branch || '-'}`).forEach((l) => rows.push(T(l)));
+  }
+  if (on(settings, 'show_datetime')) {
+    wrapNotaText(`Terima : ${getReceivedLabel(receipt)}`).forEach((l) => rows.push(T(l)));
+  }
+
+  rows.push(T('Estimasi Selesai :'));
+  // nilai di baris berikut, indent seperti referensi
+  rows.push(T(`       ${getEstimasiLabel(receipt)}`));
+
+  if (on(settings, 'show_perfume')) {
+    rows.push(T(`Parfum : ${receipt.perfume && receipt.perfume !== '-' ? receipt.perfume : '-'}`));
+  }
+  if (on(settings, 'show_notes') && receipt.generalNotes && receipt.generalNotes !== '-') {
+    wrapNotaText(String(receipt.generalNotes)).forEach((l) => rows.push(T(l)));
+  }
+
+  rows.push({ type: 'dash' });
+  rows.push(T('Layanan :'));
   for (const item of receipt.items || []) {
-    pushText(rows, `> ${formatItemTitle(item)}`);
+    wrapNotaText(`> ${formatItemTitle(item)}`).forEach((l) => rows.push(T(l)));
   }
+  rows.push({ type: 'dash' });
 
-  if (on(settings, "show_payment")) {
-    pushDash(rows);
-    pushText(rows, padNotaRow("Sisa bayar :", rupiah(getRemaining(receipt))), { bold: true });
-    pushText(rows, getPaymentStatusShort(receipt), { align: "center", bold: true });
-  }
+  rows.push(T(`Sisa bayar : ${rupiah(getRemaining(receipt))}`));
+  rows.push(T(getPaymentStatusShort(receipt), { bold: true, align: 'center' }));
 
   return rows;
 }
 
+/**
+ * CUSTOMER — QR kiri + brand/outlet/telp kanan (referensi gambar 2)
+ */
 export function buildCustomerNotaModel(receipt, settings) {
   const rows = [];
-  rows.push(buildHeaderRows(receipt, settings, "customer"));
-  pushBlank(rows);
+  const items = receipt.items || [];
+  const paid = Number(receipt.paidAmount) || 0;
+  const grand = Number(receipt.grandTotal) || 0;
+  const addr = receipt.customerAddress;
+  const hasAddr = addr && addr !== '-' && String(addr).trim() !== '';
+  const outletPhone = getOutletPhone(receipt);
+  const outletAddr = getOutletAddress(receipt);
+  const branch = receipt.branch || '-';
 
-  pushText(rows, padNotaRow("Nota :", receipt.id || "—"));
-  if (on(settings, "show_customer_name")) {
-    pushText(rows, padNotaRow("Customer :", receipt.customerName || "—"));
+  const headLines = ['Waschen Laundry'];
+  if (on(settings, 'show_outlet_name')) {
+    headLines.push(branch);
+    headLines.push(outletAddr || branch);
+  } else if (outletAddr) {
+    headLines.push(outletAddr);
   }
-  if (on(settings, "show_customer_phone")) {
-    pushText(rows, padNotaRow("Telp :", receipt.customerPhone || "—"));
+  if (outletPhone) headLines.push(outletPhone);
+
+  rows.push(header(
+    on(settings, 'show_qr') ? getQrValue(receipt) : null,
+    headLines
+  ));
+
+  wrapNotaText(`Nota : ${receipt.id}`).forEach((l) => rows.push(T(l)));
+  if (on(settings, 'show_customer_name')) {
+    wrapNotaText(`Customer : ${receipt.customerName || '-'}`).forEach((l) => rows.push(T(l)));
   }
-  if (on(settings, "show_datetime")) {
-    pushText(rows, padNotaRow("Terima :", getReceivedLabel(receipt)));
-    pushText(rows, padNotaRow("Estimasi Selesai :", getEstimasiLabel(receipt)));
+  if (on(settings, 'show_customer_phone')) {
+    wrapNotaText(`Telp : ${receipt.customerPhone || '-'}`).forEach((l) => rows.push(T(l)));
   }
-  if (on(settings, "show_perfume")) {
-    pushText(rows, padNotaRow("Parfum :", receipt.perfume || "—"));
+  if (on(settings, 'show_datetime')) {
+    wrapNotaText(`Terima : ${getReceivedLabel(receipt)}`).forEach((l) => rows.push(T(l)));
   }
-  if (on(settings, "show_customer_address")) {
-    pushText(rows, padNotaRow("Alamat Konsumen :", receipt.customerAddress || "Kosong"));
+  wrapNotaText(`Estimasi Selesai : ${getEstimasiLabel(receipt)}`).forEach((l) => rows.push(T(l)));
+  if (on(settings, 'show_perfume')) {
+    wrapNotaText(`Parfum : ${receipt.perfume || 'Tanpa parfum'}`).forEach((l) => rows.push(T(l)));
+  }
+  if (on(settings, 'show_customer_address')) {
+    if (hasAddr) wrapNotaText(`Alamat : ${addr}`).forEach((l) => rows.push(T(l)));
+    else rows.push(T('Alamat Konsumen Kosong'));
   }
 
-  pushDash(rows);
-  pushText(rows, "Layanan :", { bold: true });
-
-  for (const item of receipt.items || []) {
-    const subtotal = Number(item.effectiveSubtotal ?? item.subtotal) || 0;
-    const lineName = formatCustomerItemName(item);
-    if (on(settings, "show_item_price")) {
-      pushText(rows, padNotaRow(lineName, rupiah(subtotal)));
-      pushText(rows, `@ ${rupiah(getUnitPrice(item))}`);
-      pushText(rows, `- ${getItemQtyCount(item)} Barang`);
+  rows.push({ type: 'dash' });
+  rows.push(T('Layanan :'));
+  for (const item of items) {
+    const sub = Number(item.effectiveSubtotal || item.subtotal) || 0;
+    const title = formatCustomerItemName(item);
+    if (on(settings, 'show_item_price')) {
+      rows.push(T(padNotaRow(title, rupiah(sub))));
+      rows.push(T(`@ ${rupiah(getUnitPrice(item))}`));
     } else {
-      pushText(rows, lineName);
+      wrapNotaText(title).forEach((l) => rows.push(T(l)));
     }
-    if (on(settings, "show_item_detail")) {
-      const details = [item.brand, item.color, item.size].filter((v) => v && v !== "-");
-      if (details.length) pushText(rows, details.join(" · "));
-    }
+    rows.push(T(`- ${getItemQtyCount(item)} Barang`));
   }
 
-  pushText(rows, `Total item: ${countTotalBarang(receipt.items)} Item`);
+  rows.push({ type: 'dash' });
+  rows.push(T(`Total item: ${Math.round(countTotalBarang(items))} Item`));
+  rows.push({ type: 'dash' });
 
-  if (on(settings, "show_total")) {
-    pushDash(rows);
-    pushText(rows, padNotaRow("Total :", rupiah(receipt.grandTotal)), { bold: true });
-    pushText(rows, padNotaRow("Grand Total :", rupiah(receipt.grandTotal)), { bold: true, size: "tall" });
+  if (on(settings, 'show_total')) {
+    rows.push(T(padNotaRow('Total :', rupiah(grand))));
+    rows.push({ type: 'dash' });
+    rows.push(T(padNotaRow('Grand Total', rupiah(grand)), { bold: true }));
   }
 
-  if (on(settings, "show_payment")) {
-    const method = receipt.paymentMethod && receipt.paymentMethod !== "-" ? receipt.paymentMethod : "—";
-    const paid = Number(receipt.paidAmount) || 0;
+  if (on(settings, 'show_payment')) {
+    rows.push(T('Pembayaran:'));
     if (paid > 0) {
-      pushText(rows, padNotaRow("Pembayaran :", `- ${method} ${rupiah(paid)}`));
+      rows.push(T(padNotaRow(`- ${receipt.paymentMethod || 'Tunai'}`, rupiah(paid))));
+    } else {
+      rows.push(T('- Belum ada pembayaran'));
     }
-    pushDash(rows);
-    pushText(rows, padNotaRow("Status :", getPaymentStatusShort(receipt)), { bold: true, size: "tall" });
+    rows.push({ type: 'dash' });
+    rows.push(T(padNotaRow('Status :', getPaymentStatusShort(receipt))));
   }
 
-  if (on(settings, "show_discount") && Number(receipt.discountAmount) > 0) {
-    pushText(rows, padNotaRow("Diskon :", `- ${rupiah(receipt.discountAmount)}`));
+  rows.push({ type: 'dash' });
+  if (on(settings, 'show_cashier')) {
+    wrapNotaText(getCashierStamp(receipt)).forEach((l) => rows.push(T(l)));
   }
 
-  if (on(settings, "show_member_balance") && receipt.customerBalance != null) {
-    pushText(rows, padNotaRow("Saldo Member :", rupiah(receipt.customerBalance)));
-  }
-
-  if (on(settings, "show_cashier")) {
-    pushBlank(rows);
-    pushText(rows, getCashierStamp(receipt));
-  }
-
-  if (on(settings, "show_perhatian")) {
-    pushBlank(rows);
-    pushText(rows, "PERHATIAN :", { bold: true });
-    PERHATIAN_ITEMS.forEach((item, idx) => {
-      pushText(rows, `${idx + 1}. ${item}`);
+  if (on(settings, 'show_perhatian')) {
+    rows.push(T('PERHATIAN :', { bold: true }));
+    PERHATIAN_ITEMS.forEach((t, i) => {
+      wrapNotaText(`${i + 1}. ${t}`).forEach((l) => rows.push(T(l)));
     });
   }
 
-  if (on(settings, "show_footer_thanks")) {
-    pushBlank(rows);
-    pushText(rows, "Terima kasih", { align: "center", bold: true });
+  if (on(settings, 'show_footer_thanks')) {
+    rows.push(T('Terima kasih', { align: 'center' }));
   }
 
   return rows;
 }
 
-export function buildNotaModel(receipt, settings, variant = "customer") {
-  if (variant === "internal") return buildInternalNotaModel(receipt, settings);
-  return buildCustomerNotaModel(receipt, settings);
+export function buildNotaModel(receipt, settings, variant = 'customer') {
+  return variant === 'internal'
+    ? buildInternalNotaModel(receipt, settings)
+    : buildCustomerNotaModel(receipt, settings);
 }
