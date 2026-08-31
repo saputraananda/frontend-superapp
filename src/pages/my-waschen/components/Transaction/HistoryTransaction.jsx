@@ -269,7 +269,6 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
             <h2 className="text-sm font-bold text-slate-800">Riwayat Transaksi</h2>
             <span className="rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">Klik baris untuk melihat rincian status pengerjaan per item</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[12rem] flex-1 sm:flex-none">

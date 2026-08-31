@@ -132,7 +132,10 @@ import MethodLaundryMaster from "./pages/my-waschen/components/MasterData/Method
 import OutletWaschenMaster from "./pages/my-waschen/components/MasterData/Outlet";
 import HistoryTransactionPage from "./pages/my-waschen/components/Transaction/History";
 import DetailTransactionPage from "./pages/my-waschen/components/Transaction/DetailTransaction";
+import PettyCashPage from "./pages/my-waschen/components/Transaction/PettyCash";
 import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
+import InventoryPage from "./pages/my-waschen/components/Inventory/InventoryPage";
+import DashboardInventory from "./pages/my-waschen/components/Inventory/DashboardInventory";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -631,7 +634,10 @@ export default function App() {
           <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
           <Route path="/my-waschen/transactions" element={<HistoryTransactionPage />} />
           <Route path="/my-waschen/transactions/:id" element={<DetailTransactionPage />} />
+          <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
+          <Route path="/my-waschen/inventory/dashboard" element={<DashboardInventory />} />
+          <Route path="/my-waschen/inventory" element={<InventoryPage />} />
         </Route>
 
         {/* ── Training Management System ── */}

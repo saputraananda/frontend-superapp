@@ -28,6 +28,8 @@ import {
   HiOutlineClipboardDocumentList,
   HiOutlineReceiptPercent,
   HiOutlinePrinter,
+  HiOutlineArchiveBox,
+  HiOutlineChartBarSquare,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -35,7 +37,7 @@ function cn(...classes) {
 }
 
 const SIDEBAR_WIDTH_KEY = "myWaschen.sidebarWidth";
-const SIDEBAR_OPEN_SECTIONS_KEY = "myWaschen.sidebarOpenSections";
+const SIDEBAR_OPEN_SECTIONS_KEY = "myWaschen.sidebarOpenSections.v2";
 const SIDEBAR_COLLAPSED_WIDTH = 80;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
@@ -93,6 +95,32 @@ const MENU_SECTIONS = [
         label: "Riwayat Transaksi",
         description: "Nota, refund, dan pengajuan hapus",
       },
+      {
+        to: "/my-waschen/petty-cash",
+        icon: HiOutlineBanknotes,
+        label: "Petty Cash",
+        description: "Approval pengajuan kas laci outlet",
+      },
+    ],
+  },
+  {
+    id: "inventory",
+    label: "Inventory",
+    icon: HiOutlineArchiveBox,
+    items: [
+      {
+        to: "/my-waschen/inventory/dashboard",
+        icon: HiOutlineChartBarSquare,
+        label: "Dashboard Inventory",
+        description: "Resume stok cepat semua outlet",
+      },
+      {
+        to: "/my-waschen/inventory",
+        icon: HiOutlineArchiveBox,
+        label: "Manajemen Inventory",
+        description: "Stok warehouse per outlet",
+        end: true,
+      },
     ],
   },
   {
@@ -100,6 +128,12 @@ const MENU_SECTIONS = [
     label: "Master Data",
     icon: HiOutlineCircleStack,
     items: [
+      {
+        to: "/my-waschen/master/services",
+        icon: HiOutlineShoppingBag,
+        label: "Katalog Layanan",
+        description: "Daftar tarif & spesifikasi layanan",
+      },
       {
         to: "/my-waschen/master/nota-settings",
         icon: HiOutlinePrinter,
@@ -122,13 +156,7 @@ const MENU_SECTIONS = [
         to: "/my-waschen/master/units",
         icon: HiOutlineScale,
         label: "Master Satuan",
-        description: "Satuan unit (Kg, Pcs, Unit, Meter, dll)",
-      },
-      {
-        to: "/my-waschen/master/services",
-        icon: HiOutlineShoppingBag,
-        label: "Katalog Layanan",
-        description: "Daftar tarif & spesifikasi layanan",
+        description: "Satuan unit (Pcs, Kg, Liter, Roll, dll)",
       },
       {
         to: "/my-waschen/master/service-speeds",
@@ -205,15 +233,6 @@ const MENU_ITEMS = MENU_SECTIONS.flatMap((section) => section.items);
 function isItemActive(pathname, item) {
   if (item.end) return pathname === item.to;
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
-}
-
-function getActiveSectionId(pathname) {
-  for (const section of MENU_SECTIONS) {
-    if (section.items.some((item) => isItemActive(pathname, item))) {
-      return section.id;
-    }
-  }
-  return null;
 }
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
@@ -337,25 +356,19 @@ function DropdownSection({ section, open, onToggle, collapsed, onClose, pathname
 function Sidebar({ collapsed = false, onClose }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const activeSectionId = getActiveSectionId(pathname);
 
   const [openSections, setOpenSections] = useState(() => {
     try {
       const raw = localStorage.getItem(SIDEBAR_OPEN_SECTIONS_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") return parsed;
+      }
     } catch {
       /* ignore */
     }
-    return { general: true, transaksi: true, master: false };
+    return { general: false, transaksi: false, inventory: false, master: false };
   });
-
-  useEffect(() => {
-    if (!activeSectionId) return;
-    setOpenSections((prev) => {
-      if (prev[activeSectionId]) return prev;
-      return { ...prev, [activeSectionId]: true };
-    });
-  }, [activeSectionId]);
 
   useEffect(() => {
     try {

@@ -16,6 +16,7 @@ import {
   HiOutlineClock,
   HiOutlineStar,
   HiOutlineSparkles,
+  HiOutlineArchiveBox,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
@@ -84,10 +85,12 @@ function SkeletonRow() {
   );
 }
 
+const EMPTY_BOM_LINE = { item_id: "", qty_per_service: "1", notes: "" };
+
 const EMPTY_FORM = {
   id: null,
   category_id: "",
-  unit_id: "",
+  unit_id: "8",
   code: "",
   name: "",
   unit: "Kg",
@@ -104,6 +107,8 @@ export default function Services() {
   const [data, setData] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
+  const [inventoryCatalog, setInventoryCatalog] = useState([]);
+  const [bomLines, setBomLines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
@@ -147,6 +152,16 @@ export default function Services() {
     }
   };
 
+  const loadInventoryCatalog = async () => {
+    try {
+      const res = await api("/waschen/inventory/items?isActive=1");
+      setInventoryCatalog(res.data || []);
+    } catch (err) {
+      console.error("loadInventoryCatalog error:", err);
+      setInventoryCatalog([]);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -169,6 +184,7 @@ export default function Services() {
   useEffect(() => {
     loadCategories();
     loadUnits();
+    loadInventoryCatalog();
   }, []);
 
   useEffect(() => {
@@ -187,11 +203,14 @@ export default function Services() {
 
   const handleOpenAdd = () => {
     setFormData(EMPTY_FORM);
+    setBomLines([]);
     setFormError("");
     setModalOpen(true);
   };
 
-  const handleOpenEdit = (item) => {
+  const handleOpenEdit = async (item) => {
+    setFormError("");
+    setModalOpen(true);
     setFormData({
       id: item.id,
       category_id: item.category_id,
@@ -207,8 +226,32 @@ export default function Services() {
       is_featured: item.is_featured || 0,
       is_active: item.is_active,
     });
-    setFormError("");
-    setModalOpen(true);
+    setBomLines([]);
+    try {
+      const res = await api(`/waschen/services/${item.id}`);
+      const detail = res.data || {};
+      setBomLines(
+        (detail.inventory_items || []).map((row) => ({
+          item_id: String(row.item_id),
+          qty_per_service: String(row.qty_per_service ?? 1),
+          notes: row.notes || "",
+        }))
+      );
+    } catch (err) {
+      showToast(err.message || "Gagal memuat BOM inventory", "error");
+    }
+  };
+
+  const addBomLine = () => {
+    setBomLines((prev) => [...prev, { ...EMPTY_BOM_LINE }]);
+  };
+
+  const updateBomLine = (index, field, value) => {
+    setBomLines((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const removeBomLine = (index) => {
+    setBomLines((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Kode otomatis WS-KG-### (Kiloan) / WS-SAT-### (Satuan) saat pilih kategori (mode tambah)
@@ -246,17 +289,27 @@ export default function Services() {
 
     setSubmitting(true);
     setFormError("");
+    const inventory_items = bomLines
+      .filter((row) => row.item_id && Number(row.qty_per_service) > 0)
+      .map((row) => ({
+        item_id: Number(row.item_id),
+        qty_per_service: Number(row.qty_per_service),
+        notes: row.notes?.trim() || null,
+      }));
+
+    const payload = { ...formData, inventory_items };
+
     try {
       if (formData.id) {
         await api(`/waschen/services/${formData.id}`, {
           method: "PUT",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         showToast("Layanan berhasil diperbarui");
       } else {
         await api("/waschen/services", {
           method: "POST",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         showToast("Layanan berhasil ditambahkan");
       }
@@ -315,7 +368,7 @@ export default function Services() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Katalog Layanan Laundry</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Kelola nama layanan, harga, dan durasi pengerjaan
+                Kelola nama layanan, harga, durasi, dan item inventory (BOM)
               </p>
             </div>
             <button
@@ -417,6 +470,7 @@ export default function Services() {
                 <SortTh col="price" label="Tarif Dasar" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="regular_duration_days" label="Durasi Reguler" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Min. Order</th>
+                <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">BOM</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
               </tr>
@@ -426,7 +480,7 @@ export default function Services() {
                 Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data katalog layanan
                   </td>
                 </tr>
@@ -473,6 +527,20 @@ export default function Services() {
                       {item.min_order_qty} {item.unit_symbol || item.unit}
                     </td>
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          Number(item.inventory_item_count) > 0
+                            ? "border-purple-200 bg-purple-50 text-purple-700"
+                            : "border-slate-200 bg-slate-50 text-slate-400"
+                        )}
+                        title="Jumlah item inventory per layanan"
+                      >
+                        <HiOutlineArchiveBox className="h-3 w-3" />
+                        {Number(item.inventory_item_count) || 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <StatusBadge isActive={item.is_active} />
                     </td>
                     <td className="px-4 py-3.5 text-right whitespace-nowrap">
@@ -506,8 +574,8 @@ export default function Services() {
       {/* Modal Add / Edit */}
       {modalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-slate-50/50">
+          <div className="w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-slate-50/50 shrink-0">
               <h3 className="font-bold text-slate-800 text-sm">
                 {formData.id ? "Edit Katalog Layanan" : "Tambah Katalog Layanan"}
               </h3>
@@ -520,7 +588,7 @@ export default function Services() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               {formError && (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700 flex items-center gap-2">
                   <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
@@ -643,12 +711,105 @@ export default function Services() {
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Deskripsi Layanan</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Keterangan cakupan pengerjaan layanan..."
                   value={formData.description}
                   onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
                 />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <HiOutlineArchiveBox className="h-4 w-4 text-[#5f1340]" />
+                      Item Inventory (BOM)
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Bahan yang dipakai per 1 {formData.unit || "layanan"} — untuk potong stok otomatis nanti
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addBomLine}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#5f1340]/20 bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#5f1340] hover:bg-[#5f1340]/5"
+                  >
+                    <HiOutlinePlus className="h-3.5 w-3.5" />
+                    Tambah Item
+                  </button>
+                </div>
+
+                {bomLines.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 italic py-2 text-center">
+                    Belum ada item inventory — klik &quot;Tambah Item&quot; jika layanan ini pakai stok
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {bomLines.map((row, idx) => {
+                      const selectedItem = inventoryCatalog.find(
+                        (it) => String(it.id) === String(row.item_id)
+                      );
+                      return (
+                        <div
+                          key={`bom-${idx}`}
+                          className="grid grid-cols-12 gap-2 items-start rounded-xl border border-slate-200 bg-white p-2.5"
+                        >
+                          <div className="col-span-12 sm:col-span-6">
+                            <label className="text-[10px] font-bold uppercase text-slate-400">Item</label>
+                            <select
+                              value={row.item_id}
+                              onChange={(e) => updateBomLine(idx, "item_id", e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-[#5f1340]"
+                              required
+                            >
+                              <option value="">Pilih item...</option>
+                              {inventoryCatalog.map((it) => (
+                                <option key={it.id} value={it.id}>
+                                  {it.name} ({it.unit || it.unit_symbol || "—"})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-span-5 sm:col-span-2">
+                            <label className="text-[10px] font-bold uppercase text-slate-400">
+                              Qty {selectedItem?.unit ? `(${selectedItem.unit})` : ""}
+                            </label>
+                            <input
+                              type="number"
+                              min="0.001"
+                              step="0.001"
+                              value={row.qty_per_service}
+                              onChange={(e) => updateBomLine(idx, "qty_per_service", e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-[#5f1340]"
+                              required
+                            />
+                          </div>
+                          <div className="col-span-5 sm:col-span-3">
+                            <label className="text-[10px] font-bold uppercase text-slate-400">Catatan</label>
+                            <input
+                              type="text"
+                              placeholder="Opsional"
+                              value={row.notes}
+                              onChange={(e) => updateBomLine(idx, "notes", e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-[#5f1340]"
+                            />
+                          </div>
+                          <div className="col-span-2 sm:col-span-1 flex justify-end pt-5">
+                            <button
+                              type="button"
+                              onClick={() => removeBomLine(idx)}
+                              className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50"
+                              title="Hapus baris"
+                            >
+                              <HiOutlineTrash className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-3">
