@@ -16,6 +16,7 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -420,7 +421,7 @@ export default function PettyCash() {
                   >
                     <td className="px-4 py-3 font-semibold text-slate-800">{fmtDate(row.transactionDate)}</td>
                     <td className="px-4 py-3 text-slate-700">{row.outletFullName || row.outletName || "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{row.cashierName || "—"}</td>
+                    <td className="px-4 py-3 text-slate-700">{fmtEmployeeName(row.cashierName)}</td>
                     <td className="px-4 py-3 text-slate-700">{row.category}</td>
                     <td className="px-4 py-3 text-center font-bold text-slate-800">{fmtIDR(row.amount)}</td>
                     <td className="px-4 py-3 text-center">
@@ -480,7 +481,7 @@ export default function PettyCash() {
                 <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", statusBadge(detailRow.status))}>
                   {detailRow.status}
                 </span>
-                <span className="text-[11px] text-slate-500">Frontliner: {detailRow.cashierName || "—"}</span>
+                <span className="text-[11px] text-slate-500">Frontliner: {fmtEmployeeName(detailRow.cashierName)}</span>
               </div>
 
               <label className="block text-[10px] font-bold uppercase text-slate-400">
@@ -588,7 +589,7 @@ export default function PettyCash() {
                     </div>
                     {loggedInEmployee?.full_name ? (
                       <span className="mt-1 block text-[11px] font-normal normal-case text-slate-500">
-                        Default: akun login ({loggedInEmployee.full_name}) — bisa diganti admin
+                        Default: akun login ({fmtEmployeeName(loggedInEmployee.full_name)}) — bisa diganti admin
                       </span>
                     ) : null}
                   </label>
@@ -627,7 +628,7 @@ export default function PettyCash() {
                 </>
               ) : (
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  {detailRow.approvedByName ? `Diproses oleh ${detailRow.approvedByName}` : "Sudah diproses"}
+                  {detailRow.approvedByName ? `Diproses oleh ${fmtEmployeeName(detailRow.approvedByName)}` : "Sudah diproses"}
                   {detailRow.rejectedReason ? ` · ${detailRow.rejectedReason}` : ""}
                 </div>
               )}
@@ -667,7 +668,8 @@ export default function PettyCash() {
 
 function employeeLabel(e) {
   if (!e) return "";
-  return `${e.full_name || ""}${e.employee_code ? ` · ${e.employee_code}` : ""}`.trim();
+  const name = fmtEmployeeName(e.full_name, "");
+  return `${name}${e.employee_code ? ` · ${e.employee_code}` : ""}`.trim();
 }
 
 function EmployeeSearchSelect({ employees = [], value, onChange }) {
@@ -759,7 +761,7 @@ function EmployeeSearchSelect({ employees = [], value, onChange }) {
                       )}
                     >
                       <span className={cn("text-sm font-medium", active ? "text-[#5f1340]" : "text-slate-800")}>
-                        {e.full_name}
+                        {fmtEmployeeName(e.full_name)}
                       </span>
                       <span className="text-[11px] text-slate-400">
                         {[e.employee_code, e.company_name].filter(Boolean).join(" · ")}

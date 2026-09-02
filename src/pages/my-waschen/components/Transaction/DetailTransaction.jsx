@@ -13,9 +13,11 @@ import {
   HiOutlineClipboardDocument,
   HiOutlineDocumentText,
 } from "react-icons/hi2";
-import { api, assetUrl } from "../../../../lib/api";
+import { api, waschenUploadUrl } from "../../../../lib/api";
 import PageHero from "../PageHero";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
+import { PhotoViewerModal } from "../HRIS/hrisShared";
+import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -113,8 +115,241 @@ function fulfillmentLabel(v) {
   return v || "—";
 }
 
-function ItemCard({ item, index, saving, onStatusChange, open, onToggle }) {
-  const photo = item.photo_url ? assetUrl(item.photo_url) : null;
+const STAGE_LABELS = {
+  frontliner: "Frontliner",
+  washing: "Pencucian",
+  ironing: "Penyetrikaan",
+  packing: "Pengemasan",
+  delivery: "Pengiriman",
+};
+
+function parseLogNotes(notes) {
+  if (!notes) return { detail: null, meta: null };
+  const qc = notes.match(/^\[(\w+)\]\s*QC\s*(\w+)\s*[—–-]\s*(\w+)(?:\s*:\s*(.+))?$/i);
+  if (qc) {
+    return {
+      meta: `${STAGE_LABELS[qc[1]] || qc[1]} · QC ${qc[2]} · ${qc[3]}`,
+      detail: qc[4]?.trim() || null,
+    };
+  }
+  const hold = notes.match(/^Hold resolved \((\w+)\) oleh (.+?) : (.+)$/i);
+  if (hold) {
+    return {
+      meta: `Hold diselesaikan (${hold[1]})`,
+      detail: hold[3]?.trim() || null,
+      worker: hold[2]?.trim(),
+    };
+  }
+  return { detail: notes, meta: null };
+}
+
+function uniqueWorkers(workers = []) {
+  const seen = new Set();
+  return workers.filter((w) => {
+    const key = `${w.stage}-${w.employee_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return Boolean(w.employee_name);
+  });
+}
+
+function ItemWorkersRow({ workers }) {
+  const list = uniqueWorkers(workers);
+  if (!list.length) {
+    return (
+      <p className="mt-1.5 text-[10px] text-slate-400 italic">Belum ada petugas produksi tercatat</p>
+    );
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {list.map((w) => (
+        <span
+          key={`${w.stage}-${w.employee_id}`}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+          title={w.role_used ? `Role: ${w.role_used}` : undefined}
+        >
+          <HiOutlineUser className="h-3 w-3 text-[#5f1340]/70 shrink-0" />
+          <span className="text-slate-400">{w.stage_label || STAGE_LABELS[w.stage] || w.stage}:</span>
+          <span className="text-slate-800">{fmtEmployeeName(w.employee_name)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const PHOTO_TYPE_LABELS = {
+  qc: "QC",
+  temuan: "Temuan",
+  hasil: "Hasil",
+};
+
+function ProgressPhotos({ photos, onView }) {
+  if (!photos?.length) return null;
+  return (
+    <div className="mt-2.5">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Foto produksi</p>
+      <div className="flex flex-wrap gap-2">
+        {photos.map((ph) => {
+          const url = ph.photo_url || waschenUploadUrl(ph.photo_path);
+          if (!url) return null;
+          const label = PHOTO_TYPE_LABELS[ph.photo_type] || ph.photo_type || "Foto";
+          return (
+            <button
+              key={ph.id}
+              type="button"
+              onClick={() => onView?.({ url, label })}
+              className="group relative h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 hover:border-[#5f1340]/40 transition"
+            >
+              <img src={url} alt={label} loading="lazy" className="h-full w-full object-cover" />
+              <span className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[9px] font-bold text-white text-center">
+                {label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ItemProgressTimeline({ workers, onViewPhoto }) {
+  if (!workers?.length) return null;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Alur pengerjaan item</p>
+      <div className="relative space-y-0">
+        {workers.map((w, idx) => {
+          const isLast = idx === workers.length - 1;
+          return (
+            <div key={w.id || idx} className="relative flex gap-3 pb-4 last:pb-0">
+              {!isLast && <span className="absolute left-[9px] top-5 bottom-0 w-0.5 bg-slate-200" aria-hidden />}
+              <span
+                className={cn(
+                  "relative z-10 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+                  isLast ? "border-[#5f1340] bg-[#5f1340]" : "border-emerald-400 bg-emerald-50",
+                )}
+              >
+                {isLast ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                ) : (
+                  <HiOutlineCheckCircle className="h-3 w-3 text-emerald-600" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={cn("rounded-md border px-1.5 py-0.5 text-[10px] font-bold", statusTone(w.stage_label || w.stage))}>
+                    {w.stage_label || STAGE_LABELS[w.stage] || w.stage}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{fmtDate(w.completed_at)}</span>
+                </div>
+                {w.employee_name && (
+                  <p className="mt-1 text-xs font-semibold text-slate-800">
+                    <HiOutlineUser className="inline h-3.5 w-3.5 mr-1 text-[#5f1340]" />
+                    {fmtEmployeeName(w.employee_name)}
+                    {w.role_used ? <span className="font-normal text-slate-500"> · {w.role_used}</span> : null}
+                  </p>
+                )}
+                {(w.notes || w.qc_status) && (
+                  <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
+                    QC {w.qc_status}{w.qc_decision ? ` · ${w.qc_decision}` : ""}
+                    {w.notes ? ` — ${w.notes}` : ""}
+                  </p>
+                )}
+                <ProgressPhotos photos={w.photos} onView={onViewPhoto} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StatusTimeline({ logs, items }) {
+  const itemMap = Object.fromEntries((items || []).map((i) => [i.id, i]));
+  if (!logs?.length) return null;
+
+  return (
+    <div className="relative max-w-2xl">
+      {logs.map((log, idx) => {
+        const isLast = idx === logs.length - 1;
+        const parsed = parseLogNotes(log.notes);
+        const worker = log.employee_name || parsed.worker || null;
+        const item = log.transaction_detail_id ? itemMap[log.transaction_detail_id] : null;
+
+        return (
+          <div key={log.id} className="relative flex gap-3 sm:gap-4 pb-6 last:pb-0">
+            {!isLast && (
+              <span className="absolute left-[11px] sm:left-[13px] top-7 bottom-0 w-0.5 bg-gradient-to-b from-slate-300 to-slate-200" aria-hidden />
+            )}
+            <div className="relative z-10 shrink-0 pt-0.5">
+              <span
+                className={cn(
+                  "flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full border-2 shadow-sm",
+                  isLast
+                    ? "border-[#5f1340] bg-[#5f1340] text-white ring-4 ring-[#5f1340]/15"
+                    : "border-white bg-emerald-500 text-white",
+                )}
+              >
+                {isLast ? (
+                  <span className="h-2 w-2 rounded-full bg-white" />
+                ) : (
+                  <HiOutlineCheckCircle className="h-4 w-4" />
+                )}
+              </span>
+            </div>
+            <div
+              className={cn(
+                "min-w-0 flex-1 rounded-xl border px-3.5 py-3 sm:px-4 sm:py-3.5",
+                isLast ? "border-[#5f1340]/25 bg-[#5f1340]/[0.04]" : "border-slate-200 bg-slate-50/90",
+              )}
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <span className={cn("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusTone(log.status))}>
+                    {log.status}
+                  </span>
+                  {item && (
+                    <p className="mt-1.5 text-xs font-semibold text-slate-700 truncate">
+                      {item.service_name || `Item #${log.transaction_detail_id}`}
+                      {item.service_code ? (
+                        <span className="ml-1.5 font-mono text-[10px] text-[#5f1340]">{item.service_code}</span>
+                      ) : null}
+                    </p>
+                  )}
+                  {!item && log.transaction_detail_id && (
+                    <p className="mt-1.5 text-[10px] text-slate-500">Item #{log.transaction_detail_id}</p>
+                  )}
+                </div>
+                <time className="text-[10px] sm:text-[11px] font-semibold text-slate-400 shrink-0 tabular-nums">
+                  {fmtDate(log.created_at)}
+                </time>
+              </div>
+              {worker && (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                  <HiOutlineUser className="h-3.5 w-3.5 text-[#5f1340] shrink-0" />
+                  {fmtEmployeeName(worker)}
+                </p>
+              )}
+              {parsed.meta && (
+                <p className="mt-2 text-[11px] font-medium text-slate-500">{parsed.meta}</p>
+              )}
+              {parsed.detail && (
+                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed break-words">{parsed.detail}</p>
+              )}
+              {isLast && (
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-[#5f1340]">Status terkini</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewPhoto }) {
+  const photo = item.photo_url ? waschenUploadUrl(item.photo_url) : null;
   const methodName =
     item.laundry_method_name ||
     (Number(item.laundry_method_id) === 2 ? "Dry Clean" : "Wet Clean");
@@ -159,6 +394,7 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle }) {
                   {fmtQty(item.qty)} {item.unit || ""} · {fmtIDR(item.subtotal)}
                 </span>
               </div>
+              <ItemWorkersRow workers={item.workers} />
             </div>
           </button>
 
@@ -234,6 +470,8 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle }) {
                   : "Tidak ada catatan kondisi"}
               </p>
             </div>
+
+            <ItemProgressTimeline workers={item.workers} onViewPhoto={onViewPhoto} />
           </div>
         )}
       </div>
@@ -252,6 +490,7 @@ export default function DetailTransaction() {
   const [thermalReceipt, setThermalReceipt] = useState(null);
   const [openItemId, setOpenItemId] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState(null);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -520,7 +759,7 @@ export default function DetailTransaction() {
                   Frontliner
                   </dt>
                   <dd className="min-w-0 text-sm">
-                    <p className="font-semibold text-slate-800 break-words">{order.cashierName || "—"}</p>
+                    <p className="font-semibold text-slate-800 break-words">{fmtEmployeeName(order.cashierName)}</p>
                     {order.specialNotes && order.specialNotes !== "-" ? (
                       <p className="text-xs text-slate-500 break-words">{order.specialNotes}</p>
                     ) : null}
@@ -556,6 +795,7 @@ export default function DetailTransaction() {
                     onToggle={() =>
                       setOpenItemId((prev) => (prev === item.id ? null : item.id))
                     }
+                    onViewPhoto={setPhotoViewer}
                   />
                 ))}
               </ul>
@@ -563,40 +803,22 @@ export default function DetailTransaction() {
           </section>
 
           {/* Log Status Pengerjaan */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Log Status Pengerjaan</h3>
-            <p className="text-xs text-slate-500 mb-3">Riwayat perubahan status item / nota</p>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#5f1340]/10 text-[#5f1340]">
+                <HiOutlineArrowPath className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Log Status Pengerjaan</h3>
+                <p className="text-xs text-slate-500">Alur perubahan status dari awal hingga terkini</p>
+              </div>
+            </div>
             {logs.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-center">
                 <p className="text-xs font-semibold text-slate-400">Belum ada log status</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {logs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span
-                        className={cn(
-                          "rounded-md border px-1.5 py-0.5 text-[10px] font-bold",
-                          statusTone(log.status)
-                        )}
-                      >
-                        {log.status}
-                      </span>
-                      <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(log.created_at)}</span>
-                    </div>
-                    {log.transaction_detail_id ? (
-                      <p className="mt-1.5 text-[10px] text-slate-500">Item #{log.transaction_detail_id}</p>
-                    ) : null}
-                    {log.notes ? (
-                      <p className="mt-1 text-[10px] text-slate-400 break-words">{log.notes}</p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+              <StatusTimeline logs={logs} items={items} />
             )}
           </section>
         </>
@@ -606,6 +828,13 @@ export default function DetailTransaction() {
         createdOrderReceipt={thermalReceipt}
         onClose={() => setThermalReceipt(null)}
         outletId={order?.outletId}
+      />
+
+      <PhotoViewerModal
+        open={Boolean(photoViewer?.url)}
+        url={photoViewer?.url}
+        label={photoViewer?.label}
+        onClose={() => setPhotoViewer(null)}
       />
     </div>
   );

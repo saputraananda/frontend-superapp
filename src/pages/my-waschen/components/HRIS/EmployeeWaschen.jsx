@@ -39,6 +39,7 @@ import {
 import { FaWhatsapp } from "react-icons/fa";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import { formatEmployeeName } from "../../utils/FormatName";
 
 function cn(...classes) {
     return classes.filter(Boolean).join(" ");
@@ -53,13 +54,6 @@ function formatDate(value) {
         month: "short",
         year: "numeric",
     }).format(date);
-}
-
-function capitalEachWord(value) {
-    if (!value) return "";
-    return String(value)
-        .toLowerCase()
-        .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function SortTh({ col, label, sortBy, sortDir, onSort, className = "" }) {
@@ -170,7 +164,7 @@ function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUp
         <div className="rounded-xl border border-[#e0e0e0] bg-white p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-[#313030]">{capitalEachWord(item.full_name) || "-"}</p>
+                    <p className="truncate text-sm font-bold text-[#313030]">{formatEmployeeName(item.full_name, "-")}</p>
                     <p className="mt-0.5 text-xs text-slate-500">
                         NIK: <span className="font-medium text-slate-600">{item.employee_code || "Tanpa NIK"}</span>
                     </p>
@@ -998,7 +992,7 @@ export default function EmployeeWaschen() {
                                                     </div>
                                                     <div>
                                                         <p className="text-xs font-bold text-[#313030] whitespace-nowrap">
-                                                            {capitalEachWord(item.full_name) || "-"}
+                                                            {formatEmployeeName(item.full_name, "-")}
                                                         </p>
                                                         {item.username && (
                                                             <p className="text-[11px] text-slate-500 whitespace-nowrap">{item.username}</p>
@@ -1412,7 +1406,7 @@ export default function EmployeeWaschen() {
                                                                     : "text-slate-700"
                                                             )}
                                                         >
-                                                            <span className="font-medium">{emp.full_name}</span>
+                                                            <span className="font-medium">{formatEmployeeName(emp.full_name)}</span>
                                                             {emp.employee_code && (
                                                                 <span className="ml-1.5 font-mono text-slate-400">({emp.employee_code})</span>
                                                             )}
@@ -1425,7 +1419,7 @@ export default function EmployeeWaschen() {
                                                 <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-[#5f1340]/10 border border-[#5f1340]/20 px-2.5 py-1.5">
                                                     <CheckCircleIcon className="h-3.5 w-3.5 text-[#5f1340]" />
                                                     <span className="text-xs font-medium text-[#5f1340]">
-                                                        Terpilih: {assignable.find((e) => e.employee_id === selectedEmployeeId)?.full_name}
+                                                        Terpilih: {formatEmployeeName(assignable.find((e) => e.employee_id === selectedEmployeeId)?.full_name)}
                                                     </span>
                                                 </div>
                                             )}

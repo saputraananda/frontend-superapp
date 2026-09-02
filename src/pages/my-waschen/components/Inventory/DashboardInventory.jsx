@@ -13,6 +13,7 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -477,7 +478,7 @@ export default function DashboardInventory() {
                     <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
                       {fmtQty(log.qty_before)} → {fmtQty(log.qty_after)}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{log.employee_name || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500">{fmtEmployeeName(log.employee_name)}</td>
                   </tr>
                 ))}
             </tbody>

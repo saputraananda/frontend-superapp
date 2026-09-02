@@ -25,6 +25,8 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import CutoffPeriodFilter from "../CutoffPeriodFilter";
+import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -43,14 +45,6 @@ function fmtDate(val) {
   const d = new Date(val);
   if (Number.isNaN(d.getTime())) return String(val);
   return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function monthRange() {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const fmt = (d) => d.toISOString().slice(0, 10);
-  return { dateFrom: fmt(from), dateTo: fmt(to) };
 }
 
 const CHART_COLORS = ["#5f1340", "#8b2e5c", "#c45c8a", "#e8a0bc", "#3d0728", "#7c3aed", "#f59e0b", "#10b981"];
@@ -112,11 +106,10 @@ function PaymentBadge({ status }) {
 }
 
 export default function DashboardPage() {
-  const defaults = useMemo(() => monthRange(), []);
+  const cutoff = useCutoffPeriod();
+  const { dateFrom, dateTo } = cutoff;
   const [outlets, setOutlets] = useState([]);
   const [outletId, setOutletId] = useState("");
-  const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
-  const [dateTo, setDateTo] = useState(defaults.dateTo);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -217,38 +210,29 @@ export default function DashboardPage() {
               Ringkasan penjualan, pelanggan, dan membership
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 sm:gap-3">
-            <select
-              value={outletId}
-              onChange={(e) => setOutletId(e.target.value)}
-              className="w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-xs text-white outline-none backdrop-blur-sm"
-            >
-              <option value="" className="text-slate-800">Semua Outlet</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id} className="text-slate-800">{o.outlet_code} — {o.name}</option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-xs text-white outline-none [color-scheme:dark]"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-xs text-white outline-none [color-scheme:dark]"
-            />
-            <button
-              type="button"
-              onClick={loadDashboard}
-              disabled={loading}
-              className="inline-flex w-full lg:w-auto items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#5f1340] shadow-md hover:bg-pink-50 disabled:opacity-60"
-            >
-              {loading ? <HiOutlineArrowPath className="h-4 w-4 animate-spin" /> : <HiOutlineArrowPath className="h-4 w-4" />}
-              Refresh
-            </button>
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.2fr)_auto] gap-2 sm:gap-3">
+              <select
+                value={outletId}
+                onChange={(e) => setOutletId(e.target.value)}
+                className="w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-xs text-white outline-none backdrop-blur-sm"
+              >
+                <option value="" className="text-slate-800">Semua Outlet</option>
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id} className="text-slate-800">{o.outlet_code} — {o.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={loadDashboard}
+                disabled={loading}
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#5f1340] shadow-md hover:bg-pink-50 disabled:opacity-60"
+              >
+                {loading ? <HiOutlineArrowPath className="h-4 w-4 animate-spin" /> : <HiOutlineArrowPath className="h-4 w-4" />}
+                Refresh
+              </button>
+            </div>
+            <CutoffPeriodFilter cutoff={cutoff} variant="hero" />
           </div>
         
       </PageHero>

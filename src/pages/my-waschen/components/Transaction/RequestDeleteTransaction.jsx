@@ -8,6 +8,7 @@ import {
   HiOutlineArrowPath,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -159,7 +160,7 @@ export default function RequestDeleteTransaction({ employees = [], onChanged }) 
               <option value="">Karyawan approve...</option>
               {employees.map((e) => (
                 <option key={e.employee_id} value={e.employee_id}>
-                  {e.employee_code} — {e.full_name}
+                  {e.employee_code} — {fmtEmployeeName(e.full_name)}
                 </option>
               ))}
             </select>

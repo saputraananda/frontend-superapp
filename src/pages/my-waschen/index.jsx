@@ -20,7 +20,6 @@ import {
   HiOutlineQueueList,
   HiOutlineGlobeAlt,
   HiOutlineChevronDown,
-  HiOutlineHome,
   HiOutlineCircleStack,
   HiOutlineSwatch,
   HiOutlineBeaker,
@@ -31,6 +30,9 @@ import {
   HiOutlineArchiveBox,
   HiOutlineChartBarSquare,
   HiOutlineCalendarDays,
+  HiOutlineClock,
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineSun,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -60,9 +62,46 @@ function readStoredSidebarWidth() {
 
 const MENU_SECTIONS = [
   {
-    id: "general",
-    label: "General",
-    icon: HiOutlineHome,
+    id: "hris",
+    label: "HRIS",
+    icon: HiOutlineUsers,
+    items: [
+      {
+        to: "/my-waschen/employees",
+        icon: HiOutlineUsers,
+        label: "Data Karyawan",
+        description: "Pengelolaan staff Waschen",
+      },
+      {
+        to: "/my-waschen/hris/absensi",
+        icon: HiOutlineClock,
+        label: "Absensi",
+        description: "Rekap absensi & perizinan karyawan",
+      },
+      {
+        to: "/my-waschen/hris/perizinan",
+        icon: HiOutlineClipboardDocumentCheck,
+        label: "Perizinan",
+        description: "Approval izin, sakit, cuti",
+      },
+      {
+        to: "/my-waschen/hris/kasbon",
+        icon: HiOutlineBanknotes,
+        label: "Kasbon",
+        description: "Approval kasbon & pinjaman",
+      },
+      {
+        to: "/my-waschen/hris/jadwal-libur",
+        icon: HiOutlineSun,
+        label: "Jadwal Libur",
+        description: "Penetapan & approval libur karyawan",
+      },
+    ],
+  },
+  {
+    id: "transaksi",
+    label: "Transaksi",
+    icon: HiOutlineReceiptPercent,
     items: [
       {
         to: "/my-waschen",
@@ -72,24 +111,11 @@ const MENU_SECTIONS = [
         end: true,
       },
       {
-        to: "/my-waschen/employees",
-        icon: HiOutlineUsers,
-        label: "Data Karyawan",
-        description: "Pengelolaan staff Waschen",
-      },
-      {
         to: "/my-waschen/customers",
         icon: HiOutlineUserGroup,
         label: "Data Customer",
         description: "Database pelanggan & membership",
       },
-    ],
-  },
-  {
-    id: "transaksi",
-    label: "Transaksi",
-    icon: HiOutlineReceiptPercent,
-    items: [
       {
         to: "/my-waschen/transactions",
         icon: HiOutlineClipboardDocumentList,
@@ -230,6 +256,12 @@ const MENU_SECTIONS = [
         icon: HiOutlineQueueList,
         label: "Status Pekerjaan",
         description: "Alur status order laundry",
+      },
+      {
+        to: "/my-waschen/master/day-off-policy",
+        icon: HiOutlineSun,
+        label: "Rules Libur",
+        description: "Kebijakan kuota jadwal libur karyawan",
       },
     ],
   },
@@ -374,7 +406,7 @@ function Sidebar({ collapsed = false, onClose }) {
     } catch {
       /* ignore */
     }
-    return { general: false, transaksi: false, inventory: false, master: false };
+    return { hris: false, transaksi: false, inventory: false, master: false };
   });
 
   useEffect(() => {

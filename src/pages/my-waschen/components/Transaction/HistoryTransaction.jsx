@@ -70,6 +70,73 @@ function WorkBadge({ pct }) {
   );
 }
 
+function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDelete }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen(); }}
+      className="p-3.5 sm:p-4 space-y-3 cursor-pointer hover:bg-[#5f1340]/[0.03] transition-colors"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold text-[#5f1340] font-mono text-sm truncate">{row.orderNo}</p>
+          {row.barcode && <p className="text-[10px] text-slate-400 font-mono truncate">{row.barcode}</p>}
+        </div>
+        <WorkBadge pct={row.workStatus} />
+      </div>
+      <div className="grid grid-cols-1 gap-1.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-400 shrink-0">Pelanggan</span>
+          <span className="font-semibold text-slate-800 truncate text-right">{row.customerName || "—"}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-400 shrink-0">WhatsApp</span>
+          {row.customerPhone ? (
+            <a
+              href={`https://wa.me/${String(row.customerPhone).replace(/\D/g, "").replace(/^0/, "62")}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="font-mono text-emerald-600 hover:underline truncate"
+            >
+              {row.customerPhone}
+            </a>
+          ) : (
+            <span className="text-slate-500">—</span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-400 shrink-0">Tagihan</span>
+          <span className="font-bold text-slate-800">{fmtIDR(row.grandTotal)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-400 shrink-0">Bayar</span>
+          <PaymentBadge status={row.paymentStatus} method={row.paymentMethod} onClick={(e) => onPay(row, e)} />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={(e) => onPrint(row, e)}
+          disabled={printingId === row.id}
+          className="rounded-xl border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-[#5f1340] hover:text-white disabled:opacity-50"
+        >
+          Cetak
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(row)}
+          className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700"
+        >
+          Hapus
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function HistoryTransaction({ outlets = [], workStatuses = [], onChanged }) {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
@@ -255,78 +322,80 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden min-w-0 w-full">
       {toast && (
-        <div className={cn("px-4 py-2.5 text-xs font-semibold flex items-center gap-2", toast.type === "error" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700")}>
-          {toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4" /> : <HiOutlineCheckCircle className="h-4 w-4" />}
+        <div className={cn("px-3 sm:px-4 py-2.5 text-xs font-semibold flex items-center gap-2", toast.type === "error" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700")}>
+          {toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" /> : <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />}
           {toast.message}
         </div>
       )}
 
-      <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800">Riwayat Transaksi</h2>
-            <span className="rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
+      <div className="p-3 sm:p-5 border-b border-slate-100 space-y-3">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">Riwayat Transaksi</h2>
+            <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[12rem] flex-1 sm:flex-none">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto_auto] gap-2">
+          <div className="relative sm:col-span-2 xl:col-span-1 min-w-0">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari struk, pelanggan..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]"
             />
           </div>
-          <select value={outletId} onChange={(e) => setOutletId(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#5f1340]">
+          <select value={outletId} onChange={(e) => setOutletId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]">
             <option value="">Semua Outlet</option>
             {outlets.map((o) => (
               <option key={o.id} value={o.id}>{o.full_name || o.name}</option>
             ))}
           </select>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#5f1340]" />
-          <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#5f1340]">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]" />
+          <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]">
             <option value="Semua">Semua Bayar</option>
             <option value="Lunas">Lunas</option>
             <option value="DP">DP</option>
             <option value="Outstanding">Outstanding</option>
             <option value="Sisa Tagihan">Sisa Tagihan</option>
           </select>
-          <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+          <button type="button" onClick={load} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
             <HiOutlineArrowPath className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
           </button>
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 flex gap-2 overflow-x-auto">
-        {tabs.map((t) => {
-          const active = workTab === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setWorkTab(t.key)}
-              className={cn(
-                "whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5 border transition",
-                active ? "bg-[#5f1340] text-white border-[#5f1340]" : "bg-white text-slate-600 border-slate-200 hover:border-[#5f1340]/40"
-              )}
-            >
-              {t.key}
-              <span className={cn("rounded-full px-1.5 text-[9px] font-bold", active ? "bg-white/20" : "bg-slate-100")}>{tabCount(t.key)}</span>
-            </button>
-          );
-        })}
+      <div className="px-3 sm:px-5 py-2.5 border-b border-slate-100 -mx-0 overflow-x-auto scrollbar-thin">
+        <div className="flex flex-nowrap gap-2 min-w-0 w-max sm:w-auto sm:flex-wrap">
+          {tabs.map((t) => {
+            const active = workTab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setWorkTab(t.key)}
+                className={cn(
+                  "shrink-0 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5 border transition",
+                  active ? "bg-[#5f1340] text-white border-[#5f1340]" : "bg-white text-slate-600 border-slate-200 hover:border-[#5f1340]/40",
+                )}
+              >
+                {t.key}
+                <span className={cn("rounded-full px-1.5 text-[9px] font-bold", active ? "bg-white/20" : "bg-slate-100")}>{tabCount(t.key)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {error && (
-        <div className="mx-4 mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>
+        <div className="mx-3 sm:mx-4 mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-xs">
           <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-4 py-3 font-semibold">No. Struk</th>
@@ -401,13 +470,37 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
         </table>
       </div>
 
-      <div className="border-t border-slate-100 px-4 py-3 text-[10px] text-slate-400 font-semibold">
+      <div className="md:hidden divide-y divide-slate-100">
+        {loading ? (
+          <div className="p-3 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-36 animate-pulse rounded-xl border border-slate-100 bg-slate-50" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 text-sm px-4">Tidak ada transaksi sesuai filter</div>
+        ) : (
+          filtered.map((row) => (
+            <TransactionMobileCard
+              key={row.id}
+              row={row}
+              printingId={printingId}
+              onOpen={() => navigate(`/my-waschen/transactions/${row.id}`)}
+              onPay={openPay}
+              onPrint={openThermalPrint}
+              onDelete={(r) => { setDeleteModal(r); setDeleteReason(""); }}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="border-t border-slate-100 px-3 sm:px-4 py-3 text-[10px] text-slate-400 font-semibold">
         Menampilkan {filtered.length} dari {rows.length} transaksi
       </div>
 
       {deleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4">
+          <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 bg-rose-50 px-4 py-3">
               <div>
                 <p className="text-sm font-bold text-slate-800">Request Hapus {deleteModal.orderNo}</p>
@@ -439,8 +532,8 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
       )}
 
       {paymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4">
+          <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>
                 <p className="text-sm font-bold text-slate-800">Update Pembayaran — {paymentModal.orderNo}</p>
@@ -449,7 +542,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
               <button type="button" onClick={() => setPaymentModal(null)} className="text-slate-400"><HiOutlineXMark className="h-5 w-5" /></button>
             </div>
             <div className="p-4 space-y-3 text-xs">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 text-center">
                   <p className="text-[10px] text-slate-400">Tagihan</p>
                   <p className="font-bold text-[#5f1340]">{fmtIDR(paymentModal.grandTotal)}</p>

@@ -10,6 +10,7 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -251,8 +252,8 @@ export default function DailyReport() {
                   {s.closedAt ? ` · Tutup ${fmtDateTime(s.closedAt)}` : ""}
                 </p>
                 <p className="text-[11px] sm:text-xs text-slate-600 mt-1 leading-relaxed break-words">
-                  Dibuka <strong>{s.openerName || "—"}</strong>
-                  {s.closedByName ? <> · Ditutup <strong>{s.closedByName}</strong></> : null}
+                  Dibuka <strong>{fmtEmployeeName(s.openerName)}</strong>
+                  {s.closedByName ? <> · Ditutup <strong>{fmtEmployeeName(s.closedByName)}</strong></> : null}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto shrink-0">

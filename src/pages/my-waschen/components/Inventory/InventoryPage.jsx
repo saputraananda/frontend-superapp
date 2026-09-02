@@ -21,6 +21,7 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -862,14 +863,14 @@ export default function InventoryPage() {
                   <option value="">— Pilih petugas —</option>
                   {employeeOptions.map((e) => (
                     <option key={e.employee_id} value={e.employee_id}>
-                      {e.full_name}
+                      {fmtEmployeeName(e.full_name)}
                       {e.company_name ? ` · ${e.company_name}` : ""}
                     </option>
                   ))}
                 </select>
                 {currentEmployee?.full_name && (
                   <span className="mt-1 block text-[11px] font-normal normal-case text-slate-500">
-                    Default: {currentEmployee.full_name}
+                    Default: {fmtEmployeeName(currentEmployee.full_name)}
                   </span>
                 )}
               </label>
@@ -1039,7 +1040,7 @@ export default function InventoryPage() {
                     <option value="">— Pilih petugas —</option>
                     {employeeOptions.map((e) => (
                       <option key={e.employee_id} value={e.employee_id}>
-                        {e.full_name}
+                        {fmtEmployeeName(e.full_name)}
                       </option>
                     ))}
                   </select>
@@ -1161,7 +1162,7 @@ export default function InventoryPage() {
                       </div>
                       <p className="mt-1 text-[10px] text-slate-500">
                         {fmtQty(log.qty_before)} → {fmtQty(log.qty_after)}
-                        {log.employee_name ? ` · ${log.employee_name}` : ""}
+                        {log.employee_name ? ` · ${fmtEmployeeName(log.employee_name)}` : ""}
                       </p>
                       {log.notes ? <p className="mt-0.5 text-[10px] text-slate-400">{log.notes}</p> : null}
                     </div>

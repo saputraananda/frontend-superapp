@@ -112,15 +112,15 @@ import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduks
 import TargetCleanox from "./pages/cleanox-management/components/TargetCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
-import DashboardPage from "./pages/my-waschen/components/General/DashboardPage";
-import EmployeeWaschen from "./pages/my-waschen/components/General/EmployeeWaschen";
+import DashboardPage from "./pages/my-waschen/components/Transaction/DashboardPage";
+import EmployeeWaschen from "./pages/my-waschen/components/HRIS/EmployeeWaschen";
 import CategoryServices from "./pages/my-waschen/components/MasterData/CategoryServices";
 import ServicesMaster from "./pages/my-waschen/components/MasterData/Services";
 import ServiceSpeed from "./pages/my-waschen/components/MasterData/ServiceSpeed";
 import ParfumeMaster from "./pages/my-waschen/components/MasterData/Parfume";
 import MembershipPackage from "./pages/my-waschen/components/MasterData/MembershipPackage";
 import UnitMaster from "./pages/my-waschen/components/MasterData/Unit";
-import CustomerPage from "./pages/my-waschen/components/General/Customer";
+import CustomerPage from "./pages/my-waschen/components/Transaction/Customer";
 import PaymentMethodMaster from "./pages/my-waschen/components/MasterData/PaymentMethod";
 import PettyCashCategoryMaster from "./pages/my-waschen/components/MasterData/PettyCashCategory";
 import PromoMaster from "./pages/my-waschen/components/MasterData/Promo";
@@ -137,6 +137,11 @@ import DailyReportPage from "./pages/my-waschen/components/Transaction/DailyRepo
 import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
 import InventoryPage from "./pages/my-waschen/components/Inventory/InventoryPage";
 import DashboardInventory from "./pages/my-waschen/components/Inventory/DashboardInventory";
+import AbsensiWaschen from "./pages/my-waschen/components/HRIS/Absensi";
+import PerizinanWaschen from "./pages/my-waschen/components/HRIS/Perizinan";
+import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
+import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
+import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -616,6 +621,10 @@ export default function App() {
         >
           <Route path="/my-waschen" element={<DashboardPage />} />
           <Route path="/my-waschen/employees" element={<EmployeeWaschen />} />
+          <Route path="/my-waschen/hris/absensi" element={<AbsensiWaschen />} />
+          <Route path="/my-waschen/hris/perizinan" element={<PerizinanWaschen />} />
+          <Route path="/my-waschen/hris/kasbon" element={<KasbonWaschen />} />
+          <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
           <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
           <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />
@@ -638,6 +647,7 @@ export default function App() {
           <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
+          <Route path="/my-waschen/master/day-off-policy" element={<DayOffPolicyMaster />} />
           <Route path="/my-waschen/inventory/dashboard" element={<DashboardInventory />} />
           <Route path="/my-waschen/inventory" element={<InventoryPage />} />
         </Route>
