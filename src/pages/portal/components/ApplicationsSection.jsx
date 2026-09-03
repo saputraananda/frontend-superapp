@@ -187,6 +187,25 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     return "bg-blue-600";
   };
 
+  const isMyWaschenApp = (appName) => {
+    const name = appName.toLowerCase();
+    return name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen");
+  };
+
+  const resolveAppHref = (app) => {
+    if (isMyWaschenApp(app.name)) return "/my-waschen";
+    return app.href;
+  };
+
+  const handleAppClick = (app) => {
+    if (!isMyWaschenApp(app.name)) return;
+    try {
+      sessionStorage.setItem("myWaschen.resetHome", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="p-5">
       {/* Header statis — tanpa toggle */}
@@ -224,7 +243,8 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           {filteredApps.map((app) => (
             <a
               key={app.id}
-              href={app.href}
+              href={resolveAppHref(app)}
+              onClick={() => handleAppClick(app)}
               className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
             >
               <div className="relative flex-shrink-0">

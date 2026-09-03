@@ -40,7 +40,7 @@ function cn(...classes) {
 }
 
 const SIDEBAR_WIDTH_KEY = "myWaschen.sidebarWidth";
-const SIDEBAR_OPEN_SECTIONS_KEY = "myWaschen.sidebarOpenSections.v2";
+const SIDEBAR_RESET_HOME_KEY = "myWaschen.resetHome";
 const SIDEBAR_COLLAPSED_WIDTH = 80;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
@@ -269,6 +269,10 @@ const MENU_SECTIONS = [
 
 const MENU_ITEMS = MENU_SECTIONS.flatMap((section) => section.items);
 
+const DEFAULT_OPEN_SECTIONS = Object.fromEntries(
+  MENU_SECTIONS.map((section) => [section.id, false]),
+);
+
 function isItemActive(pathname, item) {
   if (item.end) return pathname === item.to;
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
@@ -392,30 +396,9 @@ function DropdownSection({ section, open, onToggle, collapsed, onClose, pathname
   );
 }
 
-function Sidebar({ collapsed = false, onClose }) {
+function Sidebar({ collapsed = false, onClose, openSections, setOpenSections }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-
-  const [openSections, setOpenSections] = useState(() => {
-    try {
-      const raw = localStorage.getItem(SIDEBAR_OPEN_SECTIONS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") return parsed;
-      }
-    } catch {
-      /* ignore */
-    }
-    return { hris: false, transaksi: false, inventory: false, master: false };
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(SIDEBAR_OPEN_SECTIONS_KEY, JSON.stringify(openSections));
-    } catch {
-      /* ignore */
-    }
-  }, [openSections]);
 
   const toggleSection = (id) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -485,6 +468,11 @@ function Sidebar({ collapsed = false, onClose }) {
           title={collapsed ? "Kembali ke Portal" : undefined}
           onClick={() => {
             if (onClose) onClose();
+            try {
+              sessionStorage.setItem(SIDEBAR_RESET_HOME_KEY, "1");
+            } catch {
+              /* ignore */
+            }
             navigate("/portal");
           }}
           className={cn(
@@ -526,12 +514,29 @@ function ActiveMenuTitle() {
 }
 
 export default function MyWaschen() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(readStoredSidebarWidth);
   const [isResizing, setIsResizing] = useState(false);
+  const [openSections, setOpenSections] = useState(DEFAULT_OPEN_SECTIONS);
   const drawerRef = useRef(null);
   const resizeStateRef = useRef({ startX: 0, startWidth: SIDEBAR_DEFAULT_WIDTH });
+
+  useEffect(() => {
+    setOpenSections(DEFAULT_OPEN_SECTIONS);
+    try {
+      if (sessionStorage.getItem(SIDEBAR_RESET_HOME_KEY) === "1") {
+        sessionStorage.removeItem(SIDEBAR_RESET_HOME_KEY);
+        if (pathname !== "/my-waschen") {
+          navigate("/my-waschen", { replace: true });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- reset awal saat masuk modul
 
   useEffect(() => {
     const onKey = (e) => {
@@ -610,7 +615,11 @@ export default function MyWaschen() {
         )}
         style={{ width: currentDesktopWidth }}
       >
-        <Sidebar collapsed={desktopCollapsed} />
+        <Sidebar
+          collapsed={desktopCollapsed}
+          openSections={openSections}
+          setOpenSections={setOpenSections}
+        />
 
         {!desktopCollapsed && (
           <div
@@ -660,7 +669,11 @@ export default function MyWaschen() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <Sidebar onClose={() => setMobileOpen(false)} />
+        <Sidebar
+          onClose={() => setMobileOpen(false)}
+          openSections={openSections}
+          setOpenSections={setOpenSections}
+        />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
