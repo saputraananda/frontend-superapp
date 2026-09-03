@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -73,8 +73,10 @@ export default function InventoryPage() {
   const [logs, setLogs] = useState([]);
 
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState(null);
 
   const [itemModal, setItemModal] = useState(false);
@@ -93,6 +95,8 @@ export default function InventoryPage() {
   const [opnameDate, setOpnameDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [opnameLines, setOpnameLines] = useState([]);
   const [opnameEmployeeId, setOpnameEmployeeId] = useState("");
+  /** Outlet yang sudah pernah berhasil di-load → filter/search berikutnya pakai silent refresh */
+  const hydratedOutletRef = useRef(null);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -134,13 +138,21 @@ export default function InventoryPage() {
     }
   }, []);
 
-  const loadStock = useCallback(async () => {
+  /**
+   * @param {{ silent?: boolean }} [opts]
+   * silent=true → refresh data tanpa skeleton (jangan scroll-jump ke atas setelah update stok)
+   */
+  const loadStock = useCallback(async (opts = {}) => {
+    const silent = opts?.silent === true;
     if (!outletId) {
       setStock([]);
       setLoading(false);
+      setRefreshing(false);
+      hydratedOutletRef.current = null;
       return;
     }
-    setLoading(true);
+    if (silent) setRefreshing(true);
+    else setLoading(true);
     try {
       const q = new URLSearchParams({ outletId: String(outletId) });
       if (search) q.set("search", search);
@@ -148,10 +160,12 @@ export default function InventoryPage() {
       const res = await api(`/waschen/inventory/stock?${q}`);
       setStock(res.data || []);
       setSummary(res.summary || { totalItems: 0, lowStockCount: 0, totalQty: 0 });
+      hydratedOutletRef.current = String(outletId);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [outletId, search, lowOnly]);
 
@@ -171,9 +185,18 @@ export default function InventoryPage() {
     loadUnits();
   }, [loadOutlets, loadEmployees, loadUnits]);
 
+  // Debounce search — hindari skeleton/scroll-jump tiap ketikan
   useEffect(() => {
-    loadStock();
-  }, [loadStock]);
+    const t = window.setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    // Outlet sama yang sudah hydrated → silent (cari / low-only / refresh filter)
+    // Outlet baru / first load → skeleton
+    const silent = hydratedOutletRef.current === String(outletId);
+    loadStock({ silent });
+  }, [loadStock, outletId]);
 
   const selectedOutlet = useMemo(
     () => outlets.find((o) => String(o.id) === String(outletId)),
@@ -238,7 +261,7 @@ export default function InventoryPage() {
         showToast("Item katalog ditambahkan");
       }
       setItemModal(false);
-      await loadStock();
+      await loadStock({ silent: true });
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -278,7 +301,7 @@ export default function InventoryPage() {
       });
       showToast("Stok diperbarui");
       setAdjustModal(null);
-      loadStock();
+      loadStock({ silent: true });
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -306,7 +329,7 @@ export default function InventoryPage() {
       });
       showToast("Min / Par stock diperbarui");
       setThresholdsModal(null);
-      loadStock();
+      loadStock({ silent: true });
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -321,7 +344,7 @@ export default function InventoryPage() {
       await api(`/waschen/inventory/stock/${deleteTarget.id}`, { method: "DELETE" });
       showToast("Item dinonaktifkan dari outlet");
       setDeleteTarget(null);
-      loadStock();
+      loadStock({ silent: true });
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -367,7 +390,7 @@ export default function InventoryPage() {
       });
       showToast("Stok awal periode disimpan");
       setOpeningModal(null);
-      loadStock();
+      loadStock({ silent: true });
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -463,7 +486,7 @@ export default function InventoryPage() {
       });
       showToast("Pemakaian harian tersimpan");
       setOpnameOpen(false);
-      loadStock();
+      loadStock({ silent: true });
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -498,30 +521,32 @@ export default function InventoryPage() {
           </button>
           <button
             type="button"
-            onClick={loadStock}
+            onClick={() => loadStock({ silent: true })}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2.5 text-xs font-semibold text-white hover:bg-white/15"
           >
-            <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
+            <HiOutlineArrowPath className={cn("h-4 w-4", (loading || refreshing) && "animate-spin")} />
             Refresh
           </button>
         </div>
       </PageHero>
 
-      {toast && (
-        <div
-          className={cn(
-            "rounded-xl px-4 py-2.5 text-xs font-semibold flex items-center gap-2",
-            toast.type === "error" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"
-          )}
-        >
-          {toast.type === "error" ? (
-            <HiOutlineExclamationTriangle className="h-4 w-4" />
-          ) : (
-            <HiOutlineCheckCircle className="h-4 w-4" />
-          )}
-          {toast.message}
-        </div>
-      )}
+      {toast &&
+        createPortal(
+          <div
+            className={cn(
+              "fixed bottom-4 right-4 z-[120] max-w-sm rounded-xl px-4 py-2.5 text-xs font-semibold shadow-lg flex items-center gap-2",
+              toast.type === "error" ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+            )}
+          >
+            {toast.type === "error" ? (
+              <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
+            ) : (
+              <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />
+            )}
+            {toast.message}
+          </div>,
+          document.body
+        )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -565,8 +590,8 @@ export default function InventoryPage() {
             <div className="relative flex-1 min-w-[160px]">
               <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Cari item..."
                 className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm"
               />
@@ -624,7 +649,7 @@ export default function InventoryPage() {
                 <th className="px-4 py-3 text-center font-semibold">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={cn("divide-y divide-slate-100", refreshing && "opacity-70")}>
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">

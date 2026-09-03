@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   HiOutlineArchiveBox,
@@ -76,13 +76,17 @@ const MOVE_STYLE = {
 export default function DashboardInventory() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
+  const hasLoadedRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts = {}) => {
+    const silent = opts?.silent === true || hasLoadedRef.current;
+    if (silent) setRefreshing(true);
+    else setLoading(true);
     setError("");
     try {
       const q = new URLSearchParams();
@@ -90,11 +94,13 @@ export default function DashboardInventory() {
       if (lowOnly) q.set("lowOnly", "1");
       const res = await api(`/waschen/inventory/dashboard?${q}`);
       setData(res.data || null);
+      hasLoadedRef.current = true;
     } catch (err) {
       setError(err.message || "Gagal memuat dashboard inventory");
-      setData(null);
+      if (!silent) setData(null);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [search, lowOnly]);
 
@@ -137,10 +143,10 @@ export default function DashboardInventory() {
           </Link>
           <button
             type="button"
-            onClick={load}
+            onClick={() => load({ silent: true })}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2.5 text-xs font-semibold text-white hover:bg-white/15"
           >
-            <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
+            <HiOutlineArrowPath className={cn("h-4 w-4", (loading || refreshing) && "animate-spin")} />
             Refresh
           </button>
         </div>
@@ -157,36 +163,36 @@ export default function DashboardInventory() {
         <StatCard
           icon={HiOutlineBuildingStorefront}
           label="Outlet"
-          value={loading ? "…" : overview?.outletCount ?? 0}
+          value={loading && !data ? "…" : overview?.outletCount ?? 0}
           tone="brand"
         />
         <StatCard
           icon={HiOutlineCube}
           label="Katalog Item"
-          value={loading ? "…" : overview?.catalogItems ?? 0}
+          value={loading && !data ? "…" : overview?.catalogItems ?? 0}
         />
         <StatCard
           icon={HiOutlineArchiveBox}
           label="Baris Stok"
-          value={loading ? "…" : overview?.stockRows ?? 0}
+          value={loading && !data ? "…" : overview?.stockRows ?? 0}
         />
         <StatCard
           icon={HiOutlineExclamationTriangle}
           label="Di bawah Min"
-          value={loading ? "…" : overview?.lowStockCount ?? 0}
+          value={loading && !data ? "…" : overview?.lowStockCount ?? 0}
           sub={worstOutlet?.low_stock_count ? `Terbanyak: ${worstOutlet.outlet_code}` : undefined}
           tone="rose"
         />
         <StatCard
           icon={HiOutlineChartBarSquare}
           label="Stok Kosong"
-          value={loading ? "…" : overview?.zeroStockCount ?? 0}
+          value={loading && !data ? "…" : overview?.zeroStockCount ?? 0}
           tone="amber"
         />
         <StatCard
           icon={HiOutlineClock}
           label="Gerakan 7 Hari"
-          value={loading ? "…" : overview?.movements7d ?? 0}
+          value={loading && !data ? "…" : overview?.movements7d ?? 0}
         />
       </div>
 
@@ -198,12 +204,12 @@ export default function DashboardInventory() {
             <p className="text-xs text-slate-500">Klik outlet untuk buka manajemen stok cabang tersebut</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3">
-          {loading &&
+        <div className={cn("grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3", refreshing && "opacity-70")}>
+          {loading && !data &&
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-36 animate-pulse rounded-2xl border border-slate-100 bg-slate-100" />
             ))}
-          {!loading &&
+          {(!loading || data) &&
             outlets.map((o) => {
               const hasLow = Number(o.low_stock_count) > 0;
               return (
@@ -294,15 +300,15 @@ export default function DashboardInventory() {
                 <th className="px-4 py-2.5 text-right font-semibold" />
               </tr>
             </thead>
-            <tbody>
-              {loading && (
+            <tbody className={cn(refreshing && "opacity-70")}>
+              {loading && !data && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-xs text-slate-400">
                     Memuat…
                   </td>
                 </tr>
               )}
-              {!loading && lowStock.length === 0 && (
+              {(!loading || data) && lowStock.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-xs text-slate-400">
                     Tidak ada stok di bawah minimum
@@ -310,7 +316,7 @@ export default function DashboardInventory() {
                   </td>
                 </tr>
               )}
-              {!loading &&
+              {(!loading || data) &&
                 lowStock.map((row) => (
                   <tr key={`${row.stock_id}`} className="border-t border-slate-100 hover:bg-rose-50/40">
                     <td className="px-4 py-2.5">
@@ -366,22 +372,22 @@ export default function DashboardInventory() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {loading && (
+            <tbody className={cn(refreshing && "opacity-70")}>
+              {loading && !data && (
                 <tr>
                   <td colSpan={(matrix.outlets?.length || 0) + 1} className="px-4 py-8 text-center text-xs text-slate-400">
                     Memuat matriks…
                   </td>
                 </tr>
               )}
-              {!loading && (!matrix.items || matrix.items.length === 0) && (
+              {(!loading || data) && (!matrix.items || matrix.items.length === 0) && (
                 <tr>
                   <td colSpan={(matrix.outlets?.length || 0) + 1} className="px-4 py-8 text-center text-xs text-slate-400">
                     Tidak ada item untuk ditampilkan
                   </td>
                 </tr>
               )}
-              {!loading &&
+              {(!loading || data) &&
                 (matrix.items || []).map((it) => (
                   <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/80">
                     <td className="sticky left-0 z-[1] bg-white px-4 py-2 border-r border-slate-100">
@@ -441,22 +447,22 @@ export default function DashboardInventory() {
                 <th className="px-4 py-2.5 text-left font-semibold">Oleh</th>
               </tr>
             </thead>
-            <tbody>
-              {loading && (
+            <tbody className={cn(refreshing && "opacity-70")}>
+              {loading && !data && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-xs text-slate-400">
                     Memuat…
                   </td>
                 </tr>
               )}
-              {!loading && recentLogs.length === 0 && (
+              {(!loading || data) && recentLogs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-xs text-slate-400">
                     Belum ada gerakan stok
                   </td>
                 </tr>
               )}
-              {!loading &&
+              {(!loading || data) &&
                 recentLogs.map((log) => (
                   <tr key={log.id} className="border-t border-slate-100">
                     <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">{fmtDate(log.created_at)}</td>
