@@ -68,8 +68,9 @@ import RewashLinen from "./pages/absensi-ikm/components/RewashLinen";
 import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
 import KasbonPinjaman from "./pages/absensi-ikm/components/KasbonPinjaman";
 import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
-import LinenTransaction from "./pages/absensi-ikm/components/LinenTransaction";
-import LinenTransactionKomersil from "./pages/absensi-ikm/components/LinenTransactionKomersil";
+import LinenTransactionLayout from "./pages/linen-transaction";
+import LinenTransaction from "./pages/linen-transaction/components/LinenTransaction";
+import LinenTransactionKomersil from "./pages/linen-transaction/components/LinenTransactionKomersil";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -439,9 +440,23 @@ export default function App() {
           <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
           <Route path="/kasbon-pinjaman" element={<KasbonPinjaman />} />
           <Route path="/absensi-manajemen-ikm" element={<AbsensiManajemen />} />
-          <Route path="/transaksi-linen-ikm" element={<LinenTransaction />} />
-          <Route path="/transaksi-linen-komersil-ikm" element={<LinenTransactionKomersil />} />
         </Route>
+
+        {/* ── Serah Terima Linen (menu portal terpisah) ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/serah-terima-linen"]}>
+              <LinenTransactionLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/serah-terima-linen" element={<LinenTransaction />} />
+          <Route path="/serah-terima-linen/komersil" element={<LinenTransactionKomersil />} />
+        </Route>
+
+        {/* Redirect path lama → menu baru */}
+        <Route path="/transaksi-linen-ikm" element={<Navigate to="/serah-terima-linen" replace />} />
+        <Route path="/transaksi-linen-komersil-ikm" element={<Navigate to="/serah-terima-linen/komersil" replace />} />
 
         {/* ── Karyawan IKM ── */}
         <Route

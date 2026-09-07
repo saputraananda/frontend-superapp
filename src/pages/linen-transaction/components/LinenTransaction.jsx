@@ -10,9 +10,9 @@ import {
   HiOutlineTruck, HiOutlinePrinter
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
-import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
-import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
-import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
+import { exportSerahTerimaLinenExcel } from "../../absensi-ikm/utils/exportSerahTerimaLinenExcel";
+import { exportRekapCuciLinenSewa } from "../../absensi-ikm/utils/exportRekapCuciLinenSewa";
+import exportSuratJalanKurangKirim from "../../absensi-ikm/utils/exportSuratJalanKurangKirimLinen";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -143,38 +143,6 @@ function normalizeAction(log) {
     return "PICKUP_KOTOR";
   }
   return action;
-}
-
-function formatHeaderFieldChange(field, oldVal, newVal, employeeMap) {
-  const getEmpName = (id) => employeeMap.get(Number(id)) || `Karyawan #${id}`;
-
-  const displayOld = oldVal === null || oldVal === undefined || oldVal === "" ? "—" : oldVal;
-  const displayNew = newVal === null || newVal === undefined || newVal === "" ? "—" : newVal;
-
-  switch (field) {
-    case "user_pickup":
-      return `Petugas Pickup: "${oldVal ? getEmpName(oldVal) : "—"}" menjadi "${newVal ? getEmpName(newVal) : "—"}"`;
-    case "user_delivery":
-      return `Petugas Delivery: "${oldVal ? getEmpName(oldVal) : "—"}" menjadi "${newVal ? getEmpName(newVal) : "—"}"`;
-    case "hospital_staff_pickup":
-      return `Petugas RS Pickup: "${displayOld}" menjadi "${displayNew}"`;
-    case "hospital_staff_delivery":
-      return `Petugas RS Delivery: "${displayOld}" menjadi "${displayNew}"`;
-    case "hospital_assistant_pickup":
-      return `Perawat RS Pickup: "${displayOld}" menjadi "${displayNew}"`;
-    case "hospital_assistant_delivery":
-      return `Perawat RS Delivery: "${displayOld}" menjadi "${displayNew}"`;
-    case "pickup_date":
-      return `Tanggal Pickup: "${displayOld}" menjadi "${displayNew}"`;
-    case "delivery_date":
-      return `Tanggal Pengantaran: "${displayOld}" menjadi "${displayNew}"`;
-    case "notes_pickup":
-      return `Catatan Pickup: "${displayOld}" menjadi "${displayNew}"`;
-    case "notes_delivery":
-      return `Catatan Delivery: "${displayOld}" menjadi "${displayNew}"`;
-    default:
-      return null;
-  }
 }
 
 function parseJSONMaybe(val) {
@@ -408,6 +376,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [details, setDetails] = useState([]); // Array of { hospital_linen_id, linen_display_name, ownership_type, qty_kotor, qty_bersih, notes, room_ids }
   const [rooms, setRooms] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [showAllLinens, setShowAllLinens] = useState(false);
   const [masterLinens, setMasterLinens] = useState([]);
 
   // Signature States for Verification Indicators
@@ -449,6 +418,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     setShowAuditLogs(false);
     setShowSignatures(false);
     setSelectedRoomId("");
+    setShowAllLinens(false);
     setRooms([]);
     setMasterLinens([]);
     if (mode === "create") {
@@ -645,18 +615,26 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     });
   };
 
+  const roomMappedLinens = useMemo(() => {
+    if (!selectedRoomId) return [];
+    return masterLinens.filter(l => {
+      const roomIds = String(l.room_ids || "").split(",");
+      return roomIds.includes(String(selectedRoomId));
+    });
+  }, [masterLinens, selectedRoomId]);
+
+  const roomHasLinenStandard = roomMappedLinens.length > 0;
+  // Ruangan tanpa standar mapping otomatis tampil semua linen RS.
+  // Ruangan yang sudah punya standar: default khusus ruangan, bisa toggle tampilkan semua.
+  const effectiveShowAllLinens = Boolean(selectedRoomId) && (showAllLinens || !roomHasLinenStandard);
+
   const filteredDetails = useMemo(() => {
     if (!hospitalId || masterLinens.length === 0) return [];
 
     if (selectedRoomId) {
-      // 1. Specific Room Filter Mode:
-      // Filter masterLinens to only those allowed in this room
-      const allowedLinens = masterLinens.filter(l => {
-        const roomIds = String(l.room_ids || "").split(",");
-        return roomIds.includes(String(selectedRoomId));
-      });
+      const allowedLinens = effectiveShowAllLinens ? masterLinens : roomMappedLinens;
+      const mappedIdSet = new Set(roomMappedLinens.map(l => Number(l.hospital_linen_id)));
 
-      // Map each allowed linen to its entry in `details` state (for this specific room)
       return allowedLinens.map(l => {
         const existing = details.find(
           d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id) && Number(d.room_id) === Number(selectedRoomId)
@@ -669,47 +647,48 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           qty_kotor: existing ? existing.qty_kotor : "",
           qty_bersih: existing ? (existing.qty_bersih ?? "") : "",
           notes: existing ? (existing.notes || "") : "",
-          isEditable: true // Mark as editable
-        };
-      });
-    } else {
-      // 2. "Semua Ruangan" Aggregate Mode:
-      // Show all masterLinens, and for each, sum the quantities in `details`
-      return masterLinens.map(l => {
-        const matchedDetails = details.filter(d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id));
-        
-        let totalKotor = 0;
-        let totalBersih = null;
-        let hasKotor = false;
-        let hasBersih = false;
-        let notesArr = [];
-
-        matchedDetails.forEach(d => {
-          if (d.qty_kotor !== "" && d.qty_kotor !== null && d.qty_kotor !== undefined) {
-            totalKotor += Number(d.qty_kotor);
-            hasKotor = true;
-          }
-          if (d.qty_bersih !== "" && d.qty_bersih !== null && d.qty_bersih !== undefined) {
-            if (totalBersih === null) totalBersih = 0;
-            totalBersih += Number(d.qty_bersih);
-            hasBersih = true;
-          }
-          if (d.notes) notesArr.push(d.notes);
-        });
-
-        return {
-          hospital_linen_id: l.hospital_linen_id,
-          linen_display_name: l.linen_display_name,
-          ownership_type: l.ownership_type,
-          room_id: null,
-          qty_kotor: hasKotor ? totalKotor : 0,
-          qty_bersih: hasBersih ? totalBersih : null,
-          notes: notesArr.join("; "),
-          isEditable: false // Grouped sum view is read-only
+          isEditable: true,
+          isMappedToRoom: mappedIdSet.has(Number(l.hospital_linen_id))
         };
       });
     }
-  }, [masterLinens, details, selectedRoomId, hospitalId]);
+
+    // "Semua Ruangan" Aggregate Mode: all masterLinens, sum qty across rooms (read-only)
+    return masterLinens.map(l => {
+      const matchedDetails = details.filter(d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id));
+
+      let totalKotor = 0;
+      let totalBersih = null;
+      let hasKotor = false;
+      let hasBersih = false;
+      let notesArr = [];
+
+      matchedDetails.forEach(d => {
+        if (d.qty_kotor !== "" && d.qty_kotor !== null && d.qty_kotor !== undefined) {
+          totalKotor += Number(d.qty_kotor);
+          hasKotor = true;
+        }
+        if (d.qty_bersih !== "" && d.qty_bersih !== null && d.qty_bersih !== undefined) {
+          if (totalBersih === null) totalBersih = 0;
+          totalBersih += Number(d.qty_bersih);
+          hasBersih = true;
+        }
+        if (d.notes) notesArr.push(d.notes);
+      });
+
+      return {
+        hospital_linen_id: l.hospital_linen_id,
+        linen_display_name: l.linen_display_name,
+        ownership_type: l.ownership_type,
+        room_id: null,
+        qty_kotor: hasKotor ? totalKotor : 0,
+        qty_bersih: hasBersih ? totalBersih : null,
+        notes: notesArr.join("; "),
+        isEditable: false,
+        isMappedToRoom: null
+      };
+    });
+  }, [masterLinens, details, selectedRoomId, hospitalId, effectiveShowAllLinens, roomMappedLinens]);
 
   if (!open) return null;
 
@@ -1114,23 +1093,47 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                     hospitalId ? (
                       <div className="animate-fade-in">
                         {/* Filter Ruangan Dropdown */}
-                        <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-slate-500">Filter Ruangan:</span>
-                            <select
-                              value={selectedRoomId}
-                              onChange={(e) => setSelectedRoomId(e.target.value)}
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 font-medium text-slate-700 cursor-pointer"
-                            >
-                              <option value="">Semua Ruangan</option>
-                              {rooms.map(room => (
-                                <option key={room.id} value={room.id}>{room.room_name}</option>
-                              ))}
-                            </select>
+                        <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-slate-500">Filter Ruangan:</span>
+                              <select
+                                value={selectedRoomId}
+                                onChange={(e) => {
+                                  setSelectedRoomId(e.target.value);
+                                  setShowAllLinens(false);
+                                }}
+                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 font-medium text-slate-700 cursor-pointer"
+                              >
+                                <option value="">Semua Ruangan</option>
+                                {rooms.map(room => (
+                                  <option key={room.id} value={room.id}>{room.room_name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            {selectedRoomId && roomHasLinenStandard && (
+                              <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={showAllLinens}
+                                  onChange={(e) => setShowAllLinens(e.target.checked)}
+                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                Tampilkan semua linen
+                              </label>
+                            )}
                           </div>
                           {!selectedRoomId ? (
                             <span className="text-[11px] text-amber-600 font-semibold flex items-center gap-1 animate-pulse">
                               ⚠️ Pilih ruangan untuk mengisi/mengubah jumlah kotor & bersih.
+                            </span>
+                          ) : !roomHasLinenStandard ? (
+                            <span className="text-[11px] text-amber-700 font-semibold">
+                              Ruangan belum punya standar linen — menampilkan semua linen RS
+                            </span>
+                          ) : effectiveShowAllLinens ? (
+                            <span className="text-[11px] text-indigo-600 font-semibold">
+                              Menampilkan semua linen RS (termasuk di luar standar ruangan)
                             </span>
                           ) : (
                             <span className="text-[11px] text-indigo-600 font-semibold">
@@ -1160,7 +1163,12 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                 return (
                                   <tr key={detail.id || detail.hospital_linen_id} className="hover:bg-slate-50/60 transition-colors">
                                     <td className="px-3 py-2 text-center text-xs text-slate-400 tabular-nums">{index + 1}</td>
-                                    <td className="px-3 py-2 text-xs font-semibold text-slate-800 min-w-[140px]">{detail.linen_display_name}</td>
+                                    <td className="px-3 py-2 text-xs font-semibold text-slate-800 min-w-[140px]">
+                                      {detail.linen_display_name}
+                                      {effectiveShowAllLinens && detail.isMappedToRoom === false && (
+                                        <span className="ml-1.5 text-[10px] font-medium text-slate-400">luar standar</span>
+                                      )}
+                                    </td>
                                     <td className="px-3 py-2 text-center">
                                       <span className={cn(
                                         "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase",
@@ -1176,7 +1184,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                         type="number"
                                         min="0"
                                         disabled={!detail.isEditable}
-                                        required={detail.isEditable}
+                                        required={detail.isEditable && !effectiveShowAllLinens}
                                         value={detail.qty_kotor}
                                         onChange={(e) => handleQtyChange(detail.hospital_linen_id, "qty_kotor", e.target.value)}
                                         className={cn(
@@ -2042,9 +2050,9 @@ export default function LinenTransaction() {
         />
 
         {/* Header Banner */}
-        <section className="relative rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-900 to-cyan-700 p-5 shadow-sm sm:p-6">
+        <section className="relative rounded-3xl border border-[#1ea59e]/30 bg-gradient-to-br from-[#126776] via-[#157f8a] to-[#1ea59e] p-5 shadow-sm sm:p-6">
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-blue-300/10 blur-3xl" />
+          <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-[#1ea59e]/20 blur-3xl" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 border border-white/15">

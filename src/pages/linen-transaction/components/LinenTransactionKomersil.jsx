@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineFunnel, HiOutlineXMark,
@@ -10,9 +10,9 @@ import {
   HiOutlineTruck, HiOutlinePrinter
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
-import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
-import { exportRekapCuciLinenKhusus } from "../utils/exportRekapCuciLinenKhusus";
-import exportSuratJalanKurangKirimCustom from "../utils/exportSerahTerimaLinenKhususExcel";
+import { exportSerahTerimaLinenExcel } from "../../absensi-ikm/utils/exportSerahTerimaLinenExcel";
+import { exportRekapCuciLinenKhusus } from "../../absensi-ikm/utils/exportRekapCuciLinenKhusus";
+import exportSuratJalanKurangKirimCustom from "../../absensi-ikm/utils/exportSerahTerimaLinenKhususExcel";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -1599,7 +1599,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                exportSuratJalanKurangKirim(delivery, delivery.details || []);
+                                exportSuratJalanKurangKirimCustom(delivery, delivery.details || []);
                               }}
                               className="rounded-xl bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition inline-flex items-center gap-1 shadow-sm"
                             >
@@ -1817,23 +1817,9 @@ export default function LinenTransactionKomersil() {
     document.title = "Serah Terima Linen Komersil IKM | Alora Group Indonesia";
   }, []);
 
-  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
   const [exportingRekap, setExportingRekap] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDownloadDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
 
   const handleExportRekap = async (ownershipType) => {
-    setDownloadDropdownOpen(false);
     setExportingRekap(true);
     try {
       const q = new URLSearchParams();
@@ -1950,9 +1936,9 @@ export default function LinenTransactionKomersil() {
         />
 
         {/* Header Banner */}
-        <section className="relative rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-900 to-cyan-700 p-5 shadow-sm sm:p-6">
+        <section className="relative rounded-3xl border border-[#1ea59e]/30 bg-gradient-to-br from-[#126776] via-[#157f8a] to-[#1ea59e] p-5 shadow-sm sm:p-6">
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-blue-300/10 blur-3xl" />
+          <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-[#1ea59e]/20 blur-3xl" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 border border-white/15">
