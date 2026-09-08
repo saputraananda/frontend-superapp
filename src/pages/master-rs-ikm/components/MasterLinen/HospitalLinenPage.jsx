@@ -87,6 +87,7 @@ const EMPTY_FORM = {
   stock_in_ikm: "",
   stock_in_rs: "",
   is_active: true,
+  is_commercial: false,
   room_stocks: [],
   ikm_room_stocks: [],
 };
@@ -287,6 +288,7 @@ export default function HospitalLinenPage({ hospitalId }) {
       stock_in_ikm: item.stock_in_ikm != null && item.stock_in_ikm !== 0 ? String(item.stock_in_ikm) : "",
       stock_in_rs: item.stock_in_rs != null && item.stock_in_rs !== 0 ? String(item.stock_in_rs) : "",
       is_active: Boolean(item.is_active),
+      is_commercial: Boolean(item.is_commercial),
       room_stocks: item.room_stocks || [],
       ikm_room_stocks: item.ikm_room_stocks || [],
     });
@@ -442,7 +444,7 @@ export default function HospitalLinenPage({ hospitalId }) {
     (l.linen_code || "").toLowerCase().includes(ddSearch.toLowerCase())
   ).sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
 
-  const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 18, 14, 14, 14, 10, 10, 10, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
+  const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 10, 18, 14, 14, 14, 10, 10, 10, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
 
   return (
     <div className="p-6 pb-14">
@@ -598,8 +600,8 @@ export default function HospitalLinenPage({ hospitalId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
-                  {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "IKM", "RS", "Total", "Aksi"].map((h, i) => (
-                    <th key={h} className={cn("whitespace-nowrap px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 11 ? "text-center" : "text-left")}>{h}</th>
+                  {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Komersil", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "IKM", "RS", "Total", "Aksi"].map((h, i) => (
+                    <th key={h} className={cn("whitespace-nowrap px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 12 ? "text-center" : "text-left")}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -613,6 +615,9 @@ export default function HospitalLinenPage({ hospitalId }) {
                       <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-semibold", a.ownership_type === "MILIK_RS" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700")}>
                         {a.ownership_type === "MILIK_RS" ? "Milik RS" : a.ownership_type === "SEWA" ? "Sewa" : a.ownership_type}
                       </span>
+                    </td>
+                    <td className="px-2 py-3 text-xs font-semibold text-slate-700">
+                      {a.is_commercial ? "Ya" : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-2 py-3 text-slate-600 text-xs">{a.unit}</td>
                     <td className="px-2 py-3 text-slate-600 text-xs">{a.grammage ? `${a.grammage}g` : <span className="text-slate-300">—</span>}</td>
@@ -712,6 +717,18 @@ export default function HospitalLinenPage({ hospitalId }) {
                       <option value="MILIK_RS">Milik RS</option>
                       <option value="SEWA">Sewa</option>
                     </select>
+                  </Field>
+                  <Field label="Linen Komersil">
+                    <label className="flex items-center gap-2 h-[42px] px-3 rounded-xl border border-slate-200 bg-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.is_commercial)}
+                        onChange={(e) => setForm({ ...form, is_commercial: e.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="text-sm text-slate-700">Tandai sebagai komersil</span>
+                    </label>
+                    <p className="mt-1 text-[11px] text-slate-400">Muncul di modul Serah Terima / Kurang Kirim Komersil (Alsa &amp; Linen Monitoring)</p>
                   </Field>
                   <Field label="Satuan">
                     <input className={inputCls} placeholder="PCS" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
