@@ -142,7 +142,9 @@ const EMPTY = {
     ga_qty: "",
     ga_merk: "",
     ga_note: "",
-    // vendor info (khusus GA)
+    // Finance: butuh GA atau tidak
+    requires_ga: "1", // '1' = butuh GA | '0' = skip GA
+    // vendor info (khusus GA / Finance skip GA)
     vendor_mode: "", // 'vendor' | 'link' | 'offline' | ''
     vendor: "",
     vendor_id: "",
@@ -164,6 +166,10 @@ export default function FormPengajuan() {
 
     const [emp, setEmp] = useState(user?.employee || null);
     const isGAUser = emp?.position_name?.toLowerCase().includes("general affair");
+    const isFinanceUser = (() => {
+        const pos = (emp?.position_name || "").toLowerCase();
+        return pos.includes("finance") || pos.includes("accounting") || pos.includes("accountiing");
+    })();
 
     const [companies, setCompanies] = useState([]);
     const [outlets, setOutlets] = useState([]);
@@ -175,6 +181,7 @@ export default function FormPengajuan() {
         type: initialType,
         tanggal_pengajuan: new Date().toISOString().split("T")[0],
     });
+    const financeSkipGa = isFinanceUser && form.type === "pengajuan" && String(form.requires_ga) === "0";
     const [files, setFiles] = useState([]);
     const [existing, setExisting] = useState([]);
     const [preview, setPreview] = useState(null);
@@ -205,8 +212,9 @@ export default function FormPengajuan() {
                     const e = me.user.employee;
                     setEmp(e);
 
-                    // Load vendors jika GA
-                    if (e.position_name?.toLowerCase().includes("general affair")) {
+                    // Load vendors jika GA atau Finance
+                    const pos = (e.position_name || "").toLowerCase();
+                    if (pos.includes("general affair") || pos.includes("finance") || pos.includes("accounting") || pos.includes("accountiing")) {
                         api("/pengajuan/vendors").then(r => setVendors(r.data || [])).catch(() => {});
                     }
 
@@ -267,10 +275,12 @@ export default function FormPengajuan() {
                     ga_qty: r.ga_qty ? String(r.ga_qty) : "",
                     ga_merk: r.ga_merk || "",
                     ga_note: r.ga_note || "",
+                    requires_ga: r.requires_ga === 0 || r.requires_ga === "0" ? "0" : "1",
+                    // Vendor
                     vendor_mode: r.vendor_mode || "",
                     vendor: r.vendor || "",
                     vendor_id: r.vendor_id || "",
-                    offline_desc: r.vendor_mode === "offline" ? r.vendor : "",
+                    offline_desc: r.vendor_mode === "offline" ? (r.vendor || "") : "",
                     // Reimburse
                     bank_name: r.bank_name || emp?.bank_name || "",
                     bank_account_number: r.nomor_rekening || r.bank_account_number || emp?.bank_account_number || "",
@@ -339,6 +349,12 @@ export default function FormPengajuan() {
         if (!form.alasan_pembelian.trim()) return showToast("error", "Alasan pembelian wajib diisi");
         if (!form.company_id) return showToast("error", "Kategori wajib dipilih");
         if (form.type === "reimburse" && !form.atas_nama.trim()) return showToast("error", "Atas nama wajib diisi");
+        if (isGAUser && form.type === "pengajuan" && !form.is_routine) {
+            return showToast("error", "Pilih jenis pengajuan Rutin atau Tidak Rutin");
+        }
+        if (isFinanceUser && form.type === "pengajuan" && !["0", "1"].includes(String(form.requires_ga))) {
+            return showToast("error", "Pilih apakah butuh approval GA");
+        }
 
         setSaving(true);
         try {
@@ -390,6 +406,11 @@ export default function FormPengajuan() {
                 if (form.ga_qty) fd.append("ga_qty", form.ga_qty);
                 if (form.ga_merk.trim()) fd.append("ga_merk", form.ga_merk.trim());
                 if (form.ga_note.trim()) fd.append("ga_note", form.ga_note.trim());
+            }
+
+            // ── Finance: requires_ga ──
+            if (isFinanceUser && form.type === "pengajuan") {
+                fd.append("requires_ga", String(form.requires_ga) === "0" ? "0" : "1");
             }
 
             files.forEach(f => fd.append("attachments", f));
@@ -569,6 +590,35 @@ export default function FormPengajuan() {
                     </div>
                 )}
 
+                {/* ── Approval GA (hanya untuk Finance) ───────────────────────────── */}
+                {isFinanceUser && form.type === "pengajuan" && (
+                    <div className="bg-white rounded-2xl border border-cyan-200/80 shadow-lg shadow-cyan-200/40 p-5 space-y-4">
+                        <p className="text-xs font-bold text-cyan-700 uppercase tracking-widest">Approval General Affair</p>
+                        <div className="flex gap-4 flex-wrap">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="requires_ga" value="1"
+                                    checked={String(form.requires_ga) === "1"}
+                                    onChange={() => setForm(p => ({ ...p, requires_ga: "1", vendor_mode: "", vendor: "", vendor_id: "", offline_desc: "" }))}
+                                    className="accent-cyan-600 h-4 w-4" />
+                                <div>
+                                    <span className="text-sm font-semibold text-slate-700">Butuh Approval GA</span>
+                                    <p className="text-[11px] text-slate-400">Flow biasa — melewati review GA sebelum Finance</p>
+                                </div>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="requires_ga" value="0"
+                                    checked={String(form.requires_ga) === "0"}
+                                    onChange={() => setForm(p => ({ ...p, requires_ga: "0" }))}
+                                    className="accent-cyan-600 h-4 w-4" />
+                                <div>
+                                    <span className="text-sm font-semibold text-slate-700">Tidak Butuh GA</span>
+                                    <p className="text-[11px] text-slate-400">Setelah SPV Finance approve → langsung antrian pembayaran</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Detail Barang ─────────────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 p-5 space-y-4">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -690,11 +740,14 @@ export default function FormPengajuan() {
                         </div>
                     </div>
 
-                    {/* ── Info Vendor / Sumber (khusus GA) ─────────────────────────── */}
-                    {isGAUser && form.type === "pengajuan" && (
+                    {/* ── Info Vendor / Sumber (GA, atau Finance yang skip GA) ───────── */}
+                    {(isGAUser || financeSkipGa) && form.type === "pengajuan" && (
                         <div className="border-t border-slate-100 pt-4 space-y-3">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Info Vendor / Sumber (Opsional)</p>
+                                <p className={cn("text-xs font-bold uppercase tracking-widest",
+                                    isGAUser ? "text-violet-600" : "text-cyan-700")}>
+                                    Info Vendor / Sumber (Opsional)
+                                </p>
                                 <span className="text-[10px] text-slate-400 italic">Bisa dilengkapi nanti</span>
                             </div>
                             <div className="flex gap-3 flex-wrap">

@@ -561,6 +561,15 @@ export default function PengajuanDetailModal({
                                 <span className="text-xs text-slate-500">
                                     {data.type === "reimburse" ? "Reimburse" : "Pengajuan"} · {formatDate(data.tanggal_pengajuan)}
                                 </span>
+                                {data.is_routine === "rutin" && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-violet-50 text-violet-700 border-violet-200">GA Rutin</span>
+                                )}
+                                {data.is_routine === "tidak_rutin" && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-violet-50 text-violet-700 border-violet-200">GA Tidak Rutin</span>
+                                )}
+                                {Number(data.requires_ga) === 0 && !isReimburse && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-cyan-50 text-cyan-700 border-cyan-200">Tanpa Approval GA</span>
+                                )}
                             </div>
 
                             {/* identitas */}

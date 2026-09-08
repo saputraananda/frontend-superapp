@@ -32,6 +32,15 @@ function POPreview({ data: d }) {
     const hasFinanceApproval = !!d.finance_spv_name;
     const hasDirectorApproval = !!d.approved_finance_at; // Direktur otomatis approve saat Finance approve
 
+    // Mengajukan: GA (normal) / pengaju Finance (skip GA) / fallback pengaju
+    const isFinanceSkipGa = Number(d.requires_ga) === 0;
+    const submitterName = d.ga_name || d.pengaju_name;
+    const submitterRole = d.ga_name
+        ? "General Affair"
+        : (isFinanceSkipGa ? "Finance, Accounting & Tax" : "Pengaju");
+    const submitterDate = d.approved_ga_at || d.tanggal_pengajuan || d.created_at;
+    const poDate = d.approved_ga_at || d.approved_finance_at || d.created_at;
+
     return (
         <div className="bg-white text-slate-800 font-sans">
             {/* Kop */}
@@ -43,7 +52,7 @@ function POPreview({ data: d }) {
                 <div className="text-right">
                     <div className="text-xl font-extrabold text-emerald-700 tracking-widest uppercase">Purchase Order</div>
                     <div className="text-base font-bold text-slate-700 mt-1">{d.pr_code}</div>
-                    <div className="text-sm text-slate-400">{formatDate(d.approved_ga_at || d.created_at)}</div>
+                    <div className="text-sm text-slate-400">{formatDate(poDate)}</div>
                 </div>
             </div>
 
@@ -61,7 +70,7 @@ function POPreview({ data: d }) {
                     </div>
                     <div>
                         <div className="text-[10px] text-slate-400 uppercase">Tanggal PO</div>
-                        <div className="text-sm font-semibold text-slate-700">{formatDate(d.approved_ga_at)}</div>
+                        <div className="text-sm font-semibold text-slate-700">{formatDate(poDate)}</div>
                     </div>
                 </div>
                 <div className="space-y-3">
@@ -113,17 +122,17 @@ function POPreview({ data: d }) {
                 </div>
             )}
 
-            {/* Tanda Tangan: Mengajukan (GA) — Mengetahui (SPV Finance) — Menyetujui (Direktur) */}
+            {/* Tanda Tangan: Mengajukan (GA / Finance) — Mengetahui (SPV Finance) — Menyetujui (Direktur) */}
             <div className="mt-6 grid grid-cols-3 gap-4">
-                {/* GA - Mengajukan */}
+                {/* Mengajukan */}
                 <div className="border border-slate-200 rounded-xl p-4 text-center">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Mengajukan</div>
                     <div className="h-14 border-b border-dashed border-slate-300 mb-3" />
-                    {d.ga_name ? (
+                    {submitterName ? (
                         <>
-                            <div className="text-sm font-semibold text-slate-700">{toTitleCase(d.ga_name)}</div>
-                            <div className="text-[11px] text-slate-500 mt-0.5">General Affair</div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(d.approved_ga_at)}</div>
+                            <div className="text-sm font-semibold text-slate-700">{toTitleCase(submitterName)}</div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">{submitterRole}</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">{formatDateShort(submitterDate)}</div>
                         </>
                     ) : (
                         <div className="text-[11px] text-slate-300 italic">—</div>
@@ -202,16 +211,24 @@ export default function POModal({ open, prId, onClose }) {
         const hasFinanceApproval = !!d.finance_spv_name;
         const hasDirectorApproval = !!d.approved_finance_at;
 
+        const isFinanceSkipGa = Number(d.requires_ga) === 0;
+        const submitterName = d.ga_name || d.pengaju_name;
+        const submitterRole = d.ga_name
+            ? "General Affair"
+            : (isFinanceSkipGa ? "Finance, Accounting & Tax" : "Pengaju");
+        const submitterDate = d.approved_ga_at || d.tanggal_pengajuan || d.created_at;
+        const poDate = d.approved_ga_at || d.approved_finance_at || d.created_at;
+
         // Alamat: jika company_id = 5 (Waschen) pakai alamat outlet, lainnya pakai alamat company
         const fromAddress = (Number(d.company_id) === 5 && d.outlet_address)
             ? d.outlet_address
             : (d.company_address || "—");
 
         const html = `
-<div class="kop"><div><div class="text-2xl text-900">PT WASCHEN ALORA INDONESIA</div><div class="text-xs text-400" style="margin-top:4px">Alora Group Indonesia</div></div><div class="text-right"><div class="text-xl text-emerald tracking-widest uppercase">Purchase Order</div><div class="text-base text-700" style="margin-top:4px">${d.pr_code}</div><div class="text-xs text-400" style="margin-top:2px">${formatDate(d.approved_ga_at || d.created_at)}</div></div></div>
+<div class="kop"><div><div class="text-2xl text-900">PT WASCHEN ALORA INDONESIA</div><div class="text-xs text-400" style="margin-top:4px">Alora Group Indonesia</div></div><div class="text-right"><div class="text-xl text-emerald tracking-widest uppercase">Purchase Order</div><div class="text-base text-700" style="margin-top:4px">${d.pr_code}</div><div class="text-xs text-400" style="margin-top:2px">${formatDate(poDate)}</div></div></div>
 
 <div class="grid-2">
-  <div class="space-y"><div class="info-item"><div class="info-label">Kategori</div><div class="info-value" style="font-size:14px;font-weight:700">${d.company_name || "—"}</div>${(d.outlet_name || Number(d.company_id) === 5) ? `<div class="info-sub">Outlet: ${d.outlet_name || "Seluruh Outlet"}</div>` : ""}</div><div class="info-item"><div class="info-label">Alamat</div><div class="info-value" style="font-weight:400;white-space:pre-line">${fromAddress}</div></div><div class="info-item"><div class="info-label">Tanggal PO</div><div class="info-value">${formatDate(d.approved_ga_at)}</div></div></div>
+  <div class="space-y"><div class="info-item"><div class="info-label">Kategori</div><div class="info-value" style="font-size:14px;font-weight:700">${d.company_name || "—"}</div>${(d.outlet_name || Number(d.company_id) === 5) ? `<div class="info-sub">Outlet: ${d.outlet_name || "Seluruh Outlet"}</div>` : ""}</div><div class="info-item"><div class="info-label">Alamat</div><div class="info-value" style="font-weight:400;white-space:pre-line">${fromAddress}</div></div><div class="info-item"><div class="info-label">Tanggal PO</div><div class="info-value">${formatDate(poDate)}</div></div></div>
   <div class="space-y"><div class="section-title">Kepada</div><div class="info-item"><div class="info-label">${d.vendor_mode === "link" ? "Sumber" : "Vendor"}</div><div class="info-value" style="font-size:14px;font-weight:700">${vendorDisplay}</div></div>${d.vendor_mode !== "link" && d.vendor_alamat ? `<div class="info-item"><div class="info-label">Alamat</div><div class="info-value" style="font-weight:400">${d.vendor_alamat}</div></div>` : ""}${d.vendor_mode !== "link" && d.vendor_telepon ? `<div class="info-item"><div class="info-label">Telepon</div><div class="info-value" style="font-weight:400">${d.vendor_telepon}</div></div>` : ""}${d.vendor_mode === "link" && d.link_url ? `<div class="info-item"><div class="info-label">URL</div><div class="info-value" style="font-weight:400;color:#059669;word-break:break-all;font-size:11px">${d.link_url}</div></div>` : ""}<div class="info-item"><div class="info-label">Tipe</div><div class="info-value">${d.type === "reimburse" ? "Reimburse" : "Pengajuan Barang"}</div></div>${d.type === "reimburse" ? `<div class="info-item"><div class="info-label">Bank</div><div class="info-value">${toTitleCase(d.bank_name)}</div></div><div class="info-item"><div class="info-label">No. Rekening</div><div class="info-value mono">${d.nomor_rekening || "—"}</div></div><div class="info-item"><div class="info-label">Atas Nama</div><div class="info-value">${toTitleCase(d.atas_nama)}</div></div>` : ""}</div>
 </div>
 
@@ -221,7 +238,7 @@ ${d.alasan_pembelian ? `<div class="note-box"><div class="note-label">Alasan Pem
 ${d.ga_note ? `<div class="note-box"><div class="note-label">Catatan General Affair</div><div class="note-text">${d.ga_note}</div></div>` : ""}
 ${d.finance_note ? `<div class="note-box"><div class="note-label">Catatan Finance</div><div class="note-text">${d.finance_note}</div></div>` : ""}
 
-<div class="grid-3" style="margin-top:24px;margin-bottom:0"><div class="sig-box"><div class="sig-label">Mengajukan</div><div class="sig-space"></div>${d.ga_name ? `<div class="sig-name">${toTitleCase(d.ga_name)}</div><div class="sig-role">General Affair</div><div class="sig-date">${formatDateShort(d.approved_ga_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">General Affair</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Mengetahui</div><div class="sig-space"></div>${hasFinanceApproval ? `<div class="sig-name">${toTitleCase(d.finance_spv_name)}</div><div class="sig-role">Supervisor Finance</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">Supervisor Finance</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Menyetujui</div><div class="sig-space"></div>${hasDirectorApproval ? `<div class="sig-name">${toTitleCase(d.director_name)}</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div></div>
+<div class="grid-3" style="margin-top:24px;margin-bottom:0"><div class="sig-box"><div class="sig-label">Mengajukan</div><div class="sig-space"></div>${submitterName ? `<div class="sig-name">${toTitleCase(submitterName)}</div><div class="sig-role">${submitterRole}</div><div class="sig-date">${formatDateShort(submitterDate)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">${submitterRole}</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Mengetahui</div><div class="sig-space"></div>${hasFinanceApproval ? `<div class="sig-name">${toTitleCase(d.finance_spv_name)}</div><div class="sig-role">Supervisor Finance</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">Supervisor Finance</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div><div class="sig-box"><div class="sig-label">Menyetujui</div><div class="sig-space"></div>${hasDirectorApproval ? `<div class="sig-name">${toTitleCase(d.director_name)}</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date">${formatDateShort(d.approved_finance_at)}</div>` : `<div class="sig-name" style="color:#cbd5e1;font-style:italic">(belum ttd)</div><div class="sig-role">Direktur Alora Group</div><div class="sig-date" style="font-style:italic;color:#d97706">Belum Menyetujui</div>`}</div></div>
 
 <div class="doc-footer"><span>Dicetak: ${new Date().toLocaleString("id-ID")}</span><span>${d.pr_code} · PT Waschen Alora Indonesia</span></div>`;
 
