@@ -1,85 +1,146 @@
-const shortcuts = [
+const Glyph = ({ d }) => (
+    <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+        <path d={d} />
+    </svg>
+);
+
+const units = [
     {
-        id: 1,
-        name: "Alora SuperApp",
-        description: "Satu portal aplikasi untuk manajemen Alora",
-        gradient: "from-[#1a0533] via-[#4b1a8c] to-[#7c3aed]",
-        hoverGradient: "hover:from-[#12022a] hover:via-[#3b1270] hover:to-[#6d28d9]",
-        iconBg: "bg-white/20",
-        icon: (
-            <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-            </svg>
-        ),
-        href: "https://central.waschenalora.com",
+        company: "Waschen Laundry",
+        note: "Layanan laundry ritel",
+        ring: "ring-pink-200/70",
+        chip: "bg-pink-100 text-pink-700",
+        wash: "from-pink-500/10",
+        dot: "bg-pink-500",
+        apps: [
+            {
+                name: "My Waschen",
+                what: "Kasir & transaksi harian outlet",
+                host: "pos.mywaschen.com",
+                icon: <Glyph d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zM7.17 14.75l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49L19.13 4h-.01l-1.1 2-2.76 5H8.53l-.13-.27L6.16 6l-.95-2-.94-2H1v2h2l3.6 7.59-1.35 2.44C5.09 14.37 5 14.67 5 15c0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25z" />,
+            },
+            {
+                name: "Waschen Mobile",
+                what: "Absensi, payroll & data karyawan",
+                host: "app.mywaschen.com",
+                icon: <Glyph d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />,
+            },
+        ],
     },
     {
-        id: 2,
-        name: "IKM Mobile",
-        description: "Aplikasi Tim Produksi IKM",
-        gradient: "from-[#020c1b] via-[#0a2a4a] to-[#0ea5e9]",
-        hoverGradient: "hover:from-[#010810] hover:via-[#071e35] hover:to-[#0284c7]",
-        iconBg: "bg-white/20",
-        icon: (
-            <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14zm-5 2c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
-            </svg>
-        ),
-        href: "https://absensi.ikmalora.com",
+        company: "Cleanox Indonesia",
+        note: "Produksi bahan pembersih",
+        ring: "ring-emerald-200/70",
+        chip: "bg-emerald-100 text-emerald-700",
+        wash: "from-emerald-500/10",
+        dot: "bg-emerald-500",
+        apps: [
+            {
+                name: "Cleanox System",
+                what: "Manajemen produksi & distribusi",
+                host: "app.cleanoxindonesia.com",
+                icon: <Glyph d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 12H7v-2h10v2zm0-4H7V9h10v2zm-3-4H7V5h7v2z" />,
+            },
+            {
+                name: "Cleanox Tracking",
+                what: "Pemantauan armada & pengiriman",
+                host: "central.cleanoxindonesia.com",
+                icon: <Glyph d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />,
+            },
+        ],
     },
     {
-        id: 3,
-        name: "Cleanox Tracking System",
-        description: "Sistem pemantauan Cleanox",
-        gradient: "from-[#022c0a] via-[#065f1e] to-[#16a34a]",
-        hoverGradient: "hover:from-[#011a06] hover:via-[#044a17] hover:to-[#15803d]",
-        iconBg: "bg-white/20",
-        icon: (
-            <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-            </svg>
-        ),
-        href: "https://central.cleanoxindonesia.com",
+        company: "IKM Alora",
+        note: "Laundry linen rumah sakit",
+        ring: "ring-sky-200/70",
+        chip: "bg-sky-100 text-sky-700",
+        wash: "from-sky-500/10",
+        dot: "bg-sky-500",
+        apps: [
+            {
+                name: "IKM Mobile",
+                what: "Absensi & operasional tim produksi",
+                host: "absensi.ikmalora.com",
+                icon: <Glyph d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14zm-5 2c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />,
+            },
+            {
+                name: "Linen Monitoring System",
+                what: "Serah terima linen antar rumah sakit",
+                host: "linen.ikmalora.com",
+                icon: <Glyph d="M15.5 2h-7L6 5.5V22h12V5.5L15.5 2zM12 4.2l1.3 1.8h-2.6L12 4.2zM16 20H8V7.6h8V20zm-6-9h4v1.6h-4V11zm0 3.4h4V16h-4v-1.6z" />,
+            },
+        ],
     },
 ];
 
 export default function AppShortcutsCard() {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {shortcuts.map((app) => (
-                <a
-                    key={app.id}
-                    href={app.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-3 bg-gradient-to-r ${app.gradient} ${app.hoverGradient} rounded-xl px-4 py-3.5 shadow-sm hover:shadow-md transition-all duration-200 group`}
-                >
-                    {/* Icon */}
-                    <div className={`h-11 w-11 rounded-xl ${app.iconBg} flex items-center justify-center flex-shrink-0`}>
-                        {app.icon}
-                    </div>
+        <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 to-white ring-1 ring-slate-200 p-5 sm:p-7">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">
+                    Ekosistem Alora Group
+                </h2>
+            </div>
 
-                    {/* Text */}
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white leading-tight truncate">
-                            {app.name}
-                        </p>
-                        <p className="text-[11px] text-white/70 leading-tight mt-0.5 truncate">
-                            {app.description}
-                        </p>
-                    </div>
-
-                    {/* Chevron */}
-                    <svg
-                        className="h-4 w-4 text-white/60 flex-shrink-0 group-hover:translate-x-0.5 transition-transform duration-150"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+            {/* Unit bisnis */}
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                {units.map((unit) => (
+                    <div
+                        key={unit.company}
+                        className={`relative overflow-hidden rounded-2xl bg-white p-4 ring-1 ${unit.ring}`}
                     >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                </a>
-            ))}
-        </div>
+                        <span
+                            className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${unit.wash} to-transparent`}
+                        />
+
+                        <div className="relative flex items-center gap-2">
+                            <span className={`h-1.5 w-1.5 rounded-full ${unit.dot}`} />
+                            <h3 className="text-sm font-bold text-slate-900">{unit.company}</h3>
+                        </div>
+                        <p className="relative mt-0.5 pl-3.5 text-xs text-slate-400">{unit.note}</p>
+
+                        <ul className="relative mt-3 space-y-1">
+                            {unit.apps.map((app) => (
+                                <li key={app.host}>
+                                    <a
+                                        href={`https://${app.host}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                                    >
+                                        <span
+                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${unit.chip} transition-transform duration-200 group-hover:scale-105`}
+                                        >
+                                            {app.icon}
+                                        </span>
+
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-sm font-semibold text-slate-800">
+                                                {app.name}
+                                            </span>
+                                            <span className="block truncate text-xs text-slate-500">
+                                                {app.what}
+                                            </span>
+                                            <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">
+                                                {app.host}
+                                            </span>
+                                        </span>
+
+                                        <svg
+                                            className="h-4 w-4 shrink-0 text-slate-300 transition-all duration-200 group-hover:text-slate-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7H9m8 0v8" />
+                                        </svg>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+            </div>
+        </section>
     );
 }

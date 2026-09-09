@@ -215,7 +215,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
   };
 
   return (
-    <div className="p-5">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
       {/* Header statis — tanpa toggle */}
       <div className="flex items-center gap-2.5 mb-5">
         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-blue-100">
@@ -247,7 +247,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <p className="text-slate-500 text-sm">Tidak ada menu ditemukan.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredApps.map((app) => (
             <a
               key={app.id}
