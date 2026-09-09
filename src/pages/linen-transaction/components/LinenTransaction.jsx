@@ -10,9 +10,11 @@ import {
   HiOutlineTruck, HiOutlinePrinter
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
-import { exportSerahTerimaLinenExcel } from "../../absensi-ikm/utils/exportSerahTerimaLinenExcel";
-import { exportRekapCuciLinenSewa } from "../../absensi-ikm/utils/exportRekapCuciLinenSewa";
-import exportSuratJalanKurangKirim from "../../absensi-ikm/utils/exportSuratJalanKurangKirimLinen";
+import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
+import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
+import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
+import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
+import EmployeeSearchSelect from "./EmployeeSearchSelect";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -373,6 +375,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [status, setStatus] = useState("PROSES");
   const [notesPickup, setNotesPickup] = useState("");
   const [notesDelivery, setNotesDelivery] = useState("");
+  const [totalKgValet, setTotalKgValet] = useState("");
+  const [totalKgAdmin, setTotalKgAdmin] = useState("");
+  const [isExpress, setIsExpress] = useState(false);
   const [details, setDetails] = useState([]); // Array of { hospital_linen_id, linen_display_name, ownership_type, qty_kotor, qty_bersih, notes, room_ids }
   const [rooms, setRooms] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
@@ -435,6 +440,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       setStatus("PROSES");
       setNotesPickup("");
       setNotesDelivery("");
+      setTotalKgValet("");
+      setTotalKgAdmin("");
+      setIsExpress(false);
       setDetails([]);
       setAuditLogs([]);
       setSigValetPickup(null);
@@ -452,7 +460,21 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     const fetchEmployees = async () => {
       try {
         const res = await api("/ikm/linen-transactions/employees");
-        if (res.success) setEmployees(res.data);
+        if (res.success) {
+          setEmployees((prev) => {
+            const byId = new Map((res.data || []).map((e) => [Number(e.employee_id), e]));
+            prev.forEach((e) => {
+              const key = Number(e.employee_id);
+              if (!byId.has(key)) byId.set(key, e);
+            });
+            return Array.from(byId.values()).sort((a, b) => {
+              const aIkm = Number(a.company_id) === 2 ? 0 : 1;
+              const bIkm = Number(b.company_id) === 2 ? 0 : 1;
+              if (aIkm !== bIkm) return aIkm - bIkm;
+              return String(a.full_name || "").localeCompare(String(b.full_name || ""), "id");
+            });
+          });
+        }
       } catch (err) {
         console.error("Gagal memuat karyawan:", err.message);
       }
@@ -504,6 +526,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           setStatus(header.status || "PROSES");
           setNotesPickup(header.notes_pickup || "");
           setNotesDelivery(header.notes_delivery || "");
+          setTotalKgValet(header.total_kg_valet != null && header.total_kg_valet !== "" ? String(header.total_kg_valet) : "");
+          setTotalKgAdmin(header.total_kg_admin != null && header.total_kg_admin !== "" ? String(header.total_kg_admin) : "");
+          setIsExpress(Number(header.is_express) === 1);
           setDetails(details || []);
           setAuditLogs(auditLogs || []);
           setKurangKirimDeliveries(kurangKirimDeliveries || []);
@@ -513,6 +538,23 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           setSigValetDelivery(header.signature_valet_delivery || null);
           setSigHospitalDelivery(header.signature_hospital_delivery || null);
           setSigAssistantDelivery(header.signature_assistant_delivery || null);
+
+          // Pastikan nama petugas (termasuk di luar company_id / sudah exit) tetap bisa ditampilkan di dropdown
+          setEmployees((prev) => {
+            const byId = new Map(prev.map((e) => [Number(e.employee_id), e]));
+            const ensure = (id, name) => {
+              if (!id) return;
+              const key = Number(id);
+              if (!byId.has(key) && name && name !== "-") {
+                byId.set(key, { employee_id: key, full_name: name });
+              }
+            };
+            ensure(header.user_pickup, header.pickup_by_name);
+            ensure(header.user_delivery, header.delivery_by_name);
+            return Array.from(byId.values()).sort((a, b) =>
+              String(a.full_name || "").localeCompare(String(b.full_name || ""), "id")
+            );
+          });
         } else {
           throw new Error(res.message || "Gagal memuat rincian transaksi");
         }
@@ -557,61 +599,66 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     loadLinens();
   }, [open, hospitalId, mode]);
 
+  const isNullRoomId = (roomId) => roomId == null || roomId === "";
+
+  const matchDetailRoom = (detailRoomId, targetRoomId) => {
+    if (isNullRoomId(targetRoomId)) return isNullRoomId(detailRoomId);
+    return Number(detailRoomId) === Number(targetRoomId);
+  };
+
   const handleQtyChange = (hospitalLinenId, field, value) => {
-    if (!selectedRoomId) return; // Cannot edit in Todos/All rooms mode
+    const targetRoomId = selectedRoomId || null;
 
     setDetails(prev => {
       const existingIdx = prev.findIndex(
-        d => Number(d.hospital_linen_id) === Number(hospitalLinenId) && Number(d.room_id) === Number(selectedRoomId)
+        d => Number(d.hospital_linen_id) === Number(hospitalLinenId) && matchDetailRoom(d.room_id, targetRoomId)
       );
 
       const val = value === "" ? "" : Number(value);
 
       if (existingIdx > -1) {
-        // Update existing row
         const updated = [...prev];
         updated[existingIdx] = { ...updated[existingIdx], [field]: val };
         return updated;
-      } else {
-        // Insert new row for this room
-        return [
-          ...prev,
-          {
-            hospital_linen_id: Number(hospitalLinenId),
-            room_id: Number(selectedRoomId),
-            qty_kotor: field === "qty_kotor" ? val : 0,
-            qty_bersih: field === "qty_bersih" ? val : null,
-            notes: ""
-          }
-        ];
       }
+
+      return [
+        ...prev,
+        {
+          hospital_linen_id: Number(hospitalLinenId),
+          room_id: targetRoomId ? Number(targetRoomId) : null,
+          qty_kotor: field === "qty_kotor" ? val : 0,
+          qty_bersih: field === "qty_bersih" ? val : null,
+          notes: ""
+        }
+      ];
     });
   };
 
   const handleItemNoteChange = (hospitalLinenId, value) => {
-    if (!selectedRoomId) return;
+    const targetRoomId = selectedRoomId || null;
 
     setDetails(prev => {
       const existingIdx = prev.findIndex(
-        d => Number(d.hospital_linen_id) === Number(hospitalLinenId) && Number(d.room_id) === Number(selectedRoomId)
+        d => Number(d.hospital_linen_id) === Number(hospitalLinenId) && matchDetailRoom(d.room_id, targetRoomId)
       );
 
       if (existingIdx > -1) {
         const updated = [...prev];
         updated[existingIdx] = { ...updated[existingIdx], notes: value };
         return updated;
-      } else {
-        return [
-          ...prev,
-          {
-            hospital_linen_id: Number(hospitalLinenId),
-            room_id: Number(selectedRoomId),
-            qty_kotor: 0,
-            qty_bersih: null,
-            notes: value
-          }
-        ];
       }
+
+      return [
+        ...prev,
+        {
+          hospital_linen_id: Number(hospitalLinenId),
+          room_id: targetRoomId ? Number(targetRoomId) : null,
+          qty_kotor: 0,
+          qty_bersih: null,
+          notes: value
+        }
+      ];
     });
   };
 
@@ -637,7 +684,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 
       return allowedLinens.map(l => {
         const existing = details.find(
-          d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id) && Number(d.room_id) === Number(selectedRoomId)
+          d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id) && matchDetailRoom(d.room_id, selectedRoomId)
         );
         return {
           hospital_linen_id: l.hospital_linen_id,
@@ -653,38 +700,21 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       });
     }
 
-    // "Semua Ruangan" Aggregate Mode: all masterLinens, sum qty across rooms (read-only)
+    // Tanpa filter ruangan: boleh isi (room_id null) — untuk RS yang tidak punya ruangan
     return masterLinens.map(l => {
-      const matchedDetails = details.filter(d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id));
-
-      let totalKotor = 0;
-      let totalBersih = null;
-      let hasKotor = false;
-      let hasBersih = false;
-      let notesArr = [];
-
-      matchedDetails.forEach(d => {
-        if (d.qty_kotor !== "" && d.qty_kotor !== null && d.qty_kotor !== undefined) {
-          totalKotor += Number(d.qty_kotor);
-          hasKotor = true;
-        }
-        if (d.qty_bersih !== "" && d.qty_bersih !== null && d.qty_bersih !== undefined) {
-          if (totalBersih === null) totalBersih = 0;
-          totalBersih += Number(d.qty_bersih);
-          hasBersih = true;
-        }
-        if (d.notes) notesArr.push(d.notes);
-      });
+      const existing = details.find(
+        d => Number(d.hospital_linen_id) === Number(l.hospital_linen_id) && isNullRoomId(d.room_id)
+      );
 
       return {
         hospital_linen_id: l.hospital_linen_id,
         linen_display_name: l.linen_display_name,
         ownership_type: l.ownership_type,
         room_id: null,
-        qty_kotor: hasKotor ? totalKotor : 0,
-        qty_bersih: hasBersih ? totalBersih : null,
-        notes: notesArr.join("; "),
-        isEditable: false,
+        qty_kotor: existing ? existing.qty_kotor : "",
+        qty_bersih: existing ? (existing.qty_bersih ?? "") : "",
+        notes: existing ? (existing.notes || "") : "",
+        isEditable: true,
         isMappedToRoom: null
       };
     });
@@ -693,10 +723,14 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   if (!open) return null;
 
   const selectedHospitalName = hospitals.find(h => Number(h.id) === Number(hospitalId))?.hospital_name || "-";
+  const selectedHospitalBillingByKg = Number(hospitals.find(h => Number(h.id) === Number(hospitalId))?.billing_by_kg) === 1;
+  const selectedHospitalAllowExpress = Number(hospitals.find(h => Number(h.id) === Number(hospitalId))?.allow_express) === 1;
+  const showKgFields = selectedHospitalBillingByKg || totalKgValet !== "" || totalKgAdmin !== "";
+  const showExpressField = selectedHospitalAllowExpress || isExpress;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (mode !== "create" && !formNumber.trim()) return setError("Nomor Formulir wajib diisi.");
+    if (mode !== "create" && !formNumber.trim()) return setError("Nomor Surat wajib diisi.");
     if (!hospitalId) return setError("Silakan pilih Rumah Sakit.");
     if (!userPickup) return setError("Silakan pilih Petugas IKM Pickup.");
     if (!pickupDate) return setError("Silakan masukkan Tanggal Pickup.");
@@ -717,6 +751,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
         status,
         notes_pickup: notesPickup || null,
         notes_delivery: notesDelivery || null,
+        total_kg_valet: totalKgValet === "" ? null : Number(totalKgValet),
+        total_kg_admin: totalKgAdmin === "" ? null : Number(totalKgAdmin),
+        is_express: isExpress,
         details: details.map(d => ({
           hospital_linen_id: d.hospital_linen_id,
           room_id: d.room_id ? Number(d.room_id) : null,
@@ -869,7 +906,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 
                     {/* Form Number */}
                     <label className="text-sm text-slate-600">
-                      <span className="mb-1 block text-xs font-semibold text-slate-500">Nomor Formulir</span>
+                      <span className="mb-1 block text-xs font-semibold text-slate-500">Nomor Surat</span>
                       {mode === "create" ? (
                         <div className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-400 italic select-none">
                           Dibuat otomatis oleh sistem
@@ -892,8 +929,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                         onChange={(e) => setStatus(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                       >
-                        <option value="PROSES">⏳ PROSES — Kotor Diterima</option>
-                        <option value="SELESAI">✅ SELESAI — Bersih Dikirim</option>
+                        <option value="PROSES">PROSES — Kotor Diterima</option>
+                        <option value="SELESAI">SELESAI — Bersih Dikirim</option>
                       </select>
                     </label>
                   </div>
@@ -913,20 +950,17 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                     <div className="p-4 space-y-3">
                       <label className="block text-sm text-slate-600">
                         <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
-                          <span>Petugas IKM <strong className="text-rose-505">*</strong></span>
+                          <span>Petugas IKM <strong className="text-rose-500">*</strong></span>
                           {mode !== "create" && renderSignatureStatus(sigValetPickup)}
                         </span>
-                        <select
+                        <EmployeeSearchSelect
                           value={userPickup}
-                          onChange={(e) => setUserPickup(e.target.value)}
+                          onChange={setUserPickup}
+                          employees={employees}
+                          placeholder="Cari / pilih Petugas IKM"
                           required
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                        >
-                          <option value="">Pilih Petugas IKM</option>
-                          {employees.map(emp => (
-                            <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
-                          ))}
-                        </select>
+                          accent="orange"
+                        />
                       </label>
                       <label className="block text-sm text-slate-600">
                         <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
@@ -981,16 +1015,14 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                           <span>Petugas IKM</span>
                           {mode !== "create" && renderSignatureStatus(sigValetDelivery)}
                         </span>
-                        <select
+                        <EmployeeSearchSelect
                           value={userDelivery}
-                          onChange={(e) => setUserDelivery(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                        >
-                          <option value="">Pilih Petugas IKM (Opsional)</option>
-                          {employees.map(emp => (
-                            <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
-                          ))}
-                        </select>
+                          onChange={setUserDelivery}
+                          employees={employees}
+                          placeholder="Cari / pilih Petugas IKM (Opsional)"
+                          accent="emerald"
+                          allowClear
+                        />
                       </label>
                       <label className="block text-sm text-slate-600">
                         <span className="mb-1 flex items-center text-xs font-semibold text-slate-500">
@@ -1054,6 +1086,59 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                     />
                   </label>
                 </div>
+
+                {(showKgFields || showExpressField) && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+                    <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">Kilogram &amp; Express</p>
+                    <div className={cn("grid grid-cols-1 gap-3", showKgFields && showExpressField ? "md:grid-cols-3" : "md:grid-cols-2")}>
+                      {showKgFields && (
+                        <>
+                          <label className="block text-sm text-slate-600">
+                            <span className="mb-1 block text-xs font-semibold text-slate-500">Perhitungan Valet bersama RS</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={totalKgValet}
+                              onChange={(e) => setTotalKgValet(e.target.value)}
+                              placeholder="Opsional"
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                            />
+                          </label>
+                          <label className="block text-sm text-slate-600">
+                            <span className="mb-1 block text-xs font-semibold text-slate-500">Perhitungan Admin IKM</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={totalKgAdmin}
+                              onChange={(e) => setTotalKgAdmin(e.target.value)}
+                              placeholder="Opsional — tidak terlihat di Sistem Linen Valet dan RS"
+                              className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                            />
+                          </label>
+                        </>
+                      )}
+                      {showExpressField && (
+                        <label className="flex items-center gap-2 mt-6 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isExpress}
+                            onChange={(e) => setIsExpress(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="text-sm font-semibold text-slate-700">Express (harga digandakan)</span>
+                        </label>
+                      )}
+                    </div>
+                    {showKgFields && totalKgValet !== "" && totalKgAdmin !== "" && Number(totalKgValet) !== Number(totalKgAdmin) && (
+                      <p className="text-xs font-semibold text-rose-600">
+                        Selisih kg: {(Number(totalKgAdmin) - Number(totalKgValet)).toLocaleString("id-ID", { maximumFractionDigits: 2 })}
+                        {" "}(Admin − Valet)
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* ── SECTION 4: Item Detail Linen ─────────────────────────── */}
                 <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -1124,20 +1209,22 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                             )}
                           </div>
                           {!selectedRoomId ? (
-                            <span className="text-[11px] text-amber-600 font-semibold flex items-center gap-1 animate-pulse">
-                              ⚠️ Pilih ruangan untuk mengisi/mengubah jumlah kotor & bersih.
-                            </span>
+                            rooms.length === 0 ? null : (
+                              <span className="text-[11px] text-slate-500">
+                                Pilih ruangan untuk isi per ruangan
+                              </span>
+                            )
                           ) : !roomHasLinenStandard ? (
-                            <span className="text-[11px] text-amber-700 font-semibold">
-                              Ruangan belum punya standar linen — menampilkan semua linen RS
+                            <span className="text-[11px] text-slate-500">
+                              Menampilkan semua linen RS
                             </span>
                           ) : effectiveShowAllLinens ? (
-                            <span className="text-[11px] text-indigo-600 font-semibold">
-                              Menampilkan semua linen RS (termasuk di luar standar ruangan)
+                            <span className="text-[11px] text-slate-500">
+                              Semua linen RS
                             </span>
                           ) : (
-                            <span className="text-[11px] text-indigo-600 font-semibold">
-                              Menampilkan linen khusus ruangan ini
+                            <span className="text-[11px] text-slate-500">
+                              Linen khusus ruangan ini
                             </span>
                           )}
                         </div>
@@ -1184,7 +1271,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                         type="number"
                                         min="0"
                                         disabled={!detail.isEditable}
-                                        required={detail.isEditable && !effectiveShowAllLinens}
+                                        required={detail.isEditable && Boolean(selectedRoomId) && !effectiveShowAllLinens}
                                         value={detail.qty_kotor}
                                         onChange={(e) => handleQtyChange(detail.hospital_linen_id, "qty_kotor", e.target.value)}
                                         className={cn(
@@ -1218,7 +1305,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                           : selisih < 0 ? "text-blue-600"
                                             : "text-slate-400"
                                     )}>
-                                      {selisih === null ? "—" : selisih === 0 ? "✓" : selisih > 0 ? `+${selisih}` : selisih}
+                                      {selisih === null ? "—" : selisih === 0 ? "0" : selisih > 0 ? `+${selisih}` : selisih}
                                     </td>
                                     <td className="px-2 py-2">
                                       <input
@@ -1936,6 +2023,33 @@ export default function LinenTransaction() {
     }
   };
 
+  const handleExportRekapKg = async () => {
+    setDownloadDropdownOpen(false);
+    if (!hospitalFilter) {
+      showToast("error", "Pilih satu rumah sakit untuk export KG");
+      return;
+    }
+    setExportingRekap(true);
+    try {
+      const q = new URLSearchParams();
+      if (activePeriod.startDate) q.append("startDate", activePeriod.startDate);
+      if (activePeriod.endDate) q.append("endDate", activePeriod.endDate);
+      q.append("hospital_id", hospitalFilter);
+
+      const res = await api(`/ikm/linen-transactions/rekap/kg?${q.toString()}`);
+      if (res.success) {
+        await exportRekapKgLinen(res, activePeriod.startDate, activePeriod.endDate);
+        showToast("success", "File rekap kilogram berhasil diunduh");
+      } else {
+        throw new Error(res.message || "Gagal mengambil data rekap KG");
+      }
+    } catch (err) {
+      showToast("error", "Gagal mengunduh Rekap KG: " + err.message);
+    } finally {
+      setExportingRekap(false);
+    }
+  };
+
   // Fetch Hospitals
   useEffect(() => {
     const loadHospitals = async () => {
@@ -2092,6 +2206,15 @@ export default function LinenTransaction() {
                       <HiOutlineDocumentText className="h-4 w-4 text-emerald-500" />
                       Rekap Cuci Linen RS
                     </button>
+                    {Number(hospitals.find((h) => String(h.id) === String(hospitalFilter))?.billing_by_kg) === 1 && (
+                      <button
+                        onClick={handleExportRekapKg}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition font-semibold"
+                      >
+                        <HiOutlineDocumentText className="h-4 w-4 text-amber-500" />
+                        Rekap Kilogram
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -2284,9 +2407,10 @@ export default function LinenTransaction() {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap w-16">No</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">No Surat</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Rumah Sakit</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tanggal Pickup</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tanggal Pengantaran</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Pickup</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Pengantaran</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Kotor</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Bersih</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Kurang Kirim</th>
@@ -2297,14 +2421,14 @@ export default function LinenTransaction() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, idx) => (
                     <tr key={idx} className="border-t border-slate-100 animate-pulse">
-                      {Array.from({ length: 8 }).map((_, i) => (
+                      {Array.from({ length: 9 }).map((_, i) => (
                         <td key={i} className="px-4 py-3.5"><div className="h-3.5 rounded bg-slate-200 w-full" /></td>
                       ))}
                     </tr>
                   ))
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">
+                    <td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">
                       Tidak ada data transaksi linen yang ditemukan.
                     </td>
                   </tr>
@@ -2323,6 +2447,7 @@ export default function LinenTransaction() {
                         className="border-t border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         <td className="px-4 py-3.5 text-center text-xs font-medium text-slate-400 tabular-nums">{number}</td>
+                        <td className="px-4 py-3.5 text-xs font-semibold text-slate-700 whitespace-nowrap">{row.form_number || "—"}</td>
                         <td className="px-4 py-3.5 text-xs font-bold text-slate-800">{row.hospital_name}</td>
                         <td className="px-4 py-3.5 text-center text-xs text-slate-500">{fmtDate(row.pickup_date)}</td>
                         <td className="px-4 py-3.5 text-center text-xs text-slate-500">{fmtDate(row.delivery_date) || "-"}</td>
