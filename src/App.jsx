@@ -55,6 +55,7 @@ import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen"
 import MasterSize from "./pages/master-rs-ikm/components/MasterData/MasterSize";
 import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor";
 import MasterMaterial from "./pages/master-rs-ikm/components/MasterData/MasterMaterial";
+import MasterUnit from "./pages/master-rs-ikm/components/MasterData/MasterUnit";
 import MasterLinenCategory from "./pages/master-rs-ikm/components/MasterData/MasterLinenCategory";
 import MasterVendorIKM from "./pages/master-rs-ikm/components/MasterData/MasterVendor";
 import MasterRoomsIKM from "./pages/master-rs-ikm/components/MasterData/MasterRoomsIKM";
@@ -141,6 +142,7 @@ import DashboardInventory from "./pages/my-waschen/components/Inventory/Dashboar
 import AbsensiWaschen from "./pages/my-waschen/components/HRIS/Absensi";
 import PerizinanWaschen from "./pages/my-waschen/components/HRIS/Perizinan";
 import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
+import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import TrainingManagementSystem from "./pages/training-system";
@@ -405,6 +407,7 @@ export default function App() {
           <Route path="/master-data-ikm/size" element={<MasterSize />} />
           <Route path="/master-data-ikm/color" element={<MasterColor />} />
           <Route path="/master-data-ikm/material" element={<MasterMaterial />} />
+          <Route path="/master-data-ikm/unit" element={<MasterUnit />} />
           <Route path="/master-data-ikm/category" element={<MasterLinenCategory />} />
           <Route path="/master-data-ikm/vendor" element={<MasterVendorIKM />} />
           <Route path="/master-data-ikm/rooms" element={<MasterRoomsIKM />} />
@@ -639,6 +642,7 @@ export default function App() {
           <Route path="/my-waschen/hris/absensi" element={<AbsensiWaschen />} />
           <Route path="/my-waschen/hris/perizinan" element={<PerizinanWaschen />} />
           <Route path="/my-waschen/hris/kasbon" element={<KasbonWaschen />} />
+          <Route path="/my-waschen/hris/overtime" element={<OvertimeWaschen />} />
           <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
           <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />

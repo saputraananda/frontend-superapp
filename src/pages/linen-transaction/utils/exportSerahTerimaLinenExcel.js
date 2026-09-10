@@ -22,6 +22,18 @@ function fmtKg(v) {
   return `${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`;
 }
 
+function toNumber(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtRp(v) {
+  const n = toNumber(v);
+  if (n === null) return "-";
+  return `Rp ${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })}`;
+}
+
 function buildProxySigUrl(sig) {
   if (!sig) return null;
   if (
@@ -241,6 +253,39 @@ export async function exportSerahTerimaLinenExcel(transactionData) {
   kgRow2.height = 20;
   styleMetaLabel(kgRow2.getCell(1));
   styleMetaValue(kgRow2.getCell(2));
+
+  // ── Tarif per kg (express punya harga khusus, bukan kelipatan tarif reguler) ─
+  if (Number(header.billing_by_kg) === 1) {
+    const regularPrice = toNumber(header.price_per_kg);
+    // Express default 2x harga reguler, kecuali RS punya tarif khusus
+    const customExpressPrice = toNumber(header.express_price_per_kg);
+    const expressPrice =
+      customExpressPrice != null
+        ? customExpressPrice
+        : regularPrice != null
+          ? regularPrice * 2
+          : null;
+    const unitPrice = isExpress ? expressPrice : regularPrice;
+    const billedKg = toNumber(header.total_kg_admin) ?? toNumber(header.total_kg_valet);
+
+    const priceRow = ws.addRow([
+      isExpress ? "Tarif Express per Kg" : "Tarif Reguler per Kg",
+      fmtRp(unitPrice),
+      "",
+      "",
+      "Estimasi Biaya",
+      unitPrice != null && billedKg != null ? fmtRp(unitPrice * billedKg) : "-",
+      "",
+    ]);
+    ws.mergeCells(`B${priceRow.number}:D${priceRow.number}`);
+    ws.mergeCells(`F${priceRow.number}:G${priceRow.number}`);
+    priceRow.height = 20;
+    styleMetaLabel(priceRow.getCell(1));
+    styleMetaValue(priceRow.getCell(2));
+    styleMetaLabel(priceRow.getCell(5));
+    styleMetaValue(priceRow.getCell(6));
+    priceRow.getCell(6).font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
+  }
 
   // Selisih kg jika keduanya terisi
   const kgValet = header.total_kg_valet !== null && header.total_kg_valet !== undefined && header.total_kg_valet !== ""

@@ -77,7 +77,8 @@ const EMPTY_FORM = {
   linen_id: "",
   hospital_linen_name: "",
   ownership_type: "MILIK_RS",
-  unit: "PCS",
+  unit_id: 2, // PCS
+
   grammage: "",
   washing_price_type: "PCS",
   washing_price: "",
@@ -115,6 +116,7 @@ const autoTotal = (form, override, hasRooms = false) => {
 export default function HospitalLinenPage({ hospitalId }) {
   const [items, setItems] = useState([]);
   const [linenList, setLinenList] = useState([]);
+  const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hospitalName, setHospitalName] = useState("");
   const [hospitalRooms, setHospitalRooms] = useState([]);
@@ -194,8 +196,16 @@ export default function HospitalLinenPage({ hospitalId }) {
     } catch { /* silent */ }
   }, []);
 
+  const fetchUnits = useCallback(async () => {
+    try {
+      const r = await api("/ikm/master-linen/units");
+      setUnits(Array.isArray(r) ? r : r.data || []);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => { fetchItems(); }, [fetchItems]);
   useEffect(() => { fetchLinenList(); }, [fetchLinenList]);
+  useEffect(() => { fetchUnits(); }, [fetchUnits]);
 
   const openAdd = () => {
     setEditTarget(null);
@@ -278,7 +288,7 @@ export default function HospitalLinenPage({ hospitalId }) {
       linen_id: item.linen_id,
       hospital_linen_name: item.hospital_linen_name || "",
       ownership_type: item.ownership_type,
-      unit: item.unit,
+      unit_id: Number(item.unit_id) || 2,
       grammage: item.grammage != null ? String(item.grammage) : "",
       washing_price_type: item.washing_price_type,
       washing_price: item.washing_price != null && item.washing_price !== 0 ? String(item.washing_price) : "",
@@ -619,7 +629,7 @@ export default function HospitalLinenPage({ hospitalId }) {
                     <td className="px-2 py-3 text-xs font-semibold text-slate-700">
                       {a.is_commercial ? "Ya" : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="px-2 py-3 text-slate-600 text-xs">{a.unit}</td>
+                    <td className="px-2 py-3 text-slate-600 text-xs">{a.unit_name || a.unit}</td>
                     <td className="px-2 py-3 text-slate-600 text-xs">{a.grammage ? `${a.grammage}g` : <span className="text-slate-300">—</span>}</td>
                     <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{a.washing_price_type === "KG" ? `${formatRupiah(a.washing_price)}/Kg` : formatRupiah(a.washing_price)}</td>
                     <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{formatRupiah(a.rental_price)}</td>
@@ -731,7 +741,15 @@ export default function HospitalLinenPage({ hospitalId }) {
                     <p className="mt-1 text-[11px] text-slate-400">Muncul di modul Serah Terima / Kurang Kirim Komersil (Alsa &amp; Linen Monitoring)</p>
                   </Field>
                   <Field label="Satuan">
-                    <input className={inputCls} placeholder="PCS" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                    <select
+                      className={inputCls}
+                      value={form.unit_id}
+                      onChange={(e) => setForm({ ...form, unit_id: Number(e.target.value) })}
+                    >
+                      {units.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
                   </Field>
                   <Field label="Gramasi (g)">
                     <input className={inputCls} type="number" step="0.01" min="0" placeholder="150" value={form.grammage} onChange={(e) => setForm({ ...form, grammage: e.target.value })} onWheel={(e) => e.target.blur()} />

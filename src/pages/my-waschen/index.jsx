@@ -91,6 +91,12 @@ const MENU_SECTIONS = [
         description: "Approval kasbon & pinjaman",
       },
       {
+        to: "/my-waschen/hris/overtime",
+        icon: HiOutlineClock,
+        label: "Lembur",
+        description: "Pantau & ACC pengajuan lembur",
+      },
+      {
         to: "/my-waschen/hris/jadwal-libur",
         icon: HiOutlineSun,
         label: "Jadwal Libur",

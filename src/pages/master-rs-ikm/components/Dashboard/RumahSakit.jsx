@@ -131,7 +131,25 @@ const EMPTY_FORM = {
 	billing_by_kg: false,
 	allow_express: false,
 	price_per_kg: "",
+	express_price_per_kg: "",
 	rooms: [],
+};
+
+// Harga ditampilkan dengan pemisah ribuan (id-ID), disimpan sebagai angka polos
+const toPriceInput = (v) => {
+	if (v == null || v === "") return "";
+	const n = Number(v);
+	return Number.isFinite(n) ? n.toLocaleString("id-ID") : "";
+};
+
+const parsePriceInput = (v) => {
+	const digits = String(v ?? "").replace(/\D/g, "");
+	return digits === "" ? "" : digits;
+};
+
+const formatPriceInput = (v) => {
+	const digits = parsePriceInput(v);
+	return digits === "" ? "" : Number(digits).toLocaleString("id-ID");
 };
 
 // ── Toast ────────────────────────────────────────────────────────────────
@@ -205,10 +223,8 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			password_to_valet: initial.password_to_valet ?? "",
 			billing_by_kg: Boolean(Number(initial.billing_by_kg)),
 			allow_express: Boolean(Number(initial.allow_express)),
-			price_per_kg:
-				initial.price_per_kg != null && initial.price_per_kg !== ""
-					? String(initial.price_per_kg)
-					: "",
+			price_per_kg: toPriceInput(initial.price_per_kg),
+			express_price_per_kg: toPriceInput(initial.express_price_per_kg),
 		};
 	});
 	const [newRoom, setNewRoom] = useState("");
@@ -432,7 +448,11 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-		onSubmit(form);
+		onSubmit({
+			...form,
+			price_per_kg: parsePriceInput(form.price_per_kg),
+			express_price_per_kg: parsePriceInput(form.express_price_per_kg),
+		});
 	};
 
 	const inputCls =
@@ -529,20 +549,42 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 						<div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3.5 space-y-3">
 							<div>
 								<label className={labelCls}>
-									Harga per Kilogram (Rp) <span className="text-red-500">*</span>
+									Harga Reguler per Kilogram (Rp) <span className="text-red-500">*</span>
 								</label>
 								<input
 									required
-									type="number"
-									min="0"
-									step="1"
+									type="text"
+									inputMode="numeric"
 									className={inputCls}
 									value={form.price_per_kg}
-									onChange={set("price_per_kg")}
-									placeholder="Contoh: 7700"
+									onChange={(e) =>
+										setForm((f) => ({ ...f, price_per_kg: formatPriceInput(e.target.value) }))
+									}
+									placeholder="Contoh: 7.700"
 								/>
 								<p className="mt-1 text-[11px] text-slate-500">
-									Dipakai di rekap biaya laundry kilogram. Perubahan harga akan tercatat di histori.
+									Tarif layanan non-express. Dipakai di rekap biaya laundry kilogram. Perubahan harga akan tercatat di histori.
+								</p>
+							</div>
+
+							<div>
+								<label className={labelCls}>Harga Express per Kilogram (Rp)</label>
+								<input
+									type="text"
+									inputMode="numeric"
+									className={inputCls}
+									value={form.express_price_per_kg}
+									onChange={(e) =>
+										setForm((f) => ({ ...f, express_price_per_kg: formatPriceInput(e.target.value) }))
+									}
+									placeholder={
+										parsePriceInput(form.price_per_kg)
+											? `Kosongkan untuk 2x otomatis (${(Number(parsePriceInput(form.price_per_kg)) * 2).toLocaleString("id-ID")})`
+											: "Kosongkan untuk 2x harga reguler"
+									}
+								/>
+								<p className="mt-1 text-[11px] text-slate-500">
+									Isi hanya jika tarif express RS ini bukan 2x harga reguler. Kosongkan = otomatis 2x.
 								</p>
 							</div>
 
@@ -569,6 +611,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 													<div key={log.id} className="px-3 py-2 text-[11px]">
 														<div className="flex items-center justify-between gap-2">
 															<span className="font-semibold text-slate-700">
+																{log.price_type === "EXPRESS" ? "Express" : "Reguler"}:{" "}
 																{fmtRp(log.old_price)} → {fmtRp(log.new_price)}
 															</span>
 															<span className={`font-bold ${pctCls}`}>{fmtPct(log.change_percent)}</span>
@@ -1254,11 +1297,23 @@ export default function RumahSakitPage() {
 									</div>
 									{Number(detailModal.billing_by_kg) === 1 && (
 										<div>
-											<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Harga per Kilogram</label>
+											<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Harga Reguler per Kilogram</label>
 											<div className="text-xs font-semibold text-slate-700">
 												{detailModal.price_per_kg != null && detailModal.price_per_kg !== ""
 													? `Rp ${Number(detailModal.price_per_kg).toLocaleString("id-ID")}`
 													: "—"}
+											</div>
+										</div>
+									)}
+									{Number(detailModal.billing_by_kg) === 1 && (
+										<div>
+											<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Harga Express per Kilogram</label>
+											<div className="text-xs font-semibold text-slate-700">
+												{detailModal.express_price_per_kg != null && detailModal.express_price_per_kg !== ""
+													? `Rp ${Number(detailModal.express_price_per_kg).toLocaleString("id-ID")}`
+													: detailModal.price_per_kg != null && detailModal.price_per_kg !== ""
+														? `Rp ${(Number(detailModal.price_per_kg) * 2).toLocaleString("id-ID")} (2x otomatis)`
+														: "—"}
 											</div>
 										</div>
 									)}
@@ -1290,6 +1345,7 @@ export default function RumahSakitPage() {
 														<div key={log.id} className="px-2.5 py-1.5 text-[11px]">
 															<div className="flex justify-between gap-2">
 																<span className="font-semibold text-slate-700">
+																	{log.price_type === "EXPRESS" ? "Express: " : "Reguler: "}
 																	{(log.old_price != null ? Number(log.old_price).toLocaleString("id-ID") : "—")}
 																	{" → "}
 																	{(log.new_price != null ? Number(log.new_price).toLocaleString("id-ID") : "—")}

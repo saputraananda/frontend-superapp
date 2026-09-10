@@ -191,7 +191,22 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
   ws1.getRow(h1).height = 20;
   ws1.getRow(h2).height = 18;
 
-  const addJenisRow = (no, label, dayValues) => {
+  const toPrice = (v) => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const regularPrice = toPrice(hospital.price_per_kg);
+  // Express default 2x harga reguler; sebagian RS punya tarif khusus (bukan 2x)
+  const customExpressPrice = toPrice(hospital.express_price_per_kg);
+  const expressPrice =
+    customExpressPrice != null
+      ? customExpressPrice
+      : regularPrice != null
+        ? regularPrice * 2
+        : null;
+
+  const addJenisRow = (no, label, dayValues, unitPrice) => {
     const row = ws1.addRow([]);
     const r = row.number;
     ws1.getCell(r, 1).value = no;
@@ -218,10 +233,7 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
 
     // HARGA dari Master RS (bisa diubah manual di Excel)
     const hargaCell = ws1.getCell(r, hargaCol);
-    const masterPrice = hospital.price_per_kg != null && hospital.price_per_kg !== ""
-      ? Number(hospital.price_per_kg)
-      : null;
-    hargaCell.value = masterPrice != null && Number.isFinite(masterPrice) ? masterPrice : null;
+    hargaCell.value = unitPrice != null ? unitPrice : null;
     hargaCell.numFmt = "#,##0";
     applyCellBorderCenter(hargaCell);
 
@@ -239,8 +251,8 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     return r;
   };
 
-  const rowRegular = addJenisRow(1, "Linen", regularDays);
-  const rowExpress = addJenisRow(2, "Linen Express", expressDays);
+  const rowRegular = addJenisRow(1, "Linen", regularDays, regularPrice);
+  const rowExpress = addJenisRow(2, "Linen Express", expressDays, expressPrice);
 
   // TOTAL row
   const totalRowNum = ws1.addRow([]).number;
@@ -389,21 +401,23 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     { width: 10 },
     { width: 12 },
     { width: 12 },
+    { width: 14 },
+    { width: 16 },
   ];
 
   const title2 = ws2.addRow(["REKAPITULASI BIAYA LAUNDRY LINEN KILOGRAM (EXPRESS)"]);
-  ws2.mergeCells(1, 1, 1, 11);
+  ws2.mergeCells(1, 1, 1, 13);
   title2.getCell(1).font = { bold: true, size: 14, color: { argb: TEXT } };
   title2.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
   title2.height = 24;
 
   const hosp2 = ws2.addRow([String(hospitalName || "-").toUpperCase()]);
-  ws2.mergeCells(2, 1, 2, 11);
+  ws2.mergeCells(2, 1, 2, 13);
   hosp2.getCell(1).font = { bold: true, size: 12, color: { argb: TEXT } };
   hosp2.getCell(1).alignment = { horizontal: "center" };
 
   const per2 = ws2.addRow([`Bulan : ${monthLabel}`]);
-  ws2.mergeCells(3, 1, 3, 11);
+  ws2.mergeCells(3, 1, 3, 13);
   per2.getCell(1).font = { bold: true, size: 11, color: { argb: TEXT } };
   per2.getCell(1).alignment = { horizontal: "center" };
 
@@ -421,6 +435,8 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     "Express",
     "Pcs Kotor",
     "Pcs Bersih",
+    "Harga/Kg (Rp)",
+    "Jumlah (Rp)",
   ]);
   header2.height = 22;
   header2.eachCell((cell) => {
@@ -449,6 +465,9 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     const hasAdmin = admin != null && Number.isFinite(admin);
     const selisih = hasValet && hasAdmin ? admin - valet : null;
     const isExpress = Number(row.is_express) === 1;
+    const unitPrice = isExpress ? expressPrice : regularPrice;
+    const billedKg = pickKg(row);
+    const amount = unitPrice != null ? unitPrice * billedKg : null;
 
     const dataRow = ws2.addRow([
       idx + 1,
@@ -462,6 +481,8 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
       isExpress ? "Ya" : "Tidak",
       Number(row.total_kotor || 0),
       Number(row.total_bersih || 0),
+      unitPrice != null ? unitPrice : "-",
+      amount != null ? Number(amount.toFixed(2)) : "-",
     ]);
     dataRow.height = 20;
     dataRow.eachCell((cell) => {
@@ -472,11 +493,13 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_BLUE } };
       }
     });
+    if (unitPrice != null) dataRow.getCell(12).numFmt = "#,##0";
+    if (amount != null) dataRow.getCell(13).numFmt = "#,##0";
   });
 
   if (details.length === 0) {
     const empty = ws2.addRow(["Tidak ada data pada periode ini"]);
-    ws2.mergeCells(empty.number, 1, empty.number, 11);
+    ws2.mergeCells(empty.number, 1, empty.number, 13);
     empty.getCell(1).alignment = { horizontal: "center" };
     empty.getCell(1).font = { italic: true, color: { argb: GRAY } };
   }
