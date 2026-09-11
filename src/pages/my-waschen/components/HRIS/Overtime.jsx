@@ -40,11 +40,12 @@ import {
 
 /**
  * MEMORY: Halaman Lembur Alsa — style sama Perizinan/Kasbon.
- * Pantau + ACC/reject + detail pengerjaan (nota, item, KG/PCS, flag KPI).
+ * Pantau sesi start/close + ACC/reject + detail pengerjaan.
  */
 
 const STATUS_FILTERS = [
   { key: "Semua", label: "Semua" },
+  { key: "berlangsung", label: "Berlangsung" },
   { key: "pengajuan", label: "Pengajuan" },
   { key: "disetujui", label: "Disetujui" },
   { key: "ditolak", label: "Ditolak" },
@@ -74,6 +75,7 @@ function OvertimeMobileCard({ row, submitting, onApprove, onReject, onDetail }) 
       </div>
       <p className="text-[11px] text-slate-600">
         {fmtDateShort(row.overtime_date)} · {fmtTime(row.start_time)}–{fmtTime(row.end_time)}
+        {row.status === "berlangsung" ? " (aktif)" : ""}
       </p>
       <p className="text-[11px] text-slate-500 line-clamp-2">{row.reason}</p>
       <div className="flex gap-1.5 pt-1">
@@ -103,7 +105,7 @@ export default function Overtime() {
   const { sort, toggle: toggleSort, apply: applySort } = useSort({ col: "created_at", dir: "desc" });
 
   const [rows, setRows] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, pengajuan: 0, disetujui: 0, ditolak: 0, dibatalkan: 0 });
+  const [summary, setSummary] = useState({ total: 0, berlangsung: 0, pengajuan: 0, disetujui: 0, ditolak: 0, dibatalkan: 0 });
   const [statusFilter, setStatusFilter] = useState("pengajuan");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -131,7 +133,7 @@ export default function Overtime() {
       if (search.trim()) q.set("search", search.trim());
       const res = await api(`/waschen/hris/overtime?${q}`);
       setRows(res.data || []);
-      setSummary(res.summary || { total: 0, pengajuan: 0, disetujui: 0, ditolak: 0, dibatalkan: 0 });
+      setSummary(res.summary || { total: 0, berlangsung: 0, pengajuan: 0, disetujui: 0, ditolak: 0, dibatalkan: 0 });
     } catch (err) {
       showToast("error", err.message || "Gagal memuat lembur");
       setRows([]);
@@ -226,8 +228,12 @@ export default function Overtime() {
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total</p>
           <p className="mt-1 text-xl sm:text-2xl font-bold text-slate-800">{summary.total}</p>
         </div>
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-sky-700"><HiOutlineClock className="h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-wider">Berlangsung</p></div>
+          <p className="mt-1 text-xl sm:text-2xl font-bold text-sky-800">{summary.berlangsung || 0}</p>
+        </div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-amber-700"><HiOutlineClock className="h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-wider">Menunggu</p></div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pengajuan</p>
           <p className="mt-1 text-xl sm:text-2xl font-bold text-amber-800">{summary.pengajuan}</p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 sm:p-4 shadow-sm">
@@ -237,10 +243,6 @@ export default function Overtime() {
         <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-3 sm:p-4 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Ditolak</p>
           <p className="mt-1 text-xl sm:text-2xl font-bold text-rose-800">{summary.ditolak}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dibatalkan</p>
-          <p className="mt-1 text-xl sm:text-2xl font-bold text-slate-700">{summary.dibatalkan || 0}</p>
         </div>
       </div>
 
