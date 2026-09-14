@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineMagnifyingGlass,
-  HiOutlineClock,
   HiOutlineCheckCircle,
   HiOutlineExclamationTriangle,
   HiOutlineArrowPath,
@@ -16,6 +15,7 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
@@ -41,6 +41,34 @@ function fmtDate(v) {
   });
 }
 
+function startOfLocalDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function getAging(v) {
+  if (!v) return { days: null, label: "—", dateLabel: "—" };
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return { days: null, label: "—", dateLabel: String(v) };
+  const days = Math.max(0, Math.round((startOfLocalDay(new Date()) - startOfLocalDay(d)) / 86400000));
+  return {
+    days,
+    label: days === 0 ? "Today" : `${days}D`,
+    dateLabel: d.toLocaleDateString("id-ID", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }),
+  };
+}
+
+function agingTone(days) {
+  if (days == null) return "border-slate-200 bg-slate-50 text-slate-500";
+  if (days === 0) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (days <= 2) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-rose-200 bg-rose-50 text-rose-700";
+}
+
 function readLoggedInEmployee() {
   try {
     const raw = localStorage.getItem("user");
@@ -58,12 +86,37 @@ function statusBadge(status) {
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
+function StatCell({ label, value, hint, valueClass }) {
+  return (
+    <div className="relative flex h-full min-h-[6.25rem] flex-col border-b border-slate-100 px-4 py-3.5 last:border-b-0 sm:px-5 sm:py-4 lg:border-b-0 lg:after:absolute lg:after:inset-y-4 lg:after:right-0 lg:after:w-px lg:after:bg-slate-100 lg:last:after:hidden">
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+      <p className={cn("mt-1.5 truncate text-xl font-semibold tabular-nums tracking-tight sm:text-2xl", valueClass)}>
+        {value}
+      </p>
+      <p className="mt-auto truncate pt-2 text-[11px] leading-4 text-slate-400">{hint || "\u00a0"}</p>
+    </div>
+  );
+}
+
 const STATUS_FILTERS = ["Semua", "Pengajuan", "Disetujui", "Ditolak"];
-const EMPTY_FORM = { outletId: "", type: "Keluar", category: "", amount: "", description: "" };
+const EMPTY_FORM = { outletId: "", type: "Keluar", category: "", amount: "", description: "", isPettyCash: true };
+
+const EMPTY_SUMMARY = {
+  total: 0,
+  pendingCount: 0,
+  approvedCount: 0,
+  rejectedCount: 0,
+  currentBalance: null,
+  hasOpenShift: false,
+  cutoffOut: 0,
+  cutoffIn: 0,
+  cutoffCentralOut: 0,
+};
 
 export default function PettyCash() {
+  const cutoff = useCutoffPeriod();
   const [rows, setRows] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, pendingCount: 0, approvedCount: 0, rejectedCount: 0 });
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [outlets, setOutlets] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -109,19 +162,25 @@ export default function PettyCash() {
       if (outletId) q.set("outletId", outletId);
       if (statusFilter !== "Semua") q.set("status", statusFilter);
       if (search.trim()) q.set("search", search.trim());
+      if (cutoff.dateFrom) q.set("dateFrom", cutoff.dateFrom);
+      if (cutoff.dateTo) q.set("dateTo", cutoff.dateTo);
+      const sq = new URLSearchParams();
+      if (outletId) sq.set("outletId", outletId);
+      if (cutoff.dateFrom) sq.set("dateFrom", cutoff.dateFrom);
+      if (cutoff.dateTo) sq.set("dateTo", cutoff.dateTo);
       const [listRes, sumRes] = await Promise.all([
         api(`/waschen/petty-cash?${q}`),
-        api(`/waschen/petty-cash/summary${outletId ? `?outletId=${outletId}` : ""}`),
+        api(`/waschen/petty-cash/summary?${sq}`),
       ]);
       setRows(listRes.data || []);
-      setSummary(sumRes.data || { total: 0, pendingCount: 0, approvedCount: 0, rejectedCount: 0 });
+      setSummary({ ...EMPTY_SUMMARY, ...(sumRes.data || {}) });
     } catch (err) {
       showToast("error", err.message || "Gagal memuat petty cash");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [outletId, statusFilter, search]);
+  }, [outletId, statusFilter, search, cutoff.dateFrom, cutoff.dateTo]);
 
   useEffect(() => {
     loadMeta();
@@ -157,6 +216,7 @@ export default function PettyCash() {
       category: row.category || "",
       amount: String(row.amount ?? ""),
       description: row.description || "",
+      isPettyCash: row.isPettyCash !== false,
     });
     setModalEmployeeId(loggedInEmployee?.employee_id ? String(loggedInEmployee.employee_id) : "");
     setRejectReason("");
@@ -195,6 +255,7 @@ export default function PettyCash() {
         category: editForm.category.trim(),
         amount: Number(editForm.amount),
         description: editForm.description.trim() || null,
+        isPettyCash: editForm.isPettyCash !== false,
       }),
     });
     return true;
@@ -312,37 +373,47 @@ export default function PettyCash() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Transaksi</p>
-          <p className="mt-1 text-2xl font-bold text-slate-800">{summary.total}</p>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div
+          className={cn(
+            "grid grid-cols-2 divide-y divide-slate-100 md:grid-cols-3 md:divide-y-0",
+            outletId ? "lg:grid-cols-6" : "lg:grid-cols-5"
+          )}
+        >
+          <StatCell label="Total" value={summary.total} hint="Semua status" valueClass="text-slate-800" />
+          <StatCell label="Menunggu" value={summary.pendingCount} hint="Perlu review" valueClass="text-amber-700" />
+          <StatCell label="Disetujui" value={summary.approvedCount} hint="Sudah lolos" valueClass="text-emerald-700" />
+          <StatCell label="Ditolak" value={summary.rejectedCount} hint="Tidak disetujui" valueClass="text-rose-700" />
+          {outletId && (
+            <StatCell
+              label="Saldo petty cash"
+              value={fmtIDR(summary.currentBalance)}
+              hint={summary.hasOpenShift ? "Shift sedang terbuka" : "Tidak ada shift terbuka"}
+              valueClass="text-[#5f1340]"
+            />
+          )}
+          <StatCell
+            label="Pengeluaran cutoff"
+            value={fmtIDR(summary.cutoffOut)}
+            hint={
+              Number(summary.cutoffCentralOut) > 0
+                ? `${cutoff.periodLabel} · Central ${fmtIDR(summary.cutoffCentralOut)}`
+                : cutoff.periodLabel
+            }
+            valueClass="text-slate-800"
+          />
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-amber-700">
-            <HiOutlineClock className="h-4 w-4" />
-            <p className="text-[10px] font-bold uppercase tracking-wider">Menunggu</p>
-          </div>
-          <p className="mt-1 text-2xl font-bold text-amber-800">{summary.pendingCount}</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Disetujui</p>
-          <p className="mt-1 text-2xl font-bold text-emerald-800">{summary.approvedCount}</p>
-        </div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Ditolak</p>
-          <p className="mt-1 text-2xl font-bold text-rose-800">{summary.rejectedCount}</p>
-        </div>
-      </div>
+      </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 p-4">
-          <div className="flex flex-wrap items-center gap-2 flex-1">
-            <div className="relative min-w-[180px]">
+        <div className="space-y-2 border-b border-slate-100 p-3 sm:p-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="relative min-w-0">
               <HiOutlineBuildingStorefront className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <select
                 value={outletId}
                 onChange={(e) => setOutletId(e.target.value)}
-                className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10"
+                className="w-full min-w-0 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10"
               >
                 <option value="">Semua outlet</option>
                 {outlets.map((o) => (
@@ -353,24 +424,81 @@ export default function PettyCash() {
               </select>
               <HiOutlineChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
-            <div className="relative min-w-[180px] flex-1 max-w-sm">
-              <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <div className="relative min-w-0">
+              <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cari kategori, keterangan, outlet..."
-                className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]/40"
+                placeholder="Cari kategori, keterangan..."
+                className="w-full min-w-0 rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]/40"
               />
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <select
+              value={cutoff.isCustomDate ? "custom" : "cutoff"}
+              onChange={(e) => {
+                const nextCustom = e.target.value === "custom";
+                if (nextCustom !== cutoff.isCustomDate) cutoff.toggleCustom();
+              }}
+              className="col-span-2 min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 sm:col-span-1"
+            >
+              <option value="cutoff">Cutoff</option>
+              <option value="custom">Custom tanggal</option>
+            </select>
+            {cutoff.isCustomDate ? (
+              <>
+                <input
+                  type="date"
+                  value={cutoff.dateFrom || ""}
+                  onChange={(e) => cutoff.handleCustomStartChange(e.target.value)}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40"
+                />
+                <input
+                  type="date"
+                  value={cutoff.dateTo || ""}
+                  min={cutoff.dateFrom || undefined}
+                  onChange={(e) => cutoff.setDateTo(e.target.value)}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40"
+                />
+              </>
+            ) : (
+              <>
+                <select
+                  value={cutoff.selectedMonth}
+                  onChange={(e) => cutoff.setSelectedMonth(Number(e.target.value))}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40"
+                >
+                  {cutoff.monthOptions.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={cutoff.selectedYear}
+                  onChange={(e) => cutoff.handleYearChange(e.target.value)}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40"
+                >
+                  {cutoff.years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+
+          <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5">
             {STATUS_FILTERS.map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => setStatusFilter(f)}
                 className={cn(
-                  "rounded-xl border px-3 py-1.5 text-xs font-semibold",
+                  "shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold",
                   statusFilter === f
                     ? "bg-[#5f1340] text-white border-[#5f1340]"
                     : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -379,7 +507,11 @@ export default function PettyCash() {
                 {f}
               </button>
             ))}
-            <button type="button" onClick={load} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+            <button
+              type="button"
+              onClick={load}
+              className="ml-auto shrink-0 rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+            >
               <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
             </button>
           </div>
@@ -390,9 +522,11 @@ export default function PettyCash() {
             <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Waktu</th>
+                <th className="px-4 py-3 font-semibold">Aging</th>
                 <th className="px-4 py-3 font-semibold">Outlet</th>
                 <th className="px-4 py-3 font-semibold">Frontliner</th>
                 <th className="px-4 py-3 font-semibold">Kategori</th>
+                <th className="px-4 py-3 font-semibold">Sumber</th>
                 <th className="px-4 py-3 font-semibold text-center">Nominal</th>
                 <th className="px-4 py-3 font-semibold text-center">Status</th>
                 <th className="px-4 py-3 font-semibold text-center">Aksi</th>
@@ -401,28 +535,50 @@ export default function PettyCash() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     Memuat...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                  <td colSpan={9} className="py-16 text-center text-slate-400">
                     <HiOutlineBanknotes className="mx-auto mb-2 h-8 w-8 opacity-40" />
                     <p className="text-sm font-semibold">Belum ada pengajuan petty cash</p>
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                rows.map((row) => {
+                  const aging = getAging(row.transactionDate);
+                  return (
                   <tr
                     key={row.id}
                     className="cursor-pointer hover:bg-slate-50/80"
                     onClick={() => openDetail(row)}
                   >
                     <td className="px-4 py-3 font-semibold text-slate-800">{fmtDate(row.transactionDate)}</td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", agingTone(aging.days))}>
+                          {aging.label}
+                        </span>
+                        <p className="mt-1 text-[10px] font-medium text-slate-400">{aging.dateLabel}</p>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-slate-700">{row.outletFullName || row.outletName || "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{fmtEmployeeName(row.cashierName)}</td>
                     <td className="px-4 py-3 text-slate-700">{row.category}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          row.isPettyCash === false
+                            ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : "border-[#5f1340]/20 bg-[#5f1340]/5 text-[#5f1340]"
+                        )}
+                      >
+                        {row.isPettyCash === false ? "Central Cash" : "Petty Cash"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center font-bold text-slate-800">{fmtIDR(row.amount)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", statusBadge(row.status))}>
@@ -452,7 +608,8 @@ export default function PettyCash() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -529,6 +686,19 @@ export default function PettyCash() {
                   />
                 </label>
               </div>
+
+              <label className="block text-[10px] font-bold uppercase text-slate-400">
+                Sumber dana
+                <select
+                  disabled={!isPending}
+                  value={editForm.isPettyCash ? "1" : "0"}
+                  onChange={(e) => setEditForm((p) => ({ ...p, isPettyCash: e.target.value === "1" }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 disabled:bg-slate-50"
+                >
+                  <option value="1">Petty Cash (mengubah saldo kas laci)</option>
+                  <option value="0">Central Cash (saldo tidak berubah)</option>
+                </select>
+              </label>
 
               <label className="block text-[10px] font-bold uppercase text-slate-400">
                 Kategori
