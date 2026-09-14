@@ -382,6 +382,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [rooms, setRooms] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [showAllLinens, setShowAllLinens] = useState(false);
+  const [linenSearch, setLinenSearch] = useState("");
   const [masterLinens, setMasterLinens] = useState([]);
 
   // Signature States for Verification Indicators
@@ -424,6 +425,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     setShowSignatures(false);
     setSelectedRoomId("");
     setShowAllLinens(false);
+    setLinenSearch("");
     setRooms([]);
     setMasterLinens([]);
     if (mode === "create") {
@@ -719,6 +721,15 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       };
     });
   }, [masterLinens, details, selectedRoomId, hospitalId, effectiveShowAllLinens, roomMappedLinens]);
+
+  // Pencarian hanya menyaring tampilan; qty tersimpan di `details`, tidak ikut hilang.
+  const visibleDetails = useMemo(() => {
+    const q = linenSearch.trim().toLowerCase();
+    if (!q) return filteredDetails;
+    return filteredDetails.filter(d =>
+      String(d.linen_display_name || "").toLowerCase().includes(q)
+    );
+  }, [filteredDetails, linenSearch]);
 
   if (!open) return null;
 
@@ -1156,7 +1167,11 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen</span>
                       {details.length > 0 && (
                         <span className="rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5">
-                          {selectedRoomId ? `${filteredDetails.length} dari ${details.length}` : `${details.length}`} item
+                          {linenSearch.trim()
+                            ? `${visibleDetails.length} dari ${filteredDetails.length}`
+                            : selectedRoomId
+                              ? `${filteredDetails.length} dari ${details.length}`
+                              : `${details.length}`} item
                         </span>
                       )}
                     </div>
@@ -1207,6 +1222,26 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                 Tampilkan semua linen
                               </label>
                             )}
+                            <div className="relative">
+                              <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                              <input
+                                type="text"
+                                value={linenSearch}
+                                onChange={(e) => setLinenSearch(e.target.value)}
+                                placeholder="Cari nama linen..."
+                                className="w-44 rounded-lg border border-slate-200 bg-white py-1 pl-8 pr-7 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 text-slate-700 placeholder:text-slate-400"
+                              />
+                              {linenSearch && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLinenSearch("")}
+                                  title="Hapus pencarian"
+                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                >
+                                  <HiOutlineXMark className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           {!selectedRoomId ? (
                             rooms.length === 0 ? null : (
@@ -1243,7 +1278,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
-                              {filteredDetails.map((detail, index) => {
+                              {visibleDetails.map((detail, index) => {
                                 const kotor = Number(detail.qty_kotor || 0);
                                 const bersih = detail.qty_bersih !== null && detail.qty_bersih !== "" ? Number(detail.qty_bersih) : null;
                                 const selisih = bersih !== null ? kotor - bersih : null;
@@ -1325,12 +1360,14 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                   </tr>
                                 );
                               })}
-                              {filteredDetails.length === 0 && (
+                              {visibleDetails.length === 0 && (
                                 <tr>
                                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400 italic">
-                                    {selectedRoomId
-                                      ? "Tidak ada item linen aktif untuk ruangan ini."
-                                      : "Rumah sakit ini belum dikonfigurasi memiliki item linen aktif."}
+                                    {linenSearch.trim()
+                                      ? `Tidak ada linen yang cocok dengan "${linenSearch.trim()}".`
+                                      : selectedRoomId
+                                        ? "Tidak ada item linen aktif untuk ruangan ini."
+                                        : "Rumah sakit ini belum dikonfigurasi memiliki item linen aktif."}
                                   </td>
                                 </tr>
                               )}
