@@ -123,6 +123,23 @@ const STAGE_LABELS = {
   delivery: "Pengiriman",
 };
 
+/** Tahap yang dikerjakan → badge. Frontliner = Antrean, tim cuci = Pencucian, dst. */
+const STAGE_WORK_STATUS = {
+  frontliner: "Antrean",
+  washing: "Pencucian",
+  ironing: "Penyetrikaan",
+  packing: "Pengemasan",
+  delivery: "Siap Diantar",
+};
+
+function resolveLogBadge(log) {
+  if (log?.display_status) return log.display_status;
+  const tagged = String(log?.notes || "").match(/^\[(\w+)\]/);
+  const stage = (log?.stage || tagged?.[1] || "").toLowerCase();
+  if (stage && STAGE_WORK_STATUS[stage]) return STAGE_WORK_STATUS[stage];
+  return log?.status || "Antrean";
+}
+
 function parseLogNotes(notes) {
   if (!notes) return { detail: null, meta: null };
   const qc = notes.match(/^\[(\w+)\]\s*QC\s*(\w+)\s*[—–-]\s*(\w+)(?:\s*:\s*(.+))?$/i);
@@ -276,6 +293,10 @@ function StatusTimeline({ logs, items }) {
         const parsed = parseLogNotes(log.notes);
         const worker = log.employee_name || parsed.worker || null;
         const item = log.transaction_detail_id ? itemMap[log.transaction_detail_id] : null;
+        const badge = resolveLogBadge(log);
+        const taggedStage = String(log.notes || "").match(/^\[(\w+)\]/)?.[1]?.toLowerCase();
+        const stageKey = log.stage || taggedStage;
+        const bagian = log.stage_label || (stageKey ? STAGE_LABELS[stageKey] : null);
 
         return (
           <div key={log.id} className="relative flex gap-3 sm:gap-4 pb-6 last:pb-0">
@@ -306,8 +327,8 @@ function StatusTimeline({ logs, items }) {
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <span className={cn("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusTone(log.status))}>
-                    {log.status}
+                  <span className={cn("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusTone(badge))}>
+                    {badge}
                   </span>
                   {item && (
                     <p className="mt-1.5 text-xs font-semibold text-slate-700 truncate">
@@ -329,6 +350,7 @@ function StatusTimeline({ logs, items }) {
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
                   <HiOutlineUser className="h-3.5 w-3.5 text-[#5f1340] shrink-0" />
                   {fmtEmployeeName(worker)}
+                  {bagian ? <span className="font-normal text-slate-400">· {bagian}</span> : null}
                 </p>
               )}
               {parsed.meta && (
