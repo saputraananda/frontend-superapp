@@ -12,10 +12,12 @@ import {
   HiOutlineChevronDown,
   HiOutlineClipboardDocument,
   HiOutlineDocumentText,
+  HiOutlineTruck,
 } from "react-icons/hi2";
 import { api, waschenUploadUrl } from "../../../../lib/api";
 import PageHero from "../PageHero";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
+import ChangeFulfillmentModal from "./ChangeFulfillmentModal";
 import { PhotoViewerModal } from "../HRIS/hrisShared";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
@@ -57,6 +59,7 @@ const ITEM_STATUSES = [
   "Pengemasan",
   "Siap Diambil",
   "Siap Diantar",
+  "Sedang Diantar",
   "Selesai",
   "Dibatalkan",
 ];
@@ -69,6 +72,7 @@ function statusTone(status) {
     Pengemasan: "bg-amber-50 text-amber-800 border-amber-200",
     "Siap Diambil": "bg-emerald-50 text-emerald-700 border-emerald-200",
     "Siap Diantar": "bg-teal-50 text-teal-700 border-teal-200",
+    "Sedang Diantar": "bg-orange-50 text-orange-700 border-orange-200",
     Selesai: "bg-emerald-100 text-emerald-800 border-emerald-300",
     Dibatalkan: "bg-rose-50 text-rose-700 border-rose-200",
   };
@@ -121,6 +125,7 @@ const STAGE_LABELS = {
   ironing: "Penyetrikaan",
   packing: "Pengemasan",
   delivery: "Pengiriman",
+  handover: "Serah Terima",
 };
 
 /** Tahap yang dikerjakan → badge. Frontliner = Antrean, tim cuci = Pencucian, dst. */
@@ -129,13 +134,23 @@ const STAGE_WORK_STATUS = {
   washing: "Pencucian",
   ironing: "Penyetrikaan",
   packing: "Pengemasan",
-  delivery: "Siap Diantar",
+  delivery: "Sedang Diantar",
+  handover: "Selesai",
 };
 
 function resolveLogBadge(log) {
   if (log?.display_status) return log.display_status;
   const tagged = String(log?.notes || "").match(/^\[(\w+)\]/);
   const stage = (log?.stage || tagged?.[1] || "").toLowerCase();
+  const raw = String(log?.status || "").trim();
+  if (stage === "handover") {
+    return "Selesai";
+  }
+  if (stage === "delivery") {
+    if (raw === "Sedang Diantar" || raw === "Pengemasan") return raw;
+    return "Sedang Diantar";
+  }
+  if (raw === "Sedang Diantar" || raw === "Siap Diantar" || raw === "Selesai") return raw;
   if (stage && STAGE_WORK_STATUS[stage]) return STAGE_WORK_STATUS[stage];
   return log?.status || "Antrean";
 }
@@ -197,7 +212,7 @@ function ItemWorkersRow({ workers }) {
 const PHOTO_TYPE_LABELS = {
   qc: "QC",
   temuan: "Temuan",
-  hasil: "Hasil",
+  hasil: "Bukti Antar",
 };
 
 function ProgressPhotos({ photos, onView }) {
@@ -513,6 +528,7 @@ export default function DetailTransaction() {
   const [openItemId, setOpenItemId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [photoViewer, setPhotoViewer] = useState(null);
+  const [fulfillmentOpen, setFulfillmentOpen] = useState(false);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -568,6 +584,7 @@ export default function DetailTransaction() {
   const order = data?.order;
   const items = data?.items || [];
   const logs = data?.statusLogs || [];
+  const paymentLogs = data?.paymentLogs || [];
   const remaining = Math.max(0, (order?.grandTotal || 0) - (order?.paidAmount || 0));
 
   return (
@@ -751,14 +768,45 @@ export default function DetailTransaction() {
                     <p className="font-semibold">
                       {[order.orderCategory, order.speedName].filter(Boolean).join(" · ") || "—"}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      {[
-                        order.parfumeName ? `Aroma ${order.parfumeName}` : null,
-                        order.isDelivery ? "Diantar kurir" : "Ambil di outlet",
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold",
+                          order.isDelivery
+                            ? "border-orange-200 bg-orange-50 text-orange-800"
+                            : "border-slate-200 bg-slate-50 text-slate-700"
+                        )}
+                      >
+                        {order.isDelivery ? (
+                          <HiOutlineTruck className="h-3.5 w-3.5" />
+                        ) : null}
+                        {order.isDelivery ? "Diantar kurir" : "Ambil di outlet"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFulfillmentOpen(true)}
+                        className="rounded-lg border border-[#5f1340]/25 bg-[#5f1340]/5 px-2.5 py-1 text-[11px] font-bold text-[#5f1340] hover:bg-[#5f1340]/10"
+                      >
+                        Ubah pengambilan
+                      </button>
+                    </div>
+                    {order.parfumeName ? (
+                      <p className="mt-1 text-xs text-slate-500">Aroma {order.parfumeName}</p>
+                    ) : null}
+                    {order.isDelivery && (order.deliveryAddress || order.deliveryNotes) ? (
+                      <div className="mt-2 rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2">
+                        {order.deliveryAddress ? (
+                          <p className="text-[11px] font-semibold text-orange-950 break-words">
+                            {order.deliveryAddress}
+                          </p>
+                        ) : null}
+                        {order.deliveryNotes ? (
+                          <p className="mt-0.5 text-[11px] text-orange-800/80 break-words">
+                            Catatan: {order.deliveryNotes}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </dd>
                 </div>
                 <div className="flex gap-3 py-2.5">
@@ -776,14 +824,38 @@ export default function DetailTransaction() {
                     </p>
                   </dd>
                 </div>
-                <div className="flex gap-3 py-2.5 last:pb-0">
+                <div className="flex gap-3 py-2.5">
                   <dt className="w-24 shrink-0 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Frontliner
+                    Dibuat oleh
                   </dt>
                   <dd className="min-w-0 text-sm">
                     <p className="font-semibold text-slate-800 break-words">{fmtEmployeeName(order.cashierName)}</p>
+                    {order.orderDate ? (
+                      <p className="text-xs text-slate-500">{fmtDate(order.orderDate)}</p>
+                    ) : null}
+                  </dd>
+                </div>
+                <div className="flex gap-3 py-2.5 last:pb-0">
+                  <dt className="w-24 shrink-0 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Dilunasi oleh
+                  </dt>
+                  <dd className="min-w-0 text-sm">
+                    {order.settledByName || order.settledByEmployeeId ? (
+                      <>
+                        <p className="font-semibold text-slate-800 break-words">
+                          {fmtEmployeeName(order.settledByName || `Karyawan #${order.settledByEmployeeId}`)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {[order.settledAt ? fmtDate(order.settledAt) : null, order.paymentMethod && order.paymentMethod !== "-" ? order.paymentMethod : null]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-semibold text-slate-400">Belum ada pelunasan</p>
+                    )}
                     {order.specialNotes && order.specialNotes !== "-" ? (
-                      <p className="text-xs text-slate-500 break-words">{order.specialNotes}</p>
+                      <p className="text-xs text-slate-500 break-words mt-1">Catatan: {order.specialNotes}</p>
                     ) : null}
                   </dd>
                 </div>
@@ -843,6 +915,48 @@ export default function DetailTransaction() {
               <StatusTimeline logs={logs} items={items} />
             )}
           </section>
+
+          {/* Riwayat Pembayaran */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                <HiOutlineDocumentText className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Riwayat Pembayaran</h3>
+                <p className="text-xs text-slate-500">Siapa yang menerima bayar dan kapan</p>
+              </div>
+            </div>
+            {paymentLogs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-center">
+                <p className="text-xs font-semibold text-slate-400">Belum ada log pembayaran</p>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {paymentLogs.map((log) => (
+                  <li
+                    key={log.id || `${log.log_type}-${log.created_at}`}
+                    className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 flex items-start justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {log.log_type || "Bayar"} · {fmtIDR(log.amount)}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {[
+                          log.payment_method,
+                          log.cashier_name ? `oleh ${fmtEmployeeName(log.cashier_name)}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-slate-400 shrink-0">{fmtDate(log.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       ) : null}
 
@@ -850,6 +964,15 @@ export default function DetailTransaction() {
         createdOrderReceipt={thermalReceipt}
         onClose={() => setThermalReceipt(null)}
         outletId={order?.outletId}
+      />
+
+      <ChangeFulfillmentModal
+        open={fulfillmentOpen}
+        onClose={() => setFulfillmentOpen(false)}
+        order={order}
+        items={items}
+        onSuccess={() => load()}
+        showToast={showToast}
       />
 
       <PhotoViewerModal

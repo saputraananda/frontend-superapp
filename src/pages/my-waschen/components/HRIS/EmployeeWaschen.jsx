@@ -17,6 +17,7 @@ import {
     HiOutlinePlus,
     HiOutlineUserPlus,
     HiOutlineSparkles,
+    HiOutlineLockClosed,
 
     HiOutlineUsers as UsersIcon,
     HiOutlineIdentification as IdentificationIcon,
@@ -35,6 +36,7 @@ import {
     HiOutlinePlus as PlusIcon,
     HiOutlineUserPlus as UserPlusIcon,
     HiOutlineSparkles as SparklesIcon,
+    HiOutlineLockClosed as LockClosedIcon,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
 import { api } from "../../../../lib/api";
@@ -132,12 +134,133 @@ function LeaderBadge({ isLeader }) {
 function SkeletonRow() {
     return (
         <tr className="border-t border-slate-100 animate-pulse">
-            {[24, 30, 45, 30, 36, 28, 30, 24].map((w, i) => (
+            {[24, 30, 45, 30, 36, 28, 30, 24, 28].map((w, i) => (
                 <td key={i} className="px-4 py-4">
                     <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
                 </td>
             ))}
         </tr>
+    );
+}
+
+function PinEditor({
+    employeeId,
+    codePin,
+    open,
+    onOpen,
+    onClose,
+    onSave,
+    updating,
+    align = "left",
+}) {
+    const [value, setValue] = useState(codePin ? String(codePin) : "");
+
+    useEffect(() => {
+        if (open) setValue(codePin ? String(codePin) : "");
+    }, [open, codePin]);
+
+    return (
+        <div className="relative inline-block">
+            <button
+                type="button"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (open) onClose();
+                    else onOpen();
+                }}
+                disabled={updating}
+                className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                title="Ubah PIN kasir"
+            >
+                <span
+                    className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold font-mono",
+                        codePin
+                            ? "border-[#5f1340]/20 bg-[#5f1340]/5 text-[#5f1340]"
+                            : "border-slate-200 bg-slate-50 text-slate-500"
+                    )}
+                >
+                    <LockClosedIcon className="h-3 w-3 shrink-0" />
+                    {codePin ? String(codePin) : "Belum ada PIN"}
+                </span>
+                {updating ? (
+                    <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                ) : (
+                    <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                )}
+            </button>
+
+            {open && (
+                <>
+                    <div
+                        className="fixed inset-0 z-10"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                        }}
+                    />
+                    <div
+                        className={cn(
+                            "absolute mt-1.5 w-52 rounded-lg border border-[#e0e0e0] bg-white p-2.5 shadow-lg z-20 animate-in fade-in slide-in-from-top-1 duration-100",
+                            align === "right" ? "right-0" : "left-0"
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                            PIN Kasir (digit bebas)
+                        </p>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            autoFocus
+                            value={value}
+                            onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+                            placeholder="Contoh: 1234"
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-center text-sm font-mono font-bold tracking-widest text-slate-800 outline-none focus:border-[#5f1340]"
+                        />
+                        <div className="mt-2 flex gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => onClose()}
+                                className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                disabled={updating}
+                                onClick={async () => {
+                                    const next = value.trim() || null;
+                                    const prev = codePin ? String(codePin) : null;
+                                    if (next === prev) {
+                                        onClose();
+                                        return;
+                                    }
+                                    await onSave(employeeId, next);
+                                    onClose();
+                                }}
+                                className="flex-1 rounded-lg bg-[#5f1340] px-2 py-1.5 text-[11px] font-bold text-white hover:bg-[#4a0d31] disabled:opacity-50"
+                            >
+                                Simpan
+                            </button>
+                        </div>
+                        {codePin ? (
+                            <button
+                                type="button"
+                                disabled={updating}
+                                onClick={async () => {
+                                    await onSave(employeeId, null);
+                                    onClose();
+                                }}
+                                className="mt-1.5 w-full rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                            >
+                                Hapus PIN
+                            </button>
+                        ) : null}
+                    </div>
+                </>
+            )}
+        </div>
     );
 }
 
@@ -155,10 +278,11 @@ function GenderBadge({ gender }) {
     );
 }
 
-function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUpdateRole, onToggleLeader, onUpdateOutlet, updating }) {
+function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUpdateRole, onToggleLeader, onUpdateOutlet, onUpdatePin, updating }) {
     const isDropdownOpen = activeDropdownId === `mobile-${item.employee_id}`;
     const isOutletDropdownOpen = activeDropdownId === `mobile-outlet-${item.employee_id}`;
     const isLeaderDropdownOpen = activeDropdownId === `mobile-leader-${item.employee_id}`;
+    const isPinOpen = activeDropdownId === `mobile-pin-${item.employee_id}`;
     
     return (
         <div className="rounded-xl border border-[#e0e0e0] bg-white p-4 space-y-3">
@@ -403,6 +527,16 @@ function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUp
                         </>
                     )}
                 </div>
+
+                <PinEditor
+                    employeeId={item.employee_id}
+                    codePin={item.code_pin}
+                    open={isPinOpen}
+                    onOpen={() => setActiveDropdownId(`mobile-pin-${item.employee_id}`)}
+                    onClose={() => setActiveDropdownId(null)}
+                    onSave={onUpdatePin}
+                    updating={updating}
+                />
             </div>
 
             <div className="grid grid-cols-1 gap-1.5 rounded-lg bg-[#f8f8f8] p-3 text-xs text-slate-600">
@@ -552,6 +686,44 @@ export default function EmployeeWaschen() {
             setTimeout(() => setSuccess(""), 3000);
         } catch (err) {
             setError(err.message || "Gagal memperbarui status jabatan");
+            setTimeout(() => setError(""), 4000);
+        } finally {
+            setUpdatingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(employeeId);
+                return next;
+            });
+        }
+    };
+
+    const handleUpdatePin = async (employeeId, newPin) => {
+        try {
+            setUpdatingIds((prev) => {
+                const next = new Set(prev);
+                next.add(employeeId);
+                return next;
+            });
+            setError("");
+
+            const res = await api(`/waschen/employees/${employeeId}/role`, {
+                method: "PUT",
+                body: JSON.stringify({ code_pin: newPin }),
+            });
+
+            const savedPin = res?.data?.code_pin !== undefined ? res.data.code_pin : newPin;
+
+            setRows((prev) =>
+                prev.map((row) =>
+                    row.employee_id === employeeId
+                        ? { ...row, code_pin: savedPin }
+                        : row
+                )
+            );
+
+            setSuccess(newPin ? "PIN karyawan berhasil diperbarui" : "PIN karyawan dihapus");
+            setTimeout(() => setSuccess(""), 3000);
+        } catch (err) {
+            setError(err.message || "Gagal memperbarui PIN karyawan");
             setTimeout(() => setError(""), 4000);
         } finally {
             setUpdatingIds((prev) => {
@@ -913,7 +1085,7 @@ export default function EmployeeWaschen() {
                             <div>
                                 <h2 className="text-base font-bold text-[#313030]">Daftar Karyawan Waschen</h2>
                                 <p className="mt-0.5 text-xs text-slate-500">
-                                    Klik header kolom untuk mengurutkan atau klik lencana untuk mengubah status / unit / cabang / jabatan.
+                                    Klik header kolom untuk mengurutkan atau klik lencana untuk mengubah status / unit / cabang / jabatan / PIN.
                                 </p>
                             </div>
                             <button
@@ -950,6 +1122,9 @@ export default function EmployeeWaschen() {
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                                         Jabatan
                                     </th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                                        PIN
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -957,7 +1132,7 @@ export default function EmployeeWaschen() {
 
                                 {!loading && rows.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-14 text-center">
+                                        <td colSpan={9} className="px-4 py-14 text-center">
                                             <div className="flex flex-col items-center gap-2 text-slate-400">
                                                 <UsersIcon className="h-9 w-9 opacity-40" />
                                                 <p className="text-sm">
@@ -1255,6 +1430,18 @@ export default function EmployeeWaschen() {
                                                     )}
                                                 </div>
                                             </td>
+                                            <td className="whitespace-nowrap px-4 py-3.5 relative">
+                                                <PinEditor
+                                                    employeeId={item.employee_id}
+                                                    codePin={item.code_pin}
+                                                    open={activeDropdownId === `pin-${item.employee_id}`}
+                                                    onOpen={() => setActiveDropdownId(`pin-${item.employee_id}`)}
+                                                    onClose={() => setActiveDropdownId(null)}
+                                                    onSave={handleUpdatePin}
+                                                    updating={updatingIds.has(item.employee_id)}
+                                                    align="right"
+                                                />
+                                            </td>
                                         </tr>
                                     ))}
                             </tbody>
@@ -1295,6 +1482,7 @@ export default function EmployeeWaschen() {
                                         onUpdateRole={handleUpdateRole}
                                         onToggleLeader={handleToggleLeader}
                                         onUpdateOutlet={handleUpdateOutlet}
+                                        onUpdatePin={handleUpdatePin}
                                         updating={updatingIds.has(item.employee_id)}
                                     />
                                 ))}

@@ -16,6 +16,47 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Tab filter default — selaras POS History / mst_work_status.is_filter_tab */
+const DEFAULT_WORK_FILTER_TABS = [
+  "Antrean",
+  "Pencucian",
+  "Penyetrikaan",
+  "Pengemasan",
+  "Siap Diambil",
+  "Sedang Diantar",
+  "Selesai",
+];
+
+function getWorkPct(status) {
+  if (status == null || status === "") return 10;
+  if (typeof status === "number" && Number.isFinite(status)) return Number(status);
+  const raw = String(status).trim();
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+  return 10;
+}
+
+/** Band persentase per tab — sama dengan POS `matchesWorkStatusTab`. */
+function matchesWorkStatusTab(workStatus, tabName) {
+  if (!tabName || tabName === "Semua") return true;
+  const pct = getWorkPct(workStatus);
+  if (tabName === "Dibatalkan") return pct <= 0;
+  if (tabName === "Antrean" || tabName === "Diterima") return pct > 0 && pct <= 17.5;
+  if (tabName === "Pencucian" || tabName === "Proses Cuci") return pct > 17.5 && pct <= 37.5;
+  if (tabName === "Penyetrikaan" || tabName === "Proses Setrika") return pct > 37.5 && pct <= 62.5;
+  if (tabName === "Pengemasan" || tabName === "Proses Packing") return pct > 62.5 && pct <= 82.5;
+  if (
+    tabName === "Siap Diambil / Diantar" ||
+    tabName === "Siap Diambil" ||
+    tabName === "Siap Diantar" ||
+    tabName === "Delivery"
+  ) {
+    return pct > 82.5 && pct < 92.5;
+  }
+  if (tabName === "Sedang Diantar") return pct >= 92.5 && pct < 100;
+  if (tabName === "Selesai") return pct >= 100;
+  return false;
+}
+
 function fmtIDR(v) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(v) || 0);
 }
@@ -82,7 +123,14 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-bold text-[#5f1340] font-mono text-sm truncate">{row.orderNo}</p>
-          {row.barcode && <p className="text-[10px] text-slate-400 font-mono truncate">{row.barcode}</p>}
+          {row.barcode && row.barcode !== row.orderNo ? (
+            <p className="text-[10px] text-slate-400 font-mono truncate">{row.barcode}</p>
+          ) : null}
+          {row.isDelivery ? (
+            <span className="mt-1 inline-flex rounded-md border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+              Delivery
+            </span>
+          ) : null}
         </div>
         <WorkBadge pct={row.workStatus} />
       </div>
@@ -193,58 +241,30 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
   }, []);
 
   const tabs = useMemo(() => {
-    const labels = workStatuses.length
-      ? workStatuses.map((s) => ({ key: s.name || s.label, min: Number(s.percentage) || 0, max: Number(s.percentage) || 0 }))
-      : [
-          { key: "Antrean", min: 0, max: 20 },
-          { key: "Pencucian", min: 21, max: 40 },
-          { key: "Penyetrikaan", min: 41, max: 60 },
-          { key: "Pengemasan", min: 61, max: 80 },
-          { key: "Siap Diambil", min: 81, max: 99 },
-          { key: "Selesai", min: 100, max: 100 },
-        ];
-    return [{ key: "Semua", min: null, max: null }, ...labels];
+    const fromMaster = (workStatuses || [])
+      .map((s) => String(s.name || s.label || "").trim())
+      .filter(Boolean);
+    // Pastikan urutan & isi sama POS; kalau master kosong pakai default
+    const labels = fromMaster.length ? fromMaster : DEFAULT_WORK_FILTER_TABS;
+    // Dedup jaga-jaga
+    const seen = new Set();
+    const unique = [];
+    for (const name of labels) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      unique.push(name);
+    }
+    return ["Semua", ...unique];
   }, [workStatuses]);
 
   const filtered = useMemo(() => {
     if (workTab === "Semua") return rows;
-    const tab = tabs.find((t) => t.key === workTab);
-    if (!tab || tab.min == null) return rows;
-    // If work statuses have exact percentage, match near that band using neighbors
-    const sorted = [...workStatuses].sort((a, b) => Number(a.percentage) - Number(b.percentage));
-    const idx = sorted.findIndex((s) => (s.name || s.label) === workTab);
-    if (idx >= 0) {
-      const min = Number(sorted[idx].percentage) || 0;
-      const max = idx < sorted.length - 1 ? Number(sorted[idx + 1].percentage) - 0.01 : 999;
-      return rows.filter((r) => {
-        const w = Number(r.workStatus) || 0;
-        return w >= min && w <= max;
-      });
-    }
-    return rows.filter((r) => {
-      const w = Number(r.workStatus) || 0;
-      return w >= tab.min && w <= tab.max;
-    });
-  }, [rows, workTab, tabs, workStatuses]);
+    return rows.filter((r) => matchesWorkStatusTab(r.workStatus, workTab));
+  }, [rows, workTab]);
 
   const tabCount = (key) => {
     if (key === "Semua") return rows.length;
-    const sorted = [...workStatuses].sort((a, b) => Number(a.percentage) - Number(b.percentage));
-    const idx = sorted.findIndex((s) => (s.name || s.label) === key);
-    if (idx >= 0) {
-      const min = Number(sorted[idx].percentage) || 0;
-      const max = idx < sorted.length - 1 ? Number(sorted[idx + 1].percentage) - 0.01 : 999;
-      return rows.filter((r) => {
-        const w = Number(r.workStatus) || 0;
-        return w >= min && w <= max;
-      }).length;
-    }
-    const tab = tabs.find((t) => t.key === key);
-    if (!tab || tab.min == null) return 0;
-    return rows.filter((r) => {
-      const w = Number(r.workStatus) || 0;
-      return w >= tab.min && w <= tab.max;
-    }).length;
+    return rows.filter((r) => matchesWorkStatusTab(r.workStatus, key)).length;
   };
 
   const submitDelete = async () => {
@@ -308,6 +328,14 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
           additionalAmount: amount,
           paymentMethod: payMethod,
           overpaymentAction: amount > remaining ? "refund" : "change",
+          cashierEmployeeId: (() => {
+            try {
+              const u = JSON.parse(localStorage.getItem("user") || "null");
+              return Number(u?.employee?.employee_id) || null;
+            } catch {
+              return null;
+            }
+          })(),
         }),
       });
       showToast("success", `Pembayaran ${paymentModal.orderNo} diperbarui`);
@@ -370,20 +398,20 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
 
       <div className="px-3 sm:px-5 py-2.5 border-b border-slate-100 -mx-0 overflow-x-auto scrollbar-thin">
         <div className="flex flex-nowrap gap-2 min-w-0 w-max sm:w-auto sm:flex-wrap">
-          {tabs.map((t) => {
-            const active = workTab === t.key;
+          {tabs.map((key) => {
+            const active = workTab === key;
             return (
               <button
-                key={t.key}
+                key={key}
                 type="button"
-                onClick={() => setWorkTab(t.key)}
+                onClick={() => setWorkTab(key)}
                 className={cn(
                   "shrink-0 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5 border transition",
                   active ? "bg-[#5f1340] text-white border-[#5f1340]" : "bg-white text-slate-600 border-slate-200 hover:border-[#5f1340]/40",
                 )}
               >
-                {t.key}
-                <span className={cn("rounded-full px-1.5 text-[9px] font-bold", active ? "bg-white/20" : "bg-slate-100")}>{tabCount(t.key)}</span>
+                {key}
+                <span className={cn("rounded-full px-1.5 text-[9px] font-bold", active ? "bg-white/20" : "bg-slate-100")}>{tabCount(key)}</span>
               </button>
             );
           })}
@@ -398,7 +426,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
         <table className="w-full min-w-[720px] text-left text-xs">
           <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-semibold">No. Struk</th>
+              <th className="px-4 py-3 font-semibold">No. Nota</th>
               <th className="px-4 py-3 font-semibold">Pelanggan</th>
               <th className="px-4 py-3 font-semibold">WhatsApp</th>
               <th className="px-4 py-3 font-semibold text-center">Status</th>
@@ -421,7 +449,14 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
                 >
                   <td className="px-4 py-3">
                     <p className="font-bold text-[#5f1340] font-mono">{row.orderNo}</p>
-                    <p className="text-[10px] text-slate-400 font-mono">{row.barcode}</p>
+                    {row.barcode && row.barcode !== row.orderNo ? (
+                      <p className="text-[10px] text-slate-400 font-mono">{row.barcode}</p>
+                    ) : null}
+                    {row.isDelivery ? (
+                      <span className="mt-1 inline-flex rounded-md border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                        Delivery
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-800">{row.customerName || "—"}</td>
                   <td className="px-4 py-3">
