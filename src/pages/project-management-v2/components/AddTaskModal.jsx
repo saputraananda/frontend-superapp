@@ -281,9 +281,9 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId,
     position_id: "",
     priority: "",
     attachment_type: "none", // 'none' | 'link' | 'file'
-    link: "",
-    link_title: "",
   });
+  const [linkDraft, setLinkDraft] = useState({ url: "", title: "" });
+  const [links, setLinks] = useState([]);
   const [desc, setDesc] = useState(""); // Rich text editor value
   const [coPics, setCoPics] = useState([]);
   const [reviewers, setReviewers] = useState([]);
@@ -299,7 +299,9 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId,
 
   useEffect(() => {
     if (!open) return;
-    setForm({ title: "", startdate: "", enddate: "", pic_employee_id: "", position_id: "", priority: "", attachment_type: "none", link: "", link_title: "" });
+    setForm({ title: "", startdate: "", enddate: "", pic_employee_id: "", position_id: "", priority: "", attachment_type: "none" });
+    setLinkDraft({ url: "", title: "" });
+    setLinks([]);
     setDesc("");
     setCoPics([]);
     setReviewers([]);
@@ -329,6 +331,10 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId,
     if (!form.title.trim()) { setError("Judul task wajib diisi"); return; }
     if (!form.pic_employee_id) { setError("PIC wajib dipilih"); return; }
     if (!form.priority) { setError("Prioritas wajib dipilih"); return; }
+    if (form.attachment_type === "link" && links.length === 0) {
+      setError("Tambahkan minimal satu link URL");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -341,8 +347,7 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId,
         pic_employee_id: form.pic_employee_id,
         position_id: form.position_id || null,
         priority: form.priority,
-        link: form.attachment_type === "link" ? form.link : null,
-        link_title: form.attachment_type === "link" ? form.link_title : null,
+        links: form.attachment_type === "link" ? links : [],
         co_pics: coPics,
         reviewers,
         id_pm_detail: subWorkspaceId ? Number(subWorkspaceId) : (selectedSubWorkspaceId ? Number(selectedSubWorkspaceId) : null),
@@ -575,10 +580,10 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId,
 
             {/* Link fields */}
             {form.attachment_type === "link" && (
-              <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div>
                   <label className="block mb-1 text-[11px] font-bold text-slate-600">Judul Link</label>
-                  <input type="text" value={form.link_title} onChange={e => set("link_title", e.target.value)}
+                  <input type="text" value={linkDraft.title} onChange={e => setLinkDraft(d => ({ ...d, title: e.target.value }))}
                     placeholder="Contoh: Dokumen Referensi, Dashboard Analytics..."
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition" />
                 </div>
@@ -586,11 +591,45 @@ export default function AddTaskModal({ open, onClose, onSuccess, subWorkspaceId,
                   <label className="block mb-1 text-[11px] font-bold text-slate-600">URL Link *</label>
                   <div className="flex items-center gap-2">
                     <HiOutlineLink className="h-4 w-4 text-slate-400 shrink-0" />
-                    <input type="url" value={form.link} onChange={e => set("link", e.target.value)}
+                    <input type="url" value={linkDraft.url} onChange={e => setLinkDraft(d => ({ ...d, url: e.target.value }))}
                       placeholder="https://..."
                       className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition" />
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={!linkDraft.url.trim()}
+                  onClick={() => {
+                    if (!linkDraft.url.trim()) return;
+                    setLinks(prev => [...prev, { url: linkDraft.url.trim(), title: linkDraft.title.trim() || null }]);
+                    setLinkDraft({ url: "", title: "" });
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  <HiOutlinePlus className="h-3.5 w-3.5" />
+                  Tambah Link
+                </button>
+
+                {links.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    {links.map((item, idx) => (
+                      <div key={`${item.url}-${idx}`} className="flex items-start gap-2 rounded-lg border border-indigo-100 bg-white px-3 py-2">
+                        <HiOutlineLink className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate">{item.title || "Link Referensi"}</p>
+                          <p className="text-[10px] text-indigo-500 truncate">{item.url}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLinks(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-400 hover:text-rose-500 transition"
+                        >
+                          <HiOutlineXCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -286,8 +286,6 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     position_id: "",
     priority: "",
     status: "",
-    link: "",
-    link_title: "",
     id_pm_detail: "",
   });
   const [desc, setDesc] = useState("");
@@ -305,8 +303,12 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
 
   // Evidence states
   const [evidences, setEvidences] = useState([]);
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newLinkTitle, setNewLinkTitle] = useState("");
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [uploadingLink, setUploadingLink] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
+  const [linkError, setLinkError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [dragActiveEmpty, setDragActiveEmpty] = useState(false);
   const evidenceInputRef = useRef(null);
@@ -363,8 +365,6 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
         position_id: t.position_id || "",
         priority: t.priority || "",
         status: t.status || "",
-        link: t.link || "",
-        link_title: t.link_title || "",
         id_pm_detail: t.id_pm_detail || "",
       });
       setDesc(t.desc || "");
@@ -501,19 +501,46 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
     }
   };
 
-  const handleDeleteEvidence = (evidenceId) => {
+  const handleDeleteEvidence = (evidenceId, isLink = false) => {
     triggerConfirm(
-      "Hapus File Lampiran",
-      "Apakah Anda yakin ingin menghapus file lampiran ini secara permanen?",
+      isLink ? "Hapus Link Referensi" : "Hapus File Lampiran",
+      isLink
+        ? "Apakah Anda yakin ingin menghapus link referensi ini?"
+        : "Apakah Anda yakin ingin menghapus file lampiran ini secara permanen?",
       async () => {
         try {
           await api(`/api/pm2/tasks/${taskId}/evidence/${evidenceId}`, { method: "DELETE" });
           setEvidences(prev => prev.filter(ev => ev.id !== evidenceId));
+          onSuccess?.();
         } catch (err) {
           console.error("Gagal menghapus evidence:", err);
         }
       }
     );
+  };
+
+  const handleSaveLink = async () => {
+    if (!newLinkUrl.trim()) return;
+    setUploadingLink(true);
+    setLinkError("");
+    try {
+      await api(`/api/pm2/tasks/${taskId}/evidence/link`, {
+        method: "POST",
+        body: JSON.stringify({
+          url: newLinkUrl.trim(),
+          title: newLinkTitle.trim() || null,
+        }),
+      });
+      setNewLinkUrl("");
+      setNewLinkTitle("");
+      await loadDetails();
+      onSuccess?.();
+    } catch (err) {
+      setLinkError(err.message || "Gagal menyimpan link. Pastikan URL valid.");
+      console.error("Gagal menyimpan link:", err);
+    } finally {
+      setUploadingLink(false);
+    }
   };
 
   const handlePostComment = async (e) => {
@@ -583,7 +610,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
               activeTab === "evidence" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400 hover:text-slate-600"
             )}>
             <HiOutlinePaperClip className="h-4 w-4" />
-            Lampiran ({evidences.length + (task?.link ? 1 : 0)})
+            Lampiran ({evidences.length})
           </button>
           <button onClick={() => setActiveTab("discuss")}
             className={cn("px-4 py-3 text-xs font-bold transition-all border-b-2 -mb-px flex items-center gap-2",
@@ -814,7 +841,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
               <div className="space-y-4">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">File &amp; Link Terunggah</h4>
 
-                {evidences.length === 0 && !task.link ? (
+                {evidences.length === 0 ? (
                   <div
                     onDragEnter={handleDragEmpty}
                     onDragOver={handleDragEmpty}
@@ -845,93 +872,58 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Link URL Attachment */}
-                    {task.link && (
-                      <div className="relative group flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/20 p-4 hover:border-indigo-200 transition">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-inner">
-                          <HiOutlineLink className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <a
-                            href={formatExternalUrl(task.link)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block text-xs font-bold text-indigo-900 hover:underline truncate"
-                          >
-                            {task.link_title || "Link Referensi"}
-                          </a>
-                          <span className="block text-[10px] text-indigo-500 truncate mt-0.5 font-medium">{task.link}</span>
-                        </div>
-                        {canUpdate && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              triggerConfirm(
-                                "Hapus Link Referensi",
-                                "Apakah Anda yakin ingin menghapus link referensi ini?",
-                                async () => {
-                                  try {
-                                    await api(`/api/pm2/tasks/${taskId}`, {
-                                      method: "PUT",
-                                      body: JSON.stringify({
-                                        ...form,
-                                        desc,
-                                        co_pics: coPics,
-                                        reviewers,
-                                        id_pm_detail: form.id_pm_detail ? Number(form.id_pm_detail) : null,
-                                        link: "",
-                                        link_title: ""
-                                      }),
-                                    });
-                                    setForm(f => ({ ...f, link: "", link_title: "" }));
-                                    loadDetails();
-                                    onSuccess?.();
-                                  } catch (err) {
-                                    console.error("Gagal menghapus link:", err);
-                                  }
-                                }
-                              );
-                            }}
-                            className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition active:scale-95"
-                            title="Hapus Link"
-                          >
-                            <HiOutlineTrash className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Files Attachments */}
                     {evidences.map((ev) => {
-                      const isImage = ev.file_type?.startsWith("image/");
+                      const isLink = ev.evidence_type === "link";
+                      const isImage = !isLink && ev.file_type?.startsWith("image/");
                       const formattedSize = ev.file_size
                         ? (ev.file_size / (1024 * 1024)).toFixed(2) + " MB"
                         : "—";
 
                       return (
-                        <div key={ev.id} className="relative group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 hover:border-slate-350 transition">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 border border-slate-100 shadow-inner">
-                            {isImage
-                              ? <HiOutlinePhoto className="h-5 w-5 text-indigo-500" />
-                              : <HiOutlinePaperClip className="h-5 w-5 text-slate-500" />}
+                        <div
+                          key={ev.id}
+                          className={cn(
+                            "relative group flex items-start gap-3 rounded-2xl border p-4 transition",
+                            isLink
+                              ? "border-indigo-100 bg-indigo-50/20 hover:border-indigo-200"
+                              : "border-slate-200 bg-white hover:border-slate-350"
+                          )}
+                        >
+                          <div className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-inner",
+                            isLink ? "bg-indigo-50 text-indigo-600" : "bg-slate-50 text-slate-500 border border-slate-100"
+                          )}>
+                            {isLink
+                              ? <HiOutlineLink className="h-5 w-5" />
+                              : isImage
+                                ? <HiOutlinePhoto className="h-5 w-5 text-indigo-500" />
+                                : <HiOutlinePaperClip className="h-5 w-5 text-slate-500" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <a
-                              href={`${BASE_URL}${ev.file_path}`}
+                              href={isLink ? formatExternalUrl(ev.file_path) : `${BASE_URL}${ev.file_path}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="block text-xs font-bold text-slate-800 hover:text-indigo-600 hover:underline truncate"
+                              className={cn(
+                                "block text-xs font-bold hover:underline truncate",
+                                isLink ? "text-indigo-900" : "text-slate-800 hover:text-indigo-600"
+                              )}
                             >
-                              {ev.file_name}
+                              {ev.file_name || (isLink ? "Link Referensi" : "File Lampiran")}
                             </a>
-                            <span className="block text-[10px] text-slate-400 mt-0.5 font-medium">{formattedSize}</span>
+                            <span className={cn(
+                              "block text-[10px] truncate mt-0.5 font-medium",
+                              isLink ? "text-indigo-500" : "text-slate-400"
+                            )}>
+                              {isLink ? ev.file_path : formattedSize}
+                            </span>
                           </div>
                           {canUpdate && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteEvidence(ev.id)}
+                              onClick={() => handleDeleteEvidence(ev.id, isLink)}
                               className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition active:scale-95"
-                              title="Hapus file"
+                              title={isLink ? "Hapus link" : "Hapus file"}
                             >
                               <HiOutlineTrash className="h-4 w-4" />
                             </button>
@@ -1033,16 +1025,16 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
                             <input
                               type="url"
                               placeholder="https://contoh.com/referensi"
-                              value={form.link || ""}
-                              onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
+                              value={newLinkUrl}
+                              onChange={e => setNewLinkUrl(e.target.value)}
                               className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-indigo-400 transition placeholder:text-slate-400"
                             />
                           </div>
                           <input
                             type="text"
                             placeholder="Judul / Label Link (opsional)"
-                            value={form.link_title || ""}
-                            onChange={e => setForm(f => ({ ...f, link_title: e.target.value }))}
+                            value={newLinkTitle}
+                            onChange={e => setNewLinkTitle(e.target.value)}
                             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-indigo-400 transition placeholder:text-slate-400"
                           />
                         </div>
@@ -1050,32 +1042,14 @@ export default function TaskDetailModal({ open, onClose, taskId, onSuccess }) {
 
                       <button
                         type="button"
-                        disabled={!form.link?.trim()}
-                        onClick={async () => {
-                          if (!form.link?.trim()) return;
-                          setUploadingEvidence(true);
-                          try {
-                            await api(`/api/pm2/tasks/${taskId}`, {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                ...form,
-                                desc,
-                                co_pics: coPics,
-                                reviewers,
-                                id_pm_detail: form.id_pm_detail ? Number(form.id_pm_detail) : null,
-                              }),
-                            });
-                            loadDetails();
-                            onSuccess?.();
-                          } catch (err) {
-                            console.error("Gagal menyimpan link:", err);
-                          } finally {
-                            setUploadingEvidence(false);
-                          }
-                        }}
+                        disabled={!newLinkUrl.trim() || uploadingLink}
+                        onClick={handleSaveLink}
                         className="w-full bg-indigo-650 hover:bg-white text-black hover:text-indigo-650 border border-transparent hover:border-indigo-650 rounded-xl py-2.5 text-xs font-bold transition-all duration-200 shadow-md shadow-indigo-150 hover:shadow-lg disabled:bg-slate-200 disabled:text-slate-400 disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed">
-                        Simpan Link URL
+                        {uploadingLink ? "Menyimpan..." : "Simpan Link URL"}
                       </button>
+                      {linkError && (
+                        <p className="text-[10px] text-rose-500 font-semibold">{linkError}</p>
+                      )}
                     </div>
                   </div>
                 </div>
