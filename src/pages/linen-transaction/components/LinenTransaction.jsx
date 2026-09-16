@@ -15,6 +15,7 @@ import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
 import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
 import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
+import HospitalSearchSelect from "./HospitalSearchSelect";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -55,19 +56,12 @@ function toDatetimeLocalInput(v) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-const CUTOFF_START_DAY = 26;
-
 function getDefaultCutoffSelection(now = new Date()) {
-  const startDay = CUTOFF_START_DAY;
-  const endDay = startDay - 1;
-  let cutoffMonth = now.getMonth() + 1;
-  let cutoffYear = now.getFullYear();
-  if (now.getDate() > endDay) {
-    cutoffMonth += 1;
-    if (cutoffMonth > 12) { cutoffMonth = 1; cutoffYear += 1; }
-  }
-  const start = new Date(cutoffYear, cutoffMonth - 2, startDay);
-  const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
+  const cutoffMonth = now.getMonth() + 1;
+  const cutoffYear = now.getFullYear();
+  // Full calendar month: 1st → last day of selected month
+  const start = new Date(cutoffYear, cutoffMonth - 1, 1);
+  const end = new Date(cutoffYear, cutoffMonth, 0);
   return {
     cutoffMonth,
     cutoffYear,
@@ -1881,7 +1875,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 }
 
 // ─── Delete Confirmation Modal (React Portal) ────────────────────────────────
-function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
+function DeleteModal({ open, transaction, onClose, onDeleteConfirm, onError }) {
   const [deleting, setDeleting] = useState(false);
 
   if (!open || !transaction) return null;
@@ -1897,7 +1891,7 @@ function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
         throw new Error(res.message || "Gagal menghapus transaksi");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      if (onError) onError(err.message || "Gagal menghapus transaksi");
     } finally {
       setDeleting(false);
     }
@@ -2001,9 +1995,9 @@ export default function LinenTransaction() {
     if (periodMode === "custom") {
       return { startDate: customStartDate, endDate: customEndDate };
     }
-    // cutoff
-    const start = new Date(cutoffYear, cutoffMonth - 2, CUTOFF_START_DAY);
-    const end = new Date(cutoffYear, cutoffMonth - 1, CUTOFF_START_DAY - 1);
+    // Full calendar month (1 → last day)
+    const start = new Date(cutoffYear, cutoffMonth - 1, 1);
+    const end = new Date(cutoffYear, cutoffMonth, 0);
     return {
       startDate: toDateInput(start),
       endDate: toDateInput(end),
@@ -2054,7 +2048,7 @@ export default function LinenTransaction() {
         throw new Error(res.message || "Gagal mengambil data rekap");
       }
     } catch (err) {
-      showToast("error", "Gagal mengunduh Rekap: " + err.message);
+      showToast("error", err.message || "Gagal mengunduh Rekap");
     } finally {
       setExportingRekap(false);
     }
@@ -2198,6 +2192,7 @@ export default function LinenTransaction() {
             setDeleteTarget(null);
           }}
           onDeleteConfirm={handleActionSuccess}
+          onError={(msg) => showToast("error", msg)}
         />
 
         {/* Header Banner */}
@@ -2283,7 +2278,7 @@ export default function LinenTransaction() {
                 onChange={(e) => { setPeriodMode(e.target.value); setPage(1); }}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
               >
-                <option value="cutoff">Periode Cutoff</option>
+                <option value="cutoff">Periode Bulan</option>
                 <option value="today">Hari Ini</option>
                 <option value="custom">Custom Tanggal</option>
               </select>
@@ -2292,7 +2287,7 @@ export default function LinenTransaction() {
             {/* Sub-Filters depending on Period Mode */}
             {periodMode === "cutoff" && (
               <label className="text-sm text-slate-600">
-                <span className="mb-1 block text-xs font-semibold text-slate-500">Bulan Periode Cutoff</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Bulan</span>
                 <select
                   value={cutoffMonth}
                   onChange={(e) => { setCutoffMonth(Number(e.target.value)); setPage(1); }}
@@ -2341,21 +2336,17 @@ export default function LinenTransaction() {
             {periodMode === "today" && <div />}
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {/* Hospital Filter */}
-            <label className="text-sm text-slate-600">
+          <div className="relative z-30 mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Hospital Filter — searchable, opens downward */}
+            <div className="text-sm text-slate-600">
               <span className="mb-1 block text-xs font-semibold text-slate-500">Rumah Sakit</span>
-              <select
+              <HospitalSearchSelect
                 value={hospitalFilter}
-                onChange={(e) => { setHospitalFilter(e.target.value); setPage(1); }}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              >
-                <option value="">Semua Rumah Sakit</option>
-                {hospitals.map((h) => (
-                  <option key={h.id} value={h.id}>{h.hospital_name}</option>
-                ))}
-              </select>
-            </label>
+                onChange={(id) => { setHospitalFilter(id); setPage(1); }}
+                hospitals={hospitals}
+                placeholder="Semua Rumah Sakit"
+              />
+            </div>
 
             {/* Cascading Room Filter */}
             <label className="text-sm text-slate-600">

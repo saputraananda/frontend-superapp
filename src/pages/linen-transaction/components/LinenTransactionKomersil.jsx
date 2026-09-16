@@ -11,9 +11,10 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
-import { exportRekapCuciLinenKhusus } from "../utils/exportRekapCuciLinenKhusus";
-import exportSuratJalanKurangKirimCustom from "../utils/exportSerahTerimaLinenKhususExcel";
+import { exportRekapCuciLinenKomersil } from "../utils/exportRekapCuciLinenKomersil";
+import exportSuratJalanKurangKirimKomersil from "../utils/exportSerahTerimaLinenKomersilExcel";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
+import HospitalSearchSelect from "./HospitalSearchSelect";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -54,19 +55,12 @@ function toDatetimeLocalInput(v) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-const CUTOFF_START_DAY = 26;
-
 function getDefaultCutoffSelection(now = new Date()) {
-  const startDay = CUTOFF_START_DAY;
-  const endDay = startDay - 1;
-  let cutoffMonth = now.getMonth() + 1;
-  let cutoffYear = now.getFullYear();
-  if (now.getDate() > endDay) {
-    cutoffMonth += 1;
-    if (cutoffMonth > 12) { cutoffMonth = 1; cutoffYear += 1; }
-  }
-  const start = new Date(cutoffYear, cutoffMonth - 2, startDay);
-  const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
+  const cutoffMonth = now.getMonth() + 1;
+  const cutoffYear = now.getFullYear();
+  // Full calendar month: 1st → last day of selected month
+  const start = new Date(cutoffYear, cutoffMonth - 1, 1);
+  const end = new Date(cutoffYear, cutoffMonth, 0);
   return {
     cutoffMonth,
     cutoffYear,
@@ -1024,7 +1018,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                           <thead className="bg-slate-50 border-b border-slate-100">
                             <tr>
                               <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
-                              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen Khusus</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen Komersil</th>
                               <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-24">P (M)</th>
                               <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-24">L (M)</th>
                               <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-24">Luas (M2)</th>
@@ -1041,7 +1035,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                 <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
                                   <td className="px-3 py-2 text-center text-xs text-slate-400 tabular-nums">{idx + 1}</td>
 
-                                  {/* Nama Linen Khusus */}
+                                  {/* Nama Linen Komersil */}
                                   <td className="px-2 py-2">
                                     <div className="flex flex-col gap-1">
                                       {hospitalCustomLinens.length > 0 && (
@@ -1524,7 +1518,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                         </div>
                         <button
                           type="button"
-                          onClick={() => exportSuratJalanKurangKirimCustom(selectedDelivery, selectedDelivery.details || [])}
+                          onClick={() => exportSuratJalanKurangKirimKomersil(selectedDelivery, selectedDelivery.details || [])}
                           className="rounded-xl bg-indigo-50 border border-indigo-200 px-3.5 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition inline-flex items-center gap-1.5 shadow-sm"
                         >
                           <HiOutlinePrinter className="h-4 w-4" />
@@ -1626,7 +1620,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                exportSuratJalanKurangKirimCustom(delivery, delivery.details || []);
+                                exportSuratJalanKurangKirimKomersil(delivery, delivery.details || []);
                               }}
                               className="rounded-xl bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition inline-flex items-center gap-1 shadow-sm"
                             >
@@ -1696,7 +1690,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 }
 
 // ─── Delete Confirmation Modal (React Portal) ────────────────────────────────
-function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
+function DeleteModal({ open, transaction, onClose, onDeleteConfirm, onError }) {
   const [deleting, setDeleting] = useState(false);
 
   if (!open || !transaction) return null;
@@ -1712,7 +1706,7 @@ function DeleteModal({ open, transaction, onClose, onDeleteConfirm }) {
         throw new Error(res.message || "Gagal menghapus transaksi");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      if (onError) onError(err.message || "Gagal menghapus transaksi");
     } finally {
       setDeleting(false);
     }
@@ -1824,9 +1818,9 @@ export default function LinenTransactionKomersil() {
     if (periodMode === "custom") {
       return { startDate: customStartDate, endDate: customEndDate };
     }
-    // cutoff
-    const start = new Date(cutoffYear, cutoffMonth - 2, CUTOFF_START_DAY);
-    const end = new Date(cutoffYear, cutoffMonth - 1, CUTOFF_START_DAY - 1);
+    // Full calendar month (1 → last day)
+    const start = new Date(cutoffYear, cutoffMonth - 1, 1);
+    const end = new Date(cutoffYear, cutoffMonth, 0);
     return {
       startDate: toDateInput(start),
       endDate: toDateInput(end),
@@ -1857,13 +1851,13 @@ export default function LinenTransactionKomersil() {
 
       const res = await api(`/ikm/linen-transactions-komersil/rekap/cuci?${q.toString()}`);
       if (res.success) {
-        await exportRekapCuciLinenKhusus(res, activePeriod.startDate, activePeriod.endDate, ownershipType);
+        await exportRekapCuciLinenKomersil(res, activePeriod.startDate, activePeriod.endDate, ownershipType);
         showToast("success", `File rekap ${ownershipType === "SEWA" ? "Linen Sewa" : "Linen RS"} berhasil diunduh`);
       } else {
         throw new Error(res.message || "Gagal mengambil data rekap");
       }
     } catch (err) {
-      showToast("error", "Gagal mengunduh Rekap: " + err.message);
+      showToast("error", err.message || "Gagal mengunduh Rekap");
     } finally {
       setExportingRekap(false);
     }
@@ -1960,6 +1954,7 @@ export default function LinenTransactionKomersil() {
             setDeleteTarget(null);
           }}
           onDeleteConfirm={handleActionSuccess}
+          onError={(msg) => showToast("error", msg)}
         />
 
         {/* Header Banner */}
@@ -2014,7 +2009,7 @@ export default function LinenTransactionKomersil() {
                 onChange={(e) => { setPeriodMode(e.target.value); setPage(1); }}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
               >
-                <option value="cutoff">Periode Cutoff</option>
+                <option value="cutoff">Periode Bulan</option>
                 <option value="today">Hari Ini</option>
                 <option value="custom">Custom Tanggal</option>
               </select>
@@ -2023,7 +2018,7 @@ export default function LinenTransactionKomersil() {
             {/* Sub-Filters depending on Period Mode */}
             {periodMode === "cutoff" && (
               <label className="text-sm text-slate-600">
-                <span className="mb-1 block text-xs font-semibold text-slate-500">Bulan Periode Cutoff</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Bulan</span>
                 <select
                   value={cutoffMonth}
                   onChange={(e) => { setCutoffMonth(Number(e.target.value)); setPage(1); }}
@@ -2072,21 +2067,17 @@ export default function LinenTransactionKomersil() {
             {periodMode === "today" && <div />}
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {/* Hospital Filter */}
-            <label className="text-sm text-slate-600">
+          <div className="relative z-30 mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Hospital Filter — searchable, opens downward */}
+            <div className="text-sm text-slate-600">
               <span className="mb-1 block text-xs font-semibold text-slate-500">Rumah Sakit</span>
-              <select
+              <HospitalSearchSelect
                 value={hospitalFilter}
-                onChange={(e) => { setHospitalFilter(e.target.value); setPage(1); }}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              >
-                <option value="">Semua Rumah Sakit</option>
-                {hospitals.map((h) => (
-                  <option key={h.id} value={h.id}>{h.hospital_name}</option>
-                ))}
-              </select>
-            </label>
+                onChange={(id) => { setHospitalFilter(id); setPage(1); }}
+                hospitals={hospitals}
+                placeholder="Semua Rumah Sakit"
+              />
+            </div>
           </div>
 
           {/* Active Period Info Banner */}

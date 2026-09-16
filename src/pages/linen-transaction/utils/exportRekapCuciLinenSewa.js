@@ -12,6 +12,13 @@ function colIndexToLabel(idx) {
   return label;
 }
 
+/** Parse YYYY-MM-DD as local date (avoid UTC shift). */
+function parseLocalDate(iso) {
+  if (!iso) return new Date(NaN);
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 function formatDateISO(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -20,8 +27,8 @@ function formatDateISO(date) {
 }
 
 function formatPeriodTitle(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
   if (isNaN(start) || isNaN(end)) return "";
   const startMonth = new Intl.DateTimeFormat("id-ID", { month: "long" }).format(start);
   const startYear = start.getFullYear();
@@ -33,17 +40,37 @@ function formatPeriodTitle(startDate, endDate) {
   return `${startMonth.toUpperCase()} ${startYear} - ${endMonth.toUpperCase()} ${endYear}`;
 }
 
+/** Excel sheet names: max 31 chars, no \ / ? * [ ] */
+function safeSheetName(name, usedNames) {
+  let base = String(name || "Sheet")
+    .replace(/[\\/*?:[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, 28) || "Sheet";
+  let candidate = base;
+  let i = 2;
+  while (usedNames.has(candidate.toLowerCase())) {
+    const suffix = ` (${i})`;
+    candidate = `${base.substring(0, 31 - suffix.length)}${suffix}`;
+    i += 1;
+  }
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+}
+
 export async function exportRekapCuciLinenSewa(rekapData, startDate, endDate, ownershipType = "SEWA") {
   const { hospitals = [], linens = [], transactions = [] } = rekapData;
 
   if (hospitals.length === 0) {
-    alert("Tidak ada data rumah sakit untuk diekspor");
-    return;
+    throw new Error("Tidak ada data rumah sakit untuk diekspor");
   }
 
   const dates = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (isNaN(start) || isNaN(end) || start > end) {
+    throw new Error("Rentang tanggal rekap tidak valid");
+  }
   let curr = new Date(start);
   while (curr <= end) {
     dates.push(new Date(curr));
@@ -51,6 +78,7 @@ export async function exportRekapCuciLinenSewa(rekapData, startDate, endDate, ow
   }
 
   const workbook = new ExcelJS.Workbook();
+  const usedSheetNames = new Set();
 
   const C = {
     navyDeep:   "FF0F2544",
@@ -87,14 +115,14 @@ export async function exportRekapCuciLinenSewa(rekapData, startDate, endDate, ow
   let logoBuffer = null;
   try {
     const logoRes = await fetch("/ikm.png");
-    if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer();
-  } catch (_) { /* logo optional */ }
+    if (logoRes.ok) logoBuffer = new Uint8Array(await logoRes.arrayBuffer());
+  } catch { /* logo optional */ }
 
   for (const hospital of hospitals) {
     const hospitalLinens = linens.filter((l) => Number(l.hospital_id) === Number(hospital.id));
     if (hospitalLinens.length === 0) continue;
 
-    const sheetName = hospital.hospital_name.substring(0, 30);
+    const sheetName = safeSheetName(hospital.hospital_name, usedSheetNames);
     const ws = workbook.addWorksheet(sheetName);
 
     const numDates         = dates.length;
@@ -261,19 +289,19 @@ export async function exportRekapCuciLinenSewa(rekapData, startDate, endDate, ow
       const hc   = colIndexToLabel(hargaCuciColIdx);
       const sc   = colIndexToLabel(hargaSewaColIdx);
 
-      row.getCell(totalColIdx).value      = { formula: `=SUM(${fc}${ri}:${lc}${ri})` };
-      row.getCell(totalBeratColIdx).value = { formula: `=${tc}${ri}*${bc}${ri}/1000` };
+      // ExcelJS: formula must NOT include leading "="
+      row.getCell(totalColIdx).value      = { formula: `SUM(${fc}${ri}:${lc}${ri})` };
+      row.getCell(totalBeratColIdx).value = { formula: `${tc}${ri}*${bc}${ri}/1000` };
       if (linen.washing_price_type === "KG") {
-        row.getCell(totalBiayaColIdx).value = { formula: `=(${hc}${ri}*${tbc}${ri})+(${sc}${ri}*${tc}${ri})` };
+        row.getCell(totalBiayaColIdx).value = { formula: `(${hc}${ri}*${tbc}${ri})+(${sc}${ri}*${tc}${ri})` };
       } else {
-        row.getCell(totalBiayaColIdx).value = { formula: `=(${hc}${ri}*${tc}${ri})+(${sc}${ri}*${tc}${ri})` };
+        row.getCell(totalBiayaColIdx).value = { formula: `(${hc}${ri}*${tc}${ri})+(${sc}${ri}*${tc}${ri})` };
       }
 
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         if (colNumber > totalBiayaColIdx) return;
-        const isDateCol    = colNumber >= firstDateColIdx && colNumber <= lastDateColIdx;
-        const isSummaryCol = colNumber >= totalColIdx;
-        const d            = isDateCol ? dates[colNumber - firstDateColIdx] : null;
+        const isDateCol = colNumber >= firstDateColIdx && colNumber <= lastDateColIdx;
+        const d         = isDateCol ? dates[colNumber - firstDateColIdx] : null;
         const isToday      = d ? formatDateISO(d) === todayISO : false;
 
         cell.fill      = styleFill(isToday ? C.todayCell : rowBg);
@@ -298,16 +326,16 @@ export async function exportRekapCuciLinenSewa(rekapData, startDate, endDate, ow
 
     for (let i = 0; i < numDates; i++) {
       const cl = colIndexToLabel(firstDateColIdx + i);
-      summaryData.push({ formula: `=SUM(${cl}${dataStartRow}:${cl}${dataEndRow})` });
+      summaryData.push({ formula: `SUM(${cl}${dataStartRow}:${cl}${dataEndRow})` });
     }
     const tcl   = colIndexToLabel(totalColIdx);
     const tbcl  = colIndexToLabel(totalBeratColIdx);
     const biycl = colIndexToLabel(totalBiayaColIdx);
-    summaryData.push({ formula: `=SUM(${tcl}${dataStartRow}:${tcl}${dataEndRow})` });
+    summaryData.push({ formula: `SUM(${tcl}${dataStartRow}:${tcl}${dataEndRow})` });
     summaryData.push("");
-    summaryData.push({ formula: `=SUM(${tbcl}${dataStartRow}:${tbcl}${dataEndRow})` });
+    summaryData.push({ formula: `SUM(${tbcl}${dataStartRow}:${tbcl}${dataEndRow})` });
     summaryData.push("", "");
-    summaryData.push({ formula: `=SUM(${biycl}${dataStartRow}:${biycl}${dataEndRow})` });
+    summaryData.push({ formula: `SUM(${biycl}${dataStartRow}:${biycl}${dataEndRow})` });
 
     const sumRow = ws.addRow(summaryData);
     sumRow.height = 22;
@@ -329,6 +357,10 @@ export async function exportRekapCuciLinenSewa(rekapData, startDate, endDate, ow
 
     // Freeze: 2 left cols + header rows
     ws.views = [{ state: "frozen", xSplit: 2, ySplit: h2RowNum, showGridLines: false }];
+  }
+
+  if (workbook.worksheets.length === 0) {
+    throw new Error("Tidak ada data linen untuk diekspor pada periode ini");
   }
 
   const buffer  = await workbook.xlsx.writeBuffer();

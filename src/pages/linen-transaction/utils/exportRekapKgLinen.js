@@ -1,19 +1,6 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
-function fmtDateTime(v) {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (isNaN(d)) return String(v);
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
-}
-
 function pickKg(row) {
   if (row.total_kg_admin != null && row.total_kg_admin !== "") {
     const n = Number(row.total_kg_admin);
@@ -39,11 +26,7 @@ function resolveMonthContext(startDate, endDate) {
 
 const CYAN = "FF00FFFF";
 const YELLOW = "FFFFFF00";
-const BLACK = "FF000000";
 const TEXT = "FF000000";
-const GRAY = "FF64748B";
-const DARK_BLUE = "FF1E3A5F";
-const LIGHT_BLUE = "FFEBF3FC";
 const BORDER_COLOR = "FF000000";
 
 const thinBorder = {
@@ -76,9 +59,279 @@ function applyCellBorderCenter(cell, opts = {}) {
   if (opts.numFmt) cell.numFmt = opts.numFmt;
 }
 
+function toPrice(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
- * Sheet 1: matriks harian (mirip template perusahaan)
- * Sheet 2: rincian transaksi
+ * Build a daily KG matrix sheet (same layout for all 3 sheets).
+ * rows: [{ no, label, dayValues, unitPrice }]
+ */
+function buildMatrixSheet(workbook, {
+  sheetName,
+  title,
+  hospitalName,
+  monthLabel,
+  daysInMonth,
+  rows,
+}) {
+  const dayStartCol = 3; // C
+  const dayEndCol = dayStartCol + daysInMonth - 1;
+  const totalCol = dayEndCol + 1;
+  const hargaCol = totalCol + 1;
+  const jumlahCol = hargaCol + 1;
+  const lastCol = jumlahCol;
+  const minimalKg = MIN_KG_PER_DAY * daysInMonth;
+
+  const ws = workbook.addWorksheet(sheetName, {
+    views: [{ showGridLines: true, state: "frozen", ySplit: 6 }],
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+
+  ws.getColumn(1).width = 5;
+  ws.getColumn(2).width = 20;
+  for (let c = dayStartCol; c <= dayEndCol; c++) ws.getColumn(c).width = 6;
+  ws.getColumn(totalCol).width = 12;
+  ws.getColumn(hargaCol).width = 12;
+  ws.getColumn(jumlahCol).width = 14;
+
+  // Header 3 baris
+  ws.mergeCells(1, 1, 1, lastCol);
+  ws.getCell(1, 1).value = title;
+  ws.getCell(1, 1).font = { bold: true, size: 14, color: { argb: TEXT } };
+  ws.getCell(1, 1).alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(1).height = 22;
+
+  ws.mergeCells(2, 1, 2, lastCol);
+  ws.getCell(2, 1).value = String(hospitalName || "-").toUpperCase();
+  ws.getCell(2, 1).font = { bold: true, size: 12, color: { argb: TEXT } };
+  ws.getCell(2, 1).alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(2).height = 20;
+
+  ws.mergeCells(3, 1, 3, lastCol);
+  ws.getCell(3, 1).value = `Bulan : ${monthLabel}`;
+  ws.getCell(3, 1).font = { bold: true, size: 11, color: { argb: TEXT } };
+  ws.getCell(3, 1).alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(3).height = 18;
+
+  ws.addRow([]); // spacer row 4
+
+  const h1 = 5;
+  const h2 = 6;
+
+  ws.getCell(h1, 1).value = "No";
+  ws.getCell(h1, 2).value = "JENIS LINEN";
+  ws.getCell(h1, dayStartCol).value = "TANGGAL";
+  ws.getCell(h1, totalCol).value = "TOTAL (kg)";
+  ws.getCell(h1, hargaCol).value = "HARGA (Rp)";
+  ws.getCell(h1, jumlahCol).value = "JUMLAH (Rp)";
+
+  ws.mergeCells(h1, 1, h2, 1);
+  ws.mergeCells(h1, 2, h2, 2);
+  ws.mergeCells(h1, dayStartCol, h1, dayEndCol);
+  ws.mergeCells(h1, totalCol, h2, totalCol);
+  ws.mergeCells(h1, hargaCol, h2, hargaCol);
+  ws.mergeCells(h1, jumlahCol, h2, jumlahCol);
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    ws.getCell(h2, dayStartCol + day - 1).value = day;
+  }
+
+  for (let r = h1; r <= h2; r++) {
+    for (let c = 1; c <= lastCol; c++) {
+      applyCyanHeader(ws.getCell(r, c));
+    }
+  }
+  ws.getRow(h1).height = 20;
+  ws.getRow(h2).height = 18;
+
+  const addJenisRow = (no, label, dayValues, unitPrice) => {
+    const row = ws.addRow([]);
+    const r = row.number;
+    ws.getCell(r, 1).value = no;
+    ws.getCell(r, 2).value = label;
+
+    dayValues.forEach((v, idx) => {
+      const cell = ws.getCell(r, dayStartCol + idx);
+      if (v != null && Number(v) !== 0) {
+        cell.value = Number(Number(v).toFixed(2));
+        cell.numFmt = "0.00";
+      } else {
+        cell.value = null;
+      }
+      applyCellBorderCenter(cell);
+    });
+
+    const totalCell = ws.getCell(r, totalCol);
+    const startLetter = ws.getColumn(dayStartCol).letter;
+    const endLetter = ws.getColumn(dayEndCol).letter;
+    totalCell.value = { formula: `SUM(${startLetter}${r}:${endLetter}${r})` };
+    totalCell.numFmt = "0.00";
+    applyCellBorderCenter(totalCell);
+
+    const hargaCell = ws.getCell(r, hargaCol);
+    hargaCell.value = unitPrice != null ? unitPrice : null;
+    hargaCell.numFmt = "#,##0";
+    applyCellBorderCenter(hargaCell);
+
+    const jumlahCell = ws.getCell(r, jumlahCol);
+    const totalLetter = ws.getColumn(totalCol).letter;
+    const hargaLetter = ws.getColumn(hargaCol).letter;
+    jumlahCell.value = { formula: `${totalLetter}${r}*${hargaLetter}${r}` };
+    jumlahCell.numFmt = "#,##0";
+    applyCellBorderCenter(jumlahCell, { fill: YELLOW });
+
+    applyCellBorderCenter(ws.getCell(r, 1));
+    applyCellBorderCenter(ws.getCell(r, 2), { horizontal: "left" });
+
+    return r;
+  };
+
+  const dataRowNums = rows.map((item) =>
+    addJenisRow(item.no, item.label, item.dayValues, item.unitPrice)
+  );
+
+  // TOTAL row
+  const totalRowNum = ws.addRow([]).number;
+  ws.mergeCells(totalRowNum, 1, totalRowNum, 2);
+  ws.getCell(totalRowNum, 1).value = "Total";
+  applyCellBorderCenter(ws.getCell(totalRowNum, 1), {
+    font: { bold: true, size: 9, color: { argb: TEXT } },
+  });
+  applyCellBorderCenter(ws.getCell(totalRowNum, 2), {
+    font: { bold: true, size: 9, color: { argb: TEXT } },
+  });
+
+  const sumFormula = (colLetter) =>
+    dataRowNums.map((r) => `${colLetter}${r}`).join("+");
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const c = dayStartCol + day - 1;
+    const letter = ws.getColumn(c).letter;
+    const cell = ws.getCell(totalRowNum, c);
+    cell.value = { formula: sumFormula(letter) };
+    cell.numFmt = "0.00";
+    applyCellBorderCenter(cell, { font: { bold: true, size: 9, color: { argb: TEXT } } });
+  }
+
+  {
+    const letter = ws.getColumn(totalCol).letter;
+    const cell = ws.getCell(totalRowNum, totalCol);
+    cell.value = { formula: sumFormula(letter) };
+    cell.numFmt = "0.00";
+    applyCellBorderCenter(cell, { font: { bold: true, size: 9, color: { argb: TEXT } } });
+  }
+  applyCellBorderCenter(ws.getCell(totalRowNum, hargaCol));
+  {
+    const letter = ws.getColumn(jumlahCol).letter;
+    const cell = ws.getCell(totalRowNum, jumlahCol);
+    cell.value = { formula: sumFormula(letter) };
+    cell.numFmt = "#,##0";
+    applyCellBorderCenter(cell, {
+      fill: YELLOW,
+      font: { bold: true, size: 9, color: { argb: TEXT } },
+    });
+  }
+
+  // Rata-rata perhari
+  const avgRowNum = ws.addRow([]).number;
+  ws.mergeCells(avgRowNum, 1, avgRowNum, 2);
+  ws.getCell(avgRowNum, 1).value = "Rata-rata perhari";
+  applyCellBorderCenter(ws.getCell(avgRowNum, 1), {
+    font: { size: 9, color: { argb: TEXT } },
+    horizontal: "left",
+  });
+  applyCellBorderCenter(ws.getCell(avgRowNum, 2));
+  for (let c = dayStartCol; c <= dayEndCol; c++) {
+    applyCellBorderCenter(ws.getCell(avgRowNum, c));
+  }
+  {
+    const totalLetter = ws.getColumn(totalCol).letter;
+    const cell = ws.getCell(avgRowNum, totalCol);
+    cell.value = { formula: `${totalLetter}${totalRowNum}/${daysInMonth}` };
+    cell.numFmt = "0.00";
+    applyCellBorderCenter(cell);
+  }
+  applyCellBorderCenter(ws.getCell(avgRowNum, hargaCol));
+  applyCellBorderCenter(ws.getCell(avgRowNum, jumlahCol));
+
+  // Minimal pengambilan
+  const minRowNum = ws.addRow([]).number;
+  ws.mergeCells(minRowNum, 1, minRowNum, 2);
+  ws.getCell(minRowNum, 1).value =
+    `Minimal pengambilan linen kotor rata-rata perhari ${MIN_KG_PER_DAY} kg x ${daysInMonth} hari`;
+  applyCellBorderCenter(ws.getCell(minRowNum, 1), {
+    font: { size: 8, color: { argb: TEXT } },
+    horizontal: "left",
+    wrapText: true,
+  });
+  applyCellBorderCenter(ws.getCell(minRowNum, 2));
+  for (let c = dayStartCol; c <= dayEndCol; c++) {
+    applyCellBorderCenter(ws.getCell(minRowNum, c));
+  }
+  {
+    const cell = ws.getCell(minRowNum, totalCol);
+    cell.value = Number(minimalKg.toFixed(2));
+    cell.numFmt = "0.00";
+    applyCellBorderCenter(cell);
+  }
+  {
+    const cell = ws.getCell(minRowNum, hargaCol);
+    cell.value = null;
+    cell.numFmt = "#,##0";
+    applyCellBorderCenter(cell);
+  }
+  {
+    const totalLetter = ws.getColumn(totalCol).letter;
+    const hargaLetter = ws.getColumn(hargaCol).letter;
+    const cell = ws.getCell(minRowNum, jumlahCol);
+    cell.value = { formula: `${totalLetter}${minRowNum}*${hargaLetter}${minRowNum}` };
+    cell.numFmt = "#,##0";
+    applyCellBorderCenter(cell, { fill: YELLOW });
+  }
+  ws.getRow(minRowNum).height = 28;
+
+  // Footer tanda tangan
+  ws.addRow([]);
+  const placeRow = ws.addRow([]);
+  ws.getCell(placeRow.number, 1).value = `Depok, ${monthLabel}`;
+  ws.getCell(placeRow.number, 1).font = { size: 10, color: { argb: TEXT } };
+
+  const hormatRow = ws.addRow([]);
+  ws.getCell(hormatRow.number, 1).value = "Hormat kami,";
+  ws.getCell(hormatRow.number, 1).font = { size: 10, color: { argb: TEXT } };
+
+  const companyRow = ws.addRow([]);
+  ws.getCell(companyRow.number, 1).value = "PT. Intersolusi Karya Mandiri";
+  ws.getCell(companyRow.number, 1).font = { size: 10, color: { argb: TEXT } };
+
+  ws.addRow([]);
+  ws.addRow([]);
+  ws.addRow([]);
+  ws.addRow([]);
+
+  const nameRow = ws.addRow([]);
+  ws.getCell(nameRow.number, 1).value = "Susi Eriyanti";
+  ws.getCell(nameRow.number, 1).font = {
+    bold: true,
+    size: 10,
+    color: { argb: TEXT },
+    underline: true,
+  };
+
+  const titleRow = ws.addRow([]);
+  ws.getCell(titleRow.number, 1).value = "Staff Admin Finance";
+  ws.getCell(titleRow.number, 1).font = { size: 10, color: { argb: TEXT } };
+
+  return ws;
+}
+
+/**
+ * Sheet 1: Rangkuman KG Harian (Non Express + Express)
+ * Sheet 2: Linen Non Express
+ * Sheet 3: Linen Express
  */
 export async function exportRekapKgLinen(payload, startDate, endDate) {
   const hospital = payload.hospital || {};
@@ -86,7 +339,6 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
   const hospitalName = hospital.hospital_name || "-";
   const { year, month, daysInMonth, monthLabel } = resolveMonthContext(startDate, endDate);
 
-  // day -> { regular: number, express: number }
   const byDay = Array.from({ length: daysInMonth + 1 }, () => ({ regular: 0, express: 0 }));
 
   details.forEach((row) => {
@@ -109,95 +361,7 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     expressDays.push(byDay[day].express || null);
   }
 
-  const minimalKg = MIN_KG_PER_DAY * daysInMonth;
-
-  // columns: A=No, B=Jenis, C..(C+days-1)=dates, then TOTAL, HARGA, JUMLAH
-  const dayStartCol = 3; // C
-  const dayEndCol = dayStartCol + daysInMonth - 1;
-  const totalCol = dayEndCol + 1;
-  const hargaCol = totalCol + 1;
-  const jumlahCol = hargaCol + 1;
-  const lastCol = jumlahCol;
-
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "AloraSuperApp";
-  workbook.created = new Date();
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SHEET 1 — Rangkuman (format matriks tanggal)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const ws1 = workbook.addWorksheet("Rangkuman KG Harian", {
-    views: [{ showGridLines: true, state: "frozen", ySplit: 6 }],
-    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-
-  // Column widths
-  ws1.getColumn(1).width = 5;
-  ws1.getColumn(2).width = 18;
-  for (let c = dayStartCol; c <= dayEndCol; c++) ws1.getColumn(c).width = 6;
-  ws1.getColumn(totalCol).width = 12;
-  ws1.getColumn(hargaCol).width = 12;
-  ws1.getColumn(jumlahCol).width = 14;
-
-  // Header 3 baris (judul / RS / bulan)
-  ws1.mergeCells(1, 1, 1, lastCol);
-  ws1.getCell(1, 1).value = "REKAPITULASI BIAYA LAUNDRY LINEN KILOGRAM (EXPRESS)";
-  ws1.getCell(1, 1).font = { bold: true, size: 14, color: { argb: TEXT } };
-  ws1.getCell(1, 1).alignment = { horizontal: "center", vertical: "middle" };
-  ws1.getRow(1).height = 22;
-
-  ws1.mergeCells(2, 1, 2, lastCol);
-  ws1.getCell(2, 1).value = String(hospitalName || "-").toUpperCase();
-  ws1.getCell(2, 1).font = { bold: true, size: 12, color: { argb: TEXT } };
-  ws1.getCell(2, 1).alignment = { horizontal: "center", vertical: "middle" };
-  ws1.getRow(2).height = 20;
-
-  ws1.mergeCells(3, 1, 3, lastCol);
-  ws1.getCell(3, 1).value = `Bulan : ${monthLabel}`;
-  ws1.getCell(3, 1).font = { bold: true, size: 11, color: { argb: TEXT } };
-  ws1.getCell(3, 1).alignment = { horizontal: "center", vertical: "middle" };
-  ws1.getRow(3).height = 18;
-
-  ws1.addRow([]); // spacer row 4
-
-  // Header row 5–6
-  const h1 = 5;
-  const h2 = 6;
-
-  ws1.getCell(h1, 1).value = "No";
-  ws1.getCell(h1, 2).value = "JENIS LINEN";
-  ws1.getCell(h1, dayStartCol).value = "TANGGAL";
-  ws1.getCell(h1, totalCol).value = "TOTAL (kg)";
-  ws1.getCell(h1, hargaCol).value = "HARGA (Rp)";
-  ws1.getCell(h1, jumlahCol).value = "JUMLAH (Rp)";
-
-  ws1.mergeCells(h1, 1, h2, 1);
-  ws1.mergeCells(h1, 2, h2, 2);
-  ws1.mergeCells(h1, dayStartCol, h1, dayEndCol);
-  ws1.mergeCells(h1, totalCol, h2, totalCol);
-  ws1.mergeCells(h1, hargaCol, h2, hargaCol);
-  ws1.mergeCells(h1, jumlahCol, h2, jumlahCol);
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    ws1.getCell(h2, dayStartCol + day - 1).value = day;
-  }
-
-  // Style header cells
-  for (let r = h1; r <= h2; r++) {
-    for (let c = 1; c <= lastCol; c++) {
-      applyCyanHeader(ws1.getCell(r, c));
-    }
-  }
-  ws1.getRow(h1).height = 20;
-  ws1.getRow(h2).height = 18;
-
-  const toPrice = (v) => {
-    if (v == null || v === "") return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
   const regularPrice = toPrice(hospital.price_per_kg);
-  // Express default 2x harga reguler; sebagian RS punya tarif khusus (bukan 2x)
   const customExpressPrice = toPrice(hospital.express_price_per_kg);
   const expressPrice =
     customExpressPrice != null
@@ -206,303 +370,42 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
         ? regularPrice * 2
         : null;
 
-  const addJenisRow = (no, label, dayValues, unitPrice) => {
-    const row = ws1.addRow([]);
-    const r = row.number;
-    ws1.getCell(r, 1).value = no;
-    ws1.getCell(r, 2).value = label;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "AloraSuperApp";
+  workbook.created = new Date();
 
-    dayValues.forEach((v, idx) => {
-      const cell = ws1.getCell(r, dayStartCol + idx);
-      if (v != null && Number(v) !== 0) {
-        cell.value = Number(Number(v).toFixed(2));
-        cell.numFmt = "0.00";
-      } else {
-        cell.value = null;
-      }
-      applyCellBorderCenter(cell);
-    });
+  const common = { hospitalName, monthLabel, daysInMonth };
 
-    // TOTAL formula
-    const totalCell = ws1.getCell(r, totalCol);
-    const startLetter = ws1.getColumn(dayStartCol).letter;
-    const endLetter = ws1.getColumn(dayEndCol).letter;
-    totalCell.value = { formula: `SUM(${startLetter}${r}:${endLetter}${r})` };
-    totalCell.numFmt = "0.00";
-    applyCellBorderCenter(totalCell);
-
-    // HARGA dari Master RS (bisa diubah manual di Excel)
-    const hargaCell = ws1.getCell(r, hargaCol);
-    hargaCell.value = unitPrice != null ? unitPrice : null;
-    hargaCell.numFmt = "#,##0";
-    applyCellBorderCenter(hargaCell);
-
-    // JUMLAH = TOTAL * HARGA
-    const jumlahCell = ws1.getCell(r, jumlahCol);
-    const totalLetter = ws1.getColumn(totalCol).letter;
-    const hargaLetter = ws1.getColumn(hargaCol).letter;
-    jumlahCell.value = { formula: `${totalLetter}${r}*${hargaLetter}${r}` };
-    jumlahCell.numFmt = "#,##0";
-    applyCellBorderCenter(jumlahCell, { fill: YELLOW });
-
-    applyCellBorderCenter(ws1.getCell(r, 1));
-    applyCellBorderCenter(ws1.getCell(r, 2), { horizontal: "left" });
-
-    return r;
-  };
-
-  const rowRegular = addJenisRow(1, "Linen", regularDays, regularPrice);
-  const rowExpress = addJenisRow(2, "Linen Express", expressDays, expressPrice);
-
-  // TOTAL row
-  const totalRowNum = ws1.addRow([]).number;
-  ws1.mergeCells(totalRowNum, 1, totalRowNum, 2);
-  ws1.getCell(totalRowNum, 1).value = "Total";
-  applyCellBorderCenter(ws1.getCell(totalRowNum, 1), {
-    font: { bold: true, size: 9, color: { argb: TEXT } },
-  });
-  applyCellBorderCenter(ws1.getCell(totalRowNum, 2), {
-    font: { bold: true, size: 9, color: { argb: TEXT } },
+  // Sheet 1 — Rangkuman (keduanya)
+  buildMatrixSheet(workbook, {
+    ...common,
+    sheetName: "Rangkuman KG Harian",
+    title: "REKAPITULASI BIAYA LAUNDRY LINEN KILOGRAM",
+    rows: [
+      { no: 1, label: "Linen Non Express", dayValues: regularDays, unitPrice: regularPrice },
+      { no: 2, label: "Linen Express", dayValues: expressDays, unitPrice: expressPrice },
+    ],
   });
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const c = dayStartCol + day - 1;
-    const letter = ws1.getColumn(c).letter;
-    const cell = ws1.getCell(totalRowNum, c);
-    cell.value = { formula: `${letter}${rowRegular}+${letter}${rowExpress}` };
-    cell.numFmt = "0.00";
-    applyCellBorderCenter(cell, { font: { bold: true, size: 9, color: { argb: TEXT } } });
-  }
-
-  {
-    const letter = ws1.getColumn(totalCol).letter;
-    const cell = ws1.getCell(totalRowNum, totalCol);
-    cell.value = { formula: `${letter}${rowRegular}+${letter}${rowExpress}` };
-    cell.numFmt = "0.00";
-    applyCellBorderCenter(cell, { font: { bold: true, size: 9, color: { argb: TEXT } } });
-  }
-  applyCellBorderCenter(ws1.getCell(totalRowNum, hargaCol));
-  {
-    const letter = ws1.getColumn(jumlahCol).letter;
-    const cell = ws1.getCell(totalRowNum, jumlahCol);
-    cell.value = { formula: `${letter}${rowRegular}+${letter}${rowExpress}` };
-    cell.numFmt = "#,##0";
-    applyCellBorderCenter(cell, {
-      fill: YELLOW,
-      font: { bold: true, size: 9, color: { argb: TEXT } },
-    });
-  }
-
-  // Rata-rata perhari
-  const avgRowNum = ws1.addRow([]).number;
-  ws1.mergeCells(avgRowNum, 1, avgRowNum, 2);
-  ws1.getCell(avgRowNum, 1).value = "Rata-rata perhari";
-  applyCellBorderCenter(ws1.getCell(avgRowNum, 1), {
-    font: { size: 9, color: { argb: TEXT } },
-    horizontal: "left",
-  });
-  applyCellBorderCenter(ws1.getCell(avgRowNum, 2));
-  for (let c = dayStartCol; c <= dayEndCol; c++) {
-    applyCellBorderCenter(ws1.getCell(avgRowNum, c));
-  }
-  {
-    const totalLetter = ws1.getColumn(totalCol).letter;
-    const cell = ws1.getCell(avgRowNum, totalCol);
-    cell.value = { formula: `${totalLetter}${totalRowNum}/${daysInMonth}` };
-    cell.numFmt = "0.00";
-    applyCellBorderCenter(cell);
-  }
-  applyCellBorderCenter(ws1.getCell(avgRowNum, hargaCol));
-  applyCellBorderCenter(ws1.getCell(avgRowNum, jumlahCol));
-
-  // Minimal pengambilan
-  const minRowNum = ws1.addRow([]).number;
-  ws1.mergeCells(minRowNum, 1, minRowNum, 2);
-  ws1.getCell(minRowNum, 1).value =
-    `Minimal pengambilan linen kotor rata-rata perhari ${MIN_KG_PER_DAY} kg x ${daysInMonth} hari`;
-  applyCellBorderCenter(ws1.getCell(minRowNum, 1), {
-    font: { size: 8, color: { argb: TEXT } },
-    horizontal: "left",
-    wrapText: true,
-  });
-  applyCellBorderCenter(ws1.getCell(minRowNum, 2));
-  for (let c = dayStartCol; c <= dayEndCol; c++) {
-    applyCellBorderCenter(ws1.getCell(minRowNum, c));
-  }
-  {
-    const cell = ws1.getCell(minRowNum, totalCol);
-    cell.value = Number(minimalKg.toFixed(2));
-    cell.numFmt = "0.00";
-    applyCellBorderCenter(cell);
-  }
-  {
-    const cell = ws1.getCell(minRowNum, hargaCol);
-    cell.value = null;
-    cell.numFmt = "#,##0";
-    applyCellBorderCenter(cell);
-  }
-  {
-    const totalLetter = ws1.getColumn(totalCol).letter;
-    const hargaLetter = ws1.getColumn(hargaCol).letter;
-    const cell = ws1.getCell(minRowNum, jumlahCol);
-    cell.value = { formula: `${totalLetter}${minRowNum}*${hargaLetter}${minRowNum}` };
-    cell.numFmt = "#,##0";
-    applyCellBorderCenter(cell, { fill: YELLOW });
-  }
-  ws1.getRow(minRowNum).height = 28;
-
-  // Footer tanda tangan
-  ws1.addRow([]);
-  const placeRow = ws1.addRow([]);
-  ws1.getCell(placeRow.number, 1).value = `Depok, ${monthLabel}`;
-  ws1.getCell(placeRow.number, 1).font = { size: 10, color: { argb: TEXT } };
-
-  const hormatRow = ws1.addRow([]);
-  ws1.getCell(hormatRow.number, 1).value = "Hormat kami,";
-  ws1.getCell(hormatRow.number, 1).font = { size: 10, color: { argb: TEXT } };
-
-  const companyRow = ws1.addRow([]);
-  ws1.getCell(companyRow.number, 1).value = "PT. Intersolusi Karya Mandiri";
-  ws1.getCell(companyRow.number, 1).font = { size: 10, color: { argb: TEXT } };
-
-  // Spasi untuk tanda tangan
-  ws1.addRow([]);
-  ws1.addRow([]);
-  ws1.addRow([]);
-  ws1.addRow([]);
-
-  const nameRow = ws1.addRow([]);
-  ws1.getCell(nameRow.number, 1).value = "Susi Eriyanti";
-  ws1.getCell(nameRow.number, 1).font = {
-    bold: true,
-    size: 10,
-    color: { argb: TEXT },
-    underline: true,
-  };
-
-  const titleRow = ws1.addRow([]);
-  ws1.getCell(titleRow.number, 1).value = "Staff Admin Finance";
-  ws1.getCell(titleRow.number, 1).font = { size: 10, color: { argb: TEXT } };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SHEET 2 — Rincian transaksi (tetap detail)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const ws2 = workbook.addWorksheet("Rincian Transaksi");
-  ws2.views = [{ showGridLines: false }];
-  ws2.columns = [
-    { width: 6 },
-    { width: 22 },
-    { width: 18 },
-    { width: 18 },
-    { width: 12 },
-    { width: 12 },
-    { width: 12 },
-    { width: 12 },
-    { width: 10 },
-    { width: 12 },
-    { width: 12 },
-    { width: 14 },
-    { width: 16 },
-  ];
-
-  const title2 = ws2.addRow(["REKAPITULASI BIAYA LAUNDRY LINEN KILOGRAM (EXPRESS)"]);
-  ws2.mergeCells(1, 1, 1, 13);
-  title2.getCell(1).font = { bold: true, size: 14, color: { argb: TEXT } };
-  title2.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
-  title2.height = 24;
-
-  const hosp2 = ws2.addRow([String(hospitalName || "-").toUpperCase()]);
-  ws2.mergeCells(2, 1, 2, 13);
-  hosp2.getCell(1).font = { bold: true, size: 12, color: { argb: TEXT } };
-  hosp2.getCell(1).alignment = { horizontal: "center" };
-
-  const per2 = ws2.addRow([`Bulan : ${monthLabel}`]);
-  ws2.mergeCells(3, 1, 3, 13);
-  per2.getCell(1).font = { bold: true, size: 11, color: { argb: TEXT } };
-  per2.getCell(1).alignment = { horizontal: "center" };
-
-  ws2.addRow([]);
-
-  const header2 = ws2.addRow([
-    "No",
-    "No. Surat",
-    "Pickup",
-    "Pengantaran",
-    "Status",
-    "Kg Valet",
-    "Kg Admin",
-    "Selisih",
-    "Express",
-    "Pcs Kotor",
-    "Pcs Bersih",
-    "Harga/Kg (Rp)",
-    "Jumlah (Rp)",
-  ]);
-  header2.height = 22;
-  header2.eachCell((cell) => {
-    cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: DARK_BLUE } };
-    cell.border = {
-      top: { style: "thin", color: { argb: "FFCBD5E1" } },
-      left: { style: "thin", color: { argb: "FFCBD5E1" } },
-      bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
-      right: { style: "thin", color: { argb: "FFCBD5E1" } },
-    };
-    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+  // Sheet 2 — Non Express saja
+  buildMatrixSheet(workbook, {
+    ...common,
+    sheetName: "Linen Non Express",
+    title: "REKAPITULASI BIAYA LAUNDRY LINEN KILOGRAM (NON EXPRESS)",
+    rows: [
+      { no: 1, label: "Linen Non Express", dayValues: regularDays, unitPrice: regularPrice },
+    ],
   });
 
-  const softBorder = {
-    top: { style: "thin", color: { argb: "FFCBD5E1" } },
-    left: { style: "thin", color: { argb: "FFCBD5E1" } },
-    bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
-    right: { style: "thin", color: { argb: "FFCBD5E1" } },
-  };
-
-  details.forEach((row, idx) => {
-    const valet = row.total_kg_valet == null || row.total_kg_valet === "" ? null : Number(row.total_kg_valet);
-    const admin = row.total_kg_admin == null || row.total_kg_admin === "" ? null : Number(row.total_kg_admin);
-    const hasValet = valet != null && Number.isFinite(valet);
-    const hasAdmin = admin != null && Number.isFinite(admin);
-    const selisih = hasValet && hasAdmin ? admin - valet : null;
-    const isExpress = Number(row.is_express) === 1;
-    const unitPrice = isExpress ? expressPrice : regularPrice;
-    const billedKg = pickKg(row);
-    const amount = unitPrice != null ? unitPrice * billedKg : null;
-
-    const dataRow = ws2.addRow([
-      idx + 1,
-      row.form_number || "-",
-      fmtDateTime(row.pickup_date),
-      fmtDateTime(row.delivery_date),
-      row.status || "-",
-      hasValet ? Number(valet.toFixed(2)) : "-",
-      hasAdmin ? Number(admin.toFixed(2)) : "-",
-      selisih == null ? "-" : Number(selisih.toFixed(2)),
-      isExpress ? "Ya" : "Tidak",
-      Number(row.total_kotor || 0),
-      Number(row.total_bersih || 0),
-      unitPrice != null ? unitPrice : "-",
-      amount != null ? Number(amount.toFixed(2)) : "-",
-    ]);
-    dataRow.height = 20;
-    dataRow.eachCell((cell) => {
-      cell.border = softBorder;
-      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-      cell.font = { size: 9.5, color: { argb: "FF0F172A" } };
-      if (idx % 2 === 1) {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_BLUE } };
-      }
-    });
-    if (unitPrice != null) dataRow.getCell(12).numFmt = "#,##0";
-    if (amount != null) dataRow.getCell(13).numFmt = "#,##0";
+  // Sheet 3 — Express saja
+  buildMatrixSheet(workbook, {
+    ...common,
+    sheetName: "Linen Express",
+    title: "REKAPITULASI BIAYA LAUNDRY LINEN KILOGRAM (EXPRESS)",
+    rows: [
+      { no: 1, label: "Linen Express", dayValues: expressDays, unitPrice: expressPrice },
+    ],
   });
-
-  if (details.length === 0) {
-    const empty = ws2.addRow(["Tidak ada data pada periode ini"]);
-    ws2.mergeCells(empty.number, 1, empty.number, 13);
-    empty.getCell(1).alignment = { horizontal: "center" };
-    empty.getCell(1).font = { italic: true, color: { argb: GRAY } };
-  }
 
   const buffer = await workbook.xlsx.writeBuffer();
   const safeName = String(hospitalName || "RS").replace(/[^\w-]+/g, "_");

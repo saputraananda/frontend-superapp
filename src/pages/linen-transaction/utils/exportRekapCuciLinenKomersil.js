@@ -12,6 +12,13 @@ function colIndexToLabel(idx) {
   return label;
 }
 
+/** Parse YYYY-MM-DD as local date (avoid UTC shift). */
+function parseLocalDate(iso) {
+  if (!iso) return new Date(NaN);
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 function formatDateISO(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -20,8 +27,8 @@ function formatDateISO(date) {
 }
 
 function formatPeriodTitle(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
   if (isNaN(start) || isNaN(end)) return "";
   const startMonth = new Intl.DateTimeFormat("id-ID", { month: "long" }).format(start);
   const startYear = start.getFullYear();
@@ -33,17 +40,37 @@ function formatPeriodTitle(startDate, endDate) {
   return `${startMonth.toUpperCase()} ${startYear} - ${endMonth.toUpperCase()} ${endYear}`;
 }
 
-export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, ownershipType = "SEWA") {
+/** Excel sheet names: max 31 chars, no \ / ? * [ ] */
+function safeSheetName(name, usedNames) {
+  let base = String(name || "Sheet")
+    .replace(/[\\/*?:[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, 28) || "Sheet";
+  let candidate = base;
+  let i = 2;
+  while (usedNames.has(candidate.toLowerCase())) {
+    const suffix = ` (${i})`;
+    candidate = `${base.substring(0, 31 - suffix.length)}${suffix}`;
+    i += 1;
+  }
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+}
+
+export async function exportRekapCuciLinenKomersil(rekapData, startDate, endDate, ownershipType = "SEWA") {
   const { hospitals = [], linens = [], transactions = [] } = rekapData;
 
   if (hospitals.length === 0) {
-    alert("Tidak ada data rumah sakit untuk diekspor");
-    return;
+    throw new Error("Tidak ada data rumah sakit untuk diekspor");
   }
 
   const dates = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (isNaN(start) || isNaN(end) || start > end) {
+    throw new Error("Rentang tanggal rekap tidak valid");
+  }
   let curr = new Date(start);
   while (curr <= end) {
     dates.push(new Date(curr));
@@ -51,6 +78,7 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
   }
 
   const workbook = new ExcelJS.Workbook();
+  const usedSheetNames = new Set();
 
   const C = {
     navyDeep:   "FF0F2544",
@@ -87,14 +115,14 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
   let logoBuffer = null;
   try {
     const logoRes = await fetch("/ikm.png");
-    if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer();
-  } catch (_) { /* logo optional */ }
+    if (logoRes.ok) logoBuffer = new Uint8Array(await logoRes.arrayBuffer());
+  } catch { /* logo optional */ }
 
   for (const hospital of hospitals) {
     const hospitalLinens = linens.filter((l) => Number(l.hospital_id) === Number(hospital.id));
     if (hospitalLinens.length === 0) continue;
 
-    const sheetName = hospital.hospital_name.substring(0, 30);
+    const sheetName = safeSheetName(hospital.hospital_name, usedSheetNames);
     const ws = workbook.addWorksheet(sheetName);
 
     const numDates         = dates.length;
@@ -138,7 +166,7 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
     ctBlock.value = {
       richText: [
         {
-          text: "REKAPITULASI CUCI LINEN\n",
+          text: "REKAPITULASI CUCI LINEN KOMERSIL\n",
           font: { bold: true, size: 18, color: { argb: C.navyDeep }, name: "Calibri" },
         },
         {
@@ -168,7 +196,7 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
     const h1RowNum = ws.rowCount + 1;
     const h2RowNum = h1RowNum + 1;
 
-    const h1Data = ["No", "Jenis Linen Khusus", "TANGGAL"];
+    const h1Data = ["No", "Jenis Linen Komersil", "TANGGAL"];
     for (let i = 1; i < numDates; i++) h1Data.push("");
     h1Data.push("Total\n(Pcs)", "P (M)", "L (M)", "Luas\n(M2)", "Harga Cuci", "Total Biaya");
 
@@ -290,22 +318,20 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
       row.height = 18;
       const ri = row.number;
 
-      const fc   = colIndexToLabel(firstDateColIdx);
-      const lc   = colIndexToLabel(lastDateColIdx);
-      const tc   = colIndexToLabel(totalColIdx);
-      const pc   = colIndexToLabel(pColIdx);
-      const lcCol = colIndexToLabel(lColIdx);
-      const lsc  = colIndexToLabel(luasColIdx);
-      const hc   = colIndexToLabel(hargaCuciColIdx);
+      const fc  = colIndexToLabel(firstDateColIdx);
+      const lc  = colIndexToLabel(lastDateColIdx);
+      const tc  = colIndexToLabel(totalColIdx);
+      const lsc = colIndexToLabel(luasColIdx);
+      const hc  = colIndexToLabel(hargaCuciColIdx);
 
-      row.getCell(totalColIdx).value = { formula: `=SUM(${fc}${ri}:${lc}${ri})` };
-      row.getCell(totalBiayaColIdx).value = { formula: `=${tc}${ri}*${lsc}${ri}*${hc}${ri}` };
+      // ExcelJS: formula must NOT include leading "="
+      row.getCell(totalColIdx).value = { formula: `SUM(${fc}${ri}:${lc}${ri})` };
+      row.getCell(totalBiayaColIdx).value = { formula: `${tc}${ri}*${lsc}${ri}*${hc}${ri}` };
 
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         if (colNumber > totalBiayaColIdx) return;
-        const isDateCol    = colNumber >= firstDateColIdx && colNumber <= lastDateColIdx;
-        const isSummaryCol = colNumber >= totalColIdx;
-        const d            = isDateCol ? dates[colNumber - firstDateColIdx] : null;
+        const isDateCol = colNumber >= firstDateColIdx && colNumber <= lastDateColIdx;
+        const d         = isDateCol ? dates[colNumber - firstDateColIdx] : null;
         const isToday      = d ? formatDateISO(d) === todayISO : false;
 
         cell.fill      = styleFill(isToday ? C.todayCell : rowBg);
@@ -330,13 +356,13 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
 
     for (let i = 0; i < numDates; i++) {
       const cl = colIndexToLabel(firstDateColIdx + i);
-      summaryData.push({ formula: `=SUM(${cl}${dataStartRow}:${cl}${dataEndRow})` });
+      summaryData.push({ formula: `SUM(${cl}${dataStartRow}:${cl}${dataEndRow})` });
     }
     const tcl   = colIndexToLabel(totalColIdx);
     const biycl = colIndexToLabel(totalBiayaColIdx);
-    summaryData.push({ formula: `=SUM(${tcl}${dataStartRow}:${tcl}${dataEndRow})` });
+    summaryData.push({ formula: `SUM(${tcl}${dataStartRow}:${tcl}${dataEndRow})` });
     summaryData.push("", "", "", ""); // Placeholders for P, L, Luas, Harga Cuci
-    summaryData.push({ formula: `=SUM(${biycl}${dataStartRow}:${biycl}${dataEndRow})` });
+    summaryData.push({ formula: `SUM(${biycl}${dataStartRow}:${biycl}${dataEndRow})` });
 
     const sumRow = ws.addRow(summaryData);
     sumRow.height = 22;
@@ -358,8 +384,12 @@ export async function exportRekapCuciLinenKhusus(rekapData, startDate, endDate, 
     ws.views = [{ state: "frozen", xSplit: 2, ySplit: h2RowNum, showGridLines: false }];
   }
 
+  if (workbook.worksheets.length === 0) {
+    throw new Error("Tidak ada data linen komersil untuk diekspor pada periode ini");
+  }
+
   const buffer  = await workbook.xlsx.writeBuffer();
   const blob    = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const docName = ownershipType === "SEWA" ? "Rekap_Cuci_Linen_Khusus_Sewa" : "Rekap_Cuci_Linen_Khusus_RS";
+  const docName = ownershipType === "SEWA" ? "Rekap_Cuci_Linen_Komersil_Sewa" : "Rekap_Cuci_Linen_Komersil_RS";
   saveAs(blob, `${docName}_${startDate}_${endDate}.xlsx`);
 }

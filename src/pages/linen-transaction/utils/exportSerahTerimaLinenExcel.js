@@ -80,8 +80,7 @@ function styleMetaValue(cell) {
 
 export async function exportSerahTerimaLinenExcel(transactionData) {
   if (!transactionData || !transactionData.header) {
-    alert("Data transaksi tidak valid untuk diekspor");
-    return;
+    throw new Error("Data transaksi tidak valid untuk diekspor");
   }
 
   const { header, details = [] } = transactionData;
