@@ -69,6 +69,75 @@ function calcDuration(checkIn, checkOut) {
 	return h > 0 ? `${h}j ${m}m` : `${m}m`;
 }
 
+function formatApprovalStatus(row) {
+	const mode = String(row?.attendance_mode || "").toLowerCase();
+	if (mode !== "wfa" && mode !== "wod") return "-";
+	if (row?.approval_status === "disetujui" || row?.mode_request_id) return "Disetujui";
+	return "Belum Disetujui";
+}
+
+function formatDurationHours(row) {
+	if (row.duration_hours == null) return "-";
+	return `${Number(row.duration_hours).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`;
+}
+
+function formatLemburHours(row) {
+	const n = Number(row?.lembur_hours);
+	if (!Number.isFinite(n) || n <= 0) return "—";
+	return `${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`;
+}
+
+function formatLateHours(minutes) {
+	if (minutes == null || minutes <= 0) return null;
+	const hours = Number(minutes) / 60;
+	const formatted = hours.toLocaleString("id-ID", {
+		maximumFractionDigits: 2,
+		minimumFractionDigits: hours < 1 ? 1 : 0,
+	});
+	return `${formatted} jam`;
+}
+
+function formatLateCell(row) {
+	const hasMinutes = row?.late_minutes != null && Number(row.late_minutes) > 0;
+	const reason = row?.late_reason?.trim() || null;
+	if (!row?.late_category && !hasMinutes && !reason) {
+		return { category: "-", duration: null, reason: null };
+	}
+	const category =
+		row.late_category === "planned"
+			? "Terlambat Terencana"
+			: row.late_category === "unexpected"
+				? "Tidak Terencana"
+				: hasMinutes || reason
+					? "Terlambat"
+					: "-";
+	return {
+		category,
+		duration: formatLateHours(row.late_minutes != null ? Number(row.late_minutes) : null),
+		reason,
+	};
+}
+
+function LateCell({ row }) {
+	const late = formatLateCell(row);
+	if (late.category === "-") {
+		return <span className="text-xs text-slate-300">-</span>;
+	}
+	return (
+		<div className="max-w-xs space-y-0.5">
+			<p className="text-xs font-semibold text-slate-700">{late.category}</p>
+			{late.duration && <p className="text-[11px] text-slate-500">{late.duration}</p>}
+			{late.reason ? (
+				<p className="line-clamp-2 text-[11px] text-slate-600" title={late.reason}>
+					{late.reason}
+				</p>
+			) : (
+				<p className="text-[11px] text-slate-400">-</p>
+			)}
+		</div>
+	);
+}
+
 function generatePages(current, total) {
 	if (total <= 1) return [];
 	if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -362,6 +431,7 @@ export default function ReportAbsensiAlora() {
 	const [error, setError] = useState("");
 	const [photoViewer, setPhotoViewer] = useState(null);
 	const [statusFilter, setStatusFilter] = useState("");
+	const [finalStatusFilter, setFinalStatusFilter] = useState("");
 	const [sort, setSort] = useState({ col: "check_in_time", dir: "desc" });
 	const [exporting, setExporting] = useState(false);
 
@@ -501,10 +571,14 @@ export default function ReportAbsensiAlora() {
 
 	const displayedRecords = useMemo(() => {
 		let result = records;
+		if (finalStatusFilter) {
+			result = result.filter((r) => String(r.final_status_code || "") === finalStatusFilter);
+		}
 		if (!sort.col) return result;
 		const dir = sort.dir === "asc" ? 1 : -1;
 		return [...result].sort((a, b) => {
 			if (sort.col === "employee_name") return String(a.employee_name || "").localeCompare(String(b.employee_name || "")) * dir;
+			if (sort.col === "final_status") return String(a.final_status || "").localeCompare(String(b.final_status || "")) * dir;
 			if (sort.col === "status_label") return String(a.status_label || "").localeCompare(String(b.status_label || "")) * dir;
 			if (["work_date", "check_in_time", "check_out_time"].includes(sort.col)) {
 				const ta = a[sort.col] ? new Date(a[sort.col]).getTime() : 0;
@@ -513,7 +587,7 @@ export default function ReportAbsensiAlora() {
 			}
 			return String(a[sort.col] ?? "").localeCompare(String(b[sort.col] ?? "")) * dir;
 		});
-	}, [records, sort]);
+	}, [records, sort, finalStatusFilter]);
 
 	const statusOptions = useMemo(
 		() => ["Belum check-in", "Belum check-out", "Foto belum lengkap", "Lengkap"],
@@ -599,6 +673,7 @@ export default function ReportAbsensiAlora() {
 			qs.set("endDate", activePeriod.endDate);
 			qs.set("page", "1");
 			qs.set("limit", "99999");
+			qs.set("includeExport", "1");
 			if (selectedEmployeeIds.length > 0) qs.set("employeeIds", selectedEmployeeIds.join(","));
 			if (filters.onlyIncomplete) qs.set("onlyIncomplete", "1");
 			if (statusFilter) qs.set("status", statusFilter);
@@ -612,6 +687,9 @@ export default function ReportAbsensiAlora() {
 
 			exportReportAbsensiAloraExcel({
 				records: allRecords,
+				lemburSummary: response.lemburSummary || [],
+				leavesIzinCuti: response.leavesIzinCuti || [],
+				leavesSakit: response.leavesSakit || [],
 				periodLabel: activePeriodLabel,
 				activePeriod,
 				filters: {
@@ -894,15 +972,20 @@ export default function ReportAbsensiAlora() {
 							<p className="mt-0.5 text-xs text-slate-500">Ringkasan performa kehadiran pada periode aktif.</p>
 						</div>
 						<div className="overflow-x-auto pb-1">
-							<table className="min-w-[900px] w-full table-fixed text-sm">
+							<table className="min-w-[1400px] w-full table-fixed text-sm">
 								<thead className="border-b border-slate-100 bg-slate-50">
 									<tr>
-										<th className="w-[25%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Karyawan</th>
-										<th className="w-[15%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">NIK</th>
-										<th className="w-[25%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Jabatan</th>
-										<th className="w-[12%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Record</th>
-										<th className="w-[11%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Lengkap</th>
-										<th className="w-[12%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Belum Lengkap</th>
+										<th className="w-[14%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Karyawan</th>
+										<th className="w-[9%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">NIK</th>
+										<th className="w-[12%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Jabatan</th>
+										<th className="w-[7%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Record</th>
+										<th className="w-[7%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Lengkap</th>
+										<th className="w-[7%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Belum Lengkap</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Lembur</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Saldo Lembur</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total RO</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Unpaid</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Saldo RO</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-slate-100">
@@ -916,6 +999,27 @@ export default function ReportAbsensiAlora() {
 											<td className="px-4 py-3 text-center text-sm font-semibold text-slate-700">{row.record_count}</td>
 											<td className="px-4 py-3 text-center text-sm font-semibold text-emerald-700">{row.complete_count}</td>
 											<td className="px-4 py-3 text-center text-sm font-semibold text-rose-700">{row.incomplete_count}</td>
+											<td className="px-4 py-3 text-center text-sm font-semibold text-violet-700">
+												{Number(row.total_lembur_hours) > 0
+													? `${Number(row.total_lembur_hours).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`
+													: "—"}
+											</td>
+											<td className="px-4 py-3 text-center text-sm font-semibold text-violet-600">
+												{`${Number(row.overtime_balance_hours || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`}
+											</td>
+											<td className="px-4 py-3 text-center text-sm font-semibold text-sky-700">
+												{Number(row.total_ro_earned_hours) > 0
+													? `${Number(row.total_ro_earned_hours).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`
+													: "—"}
+											</td>
+											<td className="px-4 py-3 text-center text-sm font-semibold text-amber-700">
+												{Number(row.izin_unpaid_hours) > 0
+													? `${Number(row.izin_unpaid_hours).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`
+													: "—"}
+											</td>
+											<td className="px-4 py-3 text-center text-sm font-semibold text-sky-700">
+												{`${Number(row.replace_off_hours || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`}
+											</td>
 										</tr>
 									))}
 								</tbody>
@@ -933,6 +1037,21 @@ export default function ReportAbsensiAlora() {
 							</p>
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
+							<select
+								value={finalStatusFilter}
+								onChange={(e) => setFinalStatusFilter(e.target.value)}
+								className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+							>
+								<option value="">Semua Final Status</option>
+								<option value="HADIR">Hadir</option>
+								<option value="OFF">Off</option>
+								<option value="CUTI">Cuti</option>
+								<option value="SAKIT_SKD">Sakit (SKD)</option>
+								<option value="SAKIT_NON_SKD">Sakit (Non-SKD)</option>
+								<option value="WFA">WFA</option>
+								<option value="EARNED_REPLACE_OFF">Earned Replace Off</option>
+								<option value="REPLACE_OFF">Replace Off</option>
+							</select>
 							<select
 								value={statusFilter}
 								onChange={(e) => {
@@ -985,16 +1104,22 @@ export default function ReportAbsensiAlora() {
 									<SortTh col="check_out_time" label="Absen Out" sort={sort} onSort={handleSort} />
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Foto Out</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Durasi</th>
+									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Mode</th>
+									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Durasi (jam)</th>
+									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Lembur (jam)</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Lokasi / Koordinat</th>
-									<SortTh col="status_label" label="Status" sort={sort} onSort={handleSort} />
+									<SortTh col="status_label" label="Status Teknis" sort={sort} onSort={handleSort} />
+									<SortTh col="final_status" label="Final Status" sort={sort} onSort={handleSort} />
+									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Approval</th>
+									<th className="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Terlambat</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
-								{loading && Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={10} />)}
+								{loading && Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={16} />)}
 
 								{!loading && displayedRecords.length === 0 && (
 									<tr>
-										<td colSpan={10} className="px-4 py-14 text-center">
+										<td colSpan={16} className="px-4 py-14 text-center">
 											<div className="flex flex-col items-center gap-2 text-slate-400">
 												<HiOutlineDocumentCheck className="h-9 w-9 opacity-40" />
 												<p className="text-sm">Data absensi tidak ditemukan pada filter aktif.</p>
@@ -1049,9 +1174,15 @@ export default function ReportAbsensiAlora() {
 														<span className="text-xs text-slate-300">-</span>
 													)}
 												</td>
+												<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">{row.mode_label || "Harian"}</td>
+												<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">{formatDurationHours(row)}</td>
+												<td className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-violet-700">{formatLemburHours(row)}</td>
 												<td className="px-4 py-3 text-xs">
 													<div className="flex flex-col gap-1">
 														<div className="text-slate-600">{row.clock_in_location_name || "-"}</div>
+														{row.location_context ? (
+															<span className="text-[11px] font-semibold text-slate-500">{row.location_context}</span>
+														) : null}
 														{row.clock_in_latitude != null && row.clock_in_longitude != null ? (
 															<a
 																href={`https://www.google.com/maps?q=${row.clock_in_latitude},${row.clock_in_longitude}`}
@@ -1078,6 +1209,11 @@ export default function ReportAbsensiAlora() {
 												</td>
 												<td className="whitespace-nowrap px-4 py-3">
 													<StatusBadge label={row.status_label} />
+												</td>
+												<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">{row.final_status || "-"}</td>
+												<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">{formatApprovalStatus(row)}</td>
+												<td className="px-4 py-3">
+													<LateCell row={row} />
 												</td>
 											</tr>
 										);
@@ -1122,6 +1258,44 @@ export default function ReportAbsensiAlora() {
 											<div>
 												<p className="font-semibold text-slate-400">Lokasi In</p>
 												<p>{row.clock_in_location_name || "-"}</p>
+											</div>
+											<div>
+												<p className="font-semibold text-slate-400">Mode</p>
+												<p>{row.mode_label || "Harian"}</p>
+											</div>
+											<div>
+												<p className="font-semibold text-slate-400">Durasi (jam)</p>
+												<p>{formatDurationHours(row)}</p>
+											</div>
+											<div>
+												<p className="font-semibold text-slate-400">Lembur (jam)</p>
+												<p className="font-semibold text-violet-700">{formatLemburHours(row)}</p>
+											</div>
+											<div>
+												<p className="font-semibold text-slate-400">Final Status</p>
+												<p>{row.final_status || "-"}</p>
+											</div>
+											<div>
+												<p className="font-semibold text-slate-400">Approval</p>
+												<p>{formatApprovalStatus(row)}</p>
+											</div>
+											<div>
+												<p className="font-semibold text-slate-400">Terlambat</p>
+												{(() => {
+													const late = formatLateCell(row);
+													if (late.category === "-") return <p>-</p>;
+													return (
+														<div className="space-y-0.5">
+															<p className="font-semibold text-slate-700">{late.category}</p>
+															{late.duration && <p className="text-slate-500">{late.duration}</p>}
+															{late.reason ? (
+																<p className="text-slate-500">{late.reason}</p>
+															) : (
+																<p className="text-slate-400">-</p>
+															)}
+														</div>
+													);
+												})()}
 											</div>
 										</div>
 										<div className="mt-3 flex gap-2">

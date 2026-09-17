@@ -93,6 +93,20 @@ const MENU_GROUPS = [
         description: "Kelola target bulanan Cleanox",
         end: true,
       },
+      {
+        to: "/cleanox-management-system/pendapatan",
+        icon: HiOutlineChartBar,
+        label: "Pendapatan",
+        description: "Dashboard omzet POS vs target",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/piutang",
+        icon: HiOutlineBanknotes,
+        label: "Piutang",
+        description: "Receivables POS belum lunas",
+        end: true,
+      },
     ],
   },
   {

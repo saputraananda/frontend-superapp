@@ -10,7 +10,6 @@ import DailyTasksCard from "./components/DailyTasksCard";
 import StatsCards from "./components/StatsCards";
 import WeatherWidget from "./components/WeatherWidget";
 import YouTubeSlider from "./components/YouTubeSlider";
-import BroadcastBanner from "./components/BroadcastBanner"; 
 import AloraChatBot from "./components/AloraChatBot";
 import PersonalTasklistCard from "./components/PersonalTasklistCard";
 import AppAndTasklistSlider from "./components/AppAndTasklistSlider";
