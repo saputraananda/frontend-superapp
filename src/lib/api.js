@@ -79,3 +79,13 @@ export function thumbUrl(p) {
   }
   return assetUrl(p);
 }
+
+/** URL upload Waschen Mobile (/uploads/assets/...) */
+export function waschenUploadUrl(p) {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  const s = String(p);
+  if (s.startsWith("/uploads/")) return `${BASE_URL}${s}`;
+  if (s.startsWith("uploads/")) return `${BASE_URL}/${s}`;
+  return assetUrl(p);
+}

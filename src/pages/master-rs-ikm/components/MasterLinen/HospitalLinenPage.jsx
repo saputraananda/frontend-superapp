@@ -77,7 +77,8 @@ const EMPTY_FORM = {
   linen_id: "",
   hospital_linen_name: "",
   ownership_type: "MILIK_RS",
-  unit: "PCS",
+  unit_id: 2, // PCS
+
   grammage: "",
   washing_price_type: "PCS",
   washing_price: "",
@@ -87,6 +88,7 @@ const EMPTY_FORM = {
   stock_in_ikm: "",
   stock_in_rs: "",
   is_active: true,
+  is_commercial: false,
   room_stocks: [],
   ikm_room_stocks: [],
 };
@@ -114,6 +116,7 @@ const autoTotal = (form, override, hasRooms = false) => {
 export default function HospitalLinenPage({ hospitalId }) {
   const [items, setItems] = useState([]);
   const [linenList, setLinenList] = useState([]);
+  const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hospitalName, setHospitalName] = useState("");
   const [hospitalRooms, setHospitalRooms] = useState([]);
@@ -193,8 +196,16 @@ export default function HospitalLinenPage({ hospitalId }) {
     } catch { /* silent */ }
   }, []);
 
+  const fetchUnits = useCallback(async () => {
+    try {
+      const r = await api("/ikm/master-linen/units");
+      setUnits(Array.isArray(r) ? r : r.data || []);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => { fetchItems(); }, [fetchItems]);
   useEffect(() => { fetchLinenList(); }, [fetchLinenList]);
+  useEffect(() => { fetchUnits(); }, [fetchUnits]);
 
   const openAdd = () => {
     setEditTarget(null);
@@ -277,7 +288,7 @@ export default function HospitalLinenPage({ hospitalId }) {
       linen_id: item.linen_id,
       hospital_linen_name: item.hospital_linen_name || "",
       ownership_type: item.ownership_type,
-      unit: item.unit,
+      unit_id: Number(item.unit_id) || 2,
       grammage: item.grammage != null ? String(item.grammage) : "",
       washing_price_type: item.washing_price_type,
       washing_price: item.washing_price != null && item.washing_price !== 0 ? String(item.washing_price) : "",
@@ -287,6 +298,7 @@ export default function HospitalLinenPage({ hospitalId }) {
       stock_in_ikm: item.stock_in_ikm != null && item.stock_in_ikm !== 0 ? String(item.stock_in_ikm) : "",
       stock_in_rs: item.stock_in_rs != null && item.stock_in_rs !== 0 ? String(item.stock_in_rs) : "",
       is_active: Boolean(item.is_active),
+      is_commercial: Boolean(item.is_commercial),
       room_stocks: item.room_stocks || [],
       ikm_room_stocks: item.ikm_room_stocks || [],
     });
@@ -442,7 +454,7 @@ export default function HospitalLinenPage({ hospitalId }) {
     (l.linen_code || "").toLowerCase().includes(ddSearch.toLowerCase())
   ).sort((a, b) => ((a.linen_code || "")).localeCompare(b.linen_code || ""));
 
-  const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 18, 14, 14, 14, 10, 10, 10, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
+  const SkeletonRows = () => (<>{Array.from({ length: 4 }).map((_, i) => (<tr key={i} className="animate-pulse">{[4, 36, 14, 14, 10, 18, 14, 14, 14, 10, 10, 10, 14].map((w, j) => (<td key={j} className="px-5 py-4"><div className={`h-3.5 rounded-md bg-slate-100 w-${w}`} /></td>))}</tr>))}</>);
 
   return (
     <div className="p-6 pb-14">
@@ -598,8 +610,8 @@ export default function HospitalLinenPage({ hospitalId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
-                  {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "IKM", "RS", "Total", "Aksi"].map((h, i) => (
-                    <th key={h} className={cn("whitespace-nowrap px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 11 ? "text-center" : "text-left")}>{h}</th>
+                  {["No", "Nama Linen", "Nama di RS", "Kepemilikan", "Komersil", "Satuan", "Gramasi", "Harga Cuci", "Harga Sewa", "IKM", "RS", "Total", "Aksi"].map((h, i) => (
+                    <th key={h} className={cn("whitespace-nowrap px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider", i === 12 ? "text-center" : "text-left")}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -614,7 +626,10 @@ export default function HospitalLinenPage({ hospitalId }) {
                         {a.ownership_type === "MILIK_RS" ? "Milik RS" : a.ownership_type === "SEWA" ? "Sewa" : a.ownership_type}
                       </span>
                     </td>
-                    <td className="px-2 py-3 text-slate-600 text-xs">{a.unit}</td>
+                    <td className="px-2 py-3 text-xs font-semibold text-slate-700">
+                      {a.is_commercial ? "Ya" : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-2 py-3 text-slate-600 text-xs">{a.unit_name || a.unit}</td>
                     <td className="px-2 py-3 text-slate-600 text-xs">{a.grammage ? `${a.grammage}g` : <span className="text-slate-300">—</span>}</td>
                     <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{a.washing_price_type === "KG" ? `${formatRupiah(a.washing_price)}/Kg` : formatRupiah(a.washing_price)}</td>
                     <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{formatRupiah(a.rental_price)}</td>
@@ -713,8 +728,28 @@ export default function HospitalLinenPage({ hospitalId }) {
                       <option value="SEWA">Sewa</option>
                     </select>
                   </Field>
+                  <Field label="Linen Komersil">
+                    <label className="flex items-center gap-2 h-[42px] px-3 rounded-xl border border-slate-200 bg-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.is_commercial)}
+                        onChange={(e) => setForm({ ...form, is_commercial: e.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="text-sm text-slate-700">Tandai sebagai komersil</span>
+                    </label>
+                    <p className="mt-1 text-[11px] text-slate-400">Muncul di modul Serah Terima / Kurang Kirim Komersil (Alsa &amp; Linen Monitoring)</p>
+                  </Field>
                   <Field label="Satuan">
-                    <input className={inputCls} placeholder="PCS" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                    <select
+                      className={inputCls}
+                      value={form.unit_id}
+                      onChange={(e) => setForm({ ...form, unit_id: Number(e.target.value) })}
+                    >
+                      {units.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
                   </Field>
                   <Field label="Gramasi (g)">
                     <input className={inputCls} type="number" step="0.01" min="0" placeholder="150" value={form.grammage} onChange={(e) => setForm({ ...form, grammage: e.target.value })} onWheel={(e) => e.target.blur()} />

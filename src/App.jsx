@@ -61,6 +61,7 @@ import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen"
 import MasterSize from "./pages/master-rs-ikm/components/MasterData/MasterSize";
 import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor";
 import MasterMaterial from "./pages/master-rs-ikm/components/MasterData/MasterMaterial";
+import MasterUnit from "./pages/master-rs-ikm/components/MasterData/MasterUnit";
 import MasterLinenCategory from "./pages/master-rs-ikm/components/MasterData/MasterLinenCategory";
 import MasterVendorIKM from "./pages/master-rs-ikm/components/MasterData/MasterVendor";
 import MasterRoomsIKM from "./pages/master-rs-ikm/components/MasterData/MasterRoomsIKM";
@@ -74,8 +75,9 @@ import RewashLinen from "./pages/absensi-ikm/components/RewashLinen";
 import LeaderDailyReport from "./pages/absensi-ikm/components/LeaderDailyReport";
 import KasbonPinjaman from "./pages/absensi-ikm/components/KasbonPinjaman";
 import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
-import LinenTransaction from "./pages/absensi-ikm/components/LinenTransaction";
-import LinenTransactionKomersil from "./pages/absensi-ikm/components/LinenTransactionKomersil";
+import LinenTransactionLayout from "./pages/linen-transaction";
+import LinenTransaction from "./pages/linen-transaction/components/LinenTransaction";
+import LinenTransactionKomersil from "./pages/linen-transaction/components/LinenTransactionKomersil";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -120,8 +122,37 @@ import PendapatanCleanox from "./pages/cleanox-management/components/PendapatanC
 import PiutangCleanox from "./pages/cleanox-management/components/PiutangCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
-import DashboardPage from "./pages/my-waschen/components/DashboardPage";
-import EmployeeWaschen from "./pages/my-waschen/components/EmployeeWaschen";
+import DashboardPage from "./pages/my-waschen/components/Transaction/DashboardPage";
+import EmployeeWaschen from "./pages/my-waschen/components/HRIS/EmployeeWaschen";
+import CategoryServices from "./pages/my-waschen/components/MasterData/CategoryServices";
+import ServicesMaster from "./pages/my-waschen/components/MasterData/Services";
+import ServiceSpeed from "./pages/my-waschen/components/MasterData/ServiceSpeed";
+import ParfumeMaster from "./pages/my-waschen/components/MasterData/Parfume";
+import MembershipPackage from "./pages/my-waschen/components/MasterData/MembershipPackage";
+import UnitMaster from "./pages/my-waschen/components/MasterData/Unit";
+import CustomerPage from "./pages/my-waschen/components/Transaction/Customer";
+import PaymentMethodMaster from "./pages/my-waschen/components/MasterData/PaymentMethod";
+import PettyCashCategoryMaster from "./pages/my-waschen/components/MasterData/PettyCashCategory";
+import PromoMaster from "./pages/my-waschen/components/MasterData/Promo";
+import StatusWorkMaster from "./pages/my-waschen/components/MasterData/StatusWork";
+import CustomerTierMaster from "./pages/my-waschen/components/MasterData/CustomerTier";
+import CustomerSourceMaster from "./pages/my-waschen/components/MasterData/CustomerSource";
+import MaterialMaster from "./pages/my-waschen/components/MasterData/Material";
+import MethodLaundryMaster from "./pages/my-waschen/components/MasterData/MethodLaundry";
+import OutletWaschenMaster from "./pages/my-waschen/components/MasterData/Outlet";
+import HistoryTransactionPage from "./pages/my-waschen/components/Transaction/History";
+import DetailTransactionPage from "./pages/my-waschen/components/Transaction/DetailTransaction";
+import PettyCashPage from "./pages/my-waschen/components/Transaction/PettyCash";
+import DailyReportPage from "./pages/my-waschen/components/Transaction/DailyReport";
+import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
+import InventoryPage from "./pages/my-waschen/components/Inventory/InventoryPage";
+import DashboardInventory from "./pages/my-waschen/components/Inventory/DashboardInventory";
+import AbsensiWaschen from "./pages/my-waschen/components/HRIS/Absensi";
+import PerizinanWaschen from "./pages/my-waschen/components/HRIS/Perizinan";
+import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
+import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
+import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
+import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -391,6 +422,7 @@ export default function App() {
           <Route path="/master-data-ikm/size" element={<MasterSize />} />
           <Route path="/master-data-ikm/color" element={<MasterColor />} />
           <Route path="/master-data-ikm/material" element={<MasterMaterial />} />
+          <Route path="/master-data-ikm/unit" element={<MasterUnit />} />
           <Route path="/master-data-ikm/category" element={<MasterLinenCategory />} />
           <Route path="/master-data-ikm/vendor" element={<MasterVendorIKM />} />
           <Route path="/master-data-ikm/rooms" element={<MasterRoomsIKM />} />
@@ -426,9 +458,23 @@ export default function App() {
           <Route path="/leader-daily-report" element={<LeaderDailyReport />} />
           <Route path="/kasbon-pinjaman" element={<KasbonPinjaman />} />
           <Route path="/absensi-manajemen-ikm" element={<AbsensiManajemen />} />
-          <Route path="/transaksi-linen-ikm" element={<LinenTransaction />} />
-          <Route path="/transaksi-linen-komersil-ikm" element={<LinenTransactionKomersil />} />
         </Route>
+
+        {/* ── Serah Terima Linen (menu portal terpisah) ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/serah-terima-linen"]}>
+              <LinenTransactionLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/serah-terima-linen" element={<LinenTransaction />} />
+          <Route path="/serah-terima-linen/komersil" element={<LinenTransactionKomersil />} />
+        </Route>
+
+        {/* Redirect path lama → menu baru */}
+        <Route path="/transaksi-linen-ikm" element={<Navigate to="/serah-terima-linen" replace />} />
+        <Route path="/transaksi-linen-komersil-ikm" element={<Navigate to="/serah-terima-linen/komersil" replace />} />
 
         {/* ── Karyawan IKM ── */}
         <Route
@@ -611,6 +657,36 @@ export default function App() {
         >
           <Route path="/my-waschen" element={<DashboardPage />} />
           <Route path="/my-waschen/employees" element={<EmployeeWaschen />} />
+          <Route path="/my-waschen/hris/absensi" element={<AbsensiWaschen />} />
+          <Route path="/my-waschen/hris/perizinan" element={<PerizinanWaschen />} />
+          <Route path="/my-waschen/hris/kasbon" element={<KasbonWaschen />} />
+          <Route path="/my-waschen/hris/overtime" element={<OvertimeWaschen />} />
+          <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
+          <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
+          <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
+          <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />
+          <Route path="/my-waschen/master/parfumes" element={<ParfumeMaster />} />
+          <Route path="/my-waschen/master/membership-packages" element={<MembershipPackage />} />
+          <Route path="/my-waschen/master/units" element={<UnitMaster />} />
+          <Route path="/my-waschen/customers" element={<CustomerPage />} />
+          <Route path="/my-waschen/master/customers" element={<CustomerPage />} />
+          <Route path="/my-waschen/master/payment-methods" element={<PaymentMethodMaster />} />
+          <Route path="/my-waschen/master/petty-cash-categories" element={<PettyCashCategoryMaster />} />
+          <Route path="/my-waschen/master/promos" element={<PromoMaster />} />
+          <Route path="/my-waschen/master/work-statuses" element={<StatusWorkMaster />} />
+          <Route path="/my-waschen/master/customer-tiers" element={<CustomerTierMaster />} />
+          <Route path="/my-waschen/master/customer-sources" element={<CustomerSourceMaster />} />
+          <Route path="/my-waschen/master/materials" element={<MaterialMaster />} />
+          <Route path="/my-waschen/master/method-laundries" element={<MethodLaundryMaster />} />
+          <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
+          <Route path="/my-waschen/transactions" element={<HistoryTransactionPage />} />
+          <Route path="/my-waschen/transactions/:id" element={<DetailTransactionPage />} />
+          <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
+          <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
+          <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
+          <Route path="/my-waschen/master/day-off-policy" element={<DayOffPolicyMaster />} />
+          <Route path="/my-waschen/inventory/dashboard" element={<DashboardInventory />} />
+          <Route path="/my-waschen/inventory" element={<InventoryPage />} />
         </Route>
 
         {/* ── Training Management System ── */}

@@ -153,6 +153,13 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" />
         </svg>
       );
+    if (name.includes("serah terima linen") || name.includes("serah-terima-linen") || name.includes("linen transaction"))
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2c-.85 0-1.6.45-2.02 1.18L8.1 6.5 4.8 7.9v1.6l2.4-.9.85 11.5A2.1 2.1 0 0 0 10.13 22h3.74a2.1 2.1 0 0 0 2.08-1.9l.85-11.5 2.4.9V7.9l-3.3-1.4-1.88-3.32A2.3 2.3 0 0 0 12 2zm0 2.35 1.55 2.65h-3.1L12 4.35zM9.15 8.55h5.7l-.72 9.95H9.87l-.72-9.95z" />
+          <path d="M11.2 12h1.6v5.5h-1.6z" opacity=".4" />
+        </svg>
+      );
     return (
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
         <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
@@ -184,11 +191,31 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     if (name.includes("cleanox")) return "bg-slate-900";
     if (name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen")) return "__waschen__";
     if (name.includes("training")) return "bg-violet-600";
+    if (name.includes("serah terima linen") || name.includes("serah-terima-linen") || name.includes("linen transaction")) return "bg-[#126776]";
     return "bg-blue-600";
   };
 
+  const isMyWaschenApp = (appName) => {
+    const name = appName.toLowerCase();
+    return name.includes("my waschen") || name.includes("waschen laundry") || name.includes("pos waschen");
+  };
+
+  const resolveAppHref = (app) => {
+    if (isMyWaschenApp(app.name)) return "/my-waschen";
+    return app.href;
+  };
+
+  const handleAppClick = (app) => {
+    if (!isMyWaschenApp(app.name)) return;
+    try {
+      sessionStorage.setItem("myWaschen.resetHome", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
-    <div className="p-5">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
       {/* Header statis — tanpa toggle */}
       <div className="flex items-center gap-2.5 mb-5">
         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-blue-100">
@@ -220,11 +247,12 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           <p className="text-slate-500 text-sm">Tidak ada menu ditemukan.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredApps.map((app) => (
             <a
               key={app.id}
-              href={app.href}
+              href={resolveAppHref(app)}
+              onClick={() => handleAppClick(app)}
               className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
             >
               <div className="relative flex-shrink-0">

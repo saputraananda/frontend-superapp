@@ -699,11 +699,12 @@ export default function WorkspaceDetail() {
                               <span className="truncate max-w-[120px]">{task.sub_workspace_title}</span>
                             </div>
                           )}
-                          {task.link && (
-                            <a href={formatExternalUrl(task.link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          {(task.first_link_url || task.link) && (
+                            <a href={formatExternalUrl(task.first_link_url || task.link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                               className="flex items-center gap-1 text-[10px] text-indigo-500 hover:underline">
                               <HiOutlineLink className="h-3 w-3 shrink-0" />
-                              {task.evidance || "Link Referensi"}
+                              {task.first_link_title || task.evidance || "Link Referensi"}
+                              {Number(task.link_evidence_count) > 1 ? ` (+${Number(task.link_evidence_count) - 1})` : ""}
                             </a>
                           )}
                         </div>

@@ -128,7 +128,28 @@ const EMPTY_FORM = {
 	username_unit: "",
 	password_unit: "",
 	password_to_valet: "",
+	billing_by_kg: false,
+	allow_express: false,
+	price_per_kg: "",
+	express_price_per_kg: "",
 	rooms: [],
+};
+
+// Harga ditampilkan dengan pemisah ribuan (id-ID), disimpan sebagai angka polos
+const toPriceInput = (v) => {
+	if (v == null || v === "") return "";
+	const n = Number(v);
+	return Number.isFinite(n) ? n.toLocaleString("id-ID") : "";
+};
+
+const parsePriceInput = (v) => {
+	const digits = String(v ?? "").replace(/\D/g, "");
+	return digits === "" ? "" : digits;
+};
+
+const formatPriceInput = (v) => {
+	const digits = parsePriceInput(v);
+	return digits === "" ? "" : Number(digits).toLocaleString("id-ID");
 };
 
 // ── Toast ────────────────────────────────────────────────────────────────
@@ -200,13 +221,65 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			username_unit: initial.username_unit ?? "",
 			password_unit: initial.password_unit ?? "",
 			password_to_valet: initial.password_to_valet ?? "",
+			billing_by_kg: Boolean(Number(initial.billing_by_kg)),
+			allow_express: Boolean(Number(initial.allow_express)),
+			price_per_kg: toPriceInput(initial.price_per_kg),
+			express_price_per_kg: toPriceInput(initial.express_price_per_kg),
 		};
 	});
 	const [newRoom, setNewRoom] = useState("");
 	const [editingIdx, setEditingIdx] = useState(null);
 	const [editingRoom, setEditingRoom] = useState("");
+	const [priceLogs, setPriceLogs] = useState([]);
+	const [loadingPriceLogs, setLoadingPriceLogs] = useState(false);
+
+	useEffect(() => {
+		if (!initial?.id) {
+			setPriceLogs([]);
+			return;
+		}
+		let cancelled = false;
+		const loadLogs = async () => {
+			setLoadingPriceLogs(true);
+			try {
+				const res = await api(`/ikm/master-rs/hospitals/${initial.id}/kg-price-logs`);
+				if (!cancelled && res?.success) setPriceLogs(res.data || []);
+			} catch {
+				if (!cancelled) setPriceLogs([]);
+			} finally {
+				if (!cancelled) setLoadingPriceLogs(false);
+			}
+		};
+		loadLogs();
+		return () => { cancelled = true; };
+	}, [initial?.id]);
 
 	const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+	const fmtRp = (v) => {
+		if (v == null || v === "") return "—";
+		return Number(v).toLocaleString("id-ID");
+	};
+
+	const fmtPct = (v) => {
+		if (v == null || v === "") return "—";
+		const n = Number(v);
+		const sign = n > 0 ? "+" : "";
+		return `${sign}${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`;
+	};
+
+	const fmtLogDate = (v) => {
+		if (!v) return "—";
+		const d = new Date(v);
+		if (Number.isNaN(d.getTime())) return String(v);
+		return new Intl.DateTimeFormat("id-ID", {
+			day: "2-digit",
+			month: "short",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		}).format(d);
+	};
 
 	const toggleGudangLinen = async (idx) => {
 		const roomObj = form.rooms[idx];
@@ -375,7 +448,11 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-		onSubmit(form);
+		onSubmit({
+			...form,
+			price_per_kg: parsePriceInput(form.price_per_kg),
+			express_price_per_kg: parsePriceInput(form.express_price_per_kg),
+		});
 	};
 
 	const inputCls =
@@ -441,6 +518,116 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 							<input type="text" className={inputCls} value={form.password_to_valet} onChange={set("password_to_valet")} placeholder="••••••••" />
 						</div>
 					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className={labelCls}>Perhitungan Kilogram</label>
+							<label className="flex items-center gap-2 h-[42px] px-3 rounded-xl border border-slate-200 bg-white cursor-pointer select-none">
+								<input
+									type="checkbox"
+									checked={Boolean(form.billing_by_kg)}
+									onChange={(e) => setForm((f) => ({ ...f, billing_by_kg: e.target.checked }))}
+									className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+								/>
+								<span className="text-sm text-slate-700">Aktifkan</span>
+							</label>
+						</div>
+						<div>
+							<label className={labelCls}>Layanan Express</label>
+							<label className="flex items-center gap-2 h-[42px] px-3 rounded-xl border border-slate-200 bg-white cursor-pointer select-none">
+								<input
+									type="checkbox"
+									checked={Boolean(form.allow_express)}
+									onChange={(e) => setForm((f) => ({ ...f, allow_express: e.target.checked }))}
+									className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+								/>
+								<span className="text-sm text-slate-700">Aktifkan</span>
+							</label>
+						</div>
+					</div>
+
+					{Boolean(form.billing_by_kg) && (
+						<div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3.5 space-y-3">
+							<div>
+								<label className={labelCls}>
+									Harga Reguler per Kilogram (Rp) <span className="text-red-500">*</span>
+								</label>
+								<input
+									required
+									type="text"
+									inputMode="numeric"
+									className={inputCls}
+									value={form.price_per_kg}
+									onChange={(e) =>
+										setForm((f) => ({ ...f, price_per_kg: formatPriceInput(e.target.value) }))
+									}
+									placeholder="Contoh: 7.700"
+								/>
+								<p className="mt-1 text-[11px] text-slate-500">
+									Tarif layanan non-express. Dipakai di rekap biaya laundry kilogram. Perubahan harga akan tercatat di histori.
+								</p>
+							</div>
+
+							<div>
+								<label className={labelCls}>Harga Express per Kilogram (Rp)</label>
+								<input
+									type="text"
+									inputMode="numeric"
+									className={inputCls}
+									value={form.express_price_per_kg}
+									onChange={(e) =>
+										setForm((f) => ({ ...f, express_price_per_kg: formatPriceInput(e.target.value) }))
+									}
+									placeholder={
+										parsePriceInput(form.price_per_kg)
+											? `Kosongkan untuk 2x otomatis (${(Number(parsePriceInput(form.price_per_kg)) * 2).toLocaleString("id-ID")})`
+											: "Kosongkan untuk 2x harga reguler"
+									}
+								/>
+								<p className="mt-1 text-[11px] text-slate-500">
+									Isi hanya jika tarif express RS ini bukan 2x harga reguler. Kosongkan = otomatis 2x.
+								</p>
+							</div>
+
+							{initial?.id && (
+								<div>
+									<p className="text-xs font-semibold text-slate-600 mb-2">Histori Perubahan Harga</p>
+									{loadingPriceLogs ? (
+										<p className="text-[11px] text-slate-400">Memuat histori...</p>
+									) : priceLogs.length === 0 ? (
+										<p className="text-[11px] text-slate-400">Belum ada perubahan harga.</p>
+									) : (
+										<div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+											{priceLogs.map((log) => {
+												const pct = log.change_percent != null ? Number(log.change_percent) : null;
+												const pctCls =
+													pct == null
+														? "text-slate-500"
+														: pct > 0
+															? "text-emerald-700"
+															: pct < 0
+																? "text-rose-600"
+																: "text-slate-600";
+												return (
+													<div key={log.id} className="px-3 py-2 text-[11px]">
+														<div className="flex items-center justify-between gap-2">
+															<span className="font-semibold text-slate-700">
+																{log.price_type === "EXPRESS" ? "Express" : "Reguler"}:{" "}
+																{fmtRp(log.old_price)} → {fmtRp(log.new_price)}
+															</span>
+															<span className={`font-bold ${pctCls}`}>{fmtPct(log.change_percent)}</span>
+														</div>
+														<div className="mt-0.5 text-slate-500">
+															{log.full_name || log.username || "—"} · {fmtLogDate(log.created_at)}
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									)}
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 
 				{/* Kanan: Daftar Ruangan */}
@@ -616,8 +803,31 @@ export default function RumahSakitPage() {
 	const [modal, setModal] = useState(null); // { mode: "add"|"edit", data: null|{...} }
 	const [deleteTarget, setDeleteTarget] = useState(null);
 	const [detailModal, setDetailModal] = useState(null);
+	const [detailPriceLogs, setDetailPriceLogs] = useState([]);
+	const [loadingDetailPriceLogs, setLoadingDetailPriceLogs] = useState(false);
 	const [showDetailRooms, setShowDetailRooms] = useState(false);
 	const [formLoading, setFormLoading] = useState(false);
+
+	useEffect(() => {
+		if (!detailModal?.id || Number(detailModal.billing_by_kg) !== 1) {
+			setDetailPriceLogs([]);
+			return;
+		}
+		let cancelled = false;
+		const load = async () => {
+			setLoadingDetailPriceLogs(true);
+			try {
+				const res = await api(`/ikm/master-rs/hospitals/${detailModal.id}/kg-price-logs`);
+				if (!cancelled && res?.success) setDetailPriceLogs(res.data || []);
+			} catch {
+				if (!cancelled) setDetailPriceLogs([]);
+			} finally {
+				if (!cancelled) setLoadingDetailPriceLogs(false);
+			}
+		};
+		load();
+		return () => { cancelled = true; };
+	}, [detailModal?.id, detailModal?.billing_by_kg]);
 	useEffect(() => { document.title = "Data Rumah Sakit IKM | Alora Group Indonesia"; }, []);
 	
 	// Map states
@@ -1073,7 +1283,94 @@ export default function RumahSakitPage() {
 										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Password Akses</label>
 										<div className="text-xs text-slate-700 font-mono">{detailModal.password_to_valet || "-"}</div>
 									</div>
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Perhitungan Kilogram</label>
+										<div className="text-xs font-semibold text-slate-700">
+											{Number(detailModal.billing_by_kg) === 1 ? "Aktif" : "Tidak aktif"}
+										</div>
+									</div>
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Layanan Express</label>
+										<div className="text-xs font-semibold text-slate-700">
+											{Number(detailModal.allow_express) === 1 ? "Aktif" : "Tidak aktif"}
+										</div>
+									</div>
+									{Number(detailModal.billing_by_kg) === 1 && (
+										<div>
+											<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Harga Reguler per Kilogram</label>
+											<div className="text-xs font-semibold text-slate-700">
+												{detailModal.price_per_kg != null && detailModal.price_per_kg !== ""
+													? `Rp ${Number(detailModal.price_per_kg).toLocaleString("id-ID")}`
+													: "—"}
+											</div>
+										</div>
+									)}
+									{Number(detailModal.billing_by_kg) === 1 && (
+										<div>
+											<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Harga Express per Kilogram</label>
+											<div className="text-xs font-semibold text-slate-700">
+												{detailModal.express_price_per_kg != null && detailModal.express_price_per_kg !== ""
+													? `Rp ${Number(detailModal.express_price_per_kg).toLocaleString("id-ID")}`
+													: detailModal.price_per_kg != null && detailModal.price_per_kg !== ""
+														? `Rp ${(Number(detailModal.price_per_kg) * 2).toLocaleString("id-ID")} (2x otomatis)`
+														: "—"}
+											</div>
+										</div>
+									)}
 								</div>
+								{Number(detailModal.billing_by_kg) === 1 && (
+									<div className="pt-2 border-t border-slate-100">
+										<label className="block text-[10px] font-semibold text-slate-500 mb-1.5">Histori Perubahan Harga</label>
+										{loadingDetailPriceLogs ? (
+											<p className="text-[11px] text-slate-400">Memuat...</p>
+										) : detailPriceLogs.length === 0 ? (
+											<p className="text-[11px] text-slate-400">Belum ada perubahan harga.</p>
+										) : (
+											<div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+												{detailPriceLogs.map((log) => {
+													const pct = log.change_percent != null ? Number(log.change_percent) : null;
+													const pctCls =
+														pct == null
+															? "text-slate-500"
+															: pct > 0
+																? "text-emerald-700"
+																: pct < 0
+																	? "text-rose-600"
+																	: "text-slate-600";
+													const pctLabel =
+														pct == null
+															? "—"
+															: `${pct > 0 ? "+" : ""}${pct.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`;
+													return (
+														<div key={log.id} className="px-2.5 py-1.5 text-[11px]">
+															<div className="flex justify-between gap-2">
+																<span className="font-semibold text-slate-700">
+																	{log.price_type === "EXPRESS" ? "Express: " : "Reguler: "}
+																	{(log.old_price != null ? Number(log.old_price).toLocaleString("id-ID") : "—")}
+																	{" → "}
+																	{(log.new_price != null ? Number(log.new_price).toLocaleString("id-ID") : "—")}
+																</span>
+																<span className={`font-bold ${pctCls}`}>{pctLabel}</span>
+															</div>
+															<div className="text-slate-500">
+																{log.full_name || log.username || "—"} ·{" "}
+																{log.created_at
+																	? new Intl.DateTimeFormat("id-ID", {
+																			day: "2-digit",
+																			month: "short",
+																			year: "numeric",
+																			hour: "2-digit",
+																			minute: "2-digit",
+																		}).format(new Date(log.created_at))
+																	: "—"}
+															</div>
+														</div>
+													);
+												})}
+											</div>
+										)}
+									</div>
+								)}
 							</div>
 							<div className="sm:col-span-2">
 								<label className="block text-xs font-semibold text-slate-500 mb-1.5">Daftar Ruangan</label>

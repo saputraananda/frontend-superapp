@@ -9,6 +9,7 @@ import {
 	HiOutlineCog6Tooth,
 	HiOutlineSwatch,
 	HiOutlineCircleStack,
+	HiOutlineScale,
 	HiOutlineFolder,
 	HiOutlineTruck,
 	HiOutlineXMark,
@@ -182,6 +183,12 @@ const MENU_SECTIONS = [
 				icon: HiOutlineCircleStack,
 				label: "Bahan",
 				description: "Master bahan linen",
+			},
+			{
+				to: "/master-data-ikm/unit",
+				icon: HiOutlineScale,
+				label: "Satuan",
+				description: "Master satuan linen (Pcs, Set, Kg, ...)",
 			},
 			{
 				to: "/master-data-ikm/category",

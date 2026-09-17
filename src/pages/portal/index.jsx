@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import LoadingScreen from "../../components/LoadingScreen";
 import HeaderLayout from "../../layouts/HeaderLayout";
@@ -8,36 +8,23 @@ import ApplicationsSection from "./components/ApplicationsSection";
 import PersonalTasksCard from "./components/PersonalTasksCard";
 import DailyTasksCard from "./components/DailyTasksCard";
 import StatsCards from "./components/StatsCards";
-import WeatherWidget from "./components/WeatherWidget";
+// import WeatherWidget from "./components/WeatherWidget";
 import YouTubeSlider from "./components/YouTubeSlider";
 import AloraChatBot from "./components/AloraChatBot";
-import PersonalTasklistCard from "./components/PersonalTasklistCard";
-import AppAndTasklistSlider from "./components/AppAndTasklistSlider";
 import AppShortcutsCard from "./components/AppShortcutsCard";
+import BadgeMaintenance from "./components/BadgeMaintenance";
 // import BirthdayPortalTheme from "./components/BirthdayPortalTheme";
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [employeeData, setEmployeeData] = useState(null);
+  const [userRole, setUserRole] = useState(user?.role ?? null);
   const [loading, setLoading] = useState(true);
   const [appsLoaded, setAppsLoaded] = useState(false);
   const [employeeLoaded, setEmployeeLoaded] = useState(false);
 
-  const youtubeVideos = useMemo(
-    () => [
-      { id: "Go_vhpddMDw", title: "Video 1" },
-      { id: "R1wmG6NeuoY", title: "Video 2" },
-      { id: "J8Vv--ioTa4", title: "Video 3" },
-      { id: "XvjL7a6iLKc", title: "Video 4" },
-      { id: "Wt6sXPLsLNI", title: "Video 5" },
-      { id: "G1cOjb_-tKg", title: "Video 6" },
-      { id: "fkuYp1gxW14", title: "Video 7" },
-      { id: "M89sWlGYSdo", title: "Video 8" },
-      { id: "fkuYp1gxW14", title: "Video 9" },
-    ],
-    [] 
-  );
+  const isEmployeeRole = (userRole || user?.role) === "employee";
 
   useEffect(() => {
     document.title = "Portal | Alora Group Indonesia";
@@ -46,6 +33,7 @@ export default function Portal({ user, onLogout }) {
       try {
         const d = await api("/apps");
         setApps(d.apps || []);
+        if (d.role) setUserRole(d.role);
       } catch (err) {
         console.error("Error loading apps:", err);
         setApps([]);
@@ -98,35 +86,27 @@ export default function Portal({ user, onLogout }) {
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-6">
         {/* <BirthdayPortalTheme /> */}
 
-        {/* Top section: Main Content + Sidebar */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Main Content */}
-          <div className="flex-1 space-y-6">
-            {/* <BroadcastBanner /> */}
-            <StatsCards companyId={employeeData?.company_id} />
-            <AppShortcutsCard />
-            <AppAndTasklistSlider>
-              <ApplicationsSection
-                apps={apps}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-              />
-              <PersonalTasklistCard />
-            </AppAndTasklistSlider>
-          </div>
+        {/* <BroadcastBanner /> */}
+        {/* <WeatherWidget /> */}
+        <BadgeMaintenance />
+        <StatsCards companyId={employeeData?.company_id} />
 
-          {/* Sidebar */}
-          <div className="w-full lg:w-80 space-y-6">
-            <WeatherWidget />
-            <YouTubeSlider videos={youtubeVideos} />
-          </div>
-        </div>
+        <ApplicationsSection
+          apps={apps}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
 
-        {/* Tasks Section — full width, dibagi 2 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <PersonalTasksCard />
-          <DailyTasksCard />
-        </div>
+        <YouTubeSlider />
+        <AppShortcutsCard />
+
+        {/* Tasks Section — full width, dibagi 2 (disembunyikan untuk role employee) */}
+        {!isEmployeeRole && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <PersonalTasksCard />
+            <DailyTasksCard />
+          </div>
+        )}
 
       </div>
       <AloraChatBot />

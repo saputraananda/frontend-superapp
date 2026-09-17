@@ -575,11 +575,12 @@ export default function AssignedToMe() {
                               {task.position_name}
                             </div>
                           )}
-                          {task.link && (
-                            <a href={formatExternalUrl(task.link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          {(task.first_link_url || task.link) && (
+                            <a href={formatExternalUrl(task.first_link_url || task.link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                               className="flex items-center gap-1 text-[10px] text-indigo-500 hover:underline">
                               <HiOutlineLink className="h-3 w-3 shrink-0" />
-                              {task.evidance || "Link Referensi"}
+                              {task.first_link_title || task.evidance || "Link Referensi"}
+                              {Number(task.link_evidence_count) > 1 ? ` (+${Number(task.link_evidence_count) - 1})` : ""}
                             </a>
                           )}
                         </div>

@@ -928,7 +928,7 @@ export default function LinenReport() {
   }, [periodMode, todayStr, customStartDate, customEndDate, cutoffMonth, cutoffYear]);
 
   const [filters, setFilters] = useState({
-    area_id: "", hospital_id: "", finding_location: "", floor: "",
+    area_id: "", hospital_id: "", finding_location: "", floor: "", status: "",
   });
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -954,6 +954,7 @@ export default function LinenReport() {
       if (filters.hospital_id) qs.set("hospital_id", filters.hospital_id);
       if (filters.finding_location) qs.set("finding_location", filters.finding_location);
       if (filters.floor) qs.set("floor", filters.floor);
+      if (filters.status) qs.set("status", filters.status);
       if (search) qs.set("search", search);
 
       const res = await api(`/ikm/linen-report?${qs}`);
@@ -1136,8 +1137,8 @@ export default function LinenReport() {
               {periodMode === "today" && <div />}
             </div>
 
-            {/* ── Baris 2: Area · RS · Lokasi Temuan · Lantai ── */}
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* ── Baris 2: Area · RS · Lokasi Temuan · Lantai · Status ── */}
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <label className="text-sm text-slate-600">
                 <span className="mb-1 block text-xs font-semibold text-slate-500">Area</span>
                 <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
@@ -1168,6 +1169,16 @@ export default function LinenReport() {
                   value={filters.floor} onChange={(e) => setFilters({ ...filters, floor: e.target.value })}>
                   <option value="">Semua Lantai</option>
                   {floors.map((f) => <option key={f.floor} value={f.floor}>{f.floor}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600">
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Status</span>
+                <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+                  <option value="">Semua Status</option>
+                  {Object.entries(STATUS_META).map(([value, meta]) => (
+                    <option key={value} value={value}>{meta.label}</option>
+                  ))}
                 </select>
               </label>
             </div>
