@@ -17,6 +17,9 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import CutoffPeriodFilter from "../CutoffPeriodFilter";
+import useCutoffPeriod from "../../hooks/useCutoffPeriod";
+import { fmtDateShort } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -106,7 +109,9 @@ function toFormData(item) {
 }
 
 export default function Customer() {
+  const cutoff = useCutoffPeriod();
   const [data, setData] = useState([]);
+  const [meta, setMeta] = useState({ newCustomers: 0, churnCount: 0 });
   const [tiers, setTiers] = useState([]);
   const [sources, setSources] = useState([]);
   const [outlets, setOutlets] = useState([]);
@@ -148,8 +153,14 @@ export default function Customer() {
       if (filterTierId) query.set("spendingTierId", filterTierId);
       if (sortBy) query.set("sortBy", sortBy);
       if (sortDir) query.set("sortDir", sortDir);
+      if (cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
+      if (cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
       const res = await api(`/waschen/customers?${query.toString()}`);
       setData(res.data || []);
+      setMeta({
+        newCustomers: Number(res.meta?.newCustomers) || 0,
+        churnCount: Number(res.meta?.churnCount) || 0,
+      });
     } catch (err) { showToast(err.message, "error"); } finally { setLoading(false); }
   };
 
@@ -157,7 +168,7 @@ export default function Customer() {
     loadLookups();
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filterActive, filterTierId, sortBy, sortDir]);
+  }, [search, filterActive, filterTierId, sortBy, sortDir, cutoff.dateFrom, cutoff.dateTo]);
 
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("asc"); } };
 
@@ -207,7 +218,9 @@ export default function Customer() {
     active: data.filter((d) => Number(d.is_active) === 1).length,
     vip: data.filter((d) => d.spending_tier_code === "VIP").length,
     totalDeposit: data.reduce((sum, d) => sum + (Number(d.deposit_balance) || 0), 0),
-  }), [data]);
+    newCustomers: meta.newCustomers,
+    churnCount: meta.churnCount,
+  }), [data, meta]);
 
   const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340] focus:ring-1 focus:ring-[#5f1340]";
 
@@ -220,7 +233,8 @@ export default function Customer() {
         </div>
       )}
 
-      <PageHero>
+      <PageHero>
+
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Master Pelanggan</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
@@ -239,33 +253,57 @@ export default function Customer() {
         
       </PageHero>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
           { l: "Total Pelanggan", v: stats.total },
           { l: "Aktif", v: stats.active, c: "text-emerald-600" },
           { l: "Tier VIP", v: stats.vip, c: "text-purple-600" },
           { l: "Total Deposit", v: formatRupiah(stats.totalDeposit), c: "text-[#5f1340]", small: true },
+          { l: "Customer Baru", v: stats.newCustomers, c: "text-sky-600", sub: cutoff.periodLabel },
+          { l: "Churn", v: stats.churnCount, c: "text-rose-600", sub: "46–60 hari (POS)" },
         ].map((s) => (
           <div key={s.l} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.l}</p>
             <p className={cn(s.small ? "text-lg" : "text-2xl", "font-bold mt-0.5", s.c || "text-slate-800")}>{s.v}</p>
+            {s.sub && <p className="mt-1 text-[10px] font-medium text-slate-400">{s.sub}</p>}
           </div>
         ))}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-100 p-4 bg-slate-50/50 flex flex-col sm:flex-row gap-3">
-          <div className="relative w-full sm:w-80">
-            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input type="text" placeholder="Cari kode, nama, telepon..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-[#5f1340]" />
+        <div className="border-b border-slate-100 p-3 sm:p-4 bg-slate-50/50">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 min-w-0">
+              <div className="relative min-w-0">
+                <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari kode, nama, telepon..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs outline-none focus:border-[#5f1340]"
+                />
+              </div>
+              <select
+                value={filterTierId}
+                onChange={(e) => setFilterTierId(e.target.value)}
+                className="min-w-0 sm:min-w-[9.5rem] rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]"
+              >
+                <option value="">Semua Tier</option>
+                {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <select
+                value={filterActive}
+                onChange={(e) => setFilterActive(e.target.value)}
+                className="min-w-0 sm:min-w-[8rem] rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]"
+              >
+                <option value="">Semua Status</option>
+                <option value="1">Aktif</option>
+                <option value="0">Nonaktif</option>
+              </select>
+            </div>
+            <CutoffPeriodFilter cutoff={cutoff} variant="compact" />
           </div>
-          <select value={filterTierId} onChange={(e) => setFilterTierId(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-            <option value="">Semua Tier Spending</option>
-            {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-          <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-            <option value="">Semua Status</option><option value="1">Aktif</option><option value="0">Nonaktif</option>
-          </select>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -280,15 +318,17 @@ export default function Customer() {
                 <th className="px-4 py-3">Sumber</th>
                 <SortTh col="deposit_balance" label="Deposit" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="total_orders" label="Order" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} className="text-center" />
+                <SortTh col="created_at" label="Terdaftar" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="last_transaction_at" label="Transaksi" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}><td colSpan={11} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
+                <tr key={i}><td colSpan={13} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
               )) : data.length === 0 ? (
-                <tr><td colSpan={11} className="px-4 py-12 text-center text-slate-400">Tidak ada data pelanggan</td></tr>
+                <tr><td colSpan={13} className="px-4 py-12 text-center text-slate-400">Tidak ada data pelanggan</td></tr>
               ) : data.map((item, idx) => (
                 <tr key={item.id} className="hover:bg-slate-50/80">
                   <td className="px-4 py-3.5 text-center text-slate-400">{idx + 1}</td>
@@ -303,6 +343,8 @@ export default function Customer() {
                   <td className="px-4 py-3.5 text-slate-600">{item.customer_source_label || item.customer_source_name || "—"}</td>
                   <td className="px-4 py-3.5 font-semibold text-emerald-700">{formatRupiah(item.deposit_balance)}</td>
                   <td className="px-4 py-3.5 text-center font-mono">{item.total_orders ?? 0}</td>
+                  <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateShort(item.created_at)}</td>
+                  <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateShort(item.last_transaction_at)}</td>
                   <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active} /></td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="inline-flex gap-1">

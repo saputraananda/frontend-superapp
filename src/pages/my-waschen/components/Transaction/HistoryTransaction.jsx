@@ -11,6 +11,8 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
+import CutoffPeriodFilter from "../CutoffPeriodFilter";
+import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -187,12 +189,12 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
 
 export default function HistoryTransaction({ outlets = [], workStatuses = [], onChanged }) {
   const navigate = useNavigate();
+  const cutoff = useCutoffPeriod();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [outletId, setOutletId] = useState("");
-  const [date, setDate] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("Semua");
   const [workTab, setWorkTab] = useState("Semua");
   const [deleteModal, setDeleteModal] = useState(null);
@@ -218,7 +220,8 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
       const qs = new URLSearchParams({ listType: "active" });
       if (search.trim()) qs.set("search", search.trim());
       if (outletId) qs.set("outletId", outletId);
-      if (date) qs.set("date", date);
+      if (cutoff.dateFrom) qs.set("dateFrom", cutoff.dateFrom);
+      if (cutoff.dateTo) qs.set("dateTo", cutoff.dateTo);
       if (paymentStatus && paymentStatus !== "Semua") qs.set("paymentStatus", paymentStatus);
       const res = await api(`/waschen/transactions?${qs}`);
       setRows(res.data || []);
@@ -228,7 +231,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
     } finally {
       setLoading(false);
     }
-  }, [search, outletId, date, paymentStatus]);
+  }, [search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
 
   useEffect(() => {
     load();
@@ -365,7 +368,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
             <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto_auto] gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto] gap-2">
           <div className="relative sm:col-span-2 xl:col-span-1 min-w-0">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -381,7 +384,6 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
               <option key={o.id} value={o.id}>{o.full_name || o.name}</option>
             ))}
           </select>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]" />
           <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]">
             <option value="Semua">Semua Bayar</option>
             <option value="Lunas">Lunas</option>
@@ -394,6 +396,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
             Refresh
           </button>
         </div>
+        <CutoffPeriodFilter cutoff={cutoff} variant="compact" />
       </div>
 
       <div className="px-3 sm:px-5 py-2.5 border-b border-slate-100 -mx-0 overflow-x-auto scrollbar-thin">

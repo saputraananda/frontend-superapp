@@ -10,6 +10,8 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
+import CutoffPeriodFilter from "../CutoffPeriodFilter";
+import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
@@ -56,9 +58,9 @@ function toInput(v) {
 }
 
 export default function DailyReport() {
+  const cutoff = useCutoffPeriod();
   const [outlets, setOutlets] = useState([]);
   const [outletId, setOutletId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -84,7 +86,9 @@ export default function DailyReport() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ date });
+      const q = new URLSearchParams();
+      if (cutoff.dateFrom) q.set("dateFrom", cutoff.dateFrom);
+      if (cutoff.dateTo) q.set("dateTo", cutoff.dateTo);
       if (outletId) q.set("outletId", outletId);
       const res = await api(`/waschen/daily-report?${q}`);
       setShifts(res.data || []);
@@ -94,7 +98,7 @@ export default function DailyReport() {
     } finally {
       setLoading(false);
     }
-  }, [date, outletId]);
+  }, [cutoff.dateFrom, cutoff.dateTo, outletId]);
 
   useEffect(() => {
     loadOutlets();
@@ -186,33 +190,30 @@ export default function DailyReport() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] gap-2 w-full">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full min-w-0 px-3 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-white/30 [color-scheme:dark]"
-          />
-          <select
-            value={outletId}
-            onChange={(e) => setOutletId(e.target.value)}
-            className="w-full min-w-0 px-3 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-white/30"
-          >
-            <option value="" className="text-slate-800">Semua Outlet</option>
-            {outlets.map((o) => (
-              <option key={o.id} value={o.id} className="text-slate-800">
-                {o.full_name || o.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex w-full md:col-span-2 xl:col-span-1 items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white text-[#5f1340] text-xs font-black hover:bg-pink-50 transition"
-          >
-            <HiOutlineArrowPath className={cn("h-4 w-4 shrink-0", loading && "animate-spin")} />
-            Refresh
-          </button>
+        <div className="space-y-3 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.5fr)_auto] gap-2 w-full">
+            <select
+              value={outletId}
+              onChange={(e) => setOutletId(e.target.value)}
+              className="w-full min-w-0 px-3 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-white/30"
+            >
+              <option value="" className="text-slate-800">Semua Outlet</option>
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id} className="text-slate-800">
+                  {o.full_name || o.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white text-[#5f1340] text-xs font-black hover:bg-pink-50 transition"
+            >
+              <HiOutlineArrowPath className={cn("h-4 w-4 shrink-0", loading && "animate-spin")} />
+              Refresh
+            </button>
+          </div>
+          <CutoffPeriodFilter cutoff={cutoff} variant="hero" />
         </div>
       </PageHero>
 
@@ -220,7 +221,7 @@ export default function DailyReport() {
         <HiOutlineBuildingStorefront className="h-4 w-4 shrink-0" />
         <span className="break-words">{outletName}</span>
         <span className="hidden sm:inline">·</span>
-        <span>{date}</span>
+        <span>{cutoff.rangeLabelShort || cutoff.periodLabel}</span>
         <span>·</span>
         <span>{shifts.length} shift</span>
       </div>
