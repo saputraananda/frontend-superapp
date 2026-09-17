@@ -112,9 +112,41 @@ const LEAVE_TYPE_META = {
 
 const DURATION_TYPE_META = {
 	full_day: "Seharian",
-	half_day_morning: "½ Hari Pagi",
-	half_day_afternoon: "½ Hari Siang",
+	partial: "Partial",
+	half_day_morning: "Partial (pagi)",
+	half_day_afternoon: "Partial (siang)",
 };
+
+function formatTimeHHmm(value) {
+	if (!value) return null;
+	const str = String(value);
+	const match = str.match(/^(\d{2}):(\d{2})/);
+	return match ? `${match[1]}:${match[2]}` : null;
+}
+
+function formatLeaveTimeRange(row) {
+	const start = formatTimeHHmm(row.start_time);
+	const end = formatTimeHHmm(row.end_time);
+	if (!start || !end) return "-";
+	return `${start}–${end}`;
+}
+
+function formatFundingSummary(row) {
+	if (row.leave_type !== "izin") return "-";
+	const parts = [];
+	if (Number(row.funding_ro_hours) > 0) parts.push(`RO ${row.funding_ro_hours}j`);
+	if (Number(row.funding_overtime_hours) > 0) parts.push(`Lembur ${row.funding_overtime_hours}j`);
+	if (Number(row.funding_unpaid_hours) > 0) parts.push(`Unpaid ${row.funding_unpaid_hours}j`);
+	return parts.length ? parts.join(" · ") : "-";
+}
+
+function isRoOnlyIzin(row) {
+	if (!row || row.leave_type !== "izin") return false;
+	const ro = Number(row.funding_ro_hours || 0);
+	const ot = Number(row.funding_overtime_hours || 0);
+	const unpaid = Number(row.funding_unpaid_hours || 0);
+	return ro > 0 && ot === 0 && unpaid === 0;
+}
 
 const STATUS_META = {
 	Pending_Supervisor: { label: "Menunggu Supervisor", cls: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -220,7 +252,9 @@ function ActionModal({ mode, role, item, onClose, onConfirm, busy }) {
 				) : (
 					<p className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
 						{role === "Supervisor"
-							? "Pengajuan akan diteruskan ke HRD."
+							? isRoOnlyIzin(item)
+								? "Pengajuan izin RO akan langsung disetujui."
+								: "Pengajuan akan diteruskan ke HRD."
 							: "Pengajuan akan disetujui final dan dapat mengunci absensi full-day."}
 					</p>
 				)}
@@ -282,7 +316,24 @@ function LeaveDetailModal({ item, onClose, canSpvAct, canHrdAct, onSpvApprove, o
 							<p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Selesai</p>
 							<p className="mt-1 text-sm font-semibold text-slate-700">{formatDateOnly(item.end_date)}</p>
 						</div>
+						<div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Jam</p>
+							<p className="mt-1 text-sm font-semibold text-slate-700">{formatLeaveTimeRange(item)}</p>
+						</div>
+						<div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Durasi (jam)</p>
+							<p className="mt-1 text-sm font-semibold text-slate-700">
+								{item.leave_duration_hours != null ? `${item.leave_duration_hours} jam` : "-"}
+							</p>
+						</div>
 					</div>
+
+					{item.leave_type === "izin" && (
+						<div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-blue-500">Sumber izin</p>
+							<p className="mt-1.5 text-sm font-semibold text-blue-900">{formatFundingSummary(item)}</p>
+						</div>
+					)}
 
 					<div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
 						<p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Alasan</p>
@@ -396,6 +447,15 @@ function MobileLeaveCard({ row, onDetail, canSpv, canHrd, onSpvApprove, onSpvRej
 					<span className="font-semibold text-slate-600">{formatDateOnly(row.start_date)}</span>
 					{row.end_date !== row.start_date && (
 						<> – <span className="font-semibold text-slate-600">{formatDateOnly(row.end_date)}</span></>
+					)}
+					{formatLeaveTimeRange(row) !== "-" && (
+						<span className="block mt-0.5">Jam: {formatLeaveTimeRange(row)}</span>
+					)}
+					{row.leave_duration_hours != null && (
+						<span className="block">Durasi: {row.leave_duration_hours} jam</span>
+					)}
+					{row.leave_type === "izin" && formatFundingSummary(row) !== "-" && (
+						<span className="block text-blue-700">{formatFundingSummary(row)}</span>
 					)}
 				</div>
 				<p className="text-xs text-slate-500 line-clamp-2">{row.reason || "-"}</p>
@@ -785,6 +845,9 @@ export default function PerizinanAlora() {
 								<SortTh col="employee_name" label="Karyawan" sort={sort} onSort={handleSort} />
 								<SortTh col="leave_type" label="Tipe" sort={sort} onSort={handleSort} />
 								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Durasi</th>
+								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Jam</th>
+								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Durasi (j)</th>
+								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Sumber</th>
 								<SortTh col="start_date" label="Mulai" sort={sort} onSort={handleSort} />
 								<SortTh col="end_date" label="Selesai" sort={sort} onSort={handleSort} />
 								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Alasan</th>
@@ -795,11 +858,11 @@ export default function PerizinanAlora() {
 						</thead>
 						<tbody>
 							{loading
-								? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={10} />)
+								? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} cols={13} />)
 								: sortedRecords.length === 0
 									? (
 										<tr>
-											<td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-400">
+											<td colSpan={13} className="px-4 py-12 text-center text-sm text-slate-400">
 												Tidak ada data pengajuan
 											</td>
 										</tr>
@@ -819,6 +882,11 @@ export default function PerizinanAlora() {
 											<td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
 												{DURATION_TYPE_META[row.duration_type] ?? row.duration_type}
 											</td>
+											<td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">{formatLeaveTimeRange(row)}</td>
+											<td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
+												{row.leave_duration_hours != null ? row.leave_duration_hours : "-"}
+											</td>
+											<td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">{formatFundingSummary(row)}</td>
 											<td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">{formatDateOnly(row.start_date)}</td>
 											<td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">{formatDateOnly(row.end_date)}</td>
 											<td className="max-w-[200px] px-4 py-3">

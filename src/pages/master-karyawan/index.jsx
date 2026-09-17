@@ -9,6 +9,8 @@ import {
     HiOutlineClipboardDocumentList,
     HiOutlineCalendarDays,
     HiOutlineHeart,
+    HiOutlineSpeakerWave,
+    HiOutlineClock,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -35,6 +37,34 @@ const MENU_ITEMS = [
         icon: HiOutlineClipboardDocumentList,
         label: "Cuti & Perizinan",
         description: "Approval izin, sakit & cuti Alora",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/attendance-approval",
+        icon: HiOutlineClock,
+        label: "Approval WFA/WOD",
+        description: "Persetujuan absensi WFA & Work on Day Off",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/attendance-sessions",
+        icon: HiOutlineClock,
+        label: "Sesi Lembur & RO",
+        description: "Approval clock session lembur & earned RO",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/pengumuman",
+        icon: HiOutlineSpeakerWave,
+        label: "Pengumuman",
+        description: "Kelola pengumuman Alora Mobile",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/annual-leave",
+        icon: HiOutlineCalendarDays,
+        label: "Saldo Cuti",
+        description: "Saldo cuti tahunan karyawan",
         end: false,
     },
     {

@@ -78,10 +78,13 @@ const css = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px 16px;
+  padding: 14px 16px;
   background: #fafafa;
   border-bottom: 1.5px solid #f0f0f5;
   gap: 8px;
+}
+.bb-root.bb-admin .bb-wrap {
+  margin-top: 4px;
 }
 .bb-header-left {
   display: flex;
@@ -185,7 +188,7 @@ const css = `
 }
 .bb-card-stripe { height: 3.5px; width: 100%; }
 .bb-card-inner {
-  padding: 11px 13px 12px;
+  padding: 13px 14px 14px;
   display: flex;
   gap: 11px;
   align-items: flex-start;
@@ -207,7 +210,7 @@ const css = `
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 .bb-card-meta {
   display: flex;
@@ -259,17 +262,34 @@ const css = `
 }
 .bb-dismiss:hover { background: #f1f5f9; color: #475569; }
 
+.bb-deactivate-btn {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+  flex-shrink: 0;
+}
+.bb-deactivate-btn:hover { background: #fee2e2; }
+.bb-deactivate-btn:disabled { opacity: .55; cursor: not-allowed; }
+
 .bb-card-title {
   font-size: 12.5px;
   font-weight: 800;
   color: #1e293b;
-  line-height: 1.35;
-  margin-bottom: 4px;
+  line-height: 1.45;
+  margin-bottom: 6px;
 }
 .bb-card-desc {
   font-size: 11.5px;
   color: #64748b;
-  line-height: 1.55;
+  line-height: 1.65;
+  margin-top: 2px;
 }
 .bb-card-desc.clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -554,7 +574,7 @@ function timeLabel(cd) {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
-function AddBroadcastModal({ onClose, onSaved }) {
+function AddBroadcastModal({ onClose, onSaved, adminMode = false }) {
     const [form, setForm] = useState({ title: "", description: "", type: "info", starts_at: "", expires_at: "" });
     const [preset, setPreset] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -603,7 +623,11 @@ function AddBroadcastModal({ onClose, onSaved }) {
                             <HiMiniSpeakerWave size={16} />
                             Buat Pengumuman
                         </div>
-                        <div className="bb-modal-sub">Akan tampil untuk seluruh karyawan</div>
+                        <div className="bb-modal-sub">
+                            {adminMode
+                                ? "Tampil untuk semua karyawan login Alora Mobile"
+                                : "Akan tampil untuk seluruh karyawan"}
+                        </div>
                     </div>
                     <button className="bb-modal-close" onClick={onClose}>
                         <HiX size={14} />
@@ -701,12 +725,25 @@ function AddBroadcastModal({ onClose, onSaved }) {
 }
 
 // ── BroadcastSlide ────────────────────────────────────────────────────────────
-function BroadcastSlide({ broadcast, onDismiss, isActive }) {
+function BroadcastSlide({ broadcast, onDismiss, onDeactivate, canDeactivate, hideDismiss = false, isActive }) {
     const cfg = TYPE_CONFIG[broadcast.type] || TYPE_CONFIG.info;
     const cd = useCountdown(broadcast.expires_at);
     const [expanded, setExpanded] = useState(false);
+    const [deactivating, setDeactivating] = useState(false);
 
     const CardIcon = cfg.Icon;
+
+    const handleDeactivate = async () => {
+        if (!onDeactivate || deactivating) return;
+        const ok = window.confirm("Nonaktifkan pengumuman ini? Tidak akan tampil lagi di SuperApp dan Alora Mobile.");
+        if (!ok) return;
+        setDeactivating(true);
+        try {
+            await onDeactivate(broadcast.id);
+        } finally {
+            setDeactivating(false);
+        }
+    };
 
     return (
         <div className={`bb-slide${isActive ? " active" : ""}`}>
@@ -732,9 +769,11 @@ function BroadcastSlide({ broadcast, onDismiss, isActive }) {
                                     {timeLabel(cd)}
                                 </span>
                             </div>
-                            <button className="bb-dismiss" onClick={() => onDismiss(broadcast.id)}>
-                                <HiX size={11} />
-                            </button>
+                            {!hideDismiss && (
+                                <button className="bb-dismiss" onClick={() => onDismiss(broadcast.id)}>
+                                    <HiX size={11} />
+                                </button>
+                            )}
                         </div>
 
                         <div className="bb-card-title">{broadcast.title}</div>
@@ -747,8 +786,20 @@ function BroadcastSlide({ broadcast, onDismiss, isActive }) {
 
                         <div className="bb-card-footer">
                             <div className="bb-card-author">oleh <span>{capitalizeEachWord(addHonorific(broadcast.creator_name))}</span></div>
-                            <div className="bb-card-date">
-                                {new Date(broadcast.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div className="bb-card-date">
+                                    {new Date(broadcast.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                                </div>
+                                {canDeactivate && (
+                                    <button
+                                        type="button"
+                                        className="bb-deactivate-btn"
+                                        disabled={deactivating}
+                                        onClick={handleDeactivate}
+                                    >
+                                        {deactivating ? "Menonaktifkan…" : "Nonaktifkan"}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -759,7 +810,7 @@ function BroadcastSlide({ broadcast, onDismiss, isActive }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function BroadcastBanner() {
+export default function BroadcastBanner({ adminMode = false }) {
     const [broadcasts, setBroadcasts] = useState([]);
     const [dismissed, setDismissed] = useState(() => {
         try { return JSON.parse(sessionStorage.getItem("dismissed_broadcasts") || "[]"); }
@@ -770,10 +821,10 @@ export default function BroadcastBanner() {
     const [showModal, setShowModal] = useState(false);
     const [current, setCurrent] = useState(0);
     const [paused, setPaused] = useState(false);
-    const [now, setNow] = useState(Date.now()); // ✅ tambah ticker
+    const [now, setNow] = useState(Date.now());
 
     const employee = getEmployeeFromLocal();
-    const canCreate = canSupervisorUp(employee);
+    const canCreate = adminMode || canSupervisorUp(employee);
 
     // ✅ Ticker setiap 1 detik untuk update waktu expired
     useEffect(() => {
@@ -808,9 +859,15 @@ export default function BroadcastBanner() {
         setCurrent(0);
     }, []);
 
+    const handleDeactivate = useCallback(async (id) => {
+        await api(`/broadcast/${id}`, { method: "PATCH", body: JSON.stringify({ is_active: 0 }) });
+        setBroadcasts((prev) => prev.filter((b) => b.id !== id));
+        setCurrent(0);
+    }, []);
+
     const sorted = [...broadcasts
-        .filter((b) => !dismissed.includes(b.id))
-        .filter((b) => new Date(b.expires_at).getTime() > now) // ✅ filter expired real-time
+        .filter((b) => adminMode || !dismissed.includes(b.id))
+        .filter((b) => new Date(b.expires_at).getTime() > now)
     ].sort((a, b) =>
         ({ urgent: 0, warning: 1, info: 2, success: 3 }[a.type] ?? 9) -
         ({ urgent: 0, warning: 1, info: 2, success: 3 }[b.type] ?? 9)
@@ -834,11 +891,21 @@ export default function BroadcastBanner() {
         return () => clearInterval(t);
     }, [sorted.length, paused]);
 
-    if (loading) return null;
+    if (loading) {
+        if (adminMode) {
+            return (
+                <div className={`bb-root${adminMode ? " bb-admin" : ""}`}>
+                    <style>{css}</style>
+                    <p className="py-4 text-sm text-slate-500">Memuat pengumuman…</p>
+                </div>
+            );
+        }
+        return null;
+    }
     if (sorted.length === 0 && !canCreate) return null;
 
     return (
-        <div className="bb-root">
+        <div className={`bb-root${adminMode ? " bb-admin" : ""}`}>
             <style>{css}</style>
             <div className="bb-wrap">
 
@@ -848,7 +915,7 @@ export default function BroadcastBanner() {
                         <div className="bb-header-icon">
                             <HiBell size={15} />
                         </div>
-                        <span className="bb-header-title">Announcement</span>
+                        <span className="bb-header-title">{adminMode ? "Daftar aktif" : "Announcement"}</span>
                         {sorted.length > 0 && (
                             <span className="bb-badge-count">{sorted.length}</span>
                         )}
@@ -890,7 +957,15 @@ export default function BroadcastBanner() {
                                 onMouseLeave={() => setPaused(false)}
                             >
                                 {sorted.map((b, i) => (
-                                    <BroadcastSlide key={b.id} broadcast={b} onDismiss={handleDismiss} isActive={i === current} />
+                                    <BroadcastSlide
+                                        key={b.id}
+                                        broadcast={b}
+                                        onDismiss={handleDismiss}
+                                        onDeactivate={handleDeactivate}
+                                        canDeactivate={canCreate}
+                                        hideDismiss={adminMode}
+                                        isActive={i === current}
+                                    />
                                 ))}
                             </div>
 
@@ -924,7 +999,7 @@ export default function BroadcastBanner() {
             </div>
 
             {showModal && (
-                <AddBroadcastModal onClose={() => setShowModal(false)} onSaved={handleSaved} />
+                <AddBroadcastModal adminMode={adminMode} onClose={() => setShowModal(false)} onSaved={handleSaved} />
             )}
         </div>
     );

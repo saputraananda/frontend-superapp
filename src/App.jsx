@@ -26,8 +26,14 @@ import MasterKaryawan from "./pages/master-karyawan/index";
 import DashboardMaster from "./pages/master-karyawan/components/DashboardMaster";
 import DataKaryawan from "./pages/master-karyawan/components/DataKaryawan";
 import PerizinanAlora from "./pages/master-karyawan/components/PerizinanAlora";
+import AttendanceApprovalAlora from "./pages/master-karyawan/components/AttendanceApprovalAlora";
+import AttendanceSessionsAlora from "./pages/master-karyawan/components/AttendanceSessionsAlora";
+import PlannedLateAlora from "./pages/master-karyawan/components/PlannedLateAlora";
+import LemburRoAlora from "./pages/master-karyawan/components/LemburRoAlora";
 import ReportAbsensiAlora from "./pages/master-karyawan/components/ReportAbsensiAlora";
+import AnnualLeaveAlora from "./pages/master-karyawan/components/AnnualLeaveAlora";
 import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
+import PengumumanAlora from "./pages/master-karyawan/components/PengumumanAlora";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
@@ -112,6 +118,8 @@ import MasterService from "./pages/cleanox-management/components/MasterService";
 import MasterCategory from "./pages/cleanox-management/components/MasterCategory";
 import KpiProduksiCleanox from "./pages/cleanox-management/components/KpiProduksiCleanox";
 import TargetCleanox from "./pages/cleanox-management/components/TargetCleanox";
+import PendapatanCleanox from "./pages/cleanox-management/components/PendapatanCleanox";
+import PiutangCleanox from "./pages/cleanox-management/components/PiutangCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
 import DashboardPage from "./pages/my-waschen/components/Transaction/DashboardPage";
@@ -330,7 +338,14 @@ export default function App() {
           <Route path="/master-karyawan" element={<DashboardMaster />} />
           <Route path="/master-karyawan/list" element={<DataKaryawan />} />
           <Route path="/master-karyawan/perizinan" element={<PerizinanAlora />} />
+          <Route path="/master-karyawan/attendance-approval" element={<AttendanceApprovalAlora />} />
+          <Route path="/master-karyawan/attendance-sessions" element={<AttendanceSessionsAlora />} />
+          <Route path="/master-karyawan/planned-late" element={<PlannedLateAlora />} />
+          <Route path="/master-karyawan/lembur-ro-legacy" element={<LemburRoAlora />} />
+          <Route path="/master-karyawan/lembur-ro" element={<AttendanceSessionsAlora />} />
+          <Route path="/master-karyawan/pengumuman" element={<PengumumanAlora />} />
           <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
+          <Route path="/master-karyawan/annual-leave" element={<AnnualLeaveAlora />} />
           <Route path="/master-karyawan/report-bugar" element={<ReportBugarAlora />} />
         </Route>
 
@@ -626,6 +641,9 @@ export default function App() {
           <Route path="/cleanox-management-system/category" element={<MasterCategory />} />
           <Route path="/cleanox-management-system/target" element={<TargetCleanox />} />
           <Route path="/cleanox-management-system/kpi" element={<KpiProduksiCleanox />} />
+          <Route path="/cleanox-management-system/pendapatan" element={<PendapatanCleanox />} />
+          <Route path="/cleanox-management-system/riwayat-transaksi" element={<Navigate to="/cleanox-management-system/pendapatan" replace />} />
+          <Route path="/cleanox-management-system/piutang" element={<PiutangCleanox />} />
           <Route path="/cleanox-management-system/:id" element={<EmployeeCleanoxDetail />} />
         </Route>
 

@@ -103,12 +103,138 @@ function calcDuration(checkIn, checkOut) {
 	return h > 0 ? `${h}j ${m}m` : `${m}m`;
 }
 
-function formatCoord(lat, lng) {
-	if (lat === null || lat === undefined || lng === null || lng === undefined) return "-";
-	return `${lat}, ${lng}`;
+function lateLabel(row) {
+	if (row.late_category === "planned") return "Terlambat Terencana";
+	if (row.late_category === "unexpected") return "Tidak Terencana";
+	const hasLate =
+		(row.late_minutes != null && Number(row.late_minutes) > 0)
+		|| Boolean(String(row.late_reason || "").trim());
+	if (hasLate) return "Terlambat";
+	return "-";
 }
 
-export function exportReportAbsensiAloraExcel({ records, periodLabel, activePeriod, filters }) {
+function lateHoursLabel(row) {
+	if (row.late_minutes == null || row.late_minutes <= 0) return "-";
+	const hours = Number(row.late_minutes) / 60;
+	return hours.toLocaleString("id-ID", {
+		maximumFractionDigits: 2,
+		minimumFractionDigits: hours < 1 ? 1 : 0,
+	});
+}
+
+function lateReasonLabel(row) {
+	return row.late_reason?.trim() || "-";
+}
+
+function approvalStatusLabelForAbsensi(row) {
+	const mode = String(row?.attendance_mode || "").toLowerCase();
+	if (mode !== "wfa" && mode !== "wod") return "-";
+	if (row?.approval_status === "disetujui" || row?.mode_request_id) return "Disetujui";
+	return "Belum Disetujui";
+}
+
+function lemburHoursLabel(row) {
+	const n = Number(row.lembur_hours);
+	if (!Number.isFinite(n) || n <= 0) return "-";
+	return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+function hoursNumLabel(value) {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return "-";
+	return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+function leaveTypeLabel(type) {
+	const t = String(type || "").toLowerCase();
+	if (t === "izin") return "Izin";
+	if (t === "cuti") return "Cuti";
+	if (t === "sakit") return "Sakit";
+	return type || "-";
+}
+
+function durationTypeLabel(value) {
+	const t = String(value || "").toLowerCase();
+	if (t === "full_day") return "Seharian";
+	if (t === "half_day") return "Setengah hari";
+	if (t === "half_day_morning") return "Setengah hari (pagi)";
+	if (t === "half_day_afternoon") return "Setengah hari (sore)";
+	if (t === "partial") return "Partial";
+	if (t === "hourly") return "Per jam";
+	return value || "-";
+}
+
+function leaveTanggalLabel(startDate, endDate) {
+	const start = startDate ? fmtDate(startDate) : "-";
+	const end = endDate ? fmtDate(endDate) : "-";
+	if (!startDate && !endDate) return "-";
+	if (String(startDate || "").slice(0, 10) === String(endDate || "").slice(0, 10)) return start;
+	return `${start} – ${end}`;
+}
+
+function leaveTimeLabel(value) {
+	if (value == null || value === "") return "-";
+	if (typeof value === "string") {
+		const m = value.trim().match(/^(\d{1,2}):(\d{2})/);
+		if (m) return `${String(m[1]).padStart(2, "0")}:${m[2]}`;
+	}
+	return String(value);
+}
+
+function groupHeaderStyle(bg) {
+	return {
+		fill: { fgColor: { rgb: bg } },
+		font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
+		alignment: { horizontal: "center", vertical: "center", wrapText: true },
+		border: border(),
+	};
+}
+
+function buildMetaHeader(totalCols, { title, periodLabel, periodStr, filterLabel, exportedAt }) {
+	const emptyTitle = Array.from({ length: totalCols - 1 }, () => empty(titleStyle));
+	const emptyMeta = Array.from({ length: totalCols - 1 }, () => empty(metaStyle));
+	const emptySpacer = Array.from({ length: totalCols }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } }));
+	return {
+		rows: [
+			[cell(title, titleStyle), ...emptyTitle],
+			[cell(`Periode: ${periodLabel || periodStr}`, metaStyle), ...emptyMeta],
+			[cell(`Filter: ${filterLabel}`, metaStyle), ...emptyMeta],
+			[cell(exportedAt, metaStyle), ...emptyMeta],
+			emptySpacer,
+		],
+		merges: [
+			{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
+			{ s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } },
+			{ s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } },
+			{ s: { r: 3, c: 0 }, e: { r: 3, c: totalCols - 1 } },
+			{ s: { r: 4, c: 0 }, e: { r: 4, c: totalCols - 1 } },
+		],
+	};
+}
+
+function sheetFromAoa(wsData, merges, cols, extraRowHeights = {}) {
+	const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
+	ws["!merges"] = merges;
+	ws["!cols"] = cols;
+	const rows = [
+		{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 24 },
+	];
+	Object.entries(extraRowHeights).forEach(([idx, hpt]) => {
+		rows[Number(idx)] = { hpt };
+	});
+	ws["!rows"] = rows;
+	return ws;
+}
+
+export function exportReportAbsensiAloraExcel({
+	records,
+	lemburSummary = [],
+	leavesIzinCuti = [],
+	leavesSakit = [],
+	periodLabel,
+	activePeriod,
+	filters,
+}) {
 	const periodStr = activePeriod
 		? `${fmtDate(activePeriod.startDate)} s.d. ${fmtDate(activePeriod.endDate)}`
 		: "–";
@@ -126,20 +252,13 @@ export function exportReportAbsensiAloraExcel({ records, periodLabel, activePeri
 	}
 	const filterLabel = filterParts.length > 0 ? filterParts.join("  |  ") : "Semua data (tanpa filter)";
 	const exportedAt = `Diekspor: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}`;
+	const metaCommon = { periodLabel, periodStr, filterLabel, exportedAt };
 
-	const TOTAL_COLS = 12;
-	const wsData = [];
-	const emptyTitle = Array.from({ length: TOTAL_COLS - 1 }, () => empty(titleStyle));
-	const emptyMeta = Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle));
-	const emptySpacer = Array.from({ length: TOTAL_COLS }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } }));
-
-	wsData.push([cell("Report Absensi Alora", titleStyle), ...emptyTitle]);
-	wsData.push([cell(`Periode: ${periodLabel || periodStr}`, metaStyle), ...emptyMeta]);
-	wsData.push([cell(`Filter: ${filterLabel}`, metaStyle), ...emptyMeta]);
-	wsData.push([cell(exportedAt, metaStyle), ...emptyMeta]);
-	wsData.push(emptySpacer);
-
-	const headers = [
+	// —— Sheet 1: Absensi ——
+	const ABSEN_COLS = 17;
+	const absenMeta = buildMetaHeader(ABSEN_COLS, { title: "Report Absensi Alora", ...metaCommon });
+	const absenData = [...absenMeta.rows];
+	absenData.push([
 		"No",
 		"Tanggal",
 		"NIK",
@@ -148,19 +267,22 @@ export function exportReportAbsensiAloraExcel({ records, periodLabel, activePeri
 		"Jam Absen In",
 		"Jam Absen Out",
 		"Durasi",
-		"Lokasi In",
-		"Lokasi Out",
-		"Koordinat In",
+		"Mode",
+		"Lokasi Konteks",
 		"Status",
-	];
-	wsData.push(headers.map((h) => cell(h, headerStyle)));
+		"Final Status",
+		"Approval",
+		"Lembur (jam)",
+		"Kategori Terlambat",
+		"Durasi Terlambat (jam)",
+		"Alasan Terlambat",
+	].map((h) => cell(h, headerStyle)));
 
 	records.forEach((r, idx) => {
 		const isAlt = idx % 2 === 1;
 		const cs = makeCellStyle(isAlt);
 		const csCenter = makeCellStyle(isAlt, "center");
-
-		wsData.push([
+		absenData.push([
 			cell(idx + 1, { ...csCenter, font: { sz: 10, color: { rgb: C.textGray }, name: "Calibri" } }),
 			cell(fmtDate(r.work_date), csCenter),
 			cell(r.employee_code || "-", csCenter),
@@ -169,39 +291,199 @@ export function exportReportAbsensiAloraExcel({ records, periodLabel, activePeri
 			cell(fmtTime(r.check_in_time), csCenter),
 			cell(fmtTime(r.check_out_time), csCenter),
 			cell(calcDuration(r.check_in_time, r.check_out_time), csCenter),
-			cell(r.clock_in_location_name || "-", cs),
-			cell(r.clock_out_location_name || "-", cs),
-			cell(formatCoord(r.clock_in_latitude, r.clock_in_longitude), csCenter),
+			cell(r.mode_label || "Harian", csCenter),
+			cell(r.location_context || "-", csCenter),
 			cell(r.status_label || "-", makeStatusStyle(r.status_label, isAlt)),
+			cell(r.final_status || "-", cs),
+			cell(approvalStatusLabelForAbsensi(r), csCenter),
+			cell(lemburHoursLabel(r), csCenter),
+			cell(lateLabel(r), csCenter),
+			cell(lateHoursLabel(r), csCenter),
+			cell(lateReasonLabel(r), cs),
 		]);
 	});
 
-	const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
-	ws["!merges"] = [
-		{ s: { r: 0, c: 0 }, e: { r: 0, c: TOTAL_COLS - 1 } },
-		{ s: { r: 1, c: 0 }, e: { r: 1, c: TOTAL_COLS - 1 } },
-		{ s: { r: 2, c: 0 }, e: { r: 2, c: TOTAL_COLS - 1 } },
-		{ s: { r: 3, c: 0 }, e: { r: 3, c: TOTAL_COLS - 1 } },
-		{ s: { r: 4, c: 0 }, e: { r: 4, c: TOTAL_COLS - 1 } },
+	const wsAbsen = sheetFromAoa(absenData, absenMeta.merges, [
+		{ wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 25 }, { wch: 18 },
+		{ wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 14 }, { wch: 12 },
+		{ wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 12 },
+		{ wch: 18 }, { wch: 12 }, { wch: 36 },
+	]);
+
+	// —— Sheet 2: Total Lembur (grouped headers) ——
+	const LEMBUR_COLS = 12;
+	const lemburMeta = buildMetaHeader(LEMBUR_COLS, {
+		title: "Total Lembur & RO per Karyawan (periode cutoff)",
+		...metaCommon,
+	});
+	const groupRowIdx = lemburMeta.rows.length; // 5
+	const subRowIdx = groupRowIdx + 1; // 6
+	const styleLemburGroup = groupHeaderStyle("5B21B6");
+	const styleRoGroup = groupHeaderStyle("0369A1");
+	const styleUnpaidGroup = groupHeaderStyle("B45309");
+	const identityHeaderEmpty = empty(headerStyle);
+
+	const lemburData = [...lemburMeta.rows];
+	lemburData.push([
+		identityHeaderEmpty,
+		identityHeaderEmpty,
+		identityHeaderEmpty,
+		identityHeaderEmpty,
+		cell("Lembur", styleLemburGroup),
+		empty(styleLemburGroup),
+		empty(styleLemburGroup),
+		empty(styleLemburGroup),
+		cell("RO", styleRoGroup),
+		empty(styleRoGroup),
+		empty(styleRoGroup),
+		cell("Unpaid", styleUnpaidGroup),
+	]);
+	lemburData.push([
+		cell("No", headerStyle),
+		cell("NIK", headerStyle),
+		cell("Nama Karyawan", headerStyle),
+		cell("Jabatan", headerStyle),
+		cell("Jumlah Pengajuan Lembur", headerStyle),
+		cell("Total Jam Lembur", headerStyle),
+		cell("Total Lembur Dipakai", headerStyle),
+		cell("Saldo Lembur", headerStyle),
+		cell("Total WOD", headerStyle),
+		cell("Total RO Dipakai", headerStyle),
+		cell("Saldo RO", headerStyle),
+		cell("Total Unpaid", headerStyle),
+	]);
+
+	const lemburMerges = [
+		...lemburMeta.merges,
+		{ s: { r: groupRowIdx, c: 4 }, e: { r: groupRowIdx, c: 7 } },
+		{ s: { r: groupRowIdx, c: 8 }, e: { r: groupRowIdx, c: 10 } },
 	];
-	ws["!cols"] = [
-		{ wch: 5 },
-		{ wch: 15 },
-		{ wch: 12 },
-		{ wch: 25 },
-		{ wch: 18 },
-		{ wch: 15 },
-		{ wch: 15 },
-		{ wch: 10 },
-		{ wch: 22 },
-		{ wch: 22 },
-		{ wch: 24 },
-		{ wch: 20 },
-	];
-	ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 24 }];
+
+	lemburSummary.forEach((r, idx) => {
+		const isAlt = idx % 2 === 1;
+		const cs = makeCellStyle(isAlt);
+		const csCenter = makeCellStyle(isAlt, "center");
+		lemburData.push([
+			cell(idx + 1, csCenter),
+			cell(r.employee_code || "-", csCenter),
+			cell(r.employee_name || "-", cs),
+			cell(r.jabatan || "-", cs),
+			cell(Number(r.lembur_count) || 0, csCenter),
+			cell(hoursNumLabel(r.total_lembur_hours), csCenter),
+			cell(hoursNumLabel(r.izin_overtime_hours), csCenter),
+			cell(hoursNumLabel(r.overtime_balance_hours), csCenter),
+			cell(hoursNumLabel(r.total_ro_earned_hours), csCenter),
+			cell(hoursNumLabel(r.izin_ro_hours), csCenter),
+			cell(hoursNumLabel(r.replace_off_hours), csCenter),
+			cell(hoursNumLabel(r.izin_unpaid_hours), csCenter),
+		]);
+	});
+	if (lemburSummary.length === 0) {
+		const cs = makeCellStyle(false, "center");
+		lemburData.push([
+			cell("Tidak ada data lembur/RO/izin funding pada periode ini", cs),
+			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
+			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
+		]);
+	}
+	const wsLembur = sheetFromAoa(
+		lemburData,
+		lemburMerges,
+		[
+			{ wch: 5 }, { wch: 12 }, { wch: 25 }, { wch: 18 },
+			{ wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+			{ wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+		],
+		{ [groupRowIdx]: 22, [subRowIdx]: 28 },
+	);
+
+	// —— Sheet 3: Perizinan & Cuti ——
+	const IZIN_COLS = 12;
+	const izinMeta = buildMetaHeader(IZIN_COLS, { title: "Perizinan & Cuti (disetujui)", ...metaCommon });
+	const izinData = [...izinMeta.rows];
+	izinData.push(
+		[
+			"No",
+			"NIK",
+			"Nama Karyawan",
+			"Tipe",
+			"Tanggal",
+			"Jam Mulai",
+			"Jam Selesai",
+			"Durasi",
+			"RO (jam)",
+			"Lembur (jam)",
+			"Unpaid (jam)",
+			"Keterangan",
+		].map((h) => cell(h, headerStyle)),
+	);
+	leavesIzinCuti.forEach((r, idx) => {
+		const isAlt = idx % 2 === 1;
+		const cs = makeCellStyle(isAlt);
+		const csCenter = makeCellStyle(isAlt, "center");
+		const isIzin = String(r.leave_type || "").toLowerCase() === "izin";
+		izinData.push([
+			cell(idx + 1, csCenter),
+			cell(r.employee_code || "-", csCenter),
+			cell(r.employee_name || "-", cs),
+			cell(leaveTypeLabel(r.leave_type), csCenter),
+			cell(leaveTanggalLabel(r.start_date, r.end_date), csCenter),
+			cell(leaveTimeLabel(r.start_time), csCenter),
+			cell(leaveTimeLabel(r.end_time), csCenter),
+			cell(durationTypeLabel(r.duration_type), csCenter),
+			cell(isIzin ? hoursNumLabel(r.funding_ro_hours) : hoursNumLabel(0), csCenter),
+			cell(isIzin ? hoursNumLabel(r.funding_overtime_hours) : hoursNumLabel(0), csCenter),
+			cell(isIzin ? hoursNumLabel(r.funding_unpaid_hours) : hoursNumLabel(0), csCenter),
+			cell(r.reason || "-", cs),
+		]);
+	});
+	if (leavesIzinCuti.length === 0) {
+		const cs = makeCellStyle(false, "center");
+		izinData.push([
+			cell("Tidak ada data perizinan/cuti disetujui", cs),
+			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
+			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
+		]);
+	}
+	const wsIzin = sheetFromAoa(izinData, izinMeta.merges, [
+		{ wch: 5 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 22 }, { wch: 12 },
+		{ wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 36 },
+	]);
+
+	// —— Sheet 4: Sakit ——
+	const SAKIT_COLS = 7;
+	const sakitMeta = buildMetaHeader(SAKIT_COLS, { title: "Sakit SKD / Non-SKD (disetujui)", ...metaCommon });
+	const sakitData = [...sakitMeta.rows];
+	sakitData.push(
+		["No", "NIK", "Nama Karyawan", "Tipe", "Mulai", "Selesai", "Keterangan"].map((h) => cell(h, headerStyle)),
+	);
+	leavesSakit.forEach((r, idx) => {
+		const isAlt = idx % 2 === 1;
+		const cs = makeCellStyle(isAlt);
+		const csCenter = makeCellStyle(isAlt, "center");
+		sakitData.push([
+			cell(idx + 1, csCenter),
+			cell(r.employee_code || "-", csCenter),
+			cell(r.employee_name || "-", cs),
+			cell(r.sakit_type || "Non-SKD", csCenter),
+			cell(fmtDate(r.start_date), csCenter),
+			cell(fmtDate(r.end_date), csCenter),
+			cell(r.reason || "-", cs),
+		]);
+	});
+	if (leavesSakit.length === 0) {
+		const cs = makeCellStyle(false, "center");
+		sakitData.push([cell("Tidak ada data sakit disetujui", cs), empty(cs), empty(cs), empty(cs), empty(cs), empty(cs), empty(cs)]);
+	}
+	const wsSakit = sheetFromAoa(sakitData, sakitMeta.merges, [
+		{ wch: 5 }, { wch: 12 }, { wch: 25 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 36 },
+	]);
 
 	const wb = XLSXStyle.utils.book_new();
-	XLSXStyle.utils.book_append_sheet(wb, ws, "Report Absensi Alora");
+	XLSXStyle.utils.book_append_sheet(wb, wsAbsen, "Absensi");
+	XLSXStyle.utils.book_append_sheet(wb, wsLembur, "Total Lembur");
+	XLSXStyle.utils.book_append_sheet(wb, wsIzin, "Perizinan & Cuti");
+	XLSXStyle.utils.book_append_sheet(wb, wsSakit, "Sakit");
 
 	const start = activePeriod?.startDate || "start";
 	const end = activePeriod?.endDate || "end";
