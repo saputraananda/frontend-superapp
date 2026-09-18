@@ -548,18 +548,24 @@ const LIST_COLS = [
   { key: "transaksi_terakhir", label: "Terakhir Transaksi" },
 ];
 
+const LIMIT = 25;
+
 function CustomerTable({ filters }) {
   const [q, setQ]             = useState("");
   const [search, setSearch]   = useState("");
+  const [page, setPage]       = useState(1);
   const [sortBy, setSortBy]   = useState("nama");
   const [sortDir, setSortDir] = useState("asc");
-  const [state, setState]     = useState({ rows: [], total: 0, loading: true, error: null });
+  const [state, setState]     = useState({ rows: [], total: 0, totalPages: 1, loading: true, error: null });
 
   // debounce input pencarian
   useEffect(() => {
-    const t = setTimeout(() => setSearch(q.trim()), 400);
+    const t = setTimeout(() => { setSearch(q.trim()); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [q]);
+
+  // reset halaman saat filter global berubah
+  useEffect(() => { setPage(1); }, [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -575,29 +581,32 @@ function CustomerTable({ filters }) {
     if (filters?.filterType === "range" && filters.startDate)  p.set("startDate", filters.startDate);
     if (filters?.filterType === "range" && filters.endDate)    p.set("endDate",   filters.endDate);
     if (search) p.set("q", search);
+    p.set("page", page);
+    p.set("limit", LIMIT);
     p.set("sortBy", sortBy);
     p.set("sortDir", sortDir);
 
     api(`/sales/customer/list?${p}`)
-      .then(res => { if (!cancelled) setState({ rows: res.rows || [], total: res.total || 0, loading: false, error: null }); })
+      .then(res => { if (!cancelled) setState({ rows: res.rows || [], total: res.total || 0, totalPages: res.totalPages || 1, loading: false, error: null }); })
       .catch(err => { if (!cancelled) setState(s => ({ ...s, loading: false, error: err.message })); });
 
     return () => { cancelled = true; };
-  }, [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate, search, sortBy, sortDir]);
+  }, [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate, search, page, sortBy, sortDir]);
 
   const toggleSort = (key) => {
     if (sortBy === key) setSortDir(d => (d === "asc" ? "desc" : "asc"));
     else { setSortBy(key); setSortDir("asc"); }
+    setPage(1);
   };
 
-  const { rows, total, loading, error } = state;
+  const { rows, total, totalPages, loading, error } = state;
 
   return (
     <Card className="p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <p className="text-sm font-bold text-slate-700">Tabel Customer</p>
-          <p className="text-xs text-slate-400 mt-0.5">{total.toLocaleString("id-ID")} customer</p>
+          <p className="text-xs text-slate-400 mt-0.5">{total.toLocaleString("id-ID")} customer · Hal. {page} dari {totalPages}</p>
         </div>
         <input
           type="search"
@@ -613,7 +622,7 @@ function CustomerTable({ filters }) {
       ) : (
         <>
           {/* Mobile cards */}
-          <div className="flex flex-col gap-3 md:hidden max-h-[70vh] overflow-y-auto">
+          <div className="flex flex-col gap-3 md:hidden">
             {rows.map((c, i) => (
               <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1.5">
                 <p className="font-semibold text-slate-800 text-sm">{c.nama || "-"}</p>
@@ -629,9 +638,9 @@ function CustomerTable({ filters }) {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block overflow-auto max-h-[70vh]">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white z-10">
+              <thead>
                 <tr className="text-left text-xs font-bold text-slate-500 border-b border-slate-100">
                   <th className="pb-3 pr-3">#</th>
                   {LIST_COLS.map(col => (
@@ -646,7 +655,7 @@ function CustomerTable({ filters }) {
               <tbody>
                 {rows.map((c, i) => (
                   <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/40 transition">
-                    <td className="py-3 pr-3 text-slate-400 text-xs">{i + 1}</td>
+                    <td className="py-3 pr-3 text-slate-400 text-xs">{(page - 1) * LIMIT + i + 1}</td>
                     <td className="py-3 pr-4 font-semibold text-slate-800">{c.nama || "-"}</td>
                     <td className="py-3 pr-4 text-slate-600 max-w-[280px] truncate">{c.alamat}</td>
                     <td className="py-3 pr-4 text-slate-500 text-xs whitespace-nowrap">{c.nomor_telpon}</td>
@@ -663,6 +672,23 @@ function CustomerTable({ filters }) {
             <p className="text-center text-sm text-slate-400 py-8">Tidak ada customer yang cocok.</p>
           )}
           {loading && <p className="text-center text-sm text-slate-400 py-8">Memuat…</p>}
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs text-slate-400">
+              {total === 0 ? 0 : (page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} dari {total.toLocaleString("id-ID")}
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(1)} disabled={page === 1}
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition text-xs font-bold">«</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition text-xs font-bold">‹</button>
+              <span className="text-xs text-slate-600 px-2 font-semibold">{page} / {totalPages}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition text-xs font-bold">›</button>
+              <button onClick={() => setPage(totalPages)} disabled={page >= totalPages}
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition text-xs font-bold">»</button>
+            </div>
+          </div>
         </>
       )}
     </Card>
