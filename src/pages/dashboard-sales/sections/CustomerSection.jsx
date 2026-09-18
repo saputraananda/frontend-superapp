@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect } from "react";
+import React, { useReducer, useEffect, useState } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -529,6 +529,142 @@ export default function CustomerSection({ filters }) {
           </div>
         </Card>
       )}
+
+      {/* ─── Tabel Customer (semua customer) ─────────────────────────────────── */}
+      <CustomerTable filters={filters} />
     </div>
+  );
+}
+
+// ─── tabel seluruh customer ───────────────────────────────────────────────────
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString("id-ID") : "-");
+
+const LIST_COLS = [
+  { key: "nama",               label: "Nama" },
+  { key: "alamat",             label: "Alamat" },
+  { key: "nomor_telpon",       label: "No. Telpon" },
+  { key: "outlet",             label: "Outlet" },
+  { key: "terdaftar_sejak",    label: "Terdaftar" },
+  { key: "transaksi_terakhir", label: "Terakhir Transaksi" },
+];
+
+function CustomerTable({ filters }) {
+  const [q, setQ]             = useState("");
+  const [search, setSearch]   = useState("");
+  const [sortBy, setSortBy]   = useState("nama");
+  const [sortDir, setSortDir] = useState("asc");
+  const [state, setState]     = useState({ rows: [], total: 0, loading: true, error: null });
+
+  // debounce input pencarian
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(q.trim()), 400);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState(s => ({ ...s, loading: true, error: null }));
+
+    const p = new URLSearchParams();
+    if (filters?.outlets?.length && !filters.outlets.includes("all")) {
+      filters.outlets.forEach(o => p.append("outlet", o));
+    }
+    if (filters?.filterType)                                   p.set("filterType", filters.filterType);
+    if (filters?.filterType === "month" && filters.month)      p.set("month",     filters.month);
+    if (filters?.filterType === "year"  && filters.year)       p.set("year",      filters.year);
+    if (filters?.filterType === "range" && filters.startDate)  p.set("startDate", filters.startDate);
+    if (filters?.filterType === "range" && filters.endDate)    p.set("endDate",   filters.endDate);
+    if (search) p.set("q", search);
+    p.set("sortBy", sortBy);
+    p.set("sortDir", sortDir);
+
+    api(`/sales/customer/list?${p}`)
+      .then(res => { if (!cancelled) setState({ rows: res.rows || [], total: res.total || 0, loading: false, error: null }); })
+      .catch(err => { if (!cancelled) setState(s => ({ ...s, loading: false, error: err.message })); });
+
+    return () => { cancelled = true; };
+  }, [filters?.outlets, filters?.filterType, filters?.month, filters?.year, filters?.startDate, filters?.endDate, search, sortBy, sortDir]);
+
+  const toggleSort = (key) => {
+    if (sortBy === key) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(key); setSortDir("asc"); }
+  };
+
+  const { rows, total, loading, error } = state;
+
+  return (
+    <Card className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div>
+          <p className="text-sm font-bold text-slate-700">Tabel Customer</p>
+          <p className="text-xs text-slate-400 mt-0.5">{total.toLocaleString("id-ID")} customer</p>
+        </div>
+        <input
+          type="search"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Cari nama, alamat, no. telpon…"
+          className="w-full sm:w-72 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-100 transition"
+        />
+      </div>
+
+      {error ? (
+        <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 text-rose-600 text-sm">Gagal memuat: {error}</div>
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <div className="flex flex-col gap-3 md:hidden max-h-[70vh] overflow-y-auto">
+            {rows.map((c, i) => (
+              <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1.5">
+                <p className="font-semibold text-slate-800 text-sm">{c.nama || "-"}</p>
+                <p className="text-xs text-slate-500">{c.alamat}</p>
+                <div className="grid grid-cols-2 gap-1 text-xs pt-1">
+                  <div><span className="text-slate-400">No. Telpon: </span><span className="text-slate-600">{c.nomor_telpon}</span></div>
+                  <div><span className="text-slate-400">Outlet: </span><span className="text-slate-600">{c.outlet}</span></div>
+                  <div><span className="text-slate-400">Terdaftar: </span><span className="text-slate-600">{fmtDate(c.terdaftar_sejak)}</span></div>
+                  <div><span className="text-slate-400">Trs. Terakhir: </span><span className="text-slate-600">{fmtDate(c.transaksi_terakhir)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-auto max-h-[70vh]">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="text-left text-xs font-bold text-slate-500 border-b border-slate-100">
+                  <th className="pb-3 pr-3">#</th>
+                  {LIST_COLS.map(col => (
+                    <th key={col.key} className="pb-3 pr-4 whitespace-nowrap">
+                      <button onClick={() => toggleSort(col.key)} className="hover:text-fuchsia-600 transition">
+                        {col.label}{sortBy === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c, i) => (
+                  <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/40 transition">
+                    <td className="py-3 pr-3 text-slate-400 text-xs">{i + 1}</td>
+                    <td className="py-3 pr-4 font-semibold text-slate-800">{c.nama || "-"}</td>
+                    <td className="py-3 pr-4 text-slate-600 max-w-[280px] truncate">{c.alamat}</td>
+                    <td className="py-3 pr-4 text-slate-500 text-xs whitespace-nowrap">{c.nomor_telpon}</td>
+                    <td className="py-3 pr-4 text-slate-600 whitespace-nowrap">{c.outlet}</td>
+                    <td className="py-3 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(c.terdaftar_sejak)}</td>
+                    <td className="py-3 pr-4 text-slate-500 text-xs whitespace-nowrap">{fmtDate(c.transaksi_terakhir)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {!loading && rows.length === 0 && (
+            <p className="text-center text-sm text-slate-400 py-8">Tidak ada customer yang cocok.</p>
+          )}
+          {loading && <p className="text-center text-sm text-slate-400 py-8">Memuat…</p>}
+        </>
+      )}
+    </Card>
   );
 }
