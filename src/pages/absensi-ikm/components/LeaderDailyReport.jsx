@@ -447,7 +447,7 @@ function FormModal({ open, onClose, onSaved, editData, areas, employees }) {
                 placeholder="Nama Leader / Deputi" disabled={saving} />
             </div>
             <div>
-              <label className={labelClass}>Role <span className="text-rose-500">*</span></label>
+              <label className={labelClass}>Posisi <span className="text-rose-500">*</span></label>
               <select className={inputClass} value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })} disabled={saving}>
                 <option>Leader</option>
@@ -904,7 +904,7 @@ export default function LeaderDailyReport() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">No</th>
                     <SortTh col="report_date" label="Tanggal" sort={sort} onSort={handleSort} />
                     <SortTh col="pic_name" label="PIC" sort={sort} onSort={handleSort} />
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Role</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Posisi</th>
                     <SortTh col="area_name" label="Area" sort={sort} onSort={handleSort} />
                     <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Hadir</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Mulai</th>

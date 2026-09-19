@@ -607,10 +607,10 @@ export default function EmployeeWaschen() {
                 )
             );
 
-            setSuccess("Bagian/layanan karyawan berhasil diperbarui");
+            setSuccess("Posisi karyawan berhasil diperbarui");
             setTimeout(() => setSuccess(""), 3000);
         } catch (err) {
-            setError(err.message || "Gagal memperbarui bagian/layanan karyawan");
+            setError(err.message || "Gagal memperbarui posisi karyawan");
             setTimeout(() => setError(""), 4000);
         } finally {
             setUpdatingIds((prev) => {
@@ -1030,7 +1030,7 @@ export default function EmployeeWaschen() {
                                             : "border-[#e0e0e0] bg-[#f8f8f8] text-slate-600 hover:border-slate-300"
                                     }`}
                                 >
-                                    <option value="">Semua Bagian</option>
+                                    <option value="">Semua Posisi</option>
                                     {Object.entries(ROLE_META).map(([key, meta]) => (
                                         <option key={key} value={key}>{meta.label}</option>
                                     ))}
@@ -1114,7 +1114,7 @@ export default function EmployeeWaschen() {
                                         Telepon
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                                        Bagian / Unit
+                                        Posisi
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                                         Cabang
@@ -1617,7 +1617,7 @@ export default function EmployeeWaschen() {
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Unit / Bagian</label>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Posisi</label>
                                         <select
                                             value={selectedRole}
                                             onChange={(e) => setSelectedRole(e.target.value)}
@@ -1707,7 +1707,7 @@ export default function EmployeeWaschen() {
 
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Unit / Bagian</label>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Posisi</label>
                                         <select
                                             value={selectedRole}
                                             onChange={(e) => setSelectedRole(e.target.value)}

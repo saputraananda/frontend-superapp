@@ -34,10 +34,10 @@ export default function HrisOutletRoleFilter({
       </div>
       <div>
         <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-          Bagian
+          Posisi
         </label>
         <select value={role} onChange={(e) => onRoleChange(e.target.value)} className={selectCls(role)}>
-          <option value="">Semua Bagian</option>
+          <option value="">Semua Posisi</option>
           {WASCHEN_ROLE_OPTIONS.map((r) => (
             <option key={r.value} value={r.value}>
               {r.label}

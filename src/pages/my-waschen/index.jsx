@@ -198,6 +198,12 @@ const MENU_SECTIONS = [
         description: "Satuan unit (Pcs, Kg, Liter, Roll, dll)",
       },
       {
+        to: "/my-waschen/master/absen-shift",
+        icon: HiOutlineClock,
+        label: "Master Absen dan Shift",
+        description: "Jam absensi, grooming, dan shift POS",
+      },
+      {
         to: "/my-waschen/master/service-speeds",
         icon: HiOutlineBolt,
         label: "Kecepatan Layanan",

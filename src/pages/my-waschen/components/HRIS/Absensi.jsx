@@ -12,6 +12,8 @@ import {
   HiOutlinePencilSquare,
   HiOutlineTrash,
   HiOutlineXMark,
+  HiOutlineEye,
+  HiOutlineSparkles,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import PageHero from "../PageHero";
@@ -29,6 +31,8 @@ import {
   calcDuration,
   fmtDateTime,
   attendanceStatusBadge,
+  groomingStatusBadge,
+  groomingStatusLabel,
   fmtEmployeeName,
   useSort,
 } from "../../utils/hrisUtils";
@@ -46,6 +50,10 @@ const STATUS_FILTERS = ["Semua", "Lengkap", "Belum check-out", "Belum check-in",
 const EMPTY_FORM = { employee_id: "", outlet_id: "", work_date: "", check_in_time: "", check_out_time: "" };
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
 const LABEL_CLS = "block text-[10px] font-bold uppercase tracking-wider text-slate-400";
+const PAGE_TABS = [
+  { id: "riwayat", label: "Riwayat Absensi" },
+  { id: "kebersihan", label: "Kebersihan" },
+];
 
 function toDateTimeLocalInput(value) {
   if (!value) return "";
@@ -135,6 +143,12 @@ export default function Absensi() {
   const [deleteRow, setDeleteRow] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
+  const [pageTab, setPageTab] = useState("riwayat");
+  const [detailRow, setDetailRow] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailTab, setDetailTab] = useState("grooming");
+  const [cleanlinessRows, setCleanlinessRows] = useState([]);
+  const [cleanlinessLoading, setCleanlinessLoading] = useState(false);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -160,10 +174,43 @@ export default function Absensi() {
     }
   }, [startDate, endDate, onlyIncomplete, search, appendFilters]);
 
+  const loadCleanliness = useCallback(async () => {
+    if (!startDate || !endDate) return;
+    setCleanlinessLoading(true);
+    try {
+      const q = new URLSearchParams({ startDate, endDate });
+      appendFilters(q);
+      const res = await api(`/waschen/hris/attendance/cleanliness?${q}`);
+      setCleanlinessRows(res.data || []);
+    } catch (err) {
+      showToast("error", err.message || "Gagal memuat foto kebersihan");
+      setCleanlinessRows([]);
+    } finally {
+      setCleanlinessLoading(false);
+    }
+  }, [startDate, endDate, appendFilters]);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (pageTab === "kebersihan") loadCleanliness();
+  }, [pageTab, loadCleanliness]);
   useEffect(() => {
     api("/waschen/employees").then((r) => setEmployees(r.data || [])).catch(() => setEmployees([]));
   }, []);
+
+  const openDetail = async (row) => {
+    setDetailTab("grooming");
+    setDetailRow({ ...row, grooming_photos: [], cleanliness_photos: [] });
+    setDetailLoading(true);
+    try {
+      const res = await api(`/waschen/hris/attendance/${row.attendance_id}/detail`);
+      setDetailRow(res.data || row);
+    } catch (err) {
+      showToast("error", err.message || "Gagal memuat detail grooming");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let list = rows;
@@ -297,6 +344,81 @@ export default function Absensi() {
         </div>
       )}
 
+      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm w-full sm:w-auto sm:inline-flex">
+        {PAGE_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setPageTab(t.id)}
+            className={cn(
+              "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition",
+              pageTab === t.id ? "bg-[#5f1340] text-white" : "text-slate-500 hover:bg-slate-50",
+            )}
+          >
+            {t.id === "kebersihan" ? <HiOutlineSparkles className="h-3.5 w-3.5" /> : <HiOutlineTableCells className="h-3.5 w-3.5" />}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {pageTab === "kebersihan" ? (
+        <section className={TABLE_SECTION}>
+          <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-800">Foto Kebersihan</h2>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Perwakilan per outlet + posisi + hari · difoto oleh siapa.</p>
+            </div>
+            <button type="button" onClick={loadCleanliness} className="shrink-0 rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+              <HiOutlineArrowPath className={cn("h-4 w-4", cleanlinessLoading && "animate-spin")} />
+            </button>
+          </div>
+          <div className="px-4 py-3 border-b border-slate-100">
+            <CutoffPeriodFilter cutoff={cutoff} />
+            <div className="mt-3">
+              <HrisOutletRoleFilter
+                outlets={hrisFilters.outlets}
+                outletId={hrisFilters.outletId}
+                onOutletChange={hrisFilters.setOutletId}
+                role={hrisFilters.role}
+                onRoleChange={hrisFilters.setRole}
+              />
+            </div>
+          </div>
+          {cleanlinessLoading ? (
+            <MobileSkeleton count={4} />
+          ) : cleanlinessRows.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 px-4">
+              <HiOutlineSparkles className="mx-auto mb-2 h-8 w-8 opacity-40" />
+              <p className="text-sm font-semibold">Tidak ada foto kebersihan</p>
+            </div>
+          ) : (
+            <div className="p-3 sm:p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {cleanlinessRows.map((p) => (
+                <button
+                  key={p.cleanliness_photo_id}
+                  type="button"
+                  onClick={() => setPhotoView({ url: p.photo_url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
+                  className="text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#5f1340]/30 transition"
+                >
+                  <div className="aspect-square bg-slate-100">
+                    {p.photo_url ? (
+                      <img src={p.photo_url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="h-full w-full grid place-items-center text-slate-300 text-xs">No photo</div>
+                    )}
+                  </div>
+                  <div className="p-2.5 space-y-0.5">
+                    <p className="text-[11px] font-bold text-slate-800 truncate">{p.uploaded_by_name || "—"}</p>
+                    <p className="text-[10px] text-slate-500">{fmtDateShort(p.work_date)} · {p.role_code}</p>
+                    <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
       <div className={SUMMARY_GRID}>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Record</p>
@@ -369,7 +491,7 @@ export default function Absensi() {
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-bold text-slate-800">Detail Riwayat Absensi</h2>
-              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Tanggal masuk, jam absen, foto, dan status kelengkapan.</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Tanggal masuk, jam absen, foto, grooming, dan status kelengkapan.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -399,13 +521,14 @@ export default function Absensi() {
                   mapsLink={mapsLink}
                   onEdit={openEdit}
                   onDelete={setDeleteRow}
+                  onViewDetail={openDetail}
                   submitting={submitting}
                 />
               ))}
             </div>
 
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left text-xs">
+              <table className="w-full min-w-[940px] text-left text-xs">
                 <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
                   <tr>
                     <SortTh col="work_date" label="Tanggal" sort={sort} onSort={toggleSort} />
@@ -415,6 +538,7 @@ export default function Absensi() {
                     <SortTh col="check_out_time" label="Absen Out" sort={sort} onSort={toggleSort} />
                     <th className="px-4 py-3 font-semibold text-center">Foto Out</th>
                     <th className="px-4 py-3 font-semibold">Durasi</th>
+                    <th className="px-4 py-3 font-semibold text-center">Grooming</th>
                     <SortTh col="status_label" label="Status" sort={sort} onSort={toggleSort} className="text-center" />
                     <th className="px-4 py-3 font-semibold text-center">Aksi</th>
                   </tr>
@@ -437,10 +561,24 @@ export default function Absensi() {
                       </td>
                       <td className="px-4 py-3.5 text-slate-600">{calcDuration(r.check_in_time, r.check_out_time) || "—"}</td>
                       <td className="px-4 py-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => openDetail(r)}
+                          className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold", groomingStatusBadge(r.grooming_status))}
+                          title="Lihat detail grooming"
+                        >
+                          {groomingStatusLabel(r.grooming_status)}
+                          <HiOutlineEye className="h-3 w-3 opacity-70" />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
                         <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", attendanceStatusBadge(r.status_label))}>{r.status_label}</span>
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex justify-center gap-1">
+                          <button type="button" title="Detail grooming" disabled={submitting} onClick={() => openDetail(r)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
+                            <HiOutlineEye className="h-4 w-4" />
+                          </button>
                           <button type="button" title="Edit" disabled={submitting} onClick={() => openEdit(r)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
                             <HiOutlinePencilSquare className="h-4 w-4" />
                           </button>
@@ -457,8 +595,206 @@ export default function Absensi() {
           </>
         )}
       </section>
+        </>
+      )}
 
       <PhotoViewerModal open={Boolean(photoView)} url={photoView?.url} label={photoView?.label} onClose={() => setPhotoView(null)} />
+
+      {detailRow && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setDetailRow(null)}>
+          <div
+            className="w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 bg-white shrink-0">
+              <div className="min-w-0">
+                <h3 className="font-bold text-sm text-slate-800">Detail Grooming & Kebersihan</h3>
+                <p className="text-[11px] text-slate-500 mt-1 truncate">
+                  {fmtEmployeeName(detailRow.employee_name)} · {fmtDateShort(detailRow.work_date)}
+                  {detailRow.role_code ? ` · ${detailRow.role_code}` : ""}
+                  {detailRow.outlet_name ? ` · ${detailRow.outlet_name}` : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailRow(null)}
+                className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                title="Tutup"
+              >
+                <HiOutlineXMark className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto text-xs space-y-4 flex-1 min-h-0">
+              {detailLoading ? (
+                <p className="text-slate-400 py-12 text-center">Memuat…</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                      <p className="text-[10px] uppercase text-slate-400 font-bold">Karyawan</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 leading-snug">{fmtEmployeeName(detailRow.employee_name)}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                      <p className="text-[10px] uppercase text-slate-400 font-bold">Tanggal</p>
+                      <p className="mt-0.5 font-semibold text-slate-800">{fmtDateShort(detailRow.work_date)}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                      <p className="text-[10px] uppercase text-slate-400 font-bold">Posisi</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 capitalize">{detailRow.role_code || "—"}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                      <p className="text-[10px] uppercase text-slate-400 font-bold">Status Grooming</p>
+                      <span className={cn("mt-1 inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", groomingStatusBadge(detailRow.grooming_status))}>
+                        {groomingStatusLabel(detailRow.grooming_status)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("grooming")}
+                      className={cn(
+                        "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition",
+                        detailTab === "grooming" ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-500 hover:bg-white",
+                      )}
+                    >
+                      Grooming
+                      <span className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                        detailTab === "grooming" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600",
+                      )}>
+                        {(detailRow.grooming_photos || []).length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("kebersihan")}
+                      className={cn(
+                        "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition",
+                        detailTab === "kebersihan" ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-500 hover:bg-white",
+                      )}
+                    >
+                      Kebersihan
+                      <span className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                        detailTab === "kebersihan" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600",
+                      )}>
+                        {(detailRow.cleanliness_photos || []).length}
+                      </span>
+                    </button>
+                  </div>
+
+                  {detailTab === "grooming" ? (
+                    <section>
+                      <div className="mb-2.5 flex items-center justify-between gap-2">
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Foto Grooming</h4>
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {(detailRow.grooming_photos || []).length} foto
+                        </span>
+                      </div>
+
+                      {detailRow.grooming_status === "tidak_wajib" ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-slate-500">
+                          Grooming tidak wajib untuk posisi ini. Buka tab Kebersihan untuk melihat foto area.
+                        </div>
+                      ) : (detailRow.grooming_photos || []).length === 0 ? (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 space-y-1">
+                          <p className="font-semibold text-rose-800">Tidak ada foto grooming</p>
+                          {detailRow.grooming_incomplete_reason ? (
+                            <p className="text-rose-700">Alasan: {detailRow.grooming_incomplete_reason}</p>
+                          ) : (
+                            <p className="text-rose-600/80">Belum ada alasan yang diisi.</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {detailRow.grooming_photos.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setPhotoView({ url: p.url, label: p.step_label })}
+                              className="text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#5f1340]/40 hover:shadow transition"
+                            >
+                              <div className="aspect-[4/5] bg-slate-100">
+                                {p.url ? (
+                                  <img src={p.url} alt={p.step_label} className="h-full w-full object-cover" loading="lazy" />
+                                ) : (
+                                  <div className="h-full w-full grid place-items-center text-slate-300">No photo</div>
+                                )}
+                              </div>
+                              <div className="p-2.5 space-y-0.5">
+                                <p className="font-bold text-slate-800 leading-snug line-clamp-2">{p.step_label}</p>
+                                <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {detailRow.grooming_incomplete_reason && (detailRow.grooming_photos || []).length > 0 && (
+                        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                          Alasan: {detailRow.grooming_incomplete_reason}
+                        </p>
+                      )}
+                    </section>
+                  ) : (
+                    <section>
+                      <div className="mb-2.5 flex items-center justify-between gap-2">
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Foto Kebersihan</h4>
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {(detailRow.cleanliness_photos || []).length} foto · area posisi
+                        </span>
+                      </div>
+
+                      {(detailRow.cleanliness_photos || []).length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-slate-400">
+                          Belum ada foto kebersihan untuk outlet + posisi hari ini.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {detailRow.cleanliness_photos.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setPhotoView({ url: p.url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
+                              className="text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#5f1340]/40 hover:shadow transition"
+                            >
+                              <div className="aspect-[4/5] bg-slate-100">
+                                {p.url ? (
+                                  <img src={p.url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
+                                ) : (
+                                  <div className="h-full w-full grid place-items-center text-slate-300">No photo</div>
+                                )}
+                              </div>
+                              <div className="p-2.5 space-y-0.5">
+                                <p className="font-bold text-slate-800 leading-snug line-clamp-2">{p.uploaded_by_name || "—"}</p>
+                                <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3 bg-white shrink-0">
+              <button
+                type="button"
+                onClick={() => setDetailRow(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {showCreate && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setShowCreate(false)}>

@@ -107,6 +107,23 @@ export function attendanceStatusBadge(label) {
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
+export function groomingStatusBadge(status) {
+  if (status === "lengkap") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "kurang") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "kosong") return "border-rose-200 bg-rose-50 text-rose-700";
+  return "border-slate-200 bg-slate-50 text-slate-500";
+}
+
+export function groomingStatusLabel(status) {
+  const map = {
+    lengkap: "Lengkap",
+    kurang: "Kurang",
+    kosong: "Kosong",
+    tidak_wajib: "Tidak Wajib",
+  };
+  return map[status] || status || "—";
+}
+
 export function useSort(initial = { col: "work_date", dir: "desc" }) {
   const [sort, setSort] = useState(initial);
   const toggle = (col) => {

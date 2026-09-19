@@ -22,6 +22,8 @@ import {
   leaveTypeLabel,
   leaveTypeBadge,
   attendanceStatusBadge,
+  groomingStatusBadge,
+  groomingStatusLabel,
   fmtEmployeeName,
 } from "../../utils/hrisUtils";
 
@@ -135,7 +137,7 @@ export function KasbonTypeBadge({ type }) {
   );
 }
 
-export function AbsensiMobileCard({ row, onViewPhoto, mapsLink, onEdit, onDelete, submitting }) {
+export function AbsensiMobileCard({ row, onViewPhoto, mapsLink, onEdit, onDelete, onViewDetail, submitting }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm space-y-3">
       <div className="flex items-start justify-between gap-2">
@@ -176,6 +178,16 @@ export function AbsensiMobileCard({ row, onViewPhoto, mapsLink, onEdit, onDelete
       {calcDuration(row.check_in_time, row.check_out_time) && (
         <p className="text-[11px] text-slate-500">Durasi: <strong className="text-slate-700">{calcDuration(row.check_in_time, row.check_out_time)}</strong></p>
       )}
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", groomingStatusBadge(row.grooming_status))}>
+          Grooming: {groomingStatusLabel(row.grooming_status)}
+        </span>
+        {onViewDetail && (
+          <button type="button" disabled={submitting} onClick={() => onViewDetail(row)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 disabled:opacity-50">
+            Detail
+          </button>
+        )}
+      </div>
       {(onEdit || onDelete) && (
         <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
           {onEdit && (

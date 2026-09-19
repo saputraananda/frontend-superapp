@@ -625,7 +625,7 @@ export default function AssignedToMe() {
                     <th className="py-3 px-4 w-10 text-center">No</th>
                     <th className="py-3 px-4 min-w-[280px]">Judul Task</th>
                     <th className="py-3 px-2 text-center w-8" title="Prioritas">P</th>
-                    <th className="py-3 px-4 text-center">PIC / Role</th>
+                    <th className="py-3 px-4 text-center">PIC / Posisi</th>
                     <th className="py-3 px-4 text-center">Position</th>
                     <th className="py-3 px-4 text-center">Start Date</th>
                     <th className="py-3 px-4 text-center">Deadline</th>

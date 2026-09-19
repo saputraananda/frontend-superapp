@@ -251,10 +251,10 @@ export default function EmployeeCleanox() {
                 )
             );
 
-            setSuccess("Unit/bagian karyawan berhasil diperbarui");
+            setSuccess("Posisi karyawan berhasil diperbarui");
             setTimeout(() => setSuccess(""), 3000);
         } catch (err) {
-            setError(err.message || "Gagal memperbarui unit/bagian karyawan");
+            setError(err.message || "Gagal memperbarui posisi karyawan");
             setTimeout(() => setError(""), 4000);
         } finally {
             setUpdatingIds((prev) => {
@@ -563,7 +563,7 @@ export default function EmployeeCleanox() {
                                         Telepon
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                                        Unit / Bagian
+                                        Posisi
                                     </th>
                                     <th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                                         Aksi
@@ -889,7 +889,7 @@ export default function EmployeeCleanox() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Unit / Bagian</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Posisi</label>
                                     <select
                                         value={selectedRole}
                                         onChange={(e) => setSelectedRole(e.target.value)}
@@ -959,7 +959,7 @@ export default function EmployeeCleanox() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Unit / Bagian</label>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Posisi</label>
                                         <select
                                             value={selectedRole}
                                             onChange={(e) => setSelectedRole(e.target.value)}

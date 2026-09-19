@@ -94,7 +94,7 @@ const LEADER_ROLE_META = {
 };
 
 const LEADER_ROLE_FILTER_OPTIONS = [
-	{ value: "all", label: "Semua Role" },
+	{ value: "all", label: "Semua Posisi" },
 	{ value: "normal", label: "Normal" },
 	{ value: "leader", label: "Leader" },
 	{ value: "deputi", label: "Deputi" },
@@ -674,7 +674,7 @@ function MobileCard({ item, idx, startItem, onDetail, onPrint, onLeaderRoleChang
 			)}
 
 			<div className="flex items-center justify-between gap-3">
-				<span className="text-xs text-slate-400">Role:</span>
+				<span className="text-xs text-slate-400">Posisi:</span>
 				<LeaderRoleSelect
 					employeeId={item.employee_id}
 					currentRole={item.leader_role ?? null}

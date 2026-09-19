@@ -306,7 +306,7 @@ export default function MasterUser() {
 						)}
 					>
 						<HiOutlineFunnel className="h-4 w-4 shrink-0" />
-						<span>{filterRole || "Filter Role"}</span>
+						<span>{filterRole || "Filter Posisi"}</span>
 						{filterRole && (
 							<span
 								role="button"
@@ -335,7 +335,7 @@ export default function MasterUser() {
 								)}
 							>
 								<span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />
-								Semua Role
+								Semua Posisi
 							</button>
 							<div className="border-t border-slate-100" />
 							{ROLES.map((r) => (
@@ -380,7 +380,7 @@ export default function MasterUser() {
 						<table className="w-full text-sm">
 							<thead>
 								<tr className="border-b border-slate-100 bg-slate-50/80">
-									{["No", "Nama", "Email", "Username", "Role", "Dibuat", "Aksi"].map((h, i) => (
+									{["No", "Nama", "Email", "Username", "Posisi", "Dibuat", "Aksi"].map((h, i) => (
 										<th
 											key={h}
 											className={cn(
@@ -524,7 +524,7 @@ export default function MasterUser() {
 								</div>
 							</Field>
 
-							<Field label="Role" required error={errors.role}>
+							<Field label="Posisi" required error={errors.role}>
 								<select
 									className={inputCls}
 									value={form.role}
