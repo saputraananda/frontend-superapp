@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, assetUrl, BASE_URL } from "../../../lib/api";
 import {
@@ -12,6 +12,8 @@ import {
     HiOutlineArrowDownTray,
     HiOutlineMagnifyingGlass,
     HiOutlinePlus,
+    HiOutlineCheck,
+    HiOutlineChevronDown,
 } from "react-icons/hi2";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
@@ -44,10 +46,17 @@ const REIMBURSE_STATUS_CONFIG = {
 };
 
 // Pilihan klasifikasi (multi) — dipakai di panel Proses Pembayaran & Edit Info
-function ClassificationPicker({ options, value, onChange, custom, onCustomChange, onAddCustom, adding }) {
+function ClassificationPicker({ options, value, onChange, custom, onCustomChange, onAddCustom, adding,
+    splits = {}, onSplitsChange, totalNominal = 0 }) {
     const toggle = (id) => {
         const s = String(id);
-        onChange(value.includes(s) ? value.filter(v => v !== s) : [...value, s]);
+        const next = value.includes(s) ? value.filter(v => v !== s) : [...value, s];
+        onChange(next);
+        if (onSplitsChange && value.includes(s)) {
+            const rest = { ...splits };
+            delete rest[s];
+            onSplitsChange(rest);
+        }
     };
     // Satu input dipakai ganda: filter daftar, sekaligus nama klasifikasi baru
     const q = custom.trim().toLowerCase();
@@ -57,69 +66,140 @@ function ClassificationPicker({ options, value, onChange, custom, onCustomChange
     const selected = value
         .map(id => options.find(c => String(c.id) === id))
         .filter(Boolean);
+    const splitSum = selected.reduce((a, c) => a + (Number(stripRupiah(splits[String(c.id)] || "")) || 0), 0);
+    const splitTotal = Number(totalNominal || 0);
+
+    const showSplit = !!onSplitsChange && selected.length > 1;
+
+    // Tutup dropdown saat klik di luar
+    const boxRef = useRef(null);
+    const [openList, setOpenList] = useState(false);
+    useEffect(() => {
+        if (!openList) return;
+        const onDocDown = (e) => {
+            if (boxRef.current && !boxRef.current.contains(e.target)) setOpenList(false);
+        };
+        document.addEventListener("mousedown", onDocDown);
+        return () => document.removeEventListener("mousedown", onDocDown);
+    }, [openList]);
+
+    const summary = selected.length === 0
+        ? "— Pilih klasifikasi —"
+        : selected.length === 1
+            ? selected[0].classification_name
+            : `${selected.length} klasifikasi dipilih`;
 
     return (
-        <div className="rounded-xl border border-cyan-200 bg-white p-2.5">
-            {selected.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-1.5 border-b border-slate-100 pb-2">
-                    {selected.map(c => (
-                        <span key={c.id}
-                            className="inline-flex items-center gap-1 rounded-full bg-cyan-600 py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white">
-                            {c.classification_name}
-                            <button type="button" onClick={() => toggle(c.id)} aria-label={`Hapus ${c.classification_name}`}
-                                className="grid h-4 w-4 place-items-center rounded-full text-white/80 hover:bg-white/25 hover:text-white transition">
-                                <HiOutlineXMark className="h-3 w-3" />
-                            </button>
-                        </span>
-                    ))}
+        <div ref={boxRef} className="relative">
+            {/* Trigger — tampil seperti select biasa */}
+            <button type="button" onClick={() => setOpenList(o => !o)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2 text-left text-sm outline-none transition focus:ring-2 focus:ring-cyan-200">
+                <span className={cn("min-w-0 flex-1 truncate", selected.length ? "text-slate-700" : "text-slate-400")}>
+                    {summary}
+                </span>
+                <HiOutlineChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition", openList && "rotate-180")} />
+            </button>
+
+            {/* Panel dropdown */}
+            {openList && (
+                <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-cyan-200 bg-white shadow-lg shadow-slate-200/70">
+                    <div className="relative border-b border-slate-200">
+                        <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                        <input
+                            autoFocus
+                            className="w-full bg-white py-2 pl-8 pr-3 text-xs outline-none placeholder:text-slate-400"
+                            value={custom}
+                            maxLength={100}
+                            onChange={e => onCustomChange(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (canCreate) onAddCustom(); } }}
+                            placeholder="Cari klasifikasi, atau ketik nama baru..." />
+                    </div>
+
+                    <div className="max-h-52 overflow-y-auto">
+                        {options.length === 0 && (
+                            <p className="px-2.5 py-2 text-xs text-slate-400">Memuat klasifikasi...</p>
+                        )}
+                        {options.length > 0 && shown.length === 0 && !canCreate && (
+                            <p className="px-2.5 py-2 text-xs text-slate-400">Tidak ada yang cocok.</p>
+                        )}
+                        {shown.map(c => {
+                            const on = value.includes(String(c.id));
+                            return (
+                                <button key={c.id} type="button" onClick={() => toggle(c.id)}
+                                    className={cn(
+                                        "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition",
+                                        on ? "bg-cyan-50/60 font-semibold text-cyan-700" : "text-slate-600 hover:bg-slate-50"
+                                    )}>
+                                    <span className={cn(
+                                        "grid h-4 w-4 shrink-0 place-items-center rounded border transition",
+                                        on ? "border-cyan-600 bg-cyan-600 text-white" : "border-slate-300 bg-white"
+                                    )}>
+                                        {on && <HiOutlineCheck className="h-3 w-3" />}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate">{c.classification_name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {canCreate && (
+                        <button type="button" onClick={onAddCustom} disabled={adding}
+                            className="flex w-full items-center justify-center gap-1.5 border-t border-dashed border-cyan-300 bg-cyan-50/60 px-3 py-2 text-[11px] font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:opacity-50">
+                            <HiOutlinePlus className="h-3.5 w-3.5" />
+                            {adding ? "Menambahkan..." : `Tambah "${custom.trim()}" sebagai klasifikasi baru`}
+                        </button>
+                    )}
+
+                    <button type="button" onClick={() => setOpenList(false)}
+                        className="w-full border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100">
+                        Selesai
+                    </button>
                 </div>
             )}
 
-            <div className="relative">
-                <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs outline-none transition focus:border-cyan-300 focus:bg-white focus:ring-2 focus:ring-cyan-100"
-                    value={custom}
-                    maxLength={100}
-                    onChange={e => onCustomChange(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (canCreate) onAddCustom(); } }}
-                    placeholder="Cari klasifikasi, atau ketik nama baru..." />
-            </div>
-
-            <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-                {options.length === 0 && (
-                    <p className="px-1 py-1 text-xs text-slate-400">Memuat klasifikasi...</p>
-                )}
-                {options.length > 0 && shown.length === 0 && !canCreate && (
-                    <p className="px-1 py-1 text-xs text-slate-400">Tidak ada yang cocok.</p>
-                )}
-                {shown.map(c => {
-                    const on = value.includes(String(c.id));
-                    return (
-                        <button key={c.id} type="button" onClick={() => toggle(c.id)}
-                            className={cn(
-                                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-                                on
-                                    ? "border-cyan-600 bg-cyan-600 text-white"
-                                    : "border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
-                            )}>
-                            {c.classification_name}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {canCreate && (
-                <button type="button" onClick={onAddCustom} disabled={adding}
-                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-cyan-300 bg-cyan-50/60 px-3 py-1.5 text-[11px] font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:opacity-50">
-                    <HiOutlinePlus className="h-3.5 w-3.5" />
-                    {adding ? "Menambahkan..." : `Tambah "${custom.trim()}" sebagai klasifikasi baru`}
-                </button>
+            {/* Terpilih — satu baris per klasifikasi, nominal langsung di sampingnya */}
+            {selected.length > 0 && (
+                <div className="mt-1.5 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+                    {selected.map(c => (
+                        <div key={c.id} className="flex items-center gap-2 bg-cyan-50/40 px-2.5 py-1.5">
+                            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">
+                                {c.classification_name}
+                            </span>
+                            {showSplit && (
+                                <div className="relative w-32 shrink-0">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Rp</span>
+                                    <input
+                                        className="w-full rounded-lg border border-slate-200 bg-white py-1 pl-6 pr-2 text-right text-xs tabular-nums outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                                        inputMode="numeric"
+                                        value={splits[String(c.id)] || ""}
+                                        onChange={e => onSplitsChange({ ...splits, [String(c.id)]: formatRupiah(e.target.value) })}
+                                        placeholder="0" />
+                                </div>
+                            )}
+                            <button type="button" onClick={() => toggle(c.id)} aria-label={`Hapus ${c.classification_name}`}
+                                className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600">
+                                <HiOutlineXMark className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ))}
+                    {showSplit && (
+                        <div className="flex items-center justify-between bg-white px-2.5 py-1.5 text-[11px]">
+                            <span className="text-slate-500">Total split</span>
+                            <span className={cn("font-semibold tabular-nums",
+                                splitSum > 0 && splitSum === splitTotal ? "text-emerald-600" : "text-slate-700")}>
+                                {formatRp(splitSum)}
+                            </span>
+                        </div>
+                    )}
+                </div>
             )}
-
-            <p className="mt-1.5 text-[10px] text-slate-400">
-                {value.length ? `${value.length} klasifikasi dipilih` : "Klik untuk memilih — bisa lebih dari satu"}
-            </p>
+            {showSplit && splitTotal > 0 && splitSum > 0 && splitSum !== splitTotal && (
+                <p className="mt-1 text-[10px] font-medium text-amber-600">
+                    {splitTotal > splitSum
+                        ? `Kurang ${formatRp(splitTotal - splitSum)} dari Nominal Bayar (${formatRp(splitTotal)}).`
+                        : `Lebih ${formatRp(splitSum - splitTotal)} dari Nominal Bayar (${formatRp(splitTotal)}).`}
+                </p>
+            )}
         </div>
     );
 }
@@ -301,6 +381,7 @@ export default function PengajuanDetailModal({
     // Payment state
     const [payOpen, setPayOpen] = useState(false);
     const [payClassification, setPayClass] = useState([]); // array of id (string) — multi klasifikasi
+    const [payClassSplits, setPayClassSplits] = useState({}); // { [id]: nominal terformat }
     const [payNote, setPayNote] = useState("");
     const [payFiles, setPayFiles] = useState([]); // multi-file array
     const [payMethod, setPayMethod] = useState(""); // 'cash' | 'kredit'
@@ -361,7 +442,7 @@ export default function PengajuanDetailModal({
             setGaInvoiceFile(null);
             setClassificationList([]);
             setFinOpen(false); setFinNote("");
-            setPayOpen(false); setPayClass([]); setPayNote(""); setPayFiles([]);
+            setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayNote(""); setPayFiles([]);
             setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt("");
             setCompleteOpen(false); setInvoiceFile(null);
             setEditPayOpen(false);
@@ -530,6 +611,13 @@ export default function PengajuanDetailModal({
         return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
+    // { [classification_id]: nominal }. Backend isi otomatis jika klasifikasi tunggal.
+    const buildSplitPayload = () => Object.fromEntries(
+        payClassification
+            .map(id => [id, Number(stripRupiah(payClassSplits[id] || "")) || null])
+            .filter(([, n]) => n)
+    );
+
     const doPayment = async () => {
         if (!payClassification.length) return showToast("error", "Klasifikasi wajib dipilih");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
@@ -539,6 +627,7 @@ export default function PengajuanDetailModal({
         try {
             const fd = new FormData();
             fd.append("classification_ids", JSON.stringify(payClassification));
+            fd.append("classification_splits", JSON.stringify(buildSplitPayload()));
             fd.append("payment_method", payMethod);
             if (payMethod === "kredit") {
                 fd.append("termin_value", payTerminValue);
@@ -585,6 +674,7 @@ export default function PengajuanDetailModal({
                     admin_fee: stripRupiah(payAdminFee) || null,
                     payment_method: payMethod,
                     classification_ids: payClassification.map(Number),
+                    classification_splits: buildSplitPayload(),
                 })
             });
             showToast("success", "Info pembayaran berhasil diperbarui");
@@ -949,6 +1039,11 @@ export default function PengajuanDetailModal({
                                                              ? data.classifications.map(c => String(c.id))
                                                              : (data.classification_id ? [String(data.classification_id)] : [])
                                                      );
+                                                     setPayClassSplits(Object.fromEntries(
+                                                         (data.classifications || [])
+                                                             .filter(c => c.nominal)
+                                                             .map(c => [String(c.id), formatRupiah(String(c.nominal))])
+                                                     ));
                                                      setPayMethod(data.payment_method || "");
                                                      api("/pengajuan/classifications").then(r => setClassificationList(r.data || [])).catch(() => {});
                                                  }} className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold hover:underline">
@@ -1003,10 +1098,13 @@ export default function PengajuanDetailModal({
                                                          custom={classCustom}
                                                          onCustomChange={setClassCustom}
                                                          onAddCustom={doAddClassification}
-                                                         adding={classAdding} />
+                                                         adding={classAdding}
+                                                         splits={payClassSplits}
+                                                         onSplitsChange={setPayClassSplits}
+                                                         totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
                                                  </div>
                                                  <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
-                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayMethod(""); }}
+                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayClassSplits({}); setPayMethod(""); }}
                                                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" disabled={acting}>
                                                          Batal
                                                      </button>
@@ -1041,6 +1139,9 @@ export default function PengajuanDetailModal({
                                                              {data.classifications.map(c => (
                                                                  <span key={c.id} className="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
                                                                      {c.classification_name}
+                                                                     {data.classifications.length > 1 && c.nominal
+                                                                         ? <span className="ml-1 font-normal text-cyan-600/80">{formatRp(c.nominal)}</span>
+                                                                         : null}
                                                                  </span>
                                                              ))}
                                                          </div>
@@ -1461,7 +1562,10 @@ export default function PengajuanDetailModal({
                                                 custom={classCustom}
                                                 onCustomChange={setClassCustom}
                                                 onAddCustom={doAddClassification}
-                                                adding={classAdding} />
+                                                adding={classAdding}
+                                                splits={payClassSplits}
+                                                onSplitsChange={setPayClassSplits}
+                                                totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
                                         </div>
                                         {payMethod === "kredit" && (
                                             <>
@@ -1578,7 +1682,7 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
