@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, apiUpload, assetUrl } from "../../../lib/api";
+import MultiSelectDropdown from "../components/MultiSelectDropdown";
 import {
     HiOutlineArrowLeft,
     HiOutlineDocumentPlus,
@@ -121,8 +122,9 @@ function Toast({ toast }) {
 const EMPTY = {
     type: "pengajuan",
     tanggal_pengajuan: "",
-    company_id: "",
-    outlet_id: "",
+    // multi kategori & multi outlet (array of string id)
+    company_ids: [],
+    outlet_ids: [],
     // identitas — editable, pre-filled dari DB
     full_name: "",
     department_name: "",
@@ -254,8 +256,11 @@ export default function FormPengajuan() {
                 setForm({
                     type: r.type,
                     tanggal_pengajuan: r.tanggal_pengajuan ? r.tanggal_pengajuan.split("T")[0] : "",
-                    company_id: r.company_id || "",
-                    outlet_id: r.outlet_id || "",
+                    // multi kategori/outlet; fallback ke kolom lama utk data lawas
+                    company_ids: (r.companies?.length ? r.companies.map(c => String(c.company_id))
+                        : (r.company_id ? [String(r.company_id)] : [])),
+                    outlet_ids: (r.outlets?.length ? r.outlets.map(o => String(o.outlet_id))
+                        : (r.outlet_id ? [String(r.outlet_id)] : [])),
                     // Identitas — ambil dari record; fallback ke emp jika kosong
                     full_name: toTitleCase(r.full_name || emp?.full_name || ""),
                     department_name: toTitleCase(r.department_name || emp?.department_name || ""),
@@ -295,7 +300,8 @@ export default function FormPengajuan() {
         })();
     }, [editId]);
 
-    const needsOutlet = useMemo(() => Number(form.company_id) === 5, [form.company_id]);
+    // Outlet hanya relevan bila Waschen Laundry (company_id 5) ikut dipilih
+    const needsOutlet = useMemo(() => form.company_ids.includes("5"), [form.company_ids]);
 
     const filePreviews = useMemo(() => {
         return files.map(f => {
@@ -347,7 +353,7 @@ export default function FormPengajuan() {
         e.preventDefault();
         if (!form.nama_barang.trim()) return showToast("error", "Nama barang wajib diisi");
         if (!form.alasan_pembelian.trim()) return showToast("error", "Alasan pembelian wajib diisi");
-        if (!form.company_id) return showToast("error", "Kategori wajib dipilih");
+        if (!form.company_ids.length) return showToast("error", "Kategori wajib dipilih");
         if (form.type === "reimburse" && !form.atas_nama.trim()) return showToast("error", "Atas nama wajib diisi");
         if (isGAUser && form.type === "pengajuan" && !form.is_routine) {
             return showToast("error", "Pilih jenis pengajuan Rutin atau Tidak Rutin");
@@ -361,8 +367,8 @@ export default function FormPengajuan() {
             const fd = new FormData();
             fd.append("type", form.type);
             fd.append("tanggal_pengajuan", form.tanggal_pengajuan);
-            fd.append("company_id", form.company_id);
-            if (needsOutlet) fd.append("outlet_id", form.outlet_id);
+            fd.append("company_ids", JSON.stringify(form.company_ids));
+            fd.append("outlet_ids", JSON.stringify(needsOutlet ? form.outlet_ids : []));
 
             // ── identitas yang mungkin diedit user ──
             fd.append("full_name", form.full_name.trim());
@@ -542,20 +548,26 @@ export default function FormPengajuan() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className={labelCls}>Kategori Pengajuan <span className="text-rose-500">*</span></label>
-                            <select className={inputCls} value={form.company_id}
-                                onChange={e => setForm(p => ({ ...p, company_id: e.target.value, outlet_id: "" }))}>
-                                <option value="">— Pilih kategori —</option>
-                                {companies.map(c => <option key={c.company_id} value={c.company_id}>{c.company_name}</option>)}
-                            </select>
+                            <MultiSelectDropdown
+                                options={companies.map(c => ({ value: String(c.company_id), label: c.company_name }))}
+                                value={form.company_ids}
+                                onChange={v => setForm(p => ({
+                                    ...p,
+                                    company_ids: v,
+                                    outlet_ids: v.includes("5") ? p.outlet_ids : [],
+                                }))}
+                                placeholder="— Pilih kategori (bisa lebih dari satu) —"
+                                searchPlaceholder="Cari kategori..." />
                         </div>
                         {needsOutlet && (
                             <div>
                                 <label className={labelCls}>Outlet</label>
-                                <select className={inputCls} value={form.outlet_id}
-                                    onChange={e => setForm(p => ({ ...p, outlet_id: e.target.value }))}>
-                                    <option value="">— Seluruh Outlet (Pencatatan Bersama) —</option>
-                                    {outlets.map(o => <option key={o.outlet_id} value={o.outlet_id}>{o.full_name}</option>)}
-                                </select>
+                                <MultiSelectDropdown
+                                    options={outlets.map(o => ({ value: String(o.outlet_id), label: o.full_name }))}
+                                    value={form.outlet_ids}
+                                    onChange={v => setForm(p => ({ ...p, outlet_ids: v }))}
+                                    placeholder="— Seluruh Outlet (Pencatatan Bersama) —"
+                                    searchPlaceholder="Cari outlet..." />
                             </div>
                         )}
                     </div>

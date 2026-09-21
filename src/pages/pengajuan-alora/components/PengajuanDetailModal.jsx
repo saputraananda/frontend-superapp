@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, assetUrl, BASE_URL } from "../../../lib/api";
+import MultiSelectDropdown from "./MultiSelectDropdown";
 import {
     HiOutlineDocumentPlus,
     HiOutlineCreditCard,
@@ -400,8 +401,8 @@ export default function PengajuanDetailModal({
     // Header edit (Finance)
     const [headerEditOpen, setHeaderEditOpen] = useState(false);
     const [hdrEmployeeId, setHdrEmployeeId] = useState("");
-    const [hdrCompanyId, setHdrCompanyId] = useState("");
-    const [hdrOutletId, setHdrOutletId] = useState("");
+    const [hdrCompanyIds, setHdrCompanyIds] = useState([]);
+    const [hdrOutletIds, setHdrOutletIds] = useState([]);
     const [employeeOptions, setEmployeeOptions] = useState([]);
     const [hdrEmpSearch, setHdrEmpSearch] = useState("");
     const [companyOptions, setCompanyOptions] = useState([]);
@@ -446,7 +447,7 @@ export default function PengajuanDetailModal({
             setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt("");
             setCompleteOpen(false); setInvoiceFile(null);
             setEditPayOpen(false);
-            setHeaderEditOpen(false); setHdrEmployeeId(""); setHdrCompanyId(""); setHdrOutletId("");
+            setHeaderEditOpen(false); setHdrEmployeeId(""); setHdrCompanyIds([]); setHdrOutletIds([]);
             setEmployeeOptions([]); setCompanyOptions([]); setOutletOptions([]); setHdrEmpSearch("");
             setClassCustom(""); setAttBusy(false);
         }
@@ -693,8 +694,13 @@ export default function PengajuanDetailModal({
         setHeaderEditOpen(true);
         setHdrEmpSearch("");
         setHdrEmployeeId(String(data.employee_id || ""));
-        setHdrCompanyId(String(data.company_id || ""));
-        setHdrOutletId(String(data.outlet_id || ""));
+        // multi kategori/outlet; fallback ke kolom lama untuk data lawas
+        setHdrCompanyIds(data.companies?.length
+            ? data.companies.map(c => String(c.company_id))
+            : (data.company_id ? [String(data.company_id)] : []));
+        setHdrOutletIds(data.outlets?.length
+            ? data.outlets.map(o => String(o.outlet_id))
+            : (data.outlet_id ? [String(data.outlet_id)] : []));
         api("/pengajuan/employee-options").then(r => setEmployeeOptions(r.data || [])).catch(() => {});
         api("/pengajuan/companies").then(r => setCompanyOptions(r.data || [])).catch(() => {});
         api("/pengajuan/outlets").then(r => setOutletOptions(r.data || [])).catch(() => {});
@@ -702,15 +708,15 @@ export default function PengajuanDetailModal({
 
     const doUpdateHeader = async () => {
         if (!hdrEmployeeId) return showToast("error", "Pengaju wajib dipilih");
-        if (!hdrCompanyId) return showToast("error", "Kategori wajib dipilih");
+        if (!hdrCompanyIds.length) return showToast("error", "Kategori wajib dipilih");
         setActing(true);
         try {
             await api(`/pengajuan/${prId}/header-info`, {
                 method: "PUT",
                 body: JSON.stringify({
                     employee_id: hdrEmployeeId,
-                    company_id: hdrCompanyId,
-                    outlet_id: Number(hdrCompanyId) === 5 ? (hdrOutletId || null) : null,
+                    company_ids: hdrCompanyIds,
+                    outlet_ids: hdrCompanyIds.includes("5") ? hdrOutletIds : [],
                 }),
             });
             showToast("success", "Data pengajuan diperbarui");
@@ -911,31 +917,26 @@ export default function PengajuanDetailModal({
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Kategori <span className="text-rose-500">*</span></label>
-                                            <select
-                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
-                                                value={hdrCompanyId}
-                                                onChange={e => { setHdrCompanyId(e.target.value); if (Number(e.target.value) !== 5) setHdrOutletId(""); }}>
-                                                <option value="">— Pilih —</option>
-                                                {companyOptions.map(c => (
-                                                    <option key={c.company_id} value={c.company_id}>{toTitleCase(c.company_name)}</option>
-                                                ))}
-                                            </select>
+                                            <MultiSelectDropdown
+                                                options={companyOptions.map(c => ({ value: String(c.company_id), label: toTitleCase(c.company_name) }))}
+                                                value={hdrCompanyIds}
+                                                onChange={v => { setHdrCompanyIds(v); if (!v.includes("5")) setHdrOutletIds([]); }}
+                                                placeholder="— Pilih (bisa lebih dari satu) —"
+                                                searchPlaceholder="Cari kategori..." />
                                         </div>
-                                        {Number(hdrCompanyId) === 5 && (
+                                        {hdrCompanyIds.includes("5") && (
                                             <div>
                                                 <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Outlet</label>
-                                                <select
-                                                    className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
-                                                    value={hdrOutletId} onChange={e => setHdrOutletId(e.target.value)}>
-                                                    <option value="">Seluruh Outlet</option>
-                                                    {outletOptions.map(o => (
-                                                        <option key={o.outlet_id} value={o.outlet_id}>{toTitleCase(o.full_name || o.name)}</option>
-                                                    ))}
-                                                </select>
+                                                <MultiSelectDropdown
+                                                    options={outletOptions.map(o => ({ value: String(o.outlet_id), label: toTitleCase(o.full_name || o.name) }))}
+                                                    value={hdrOutletIds}
+                                                    onChange={setHdrOutletIds}
+                                                    placeholder="Seluruh Outlet"
+                                                    searchPlaceholder="Cari outlet..." />
                                             </div>
                                         )}
                                         <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
-                                            <button onClick={doUpdateHeader} disabled={acting || !hdrEmployeeId || !hdrCompanyId}
+                                            <button onClick={doUpdateHeader} disabled={acting || !hdrEmployeeId || !hdrCompanyIds.length}
                                                 className="rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition">
                                                 {acting ? "Menyimpan..." : "Simpan"}
                                             </button>
@@ -953,14 +954,36 @@ export default function PengajuanDetailModal({
                                         </div>
                                         <div>
                                             <p className="text-[11px] text-slate-400 uppercase">Kategori</p>
-                                            <p className="font-semibold text-slate-700">{toTitleCase(data.company_name) || "—"}</p>
+                                            {data.companies?.length > 1 ? (
+                                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                                    {data.companies.map(c => (
+                                                        <span key={c.company_id}
+                                                            className="rounded-md bg-cyan-50 px-1.5 py-0.5 text-[11px] font-semibold text-cyan-700">
+                                                            {toTitleCase(c.company_name)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="font-semibold text-slate-700">{toTitleCase(data.company_name) || "—"}</p>
+                                            )}
                                         </div>
-                                        {(data.outlet_name || Number(data.company_id) === 5) && (
+                                        {(data.outlet_name || data.companies?.some(c => Number(c.company_id) === 5) || Number(data.company_id) === 5) && (
                                             <div>
                                                 <p className="text-[11px] text-slate-400 uppercase">Outlet</p>
-                                                <p className="font-semibold text-slate-700">
-                                                    {data.outlet_name ? toTitleCase(data.outlet_name) : "Seluruh Outlet"}
-                                                </p>
+                                                {data.outlets?.length > 1 ? (
+                                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                                        {data.outlets.map(o => (
+                                                            <span key={o.outlet_id}
+                                                                className="rounded-md bg-cyan-50 px-1.5 py-0.5 text-[11px] font-semibold text-cyan-700">
+                                                                {toTitleCase(o.outlet_name)}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="font-semibold text-slate-700">
+                                                        {data.outlet_name ? toTitleCase(data.outlet_name) : "Seluruh Outlet"}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
