@@ -61,6 +61,31 @@ function FlagBadge({ on, label }) {
   );
 }
 
+function FieldHint({ children }) {
+  return <p className="mt-0.5 text-[10px] leading-snug text-slate-400">{children}</p>;
+}
+
+function ModalIntro({ children }) {
+  return (
+    <div className="rounded-lg border border-[#5f1340]/15 bg-[#5f1340]/5 px-3 py-2 text-[11px] leading-snug text-slate-600">
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ children, hint }) {
+  return (
+    <div className="flex items-baseline gap-2 pt-0.5">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">{children}</p>
+      {hint ? <p className="text-[10px] text-slate-400 truncate">{hint}</p> : null}
+    </div>
+  );
+}
+
+const FIELD_INPUT =
+  "w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm outline-none focus:border-[#5f1340]";
+const FIELD_LABEL = "block text-[11px] font-semibold text-slate-700 mb-0.5";
+
 function SkeletonRows({ cols = 6, rows = 3 }) {
   return Array.from({ length: rows }).map((_, i) => (
     <tr key={i} className="border-t border-slate-100 animate-pulse">
@@ -281,7 +306,7 @@ export default function MasterAbsenShift() {
         <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Master Absen dan Shift</h1>
           <p className="mt-3 text-base leading-7 text-white/80 sm:text-lg">
-            Kelola jam absensi mobile, jendela grooming, dan jam shift POS
+            Kelola jam absensi mobile, jam grooming frontliner, dan jam shift POS
           </p>
         </div>
         {heroAction()}
@@ -415,8 +440,8 @@ export default function MasterAbsenShift() {
                 <tr>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Nama</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Fitur</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Jendela 1</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Jendela 2</th>
+                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Frontliner Shift 1</th>
+                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Frontliner Shift 2</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Kunci Setelah</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-center">Flag</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-center">Status</th>
@@ -451,7 +476,7 @@ export default function MasterAbsenShift() {
                     </td>
                     <td className="px-4 py-4 text-center">
                       <div className="inline-flex flex-wrap gap-1.5 justify-center">
-                        <FlagBadge on={groom.window2_enabled} label="Window 2" />
+                        <FlagBadge on={groom.window2_enabled} label="Shift 2" />
                         <FlagBadge on={groom.lock_enabled} label="Kunci" />
                         <FlagBadge on={groom.require_reason_after_lock} label="Alasan" />
                       </div>
@@ -482,19 +507,18 @@ export default function MasterAbsenShift() {
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider w-12 text-center">No</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Kode</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Nama Shift</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Open</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Close</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-center">Flag</th>
+                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Jam Buka</th>
+                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider">Jam Tutup</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-center">Status</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {loading ? (
-                  <SkeletonRows cols={8} rows={3} />
+                  <SkeletonRows cols={7} rows={3} />
                 ) : shifts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-base text-slate-400">
+                    <td colSpan={7} className="px-4 py-12 text-center text-base text-slate-400">
                       Belum ada data jam shift. Klik Tambah Shift untuk membuat.
                     </td>
                   </tr>
@@ -509,14 +533,6 @@ export default function MasterAbsenShift() {
                       </td>
                       <td className="px-4 py-4 tabular-nums text-[15px]">{timeInput(s.open_time)}</td>
                       <td className="px-4 py-4 tabular-nums text-[15px]">{timeInput(s.close_time)}</td>
-                      <td className="px-4 py-4 text-center">
-                        <div className="inline-flex flex-wrap gap-1.5 justify-center">
-                          <FlagBadge on={s.remind_open} label="Remind open" />
-                          <FlagBadge on={s.remind_close} label="Remind close" />
-                          <FlagBadge on={s.enforce_open} label="Enforce open" />
-                          <FlagBadge on={s.enforce_close} label="Enforce close" />
-                        </div>
-                      </td>
                       <td className="px-4 py-4 text-center">
                         <StatusBadge isActive={s.is_active} />
                       </td>
@@ -550,10 +566,10 @@ export default function MasterAbsenShift() {
       </div>
 
       {edit && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-slate-50/50 sticky top-0 z-10">
-              <h3 className="font-bold text-slate-800 text-base sm:text-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-3">
+              <h3 className="font-bold text-slate-800 text-base">
                 {edit.type === "attendance"
                   ? "Edit Jam Absensi"
                   : edit.type === "grooming"
@@ -571,9 +587,10 @@ export default function MasterAbsenShift() {
               </button>
             </div>
 
-            <form onSubmit={submit} className="p-5 space-y-4 text-sm">
+            <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-2.5 overflow-y-auto px-5 py-3.5 text-sm">
               {formError && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700 flex items-center gap-2">
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700 flex items-center gap-2">
                   <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" />
                   <span>{formError}</span>
                 </div>
@@ -581,217 +598,223 @@ export default function MasterAbsenShift() {
 
               {edit.type === "attendance" && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <ModalIntro>
+                    <strong className="font-semibold text-slate-700">Buka/Tutup</strong> = jam absen normal.
+                    {" · "}
+                    <strong className="font-semibold text-slate-700">Kunci malam</strong> = absen diblokir.
+                    {" · "}
+                    <strong className="font-semibold text-slate-700">Cut-off</strong> = sebelum jam ini dihitung tanggal kerja kemarin.
+                  </ModalIntro>
+
+                  <SectionTitle hint="— jam tombol absen di Mobile">Jendela absen</SectionTitle>
+                  <div className="grid grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Buka Absen *</label>
-                      <input type="time" required value={form.open_time} onChange={(e) => setForm((f) => ({ ...f, open_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
+                      <label className={FIELD_LABEL}>Buka Absen *</label>
+                      <input type="time" required value={form.open_time} onChange={(e) => setForm((f) => ({ ...f, open_time: e.target.value }))} className={FIELD_INPUT} />
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Tutup Absen *</label>
-                      <input type="time" required value={form.close_time} onChange={(e) => setForm((f) => ({ ...f, close_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
+                      <label className={FIELD_LABEL}>Tutup Absen *</label>
+                      <input type="time" required value={form.close_time} onChange={(e) => setForm((f) => ({ ...f, close_time: e.target.value }))} className={FIELD_INPUT} />
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL}>Cut-off Tanggal Kerja *</label>
+                      <input type="time" required value={form.work_date_cutoff_time} onChange={(e) => setForm((f) => ({ ...f, work_date_cutoff_time: e.target.value }))} className={FIELD_INPUT} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                  <SectionTitle hint="— absen diblokir di rentang ini">Kunci malam</SectionTitle>
+                  <div className="grid grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Kunci Mulai *</label>
-                      <input type="time" required value={form.lock_start_time} onChange={(e) => setForm((f) => ({ ...f, lock_start_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
+                      <label className={FIELD_LABEL}>Kunci Mulai *</label>
+                      <input type="time" required value={form.lock_start_time} onChange={(e) => setForm((f) => ({ ...f, lock_start_time: e.target.value }))} className={FIELD_INPUT} />
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Kunci Selesai *</label>
-                      <input type="time" required value={form.lock_end_time} onChange={(e) => setForm((f) => ({ ...f, lock_end_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
+                      <label className={FIELD_LABEL}>Kunci Selesai *</label>
+                      <input type="time" required value={form.lock_end_time} onChange={(e) => setForm((f) => ({ ...f, lock_end_time: e.target.value }))} className={FIELD_INPUT} />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Cut-off Work Date *</label>
-                    <input type="time" required value={form.work_date_cutoff_time} onChange={(e) => setForm((f) => ({ ...f, work_date_cutoff_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">After Midnight</label>
-                      <select value={form.after_midnight_open} onChange={(e) => setForm((f) => ({ ...f, after_midnight_open: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
+                      <label className={FIELD_LABEL}>Kunci Malam</label>
+                      <select value={form.lock_enabled} onChange={(e) => setForm((f) => ({ ...f, lock_enabled: Number(e.target.value) }))} className={FIELD_INPUT}>
                         <option value={1}>Aktif</option>
                         <option value={0}>Nonaktif</option>
                       </select>
                     </div>
+                  </div>
+
+                  <SectionTitle>Opsi</SectionTitle>
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Kunci Malam</label>
-                      <select value={form.lock_enabled} onChange={(e) => setForm((f) => ({ ...f, lock_enabled: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
+                      <label className={FIELD_LABEL}>Buka Setelah Tengah Malam</label>
+                      <select value={form.after_midnight_open} onChange={(e) => setForm((f) => ({ ...f, after_midnight_open: Number(e.target.value) }))} className={FIELD_INPUT}>
+                        <option value={1}>Aktif</option>
+                        <option value={0}>Nonaktif</option>
+                      </select>
+                      <FieldHint>Izinkan absen 00:00 s/d jam kunci mulai</FieldHint>
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL}>Status Master</label>
+                      <select value={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: Number(e.target.value) }))} className={FIELD_INPUT}>
                         <option value={1}>Aktif</option>
                         <option value={0}>Nonaktif</option>
                       </select>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Status Master</label>
-                    <select value={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                      <option value={1}>Aktif</option>
-                      <option value={0}>Nonaktif</option>
-                    </select>
                   </div>
                 </>
               )}
 
               {edit.type === "grooming" && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <ModalIntro>
+                    <strong className="font-semibold text-slate-700">Frontliner Shift 1 / 2</strong> = jam grooming untuk masing-masing shift frontliner.
+                    {" · "}
+                    Setelah <strong className="font-semibold text-slate-700">jam kunci</strong>, unggah ditutup; bisa wajib isi alasan jika belum lengkap.
+                  </ModalIntro>
+
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Fitur Grooming</label>
-                      <select value={form.feature_enabled} onChange={(e) => setForm((f) => ({ ...f, feature_enabled: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
+                      <label className={FIELD_LABEL}>Fitur Grooming</label>
+                      <select value={form.feature_enabled} onChange={(e) => setForm((f) => ({ ...f, feature_enabled: Number(e.target.value) }))} className={FIELD_INPUT}>
+                        <option value={1}>Aktif</option>
+                        <option value={0}>Nonaktif</option>
+                      </select>
+                      <FieldHint>Nonaktif = tanpa batasan jam</FieldHint>
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL}>Status Master</label>
+                      <select value={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: Number(e.target.value) }))} className={FIELD_INPUT}>
+                        <option value={1}>Aktif</option>
+                        <option value={0}>Nonaktif</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <SectionTitle hint="— jam grooming Frontliner Shift 1">Frontliner Shift 1</SectionTitle>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className={FIELD_LABEL}>Mulai *</label>
+                      <input type="time" required value={form.window1_start} onChange={(e) => setForm((f) => ({ ...f, window1_start: e.target.value }))} className={FIELD_INPUT} />
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL}>Selesai *</label>
+                      <input type="time" required value={form.window1_end} onChange={(e) => setForm((f) => ({ ...f, window1_end: e.target.value }))} className={FIELD_INPUT} />
+                    </div>
+                  </div>
+
+                  <SectionTitle hint="— jam grooming Frontliner Shift 2 (opsional)">Frontliner Shift 2</SectionTitle>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <label className={FIELD_LABEL}>Aktifkan</label>
+                      <select value={form.window2_enabled} onChange={(e) => setForm((f) => ({ ...f, window2_enabled: Number(e.target.value) }))} className={FIELD_INPUT}>
+                        <option value={1}>Aktif</option>
+                        <option value={0}>Nonaktif</option>
+                      </select>
+                    </div>
+                    {Number(form.window2_enabled) === 1 ? (
+                      <>
+                        <div>
+                          <label className={FIELD_LABEL}>Mulai *</label>
+                          <input type="time" required value={form.window2_start} onChange={(e) => setForm((f) => ({ ...f, window2_start: e.target.value }))} className={FIELD_INPUT} />
+                        </div>
+                        <div>
+                          <label className={FIELD_LABEL}>Selesai *</label>
+                          <input type="time" required value={form.window2_end} onChange={(e) => setForm((f) => ({ ...f, window2_end: e.target.value }))} className={FIELD_INPUT} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="col-span-2 flex items-end pb-2 text-[11px] text-slate-400">Frontliner Shift 2 dimatikan</div>
+                    )}
+                  </div>
+
+                  <SectionTitle hint="— tutup unggah setelah jam ini">Kunci</SectionTitle>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <label className={FIELD_LABEL}>Kunci Setelah</label>
+                      <select value={form.lock_enabled} onChange={(e) => setForm((f) => ({ ...f, lock_enabled: Number(e.target.value) }))} className={FIELD_INPUT}>
                         <option value={1}>Aktif</option>
                         <option value={0}>Nonaktif</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Status Master</label>
-                      <select value={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
+                      <label className={FIELD_LABEL}>Jam Kunci *</label>
+                      <input type="time" required value={form.lock_after_time} onChange={(e) => setForm((f) => ({ ...f, lock_after_time: e.target.value }))} className={FIELD_INPUT} />
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL}>Wajib Alasan</label>
+                      <select value={form.require_reason_after_lock} onChange={(e) => setForm((f) => ({ ...f, require_reason_after_lock: Number(e.target.value) }))} className={FIELD_INPUT}>
                         <option value={1}>Aktif</option>
                         <option value={0}>Nonaktif</option>
                       </select>
+                      <FieldHint>Jika belum lengkap setelah terkunci</FieldHint>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Jendela 1 Mulai *</label>
-                      <input type="time" required value={form.window1_start} onChange={(e) => setForm((f) => ({ ...f, window1_start: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Jendela 1 Selesai *</label>
-                      <input type="time" required value={form.window1_end} onChange={(e) => setForm((f) => ({ ...f, window1_end: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Jendela 2</label>
-                    <select value={form.window2_enabled} onChange={(e) => setForm((f) => ({ ...f, window2_enabled: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                      <option value={1}>Aktif</option>
-                      <option value={0}>Nonaktif</option>
-                    </select>
-                  </div>
-                  {Number(form.window2_enabled) === 1 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block font-semibold text-slate-700 mb-1">Jendela 2 Mulai *</label>
-                        <input type="time" required value={form.window2_start} onChange={(e) => setForm((f) => ({ ...f, window2_start: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                      </div>
-                      <div>
-                        <label className="block font-semibold text-slate-700 mb-1">Jendela 2 Selesai *</label>
-                        <input type="time" required value={form.window2_end} onChange={(e) => setForm((f) => ({ ...f, window2_end: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Kunci Setelah</label>
-                      <select value={form.lock_enabled} onChange={(e) => setForm((f) => ({ ...f, lock_enabled: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                        <option value={1}>Aktif</option>
-                        <option value={0}>Nonaktif</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Jam Kunci *</label>
-                      <input type="time" required value={form.lock_after_time} onChange={(e) => setForm((f) => ({ ...f, lock_after_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Wajib Alasan Setelah Kunci</label>
-                    <select value={form.require_reason_after_lock} onChange={(e) => setForm((f) => ({ ...f, require_reason_after_lock: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                      <option value={1}>Aktif</option>
-                      <option value={0}>Nonaktif</option>
-                    </select>
                   </div>
                 </>
               )}
 
               {edit.type === "shift" && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <ModalIntro>
+                    Atur identitas shift dan jam buka/tutup kasir di My Waschen POS.
+                  </ModalIntro>
+
+                  <div className="grid grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Nomor Shift *</label>
-                      <input type="number" min={1} max={9} required value={form.shift_number} onChange={(e) => setForm((f) => ({ ...f, shift_number: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
+                      <label className={FIELD_LABEL}>Nomor Shift *</label>
+                      <input type="number" min={1} max={9} required value={form.shift_number} onChange={(e) => setForm((f) => ({ ...f, shift_number: Number(e.target.value) }))} className={FIELD_INPUT} />
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Kode *</label>
-                      <input required value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="pagi" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340] font-mono" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Nama Shift *</label>
-                    <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Shift Pagi" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Open *</label>
-                      <input type="time" required value={form.open_time} onChange={(e) => setForm((f) => ({ ...f, open_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
+                      <label className={FIELD_LABEL}>Kode *</label>
+                      <input required value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="pagi" className={cn(FIELD_INPUT, "font-mono")} />
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Close *</label>
-                      <input type="time" required value={form.close_time} onChange={(e) => setForm((f) => ({ ...f, close_time: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Remind Open</label>
-                      <select value={form.remind_open} onChange={(e) => setForm((f) => ({ ...f, remind_open: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
+                      <label className={FIELD_LABEL}>Status</label>
+                      <select value={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: Number(e.target.value) }))} className={FIELD_INPUT}>
                         <option value={1}>Aktif</option>
                         <option value={0}>Nonaktif</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Remind Close</label>
-                      <select value={form.remind_close} onChange={(e) => setForm((f) => ({ ...f, remind_close: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                        <option value={1}>Aktif</option>
-                        <option value={0}>Nonaktif</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Enforce Open</label>
-                      <select value={form.enforce_open} onChange={(e) => setForm((f) => ({ ...f, enforce_open: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                        <option value={0}>Nonaktif</option>
-                        <option value={1}>Aktif</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Enforce Close</label>
-                      <select value={form.enforce_close} onChange={(e) => setForm((f) => ({ ...f, enforce_close: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                        <option value={0}>Nonaktif</option>
-                        <option value={1}>Aktif</option>
                       </select>
                     </div>
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Status</label>
-                    <select value={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: Number(e.target.value) }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]">
-                      <option value={1}>Aktif</option>
-                      <option value={0}>Nonaktif</option>
-                    </select>
+                    <label className={FIELD_LABEL}>Nama Shift *</label>
+                    <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Shift Pagi" className={FIELD_INPUT} />
+                  </div>
+
+                  <SectionTitle hint="— jam buka dan tutup kasir">Jam Shift</SectionTitle>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className={FIELD_LABEL}>Jam Buka *</label>
+                      <input type="time" required value={form.open_time} onChange={(e) => setForm((f) => ({ ...f, open_time: e.target.value }))} className={FIELD_INPUT} />
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL}>Jam Tutup *</label>
+                      <input type="time" required value={form.close_time} onChange={(e) => setForm((f) => ({ ...f, close_time: e.target.value }))} className={FIELD_INPUT} />
+                    </div>
                   </div>
                 </>
               )}
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Catatan</label>
-                <textarea
-                  rows={2}
+                <label className={FIELD_LABEL}>Catatan</label>
+                <input
                   value={form.notes || ""}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Catatan opsional..."
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#5f1340]"
+                  className={FIELD_INPUT}
                 />
               </div>
+              </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-5 py-3 bg-white">
                 <button
                   type="button"
                   onClick={() => setEdit(null)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#5f1340] to-[#4a0d31] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#5f1340]/20 hover:opacity-95 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#5f1340] to-[#4a0d31] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#5f1340]/20 hover:opacity-95 disabled:opacity-50"
                 >
                   {submitting && <HiOutlineArrowPath className="h-3.5 w-3.5 animate-spin" />}
                   <span>{submitting ? "Menyimpan..." : "Simpan"}</span>

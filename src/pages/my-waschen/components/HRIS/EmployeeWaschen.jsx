@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
     HiOutlineUsers,
     HiOutlineIdentification,
@@ -143,6 +144,99 @@ function SkeletonRow() {
     );
 }
 
+/** Dropdown yang di-portal ke body supaya tidak terpotong overflow tabel. */
+function FloatingDropdown({
+    open,
+    onOpen,
+    onClose,
+    align = "left",
+    width = 160,
+    maxHeight,
+    disabled = false,
+    title,
+    trigger,
+    children,
+    triggerClassName = "group inline-flex items-center gap-1 hover:opacity-85 transition-opacity",
+    panelClassName = "p-1",
+}) {
+    const triggerRef = useRef(null);
+    const [pos, setPos] = useState(null);
+
+    useEffect(() => {
+        if (!open) {
+            setPos(null);
+            return;
+        }
+        const place = () => {
+            const r = triggerRef.current?.getBoundingClientRect();
+            if (!r) return;
+            const left = align === "right" ? r.right - width : r.left;
+            setPos({
+                top: r.bottom + 6,
+                left: Math.max(8, Math.min(left, window.innerWidth - width - 8)),
+            });
+        };
+        place();
+        window.addEventListener("scroll", place, true);
+        window.addEventListener("resize", place);
+        return () => {
+            window.removeEventListener("scroll", place, true);
+            window.removeEventListener("resize", place);
+        };
+    }, [open, align, width]);
+
+    return (
+        <div className="relative inline-block">
+            <button
+                ref={triggerRef}
+                type="button"
+                title={title}
+                disabled={disabled}
+                className={triggerClassName}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (open) onClose();
+                    else onOpen();
+                }}
+            >
+                {trigger}
+            </button>
+            {open && pos && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[90]"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                        }}
+                    />
+                    <div
+                        style={{
+                            top: pos.top,
+                            left: pos.left,
+                            width,
+                            maxHeight: maxHeight || undefined,
+                        }}
+                        className={cn(
+                            "fixed rounded-lg border border-[#e0e0e0] bg-white shadow-lg z-[100] animate-in fade-in slide-in-from-top-1 duration-100",
+                            maxHeight && "overflow-y-auto",
+                            panelClassName,
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {children}
+                    </div>
+                </>,
+                document.body,
+            )}
+        </div>
+    );
+}
+
+const MENU_ITEM_CLS = "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors";
+const menuItemActive = (active) =>
+    active ? "bg-pink-50 text-[#5f1340]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
+
 function PinEditor({
     employeeId,
     codePin,
@@ -160,108 +254,89 @@ function PinEditor({
     }, [open, codePin]);
 
     return (
-        <div className="relative inline-block">
-            <button
-                type="button"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (open) onClose();
-                    else onOpen();
-                }}
-                disabled={updating}
-                className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
-                title="Ubah PIN kasir"
-            >
-                <span
-                    className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold font-mono",
-                        codePin
-                            ? "border-[#5f1340]/20 bg-[#5f1340]/5 text-[#5f1340]"
-                            : "border-slate-200 bg-slate-50 text-slate-500"
-                    )}
-                >
-                    <LockClosedIcon className="h-3 w-3 shrink-0" />
-                    {codePin ? String(codePin) : "Belum ada PIN"}
-                </span>
-                {updating ? (
-                    <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                ) : (
-                    <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                )}
-            </button>
-
-            {open && (
+        <FloatingDropdown
+            open={open}
+            onOpen={onOpen}
+            onClose={onClose}
+            align={align}
+            width={208}
+            disabled={updating}
+            title="Ubah PIN kasir"
+            panelClassName="p-2.5"
+            trigger={
                 <>
-                    <div
-                        className="fixed inset-0 z-10"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onClose();
-                        }}
-                    />
-                    <div
+                    <span
                         className={cn(
-                            "absolute mt-1.5 w-52 rounded-lg border border-[#e0e0e0] bg-white p-2.5 shadow-lg z-20 animate-in fade-in slide-in-from-top-1 duration-100",
-                            align === "right" ? "right-0" : "left-0"
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold font-mono",
+                            codePin
+                                ? "border-[#5f1340]/20 bg-[#5f1340]/5 text-[#5f1340]"
+                                : "border-slate-200 bg-slate-50 text-slate-500"
                         )}
-                        onClick={(e) => e.stopPropagation()}
                     >
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                            PIN Kasir (4 digit)
-                        </p>
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            autoFocus
-                            value={value}
-                            onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                            maxLength={4}
-                            placeholder="Contoh: 1234"
-                            className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-center text-sm font-mono font-bold tracking-widest text-slate-800 outline-none focus:border-[#5f1340]"
-                        />
-                        <div className="mt-2 flex gap-1.5">
-                            <button
-                                type="button"
-                                onClick={() => onClose()}
-                                className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="button"
-                                disabled={updating}
-                                onClick={async () => {
-                                    const next = value.trim() || null;
-                                    const prev = codePin ? String(codePin) : null;
-                                    if (next === prev) {
-                                        onClose();
-                                        return;
-                                    }
-                                    await onSave(employeeId, next);
-                                    onClose();
-                                }}
-                                className="flex-1 rounded-lg bg-[#5f1340] px-2 py-1.5 text-[11px] font-bold text-white hover:bg-[#4a0d31] disabled:opacity-50"
-                            >
-                                Simpan
-                            </button>
-                        </div>
-                        {codePin ? (
-                            <button
-                                type="button"
-                                disabled={updating}
-                                onClick={async () => {
-                                    await onSave(employeeId, null);
-                                    onClose();
-                                }}
-                                className="mt-1.5 w-full rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-                            >
-                                Hapus PIN
-                            </button>
-                        ) : null}
-                    </div>
+                        <LockClosedIcon className="h-3 w-3 shrink-0" />
+                        {codePin ? String(codePin) : "Belum ada PIN"}
+                    </span>
+                    {updating ? (
+                        <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                    ) : (
+                        <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                    )}
                 </>
-            )}
-        </div>
+            }
+        >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                PIN Kasir (4 digit)
+            </p>
+            <input
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                value={value}
+                onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                maxLength={4}
+                placeholder="Contoh: 1234"
+                className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-center text-sm font-mono font-bold tracking-widest text-slate-800 outline-none focus:border-[#5f1340]"
+            />
+            <div className="mt-2 flex gap-1.5">
+                <button
+                    type="button"
+                    onClick={() => onClose()}
+                    className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
+                >
+                    Batal
+                </button>
+                <button
+                    type="button"
+                    disabled={updating}
+                    onClick={async () => {
+                        const next = value.trim() || null;
+                        const prev = codePin ? String(codePin) : null;
+                        if (next === prev) {
+                            onClose();
+                            return;
+                        }
+                        const ok = await onSave(employeeId, next);
+                        if (ok) onClose();
+                    }}
+                    className="flex-1 rounded-lg bg-[#5f1340] px-2 py-1.5 text-[11px] font-bold text-white hover:bg-[#4a0d31] disabled:opacity-50"
+                >
+                    Simpan
+                </button>
+            </div>
+            {codePin ? (
+                <button
+                    type="button"
+                    disabled={updating}
+                    onClick={async () => {
+                        const ok = await onSave(employeeId, null);
+                        if (ok) onClose();
+                    }}
+                    className="mt-1.5 w-full rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                >
+                    Hapus PIN
+                </button>
+            ) : null}
+        </FloatingDropdown>
     );
 }
 
@@ -298,236 +373,157 @@ function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUp
 
             <div className="flex flex-wrap items-center gap-1.5 relative">
                 <GenderBadge gender={item.gender} />
-                
-                {/* Role selection dropdown */}
-                <div className="relative inline-block">
+
+                <FloatingDropdown
+                    open={isDropdownOpen}
+                    onOpen={() => setActiveDropdownId(`mobile-${item.employee_id}`)}
+                    onClose={() => setActiveDropdownId(null)}
+                    width={160}
+                    disabled={updating}
+                    trigger={
+                        <>
+                            <RoleBadge role={item.waschen_role} />
+                            {updating ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                            ) : (
+                                <ChevronDownIcon className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                            )}
+                        </>
+                    }
+                >
                     <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.stopPropagation();
-                            setActiveDropdownId(isDropdownOpen ? null : `mobile-${item.employee_id}`);
+                            setActiveDropdownId(null);
+                            if (!item.waschen_role) return;
+                            await onUpdateRole(item.employee_id, null);
                         }}
-                        disabled={updating}
-                        className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                        className={cn(MENU_ITEM_CLS, menuItemActive(!item.waschen_role))}
                     >
-                        <RoleBadge role={item.waschen_role} />
-                        {updating ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                        ) : (
-                            <ChevronDownIcon className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                        )}
+                        Belum Ditentukan
                     </button>
+                    {Object.entries(ROLE_META).map(([key, meta]) => (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={async (e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(null);
+                                if (item.waschen_role === key) return;
+                                await onUpdateRole(item.employee_id, key);
+                            }}
+                            className={cn(MENU_ITEM_CLS, menuItemActive(item.waschen_role === key))}
+                        >
+                            <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                            {meta.label}
+                        </button>
+                    ))}
+                </FloatingDropdown>
 
-                    {isDropdownOpen && (
+                <FloatingDropdown
+                    open={isOutletDropdownOpen}
+                    onOpen={() => setActiveDropdownId(`mobile-outlet-${item.employee_id}`)}
+                    onClose={() => setActiveDropdownId(null)}
+                    width={176}
+                    maxHeight={192}
+                    disabled={updating}
+                    trigger={
                         <>
-                            <div
-                                className="fixed inset-0 z-10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveDropdownId(null);
-                                }}
-                            />
-                            <div className="absolute left-0 mt-1 w-40 rounded-lg border border-[#e0e0e0] bg-white p-1 shadow-lg z-20">
-                                <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setActiveDropdownId(null);
-                                        if (!item.waschen_role) return;
-                                        await onUpdateRole(item.employee_id, null);
-                                    }}
-                                    className={cn(
-                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                        !item.waschen_role
-                                            ? "bg-pink-50 text-[#5f1340]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                    )}
-                                >
-                                    Belum Ditentukan
-                                </button>
-                                {Object.entries(ROLE_META).map(([key, meta]) => (
-                                    <button
-                                        key={key}
-                                        type="button"
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            setActiveDropdownId(null);
-                                            if (item.waschen_role === key) return;
-                                            await onUpdateRole(item.employee_id, key);
-                                        }}
-                                        className={cn(
-                                            "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                            item.waschen_role === key
-                                                ? "bg-pink-50 text-[#5f1340]"
-                                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                        )}
-                                    >
-                                        <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                                        {meta.label}
-                                    </button>
-                                ))}
-                            </div>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                {item.outlet_name || "-"}
+                            </span>
+                            {updating ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                            ) : (
+                                <ChevronDownIcon className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                            )}
                         </>
-                    )}
-                </div>
-
-                {/* Outlet selection dropdown */}
-                <div className="relative inline-block">
+                    }
+                >
                     <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.stopPropagation();
-                            setActiveDropdownId(isOutletDropdownOpen ? null : `mobile-outlet-${item.employee_id}`);
+                            setActiveDropdownId(null);
+                            if (!item.outlet_id) return;
+                            await onUpdateOutlet(item.employee_id, null);
                         }}
-                        disabled={updating}
-                        className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                        className={cn(MENU_ITEM_CLS, menuItemActive(!item.outlet_id))}
                     >
-                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                            {item.outlet_name || "-"}
-                        </span>
-                        {updating ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                        ) : (
-                            <ChevronDownIcon className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                        )}
+                        Tidak Ada Cabang
                     </button>
+                    {outlets.map((o) => (
+                        <button
+                            key={o.id}
+                            type="button"
+                            onClick={async (e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(null);
+                                if (item.outlet_id === o.id) return;
+                                await onUpdateOutlet(item.employee_id, o.id);
+                            }}
+                            className={cn(MENU_ITEM_CLS, menuItemActive(item.outlet_id === o.id))}
+                        >
+                            {o.name}
+                        </button>
+                    ))}
+                </FloatingDropdown>
 
-                    {isOutletDropdownOpen && (
+                <FloatingDropdown
+                    open={isLeaderDropdownOpen}
+                    onOpen={() => setActiveDropdownId(`mobile-leader-${item.employee_id}`)}
+                    onClose={() => setActiveDropdownId(null)}
+                    width={160}
+                    disabled={updating}
+                    trigger={
                         <>
-                            <div
-                                className="fixed inset-0 z-10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveDropdownId(null);
-                                }}
-                            />
-                            <div className="absolute left-0 mt-1 w-44 max-h-48 overflow-y-auto rounded-lg border border-[#e0e0e0] bg-white p-1 shadow-lg z-20">
-                                <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setActiveDropdownId(null);
-                                        if (!item.outlet_id) return;
-                                        await onUpdateOutlet(item.employee_id, null);
-                                    }}
-                                    className={cn(
-                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                        !item.outlet_id
-                                            ? "bg-pink-50 text-[#5f1340]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                    )}
-                                >
-                                    Tidak Ada Cabang
-                                </button>
-                                {outlets.map((o) => (
-                                    <button
-                                        key={o.id}
-                                        type="button"
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            setActiveDropdownId(null);
-                                            if (item.outlet_id === o.id) return;
-                                            await onUpdateOutlet(item.employee_id, o.id);
-                                        }}
-                                        className={cn(
-                                            "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                            item.outlet_id === o.id
-                                                ? "bg-pink-50 text-[#5f1340]"
-                                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                        )}
-                                    >
-                                        {o.name}
-                                    </button>
-                                ))}
-                            </div>
+                            <LeaderBadge isLeader={item.is_leader} />
+                            {updating ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                            ) : (
+                                <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                            )}
                         </>
-                    )}
-                </div>
-
-                {/* Leader dropdown */}
-                <div className="relative inline-block">
+                    }
+                >
                     <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.stopPropagation();
-                            setActiveDropdownId(isLeaderDropdownOpen ? null : `mobile-leader-${item.employee_id}`);
+                            setActiveDropdownId(null);
+                            if (item.is_leader === null) return;
+                            await onToggleLeader(item.employee_id, null);
                         }}
-                        disabled={updating}
-                        className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                        className={cn(MENU_ITEM_CLS, menuItemActive(item.is_leader === null))}
                     >
-                        <LeaderBadge isLeader={item.is_leader} />
-                        {updating ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                        ) : (
-                            <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                        )}
+                        Belum Ditentukan
                     </button>
-
-                    {isLeaderDropdownOpen && (
-                        <>
-                            <div
-                                className="fixed inset-0 z-10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveDropdownId(null);
-                                }}
-                            />
-                            <div className="absolute left-0 mt-1 w-40 rounded-lg border border-[#e0e0e0] bg-white p-1 shadow-lg z-20">
-                                <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setActiveDropdownId(null);
-                                        if (item.is_leader === null) return;
-                                        await onToggleLeader(item.employee_id, null);
-                                    }}
-                                    className={cn(
-                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                        item.is_leader === null
-                                            ? "bg-pink-50 text-[#5f1340]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                    )}
-                                >
-                                    Belum Ditentukan
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setActiveDropdownId(null);
-                                        if (item.is_leader === 1) return;
-                                        await onToggleLeader(item.employee_id, 1);
-                                    }}
-                                    className={cn(
-                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                        item.is_leader === 1
-                                            ? "bg-pink-50 text-[#5f1340]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                    )}
-                                >
-                                    Leader
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setActiveDropdownId(null);
-                                        if (item.is_leader === 0) return;
-                                        await onToggleLeader(item.employee_id, 0);
-                                    }}
-                                    className={cn(
-                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                        item.is_leader === 0
-                                            ? "bg-pink-50 text-[#5f1340]"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                    )}
-                                >
-                                    Staff
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
+                    <button
+                        type="button"
+                        onClick={async (e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(null);
+                            if (item.is_leader === 1) return;
+                            await onToggleLeader(item.employee_id, 1);
+                        }}
+                        className={cn(MENU_ITEM_CLS, menuItemActive(item.is_leader === 1))}
+                    >
+                        Leader
+                    </button>
+                    <button
+                        type="button"
+                        onClick={async (e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(null);
+                            if (item.is_leader === 0) return;
+                            await onToggleLeader(item.employee_id, 0);
+                        }}
+                        className={cn(MENU_ITEM_CLS, menuItemActive(item.is_leader === 0))}
+                    >
+                        Staff
+                    </button>
+                </FloatingDropdown>
 
                 <PinEditor
                     employeeId={item.employee_id}
@@ -585,6 +581,7 @@ export default function EmployeeWaschen() {
     const [activeDropdownId, setActiveDropdownId] = useState(null);
     const [updatingIds, setUpdatingIds] = useState(new Set());
     const [outlets, setOutlets] = useState([]);
+    const [pinWarn, setPinWarn] = useState(null); // { pin, ownerName, message }
 
     const handleUpdateRole = async (employeeId, newRole) => {
         try {
@@ -698,6 +695,34 @@ export default function EmployeeWaschen() {
     };
 
     const handleUpdatePin = async (employeeId, newPin) => {
+        const digits = newPin == null || newPin === "" ? null : String(newPin).replace(/\D/g, "");
+
+        if (digits != null) {
+            if (digits.length !== 4) {
+                setPinWarn({
+                    pin: digits,
+                    ownerName: null,
+                    message: "PIN harus tepat 4 digit angka.",
+                });
+                return false;
+            }
+            const taken = rows.find(
+                (r) =>
+                    Number(r.employee_id) !== Number(employeeId) &&
+                    r.code_pin != null &&
+                    String(r.code_pin).trim() === digits,
+            );
+            if (taken) {
+                setPinWarn({
+                    pin: digits,
+                    ownerName: formatEmployeeName(taken.full_name, "Karyawan lain"),
+                    message: `PIN ${digits} sudah dipakai karyawan lain. Gunakan PIN unik.`,
+                });
+                setActiveDropdownId(null);
+                return false;
+            }
+        }
+
         try {
             setUpdatingIds((prev) => {
                 const next = new Set(prev);
@@ -708,10 +733,10 @@ export default function EmployeeWaschen() {
 
             const res = await api(`/waschen/employees/${employeeId}/role`, {
                 method: "PUT",
-                body: JSON.stringify({ code_pin: newPin }),
+                body: JSON.stringify({ code_pin: digits }),
             });
 
-            const savedPin = res?.data?.code_pin !== undefined ? res.data.code_pin : newPin;
+            const savedPin = res?.data?.code_pin !== undefined ? res.data.code_pin : digits;
 
             setRows((prev) =>
                 prev.map((row) =>
@@ -721,11 +746,23 @@ export default function EmployeeWaschen() {
                 )
             );
 
-            setSuccess(newPin ? "PIN karyawan berhasil diperbarui" : "PIN karyawan dihapus");
+            setSuccess(digits ? "PIN karyawan berhasil diperbarui" : "PIN karyawan dihapus");
             setTimeout(() => setSuccess(""), 3000);
+            return true;
         } catch (err) {
-            setError(err.message || "Gagal memperbarui PIN karyawan");
-            setTimeout(() => setError(""), 4000);
+            const msg = err.message || "Gagal memperbarui PIN karyawan";
+            if (/PIN|sudah dipakai|unik|4 digit/i.test(msg)) {
+                setPinWarn({
+                    pin: digits,
+                    ownerName: null,
+                    message: msg,
+                });
+                setActiveDropdownId(null);
+            } else {
+                setError(msg);
+                setTimeout(() => setError(""), 4000);
+            }
+            return false;
         } finally {
             setUpdatingIds((prev) => {
                 const next = new Set(prev);
@@ -947,6 +984,50 @@ export default function EmployeeWaschen() {
                     <ExclamationIcon className="h-4 w-4 text-rose-600" />
                     {error}
                 </div>
+            )}
+
+            {pinWarn && createPortal(
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+                    onClick={() => setPinWarn(null)}
+                >
+                    <div
+                        className="w-full max-w-sm rounded-2xl border border-[#e0e0e0] bg-white p-5 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                                <ExclamationIcon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="text-sm font-bold text-slate-800">PIN Tidak Bisa Digunakan</h3>
+                                <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                                    {pinWarn.message}
+                                </p>
+                                {pinWarn.pin && (
+                                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1 font-mono text-xs font-bold text-rose-700">
+                                        <LockClosedIcon className="h-3.5 w-3.5" />
+                                        {pinWarn.pin}
+                                    </p>
+                                )}
+                                {pinWarn.ownerName && (
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        Dipakai oleh:{" "}
+                                        <span className="font-semibold text-slate-700">{pinWarn.ownerName}</span>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setPinWarn(null)}
+                            className="mt-5 w-full rounded-xl bg-[#5f1340] py-2.5 text-xs font-bold text-white hover:bg-[#4a0d31]"
+                        >
+                            Mengerti
+                        </button>
+                    </div>
+                </div>,
+                document.body,
             )}
             <div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
                 {/* Hero header */}
@@ -1202,234 +1283,160 @@ export default function EmployeeWaschen() {
                                                 )}
                                             </td>
                                             <td className="whitespace-nowrap px-4 py-3.5 relative">
-                                                <div className="relative inline-block">
+                                                <FloatingDropdown
+                                                    open={activeDropdownId === item.employee_id}
+                                                    onOpen={() => setActiveDropdownId(item.employee_id)}
+                                                    onClose={() => setActiveDropdownId(null)}
+                                                    width={160}
+                                                    disabled={updatingIds.has(item.employee_id)}
+                                                    triggerClassName="group inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                                    trigger={
+                                                        <>
+                                                            <RoleBadge role={item.waschen_role} />
+                                                            {updatingIds.has(item.employee_id) ? (
+                                                                <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                                                            ) : (
+                                                                <ChevronDownIcon className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                                                            )}
+                                                        </>
+                                                    }
+                                                >
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.stopPropagation();
-                                                            setActiveDropdownId(activeDropdownId === item.employee_id ? null : item.employee_id);
+                                                            setActiveDropdownId(null);
+                                                            if (!item.waschen_role) return;
+                                                            await handleUpdateRole(item.employee_id, null);
                                                         }}
-                                                        disabled={updatingIds.has(item.employee_id)}
-                                                        className="group inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                                        className={cn(MENU_ITEM_CLS, menuItemActive(!item.waschen_role))}
                                                     >
-                                                        <RoleBadge role={item.waschen_role} />
-                                                        {updatingIds.has(item.employee_id) ? (
-                                                            <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                                                        ) : (
-                                                            <ChevronDownIcon className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                                                        )}
+                                                        Belum Ditentukan
                                                     </button>
-
-                                                    {activeDropdownId === item.employee_id && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-10"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveDropdownId(null);
-                                                                }}
-                                                            />
-                                                            <div className="absolute left-0 mt-1.5 w-40 rounded-lg border border-[#e0e0e0] bg-white p-1 shadow-lg z-20 animate-in fade-in slide-in-from-top-1 duration-100">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveDropdownId(null);
-                                                                        if (!item.waschen_role) return;
-                                                                        await handleUpdateRole(item.employee_id, null);
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                        !item.waschen_role
-                                                                            ? "bg-pink-50 text-[#5f1340]"
-                                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                    )}
-                                                                >
-                                                                    Belum Ditentukan
-                                                                </button>
-                                                                {Object.entries(ROLE_META).map(([key, meta]) => (
-                                                                    <button
-                                                                        key={key}
-                                                                        type="button"
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation();
-                                                                            setActiveDropdownId(null);
-                                                                            if (item.waschen_role === key) return;
-                                                                            await handleUpdateRole(item.employee_id, key);
-                                                                        }}
-                                                                        className={cn(
-                                                                            "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                            item.waschen_role === key
-                                                                                ? "bg-pink-50 text-[#5f1340]"
-                                                                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                        )}
-                                                                    >
-                                                                        <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                                                                        {meta.label}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                    {Object.entries(ROLE_META).map(([key, meta]) => (
+                                                        <button
+                                                            key={key}
+                                                            type="button"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                setActiveDropdownId(null);
+                                                                if (item.waschen_role === key) return;
+                                                                await handleUpdateRole(item.employee_id, key);
+                                                            }}
+                                                            className={cn(MENU_ITEM_CLS, menuItemActive(item.waschen_role === key))}
+                                                        >
+                                                            <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                                                            {meta.label}
+                                                        </button>
+                                                    ))}
+                                                </FloatingDropdown>
                                             </td>
                                             <td className="whitespace-nowrap px-4 py-3.5 relative">
-                                                <div className="relative inline-block">
+                                                <FloatingDropdown
+                                                    open={activeDropdownId === `outlet-${item.employee_id}`}
+                                                    onOpen={() => setActiveDropdownId(`outlet-${item.employee_id}`)}
+                                                    onClose={() => setActiveDropdownId(null)}
+                                                    width={192}
+                                                    maxHeight={192}
+                                                    disabled={updatingIds.has(item.employee_id)}
+                                                    trigger={
+                                                        <>
+                                                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                                                                {item.outlet_name || "-"}
+                                                            </span>
+                                                            {updatingIds.has(item.employee_id) ? (
+                                                                <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                                                            ) : (
+                                                                <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                                                            )}
+                                                        </>
+                                                    }
+                                                >
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.stopPropagation();
-                                                            setActiveDropdownId(activeDropdownId === `outlet-${item.employee_id}` ? null : `outlet-${item.employee_id}`);
+                                                            setActiveDropdownId(null);
+                                                            if (!item.outlet_id) return;
+                                                            await handleUpdateOutlet(item.employee_id, null);
                                                         }}
-                                                        disabled={updatingIds.has(item.employee_id)}
-                                                        className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                                                        className={cn(MENU_ITEM_CLS, menuItemActive(!item.outlet_id))}
                                                     >
-                                                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-                                                            {item.outlet_name || "-"}
-                                                        </span>
-                                                        {updatingIds.has(item.employee_id) ? (
-                                                            <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                                                        ) : (
-                                                            <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                                                        )}
+                                                        Tidak Ada Cabang
                                                     </button>
-
-                                                    {activeDropdownId === `outlet-${item.employee_id}` && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-10"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveDropdownId(null);
-                                                                }}
-                                                            />
-                                                            <div className="absolute left-0 mt-1.5 w-48 max-h-48 overflow-y-auto rounded-lg border border-[#e0e0e0] bg-white p-1 shadow-lg z-20 animate-in fade-in slide-in-from-top-1 duration-100">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveDropdownId(null);
-                                                                        if (!item.outlet_id) return;
-                                                                        await handleUpdateOutlet(item.employee_id, null);
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                        !item.outlet_id
-                                                                            ? "bg-pink-50 text-[#5f1340]"
-                                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                    )}
-                                                                >
-                                                                    Tidak Ada Cabang
-                                                                </button>
-                                                                {outlets.map((o) => (
-                                                                    <button
-                                                                        key={o.id}
-                                                                        type="button"
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation();
-                                                                            setActiveDropdownId(null);
-                                                                            if (item.outlet_id === o.id) return;
-                                                                            await handleUpdateOutlet(item.employee_id, o.id);
-                                                                        }}
-                                                                        className={cn(
-                                                                            "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                            item.outlet_id === o.id
-                                                                                ? "bg-pink-50 text-[#5f1340]"
-                                                                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                        )}
-                                                                    >
-                                                                        {o.name}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                    {outlets.map((o) => (
+                                                        <button
+                                                            key={o.id}
+                                                            type="button"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                setActiveDropdownId(null);
+                                                                if (item.outlet_id === o.id) return;
+                                                                await handleUpdateOutlet(item.employee_id, o.id);
+                                                            }}
+                                                            className={cn(MENU_ITEM_CLS, menuItemActive(item.outlet_id === o.id))}
+                                                        >
+                                                            {o.name}
+                                                        </button>
+                                                    ))}
+                                                </FloatingDropdown>
                                             </td>
                                             <td className="whitespace-nowrap px-4 py-3.5 relative">
-                                                <div className="relative inline-block">
+                                                <FloatingDropdown
+                                                    open={activeDropdownId === `leader-${item.employee_id}`}
+                                                    onOpen={() => setActiveDropdownId(`leader-${item.employee_id}`)}
+                                                    onClose={() => setActiveDropdownId(null)}
+                                                    align="right"
+                                                    width={160}
+                                                    disabled={updatingIds.has(item.employee_id)}
+                                                    trigger={
+                                                        <>
+                                                            <LeaderBadge isLeader={item.is_leader} />
+                                                            {updatingIds.has(item.employee_id) ? (
+                                                                <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
+                                                            ) : (
+                                                                <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                                                            )}
+                                                        </>
+                                                    }
+                                                >
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.stopPropagation();
-                                                            setActiveDropdownId(activeDropdownId === `leader-${item.employee_id}` ? null : `leader-${item.employee_id}`);
+                                                            setActiveDropdownId(null);
+                                                            if (item.is_leader === null) return;
+                                                            await handleToggleLeader(item.employee_id, null);
                                                         }}
-                                                        disabled={updatingIds.has(item.employee_id)}
-                                                        className="group inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                                                        className={cn(MENU_ITEM_CLS, menuItemActive(item.is_leader === null))}
                                                     >
-                                                        <LeaderBadge isLeader={item.is_leader} />
-                                                        {updatingIds.has(item.employee_id) ? (
-                                                            <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-[#5f1340]" />
-                                                        ) : (
-                                                            <ChevronDownIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                                                        )}
+                                                        Belum Ditentukan
                                                     </button>
-
-                                                    {activeDropdownId === `leader-${item.employee_id}` && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-10"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveDropdownId(null);
-                                                                }}
-                                                            />
-                                                            <div className="absolute right-0 mt-1.5 w-40 rounded-lg border border-[#e0e0e0] bg-white p-1 shadow-lg z-20 animate-in fade-in slide-in-from-top-1 duration-100">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveDropdownId(null);
-                                                                        if (item.is_leader === null) return;
-                                                                        await handleToggleLeader(item.employee_id, null);
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                        item.is_leader === null
-                                                                            ? "bg-pink-50 text-[#5f1340]"
-                                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                    )}
-                                                                >
-                                                                    Belum Ditentukan
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveDropdownId(null);
-                                                                        if (item.is_leader === 1) return;
-                                                                        await handleToggleLeader(item.employee_id, 1);
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                        item.is_leader === 1
-                                                                            ? "bg-pink-50 text-[#5f1340]"
-                                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                    )}
-                                                                >
-                                                                    Leader
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveDropdownId(null);
-                                                                        if (item.is_leader === 0) return;
-                                                                        await handleToggleLeader(item.employee_id, 0);
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors",
-                                                                        item.is_leader === 0
-                                                                            ? "bg-pink-50 text-[#5f1340]"
-                                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                    )}
-                                                                >
-                                                                    Staff
-                                                                </button>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setActiveDropdownId(null);
+                                                            if (item.is_leader === 1) return;
+                                                            await handleToggleLeader(item.employee_id, 1);
+                                                        }}
+                                                        className={cn(MENU_ITEM_CLS, menuItemActive(item.is_leader === 1))}
+                                                    >
+                                                        Leader
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setActiveDropdownId(null);
+                                                            if (item.is_leader === 0) return;
+                                                            await handleToggleLeader(item.employee_id, 0);
+                                                        }}
+                                                        className={cn(MENU_ITEM_CLS, menuItemActive(item.is_leader === 0))}
+                                                    >
+                                                        Staff
+                                                    </button>
+                                                </FloatingDropdown>
                                             </td>
                                             <td className="whitespace-nowrap px-4 py-3.5 relative">
                                                 <PinEditor
