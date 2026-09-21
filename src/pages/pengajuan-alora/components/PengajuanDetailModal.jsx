@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { api, assetUrl } from "../../../lib/api";
+import { api, assetUrl, BASE_URL } from "../../../lib/api";
 import {
     HiOutlineDocumentPlus,
     HiOutlineCreditCard,
@@ -10,6 +10,8 @@ import {
     HiOutlineEye,
     HiOutlineDocumentText,
     HiOutlineArrowDownTray,
+    HiOutlineMagnifyingGlass,
+    HiOutlinePlus,
 } from "react-icons/hi2";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
@@ -40,6 +42,87 @@ const REIMBURSE_STATUS_CONFIG = {
     7: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     9: { label: "Ditolak", cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
+
+// Pilihan klasifikasi (multi) — dipakai di panel Proses Pembayaran & Edit Info
+function ClassificationPicker({ options, value, onChange, custom, onCustomChange, onAddCustom, adding }) {
+    const toggle = (id) => {
+        const s = String(id);
+        onChange(value.includes(s) ? value.filter(v => v !== s) : [...value, s]);
+    };
+    // Satu input dipakai ganda: filter daftar, sekaligus nama klasifikasi baru
+    const q = custom.trim().toLowerCase();
+    const shown = q ? options.filter(c => c.classification_name?.toLowerCase().includes(q)) : options;
+    const exactExists = options.some(c => c.classification_name?.toLowerCase() === q);
+    const canCreate = q.length >= 2 && !exactExists;
+    const selected = value
+        .map(id => options.find(c => String(c.id) === id))
+        .filter(Boolean);
+
+    return (
+        <div className="rounded-xl border border-cyan-200 bg-white p-2.5">
+            {selected.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5 border-b border-slate-100 pb-2">
+                    {selected.map(c => (
+                        <span key={c.id}
+                            className="inline-flex items-center gap-1 rounded-full bg-cyan-600 py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white">
+                            {c.classification_name}
+                            <button type="button" onClick={() => toggle(c.id)} aria-label={`Hapus ${c.classification_name}`}
+                                className="grid h-4 w-4 place-items-center rounded-full text-white/80 hover:bg-white/25 hover:text-white transition">
+                                <HiOutlineXMark className="h-3 w-3" />
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            <div className="relative">
+                <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs outline-none transition focus:border-cyan-300 focus:bg-white focus:ring-2 focus:ring-cyan-100"
+                    value={custom}
+                    maxLength={100}
+                    onChange={e => onCustomChange(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (canCreate) onAddCustom(); } }}
+                    placeholder="Cari klasifikasi, atau ketik nama baru..." />
+            </div>
+
+            <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+                {options.length === 0 && (
+                    <p className="px-1 py-1 text-xs text-slate-400">Memuat klasifikasi...</p>
+                )}
+                {options.length > 0 && shown.length === 0 && !canCreate && (
+                    <p className="px-1 py-1 text-xs text-slate-400">Tidak ada yang cocok.</p>
+                )}
+                {shown.map(c => {
+                    const on = value.includes(String(c.id));
+                    return (
+                        <button key={c.id} type="button" onClick={() => toggle(c.id)}
+                            className={cn(
+                                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+                                on
+                                    ? "border-cyan-600 bg-cyan-600 text-white"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                            )}>
+                            {c.classification_name}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {canCreate && (
+                <button type="button" onClick={onAddCustom} disabled={adding}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-cyan-300 bg-cyan-50/60 px-3 py-1.5 text-[11px] font-semibold text-cyan-700 transition hover:bg-cyan-50 disabled:opacity-50">
+                    <HiOutlinePlus className="h-3.5 w-3.5" />
+                    {adding ? "Menambahkan..." : `Tambah "${custom.trim()}" sebagai klasifikasi baru`}
+                </button>
+            )}
+
+            <p className="mt-1.5 text-[10px] text-slate-400">
+                {value.length ? `${value.length} klasifikasi dipilih` : "Klik untuk memilih — bisa lebih dari satu"}
+            </p>
+        </div>
+    );
+}
 
 const formatRp = (v) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(v) || 0);
@@ -217,7 +300,7 @@ export default function PengajuanDetailModal({
 
     // Payment state
     const [payOpen, setPayOpen] = useState(false);
-    const [payClassification, setPayClass] = useState("");
+    const [payClassification, setPayClass] = useState([]); // array of id (string) — multi klasifikasi
     const [payNote, setPayNote] = useState("");
     const [payFiles, setPayFiles] = useState([]); // multi-file array
     const [payMethod, setPayMethod] = useState(""); // 'cash' | 'kredit'
@@ -232,6 +315,23 @@ export default function PengajuanDetailModal({
     // Complete state (karyawan upload invoice)
     const [completeOpen, setCompleteOpen] = useState(false);
     const [invoiceFile, setInvoiceFile] = useState(null);
+
+    // Header edit (Finance)
+    const [headerEditOpen, setHeaderEditOpen] = useState(false);
+    const [hdrEmployeeId, setHdrEmployeeId] = useState("");
+    const [hdrCompanyId, setHdrCompanyId] = useState("");
+    const [hdrOutletId, setHdrOutletId] = useState("");
+    const [employeeOptions, setEmployeeOptions] = useState([]);
+    const [hdrEmpSearch, setHdrEmpSearch] = useState("");
+    const [companyOptions, setCompanyOptions] = useState([]);
+    const [outletOptions, setOutletOptions] = useState([]);
+
+    // Klasifikasi custom
+    const [classCustom, setClassCustom] = useState("");
+    const [classAdding, setClassAdding] = useState(false);
+
+    // Lampiran (Finance)
+    const [attBusy, setAttBusy] = useState(false);
 
     const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3000); };
 
@@ -261,10 +361,13 @@ export default function PengajuanDetailModal({
             setGaInvoiceFile(null);
             setClassificationList([]);
             setFinOpen(false); setFinNote("");
-            setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]);
+            setPayOpen(false); setPayClass([]); setPayNote(""); setPayFiles([]);
             setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt("");
             setCompleteOpen(false); setInvoiceFile(null);
             setEditPayOpen(false);
+            setHeaderEditOpen(false); setHdrEmployeeId(""); setHdrCompanyId(""); setHdrOutletId("");
+            setEmployeeOptions([]); setCompanyOptions([]); setOutletOptions([]); setHdrEmpSearch("");
+            setClassCustom(""); setAttBusy(false);
         }
     }, [open, load]);
 
@@ -428,14 +531,14 @@ export default function PengajuanDetailModal({
     };
 
     const doPayment = async () => {
-        if (!payClassification) return showToast("error", "Klasifikasi wajib dipilih");
+        if (!payClassification.length) return showToast("error", "Klasifikasi wajib dipilih");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
         if (payMethod === "kredit" && (!payTerminValue || !payTerminUnit)) return showToast("error", "Termin wajib diisi untuk kredit");
         if (!payFiles.length) return showToast("error", "Bukti pembayaran wajib dilampirkan");
         setActing(true);
         try {
             const fd = new FormData();
-            fd.append("classification_id", payClassification);
+            fd.append("classification_ids", JSON.stringify(payClassification));
             fd.append("payment_method", payMethod);
             if (payMethod === "kredit") {
                 fd.append("termin_value", payTerminValue);
@@ -471,7 +574,7 @@ export default function PengajuanDetailModal({
         const nomBayar = stripRupiah(payNominalBayar);
         if (!nomBayar) return showToast("error", "Nominal bayar wajib diisi");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
-        if (!payClassification) return showToast("error", "Klasifikasi wajib dipilih");
+        if (!payClassification.length) return showToast("error", "Klasifikasi wajib dipilih");
 
         setActing(true);
         try {
@@ -481,7 +584,7 @@ export default function PengajuanDetailModal({
                     nominal_bayar: nomBayar,
                     admin_fee: stripRupiah(payAdminFee) || null,
                     payment_method: payMethod,
-                    classification_id: payClassification,
+                    classification_ids: payClassification.map(Number),
                 })
             });
             showToast("success", "Info pembayaran berhasil diperbarui");
@@ -494,6 +597,106 @@ export default function PengajuanDetailModal({
             setActing(false);
         }
     };
+
+    // ── Finance: edit header (pengaju / departemen / kategori / outlet) ──────
+    const openHeaderEdit = () => {
+        setHeaderEditOpen(true);
+        setHdrEmpSearch("");
+        setHdrEmployeeId(String(data.employee_id || ""));
+        setHdrCompanyId(String(data.company_id || ""));
+        setHdrOutletId(String(data.outlet_id || ""));
+        api("/pengajuan/employee-options").then(r => setEmployeeOptions(r.data || [])).catch(() => {});
+        api("/pengajuan/companies").then(r => setCompanyOptions(r.data || [])).catch(() => {});
+        api("/pengajuan/outlets").then(r => setOutletOptions(r.data || [])).catch(() => {});
+    };
+
+    const doUpdateHeader = async () => {
+        if (!hdrEmployeeId) return showToast("error", "Pengaju wajib dipilih");
+        if (!hdrCompanyId) return showToast("error", "Kategori wajib dipilih");
+        setActing(true);
+        try {
+            await api(`/pengajuan/${prId}/header-info`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    employee_id: hdrEmployeeId,
+                    company_id: hdrCompanyId,
+                    outlet_id: Number(hdrCompanyId) === 5 ? (hdrOutletId || null) : null,
+                }),
+            });
+            showToast("success", "Data pengajuan diperbarui");
+            setHeaderEditOpen(false);
+            onChanged?.();
+            load();
+        } catch (err) {
+            showToast("error", err.message);
+        } finally { setActing(false); }
+    };
+
+    // ── Finance: tambah klasifikasi custom ──────────────────────────────────
+    const doAddClassification = async () => {
+        const name = classCustom.trim();
+        if (name.length < 2) return showToast("error", "Nama klasifikasi minimal 2 karakter");
+        setClassAdding(true);
+        try {
+            const r = await api("/pengajuan/classifications", {
+                method: "POST",
+                body: JSON.stringify({ classification_name: name }),
+            });
+            const created = r.data;
+            setClassificationList(prev => (
+                prev.some(c => String(c.id) === String(created.id))
+                    ? prev
+                    : [...prev, created].sort((a, b) => a.classification_name.localeCompare(b.classification_name))
+            ));
+            setPayClass(prev => prev.includes(String(created.id)) ? prev : [...prev, String(created.id)]);
+            setClassCustom("");
+            showToast("success", r.message || "Klasifikasi ditambahkan");
+        } catch (err) {
+            showToast("error", err.message);
+        } finally { setClassAdding(false); }
+    };
+
+    // ── Finance: lampiran (tambah / hapus) ──────────────────────────────────
+    const doAddAttachments = async (files) => {
+        if (!files.length) return;
+        setAttBusy(true);
+        try {
+            const fd = new FormData();
+            files.forEach(f => fd.append("attachments", f));
+            const res = await fetch(`${BASE_URL}/pengajuan/${prId}/attachments`, {
+                method: "POST", body: fd, credentials: "include",
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.message || "Gagal");
+            showToast("success", j.message || "Lampiran ditambahkan");
+            onChanged?.();
+            load();
+        } catch (err) {
+            showToast("error", err.message);
+        } finally { setAttBusy(false); }
+    };
+
+    const doDeleteAttachment = async (att) => {
+        if (!window.confirm(`Hapus lampiran "${att.original_name || att.file_path}"? File akan dihapus permanen dari server.`)) return;
+        setAttBusy(true);
+        try {
+            await api(`/pengajuan/attachment/${att.attachment_id}`, { method: "DELETE" });
+            showToast("success", "Lampiran dihapus");
+            onChanged?.();
+            load();
+        } catch (err) {
+            showToast("error", err.message);
+        } finally { setAttBusy(false); }
+    };
+
+    // Filter dropdown pengaju by nama/departemen — karyawan terpilih selalu ikut
+    const empQuery = hdrEmpSearch.trim().toLowerCase();
+    const filteredEmployeeOptions = !empQuery
+        ? employeeOptions
+        : employeeOptions.filter(e =>
+            String(e.employee_id) === String(hdrEmployeeId)
+            || `${e.full_name || ""} ${e.department_name || ""}`.toLowerCase().includes(empQuery)
+        );
 
     const doComplete = async () => {
         if (!invoiceFile) return showToast("error", "Invoice wajib dilampirkan");
@@ -573,25 +776,103 @@ export default function PengajuanDetailModal({
                             </div>
 
                             {/* identitas */}
-                            <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 grid grid-cols-2 gap-3 text-sm">
-                                <div>
-                                    <p className="text-[11px] text-slate-400 uppercase">Pengaju</p>
-                                    <p className="font-semibold text-slate-700">{toTitleCase(data.pengaju_name) || "—"}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] text-slate-400 uppercase">Departemen</p>
-                                    <p className="font-semibold text-slate-700">{toTitleCase(data.department_name) || "—"}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[11px] text-slate-400 uppercase">Kategori</p>
-                                    <p className="font-semibold text-slate-700">{toTitleCase(data.company_name) || "—"}</p>
-                                </div>
-                                {(data.outlet_name || Number(data.company_id) === 5) && (
-                                    <div>
-                                        <p className="text-[11px] text-slate-400 uppercase">Outlet</p>
-                                        <p className="font-semibold text-slate-700">
-                                            {data.outlet_name ? toTitleCase(data.outlet_name) : "Seluruh Outlet"}
-                                        </p>
+                            <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 text-sm">
+                                {myIsFinance && !readOnly && (
+                                    <div className="flex justify-end mb-2">
+                                        {!headerEditOpen ? (
+                                            <button onClick={openHeaderEdit}
+                                                className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold hover:underline">
+                                                Edit Data
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => setHeaderEditOpen(false)}
+                                                className="text-xs text-slate-500 hover:text-slate-700 font-semibold hover:underline">
+                                                Batal
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {headerEditOpen ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Pengaju <span className="text-rose-500">*</span></label>
+                                            <input
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200 mb-1.5"
+                                                value={hdrEmpSearch}
+                                                onChange={e => setHdrEmpSearch(e.target.value)}
+                                                placeholder="Cari nama karyawan..." />
+                                            <select
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
+                                                value={hdrEmployeeId} onChange={e => setHdrEmployeeId(e.target.value)}
+                                                size={hdrEmpSearch.trim() ? 6 : undefined}>
+                                                <option value="">— Pilih —</option>
+                                                {filteredEmployeeOptions.map(e => (
+                                                    <option key={e.employee_id} value={e.employee_id}>
+                                                        {toTitleCase(e.full_name)}{e.department_name ? ` · ${toTitleCase(e.department_name)}` : ""}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                                {hdrEmpSearch.trim()
+                                                    ? `${filteredEmployeeOptions.length} karyawan cocok. Departemen otomatis mengikuti karyawan yang dipilih.`
+                                                    : "Departemen otomatis mengikuti karyawan yang dipilih."}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Kategori <span className="text-rose-500">*</span></label>
+                                            <select
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
+                                                value={hdrCompanyId}
+                                                onChange={e => { setHdrCompanyId(e.target.value); if (Number(e.target.value) !== 5) setHdrOutletId(""); }}>
+                                                <option value="">— Pilih —</option>
+                                                {companyOptions.map(c => (
+                                                    <option key={c.company_id} value={c.company_id}>{toTitleCase(c.company_name)}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {Number(hdrCompanyId) === 5 && (
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Outlet</label>
+                                                <select
+                                                    className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
+                                                    value={hdrOutletId} onChange={e => setHdrOutletId(e.target.value)}>
+                                                    <option value="">Seluruh Outlet</option>
+                                                    {outletOptions.map(o => (
+                                                        <option key={o.outlet_id} value={o.outlet_id}>{toTitleCase(o.full_name || o.name)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                        <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                                            <button onClick={doUpdateHeader} disabled={acting || !hdrEmployeeId || !hdrCompanyId}
+                                                className="rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition">
+                                                {acting ? "Menyimpan..." : "Simpan"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <p className="text-[11px] text-slate-400 uppercase">Pengaju</p>
+                                            <p className="font-semibold text-slate-700">{toTitleCase(data.pengaju_name) || "—"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] text-slate-400 uppercase">Departemen</p>
+                                            <p className="font-semibold text-slate-700">{toTitleCase(data.department_name) || "—"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] text-slate-400 uppercase">Kategori</p>
+                                            <p className="font-semibold text-slate-700">{toTitleCase(data.company_name) || "—"}</p>
+                                        </div>
+                                        {(data.outlet_name || Number(data.company_id) === 5) && (
+                                            <div>
+                                                <p className="text-[11px] text-slate-400 uppercase">Outlet</p>
+                                                <p className="font-semibold text-slate-700">
+                                                    {data.outlet_name ? toTitleCase(data.outlet_name) : "Seluruh Outlet"}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -663,7 +944,11 @@ export default function PengajuanDetailModal({
                                                      setEditPayOpen(true);
                                                      setPayNB(formatRupiah(String(data.nominal_bayar || 0)));
                                                      setPayAdminFee(data.admin_fee ? formatRupiah(String(data.admin_fee)) : "");
-                                                     setPayClass(String(data.classification_id || ""));
+                                                     setPayClass(
+                                                         (data.classifications || []).length
+                                                             ? data.classifications.map(c => String(c.id))
+                                                             : (data.classification_id ? [String(data.classification_id)] : [])
+                                                     );
                                                      setPayMethod(data.payment_method || "");
                                                      api("/pengajuan/classifications").then(r => setClassificationList(r.data || [])).catch(() => {});
                                                  }} className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold hover:underline">
@@ -709,24 +994,24 @@ export default function PengajuanDetailModal({
                                                          {!isReimburse && <option value="kredit">Kredit</option>}
                                                      </select>
                                                  </div>
-                                                 <div>
+                                                 <div className="sm:col-span-2">
                                                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
-                                                     <select
-                                                         className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-cyan-200"
-                                                         value={payClassification} onChange={e => setPayClass(e.target.value)}>
-                                                         <option value="">— Pilih —</option>
-                                                         {classificationList.map(c => (
-                                                             <option key={c.id} value={c.id}>{c.classification_name}</option>
-                                                         ))}
-                                                     </select>
+                                                     <ClassificationPicker
+                                                         options={classificationList}
+                                                         value={payClassification}
+                                                         onChange={setPayClass}
+                                                         custom={classCustom}
+                                                         onCustomChange={setClassCustom}
+                                                         onAddCustom={doAddClassification}
+                                                         adding={classAdding} />
                                                  </div>
                                                  <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
-                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass(""); setPayMethod(""); }}
+                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayMethod(""); }}
                                                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" disabled={acting}>
                                                          Batal
                                                      </button>
                                                      <button onClick={doUpdatePaymentInfo}
-                                                         className="rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition" disabled={acting || !payNominalBayar || !payMethod || !payClassification}>
+                                                         className="rounded-lg bg-cyan-600 px-3 py-1 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition" disabled={acting || !payNominalBayar || !payMethod || !payClassification.length}>
                                                          {acting ? "Menyimpan..." : "Simpan"}
                                                      </button>
                                                  </div>
@@ -751,7 +1036,17 @@ export default function PengajuanDetailModal({
                                                  </div>
                                                  <div>
                                                      <p className="text-[11px] text-slate-400 uppercase">Klasifikasi</p>
-                                                     <p className="font-semibold text-slate-700">{data.classification_name || "—"}</p>
+                                                     {(data.classifications || []).length ? (
+                                                         <div className="flex flex-wrap gap-1 mt-0.5">
+                                                             {data.classifications.map(c => (
+                                                                 <span key={c.id} className="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
+                                                                     {c.classification_name}
+                                                                 </span>
+                                                             ))}
+                                                         </div>
+                                                     ) : (
+                                                         <p className="font-semibold text-slate-700">{data.classification_name || "—"}</p>
+                                                     )}
                                                  </div>
                                              </div>
                                          )}
@@ -778,7 +1073,7 @@ export default function PengajuanDetailModal({
                             )}
 
                             {/* attachments — klik untuk preview */}
-                            {attachments.length > 0 && (
+                            {(attachments.length > 0 || (myIsFinance && !readOnly)) && (
                                 <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4">
                                     <p className="text-[11px] text-slate-400 uppercase mb-2">Lampiran ({attachments.length})</p>
                                     <div className="grid grid-cols-2 gap-2">
@@ -831,12 +1126,33 @@ export default function PengajuanDetailModal({
                                                                 className="rounded p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
                                                                 <HiOutlineArrowDownTray className="h-3.5 w-3.5" />
                                                             </a>
+                                                            {myIsFinance && !readOnly && (
+                                                                <button onClick={() => doDeleteAttachment(a)} disabled={attBusy}
+                                                                    title="Hapus lampiran"
+                                                                    className="rounded p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition disabled:opacity-40">
+                                                                    <HiOutlineXMark className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
+
+                                    {myIsFinance && !readOnly && (
+                                        <div className="mt-3 border-t border-slate-100 pt-3">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Tambah / Ganti Lampiran</label>
+                                            <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" disabled={attBusy}
+                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-2 file:rounded file:border-0 file:bg-cyan-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-cyan-700 disabled:opacity-50"
+                                                onChange={e => {
+                                                    const incoming = Array.from(e.target.files || []).filter(f => f.size <= 10 * 1024 * 1024);
+                                                    e.target.value = "";
+                                                    if (incoming.length) doAddAttachments(incoming);
+                                                }} />
+                                            <p className="text-[10px] text-slate-400 mt-0.5">JPG/PNG/WEBP/PDF, maks 10 MB per file. Hapus lampiran = file terhapus permanen dari server.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1107,7 +1423,7 @@ export default function PengajuanDetailModal({
                                             : "Isi klasifikasi, metode pembayaran, catatan, dan lampirkan bukti pembayaran."}
                                     </p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div className="sm:col-span-2">
+                                        <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
                                                 Waktu Pembayaran <span className="text-rose-500">*</span>
                                             </label>
@@ -1116,22 +1432,11 @@ export default function PengajuanDetailModal({
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
                                                 value={payPaidAt}
                                                 onChange={e => setPayPaidAt(e.target.value)}
-                                                onClick={e => { if (!payPaidAt) setPayPaidAt(nowDatetimeLocal()); }}
+                                                onClick={() => { if (!payPaidAt) setPayPaidAt(nowDatetimeLocal()); }}
                                             />
                                             <p className="text-[10px] text-slate-400 mt-0.5">
                                                 Tanggal &amp; jam aktual pembayaran dilakukan. Default ke sekarang jika dikosongkan.
                                             </p>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
-                                            <select
-                                                className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-200"
-                                                value={payClassification} onChange={e => setPayClass(e.target.value)}>
-                                                <option value="">— Pilih —</option>
-                                                {classificationList.map(c => (
-                                                    <option key={c.id} value={c.id}>{c.classification_name}</option>
-                                                ))}
-                                            </select>
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Metode Pembayaran <span className="text-rose-500">*</span></label>
@@ -1146,6 +1451,17 @@ export default function PengajuanDetailModal({
                                             {isReimburse && payMethod === "" && (
                                                 <p className="text-[10px] text-amber-600 mt-0.5">Reimburse hanya cash</p>
                                             )}
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Klasifikasi <span className="text-rose-500">*</span></label>
+                                            <ClassificationPicker
+                                                options={classificationList}
+                                                value={payClassification}
+                                                onChange={setPayClass}
+                                                custom={classCustom}
+                                                onCustomChange={setClassCustom}
+                                                onAddCustom={doAddClassification}
+                                                adding={classAdding} />
                                         </div>
                                         {payMethod === "kredit" && (
                                             <>
@@ -1262,11 +1578,11 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass(""); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
-                                        <button onClick={doPayment} disabled={acting || !payClassification || !payMethod || !payFiles.length || (payMethod === "kredit" && (!payTerminValue || !payTerminUnit))}
+                                        <button onClick={doPayment} disabled={acting || !payClassification.length || !payMethod || !payFiles.length || (payMethod === "kredit" && (!payTerminValue || !payTerminUnit))}
                                             className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 transition">
                                             {acting ? "Memproses..." : isReimburse ? "Bayar & Selesaikan" : "Konfirmasi Pembayaran"}
                                         </button>
@@ -1437,7 +1753,7 @@ export default function PengajuanDetailModal({
                                         setClassificationList(list);
                                         if (isReimburse) {
                                             const exp = list.find(c => c.classification_name?.toLowerCase() === "expense");
-                                            if (exp) setPayClass(String(exp.id));
+                                            if (exp) setPayClass([String(exp.id)]);
                                         }
                                     }).catch(() => {});
                                     if (isReimburse) { setPayMethod("cash"); }

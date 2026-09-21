@@ -207,14 +207,15 @@ function PinEditor({
                         onClick={(e) => e.stopPropagation()}
                     >
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                            PIN Kasir (digit bebas)
+                            PIN Kasir (4 digit)
                         </p>
                         <input
                             type="text"
                             inputMode="numeric"
                             autoFocus
                             value={value}
-                            onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+                            onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            maxLength={4}
                             placeholder="Contoh: 1234"
                             className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-center text-sm font-mono font-bold tracking-widest text-slate-800 outline-none focus:border-[#5f1340]"
                         />
