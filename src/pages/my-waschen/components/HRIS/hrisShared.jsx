@@ -153,6 +153,9 @@ export function AbsensiMobileCard({ row, onViewPhoto, mapsLink, onEdit, onDelete
         <div className="rounded-lg bg-slate-50 px-2.5 py-2">
           <p className="text-[10px] font-bold uppercase text-slate-400">Masuk</p>
           <p className="mt-0.5 text-slate-700">{fmtDateTime(row.check_in_time)}</p>
+          {row.check_in_note && (
+            <p className="mt-0.5 text-[10px] text-slate-500 leading-snug break-words">{row.check_in_note}</p>
+          )}
           <div className="mt-1.5 flex items-center gap-2">
             <PhotoThumb url={row.check_in_photo_url} label="Foto masuk" onView={onViewPhoto} />
             {mapsLink?.(row.check_in_lat, row.check_in_lng) && (
@@ -165,6 +168,9 @@ export function AbsensiMobileCard({ row, onViewPhoto, mapsLink, onEdit, onDelete
         <div className="rounded-lg bg-slate-50 px-2.5 py-2">
           <p className="text-[10px] font-bold uppercase text-slate-400">Keluar</p>
           <p className="mt-0.5 text-slate-700">{fmtDateTime(row.check_out_time)}</p>
+          {row.check_out_note && (
+            <p className="mt-0.5 text-[10px] text-slate-500 leading-snug break-words">{row.check_out_note}</p>
+          )}
           <div className="mt-1.5 flex items-center gap-2">
             <PhotoThumb url={row.check_out_photo_url} label="Foto keluar" onView={onViewPhoto} />
             {mapsLink?.(row.check_out_lat, row.check_out_lng) && (

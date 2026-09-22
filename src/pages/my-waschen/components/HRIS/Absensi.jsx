@@ -551,11 +551,25 @@ export default function Absensi() {
                         <p className="font-semibold text-slate-800">{fmtEmployeeName(r.employee_name)}</p>
                         {r.employee_code && <p className="text-[10px] text-slate-400">{r.employee_code}</p>}
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateTime(r.check_in_time)}</td>
+                      <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                        {fmtDateTime(r.check_in_time)}
+                        {r.check_in_note && (
+                          <p className="mt-0.5 max-w-[200px] truncate whitespace-normal text-[10px] font-medium text-slate-400" title={r.check_in_note}>
+                            {r.check_in_note}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3.5 text-center">
                         <PhotoThumb url={r.check_in_photo_url} label="Foto masuk" onView={setPhotoView} />
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateTime(r.check_out_time)}</td>
+                      <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                        {fmtDateTime(r.check_out_time)}
+                        {r.check_out_note && (
+                          <p className="mt-0.5 max-w-[200px] truncate whitespace-normal text-[10px] font-medium text-slate-400" title={r.check_out_note}>
+                            {r.check_out_note}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3.5 text-center">
                         <PhotoThumb url={r.check_out_photo_url} label="Foto keluar" onView={setPhotoView} />
                       </td>
@@ -650,6 +664,23 @@ export default function Absensi() {
                       </span>
                     </div>
                   </div>
+
+                  {(detailRow.check_in_note || detailRow.check_out_note) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                        <p className="text-[10px] uppercase text-slate-400 font-bold">Catatan Masuk</p>
+                        <p className="mt-0.5 text-slate-700 leading-snug whitespace-pre-wrap break-words">
+                          {detailRow.check_in_note || "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                        <p className="text-[10px] uppercase text-slate-400 font-bold">Catatan Pulang</p>
+                        <p className="mt-0.5 text-slate-700 leading-snug whitespace-pre-wrap break-words">
+                          {detailRow.check_out_note || "—"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
                     <button
