@@ -92,6 +92,7 @@ import PengajuanAlora from "./pages/pengajuan-alora";
 import DashboardPengajuan from "./pages/pengajuan-alora/pages/DashboardPengajuan";
 import PengajuanBarang from "./pages/pengajuan-alora/pages/PengajuanBarang";
 import FormPengajuan from "./pages/pengajuan-alora/pages/FormPengajuan";
+import MasterClassification from "./pages/pengajuan-alora/pages/MasterClassification";
 import DocumentAlora from "./pages/document-alora";
 import MasterDocument from "./pages/document-alora/components/MasterDocument";
 import TransDocument from "./pages/document-alora/components/TransDocument";
@@ -153,6 +154,7 @@ import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
 import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
+import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -565,6 +567,7 @@ export default function App() {
           <Route path="/pengajuan-alora" element={<DashboardPengajuan />} />
           <Route path="/pengajuan-alora/list" element={<PengajuanBarang />} />
           <Route path="/pengajuan-alora/form" element={<FormPengajuan />} />
+          <Route path="/pengajuan-alora/master-klasifikasi" element={<MasterClassification />} />
         </Route>
 
         {/* ── Document Alora ── */}
@@ -685,6 +688,7 @@ export default function App() {
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
           <Route path="/my-waschen/master/day-off-policy" element={<DayOffPolicyMaster />} />
+          <Route path="/my-waschen/master/absen-shift" element={<MasterAbsenShift />} />
           <Route path="/my-waschen/inventory/dashboard" element={<DashboardInventory />} />
           <Route path="/my-waschen/inventory" element={<InventoryPage />} />
         </Route>

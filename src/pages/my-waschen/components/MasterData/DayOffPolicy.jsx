@@ -87,7 +87,7 @@ export default function DayOffPolicy() {
       <div className="rounded-2xl border bg-white overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr>
-            <th className="px-4 py-3 text-left">Outlet</th><th className="px-4 py-3 text-left">Role</th><th className="px-4 py-3 text-center">Max/Bulan</th><th className="px-4 py-3 text-center">Min H-x</th><th className="px-4 py-3 text-center">Lampau</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-right">Aksi</th>
+            <th className="px-4 py-3 text-left">Outlet</th><th className="px-4 py-3 text-left">Posisi</th><th className="px-4 py-3 text-center">Max/Bulan</th><th className="px-4 py-3 text-center">Min H-x</th><th className="px-4 py-3 text-center">Lampau</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-right">Aksi</th>
           </tr></thead>
           <tbody>
             {loading ? <tr><td colSpan={7} className="py-8 text-center text-slate-400">Memuat...</td></tr>

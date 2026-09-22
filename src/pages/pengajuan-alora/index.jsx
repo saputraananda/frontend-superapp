@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     HiOutlineArrowLeft,
@@ -7,6 +7,7 @@ import {
     HiOutlineXMark,
     HiOutlineDocumentPlus,
     HiOutlineSquares2X2,
+    HiOutlineTag,
 } from "react-icons/hi2";
 
 function cn(...classes) { return classes.filter(Boolean).join(" "); }
@@ -26,6 +27,32 @@ const MENU_ITEMS = [
         description: "Riwayat & approval",
     },
 ];
+
+// Menu khusus Tim Finance
+const MASTER_MENU_ITEMS = [
+    {
+        to: "/pengajuan-alora/master-klasifikasi",
+        icon: HiOutlineTag,
+        label: "Master Klasifikasi",
+        description: "Klasifikasi pembelian",
+    },
+];
+
+const ALL_MENU_ITEMS = [...MENU_ITEMS, ...MASTER_MENU_ITEMS];
+
+// Finance = position mengandung finance/accounting (termasuk typo "accountiing" di DB)
+function useIsFinance() {
+    return useMemo(() => {
+        try {
+            const raw = localStorage.getItem("user");
+            const pos = (raw ? JSON.parse(raw)?.employee?.position_name : "") || "";
+            const p = pos.toLowerCase();
+            return p.includes("finance") || p.includes("accounting") || p.includes("accountiing");
+        } catch {
+            return false;
+        }
+    }, []);
+}
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
     return (
@@ -71,6 +98,7 @@ function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }
 
 function Sidebar({ collapsed = false, onClose }) {
     const navigate = useNavigate();
+    const isFinance = useIsFinance();
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <div className={cn("flex items-center border-b border-slate-100 py-4",
@@ -109,6 +137,17 @@ function Sidebar({ collapsed = false, onClose }) {
                 {MENU_ITEMS.map(item => (
                     <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
                 ))}
+
+                {isFinance && (
+                    <>
+                        {collapsed
+                            ? <div className="my-2 border-t border-slate-100" />
+                            : <p className="px-2 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Master</p>}
+                        {MASTER_MENU_ITEMS.map(item => (
+                            <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+                        ))}
+                    </>
+                )}
             </nav>
 
             <div className={cn("border-t border-slate-100 py-3", collapsed ? "px-1.5" : "px-3")}>
@@ -142,8 +181,8 @@ function ActiveMenuTitle() {
         );
     }
     const active =
-        MENU_ITEMS.find(m => m.end && pathname === m.to) ??
-        MENU_ITEMS.find(m => !m.end && pathname.startsWith(m.to));
+        ALL_MENU_ITEMS.find(m => m.end && pathname === m.to) ??
+        ALL_MENU_ITEMS.find(m => !m.end && pathname.startsWith(m.to));
     const label       = active?.label       ?? "Pengajuan Alora";
     const description = active?.description ?? "Pengadaan & Reimbursement";
     const Icon        = active?.icon        ?? HiOutlineClipboardDocumentList;

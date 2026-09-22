@@ -198,7 +198,7 @@ function ItemWorkersRow({ workers }) {
         <span
           key={`${w.stage}-${w.employee_id}`}
           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600"
-          title={w.role_used ? `Role: ${w.role_used}` : undefined}
+          title={w.role_used ? `Posisi: ${w.role_used}` : undefined}
         >
           <HiOutlineUser className="h-3 w-3 text-[#5f1340]/70 shrink-0" />
           <span className="text-slate-400">{w.stage_label || STAGE_LABELS[w.stage] || w.stage}:</span>

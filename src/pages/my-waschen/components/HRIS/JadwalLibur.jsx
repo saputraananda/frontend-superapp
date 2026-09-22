@@ -52,12 +52,13 @@ export default function JadwalLibur() {
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ total: 0, pengajuan: 0, disetujui: 0, ditolak: 0 });
   const [employees, setEmployees] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("pengajuan");
+  const [statusFilter, setStatusFilter] = useState("Semua");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [dayRows, setDayRows] = useState([]);
   const [rescheduleRow, setRescheduleRow] = useState(null);
   const [newDate, setNewDate] = useState("");
   const [rejectRow, setRejectRow] = useState(null);
@@ -106,10 +107,20 @@ export default function JadwalLibur() {
 
   useEffect(() => { load(); }, [load]);
 
-  const dayRows = useMemo(() => {
-    if (!selectedDay) return [];
-    return rows.filter((r) => r.off_date === selectedDay);
-  }, [rows, selectedDay]);
+  // Baris untuk tanggal terpilih diambil terpisah TANPA filter status/outlet/role,
+  // supaya karyawan yang sudah punya jadwal (mis. 'disetujui') tetap terdeteksi
+  // dan tidak bisa di-assign ulang (UNIQUE employee_id+off_date → 409).
+  const loadDay = useCallback(async (dateStr) => {
+    if (!dateStr) return;
+    try {
+      const q = new URLSearchParams({ startDate: dateStr, endDate: dateStr });
+      const res = await api(`/waschen/hris/day-offs?${q}`);
+      setDayRows((res.data || []).filter((r) => r.off_date === dateStr));
+    } catch (err) {
+      showToast("error", err.message || "Gagal memuat jadwal tanggal ini");
+      setDayRows([]);
+    }
+  }, []);
 
   const takenEmployeeIds = useMemo(
     () => new Set(dayRows.map((r) => String(r.employee_id))),
@@ -130,13 +141,16 @@ export default function JadwalLibur() {
 
   const openDay = (dateStr) => {
     setSelectedDay(dateStr);
+    setDayRows([]);
     setPickedEmployees([]);
     setAssignReason("");
     setEmpSearch("");
+    loadDay(dateStr);
   };
 
   const closeDay = () => {
     setSelectedDay(null);
+    setDayRows([]);
     setPickedEmployees([]);
     setAssignReason("");
     setEmpSearch("");
@@ -155,6 +169,7 @@ export default function JadwalLibur() {
       await api(`/waschen/hris/day-offs/${id}/approve`, { method: "PATCH" });
       showToast("success", "Jadwal libur disetujui");
       load();
+      if (selectedDay) loadDay(selectedDay);
     } catch (err) {
       showToast("error", err.message);
     } finally {
@@ -174,6 +189,7 @@ export default function JadwalLibur() {
       setRejectRow(null);
       setRejectNote("");
       load();
+      if (selectedDay) loadDay(selectedDay);
     } catch (err) {
       showToast("error", err.message);
     } finally {
@@ -193,6 +209,7 @@ export default function JadwalLibur() {
       setRescheduleRow(null);
       setNewDate("");
       load();
+      if (selectedDay) loadDay(selectedDay);
     } catch (err) {
       showToast("error", err.message);
     } finally {
@@ -228,6 +245,7 @@ export default function JadwalLibur() {
         setAssignReason("");
         load();
       }
+      loadDay(selectedDay);
       if (fail > 0) showToast("error", `${fail} karyawan gagal ditetapkan (mungkin sudah ada jadwal)`);
     } finally {
       setSubmitting(false);
