@@ -126,6 +126,7 @@ export default function PendapatanCleanox() {
 					endDate: end,
 					payment_status: "lunas",
 					service_mode: filters.serviceMode || "all",
+					date_by: "settled",
 				});
 				const response = await api(`/cleanox/riwayat-transaksi?${qs.toString()}`);
 				if (!cancelled) setLunasRows(response.data || []);
@@ -454,7 +455,7 @@ export default function PendapatanCleanox() {
 						<div>
 							<h2 className="text-base font-bold text-slate-800">Rincian Transaksi Lunas</h2>
 							<p className="mt-0.5 text-xs text-slate-500">
-								Transaksi POS sudah lunas pada periode aktif, beserta bukti pembayaran.
+								Transaksi POS sudah lunas berdasarkan tanggal pelunasan pada periode aktif, beserta bukti pembayaran.
 							</p>
 							<p className="mt-1 text-xs text-slate-400">
 								{lunasLoading ? "Memuat..." : `${lunasRows.length} transaksi`}
@@ -475,6 +476,9 @@ export default function PendapatanCleanox() {
 										title: "Pendapatan Cleanox — Transaksi Lunas",
 										filePrefix: "Pendapatan_Cleanox_Lunas",
 										sheetName: "Lunas",
+										dateField: "payment_settled_date",
+										dateHeader: "TGL PELUNASAN",
+										includeRekonsiliasi: true,
 									});
 								} catch (err) {
 									alert("Gagal export: " + (err.message || "unknown"));
@@ -497,7 +501,7 @@ export default function PendapatanCleanox() {
 										Customer
 									</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Tgl Layanan
+										Tgl Pelunasan
 									</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
 										Kategori
@@ -540,7 +544,7 @@ export default function PendapatanCleanox() {
 												<div className="text-xs text-slate-400">{row.customer_phone || "-"}</div>
 											</td>
 											<td className="whitespace-nowrap px-4 py-3 text-slate-600">
-												{formatDate(row.service_date)}
+												{formatDate(row.payment_settled_date)}
 											</td>
 											<td className="whitespace-nowrap px-4 py-3 text-slate-600">
 												{row.kategori || "-"}
