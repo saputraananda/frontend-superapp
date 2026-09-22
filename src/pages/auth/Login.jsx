@@ -14,6 +14,17 @@ const HERO_PHRASES = [
     { text: "Laporan Leader? Satu Klik!", highlight: "Satu Klik", color: "text-orange-500" },
 ];
 
+// PRECISE values - akronim dari 7 nilai perusahaan
+const PRECISE_VALUES = [
+    { letter: "P", word: "Professionalism" },
+    { letter: "R", word: "Resilience" },
+    { letter: "E", word: "Empathy" },
+    { letter: "C", word: "Collaboration" },
+    { letter: "I", word: "Innovation" },
+    { letter: "S", word: "Sustainability" },
+    { letter: "E", word: "Excellence" },
+];
+
 export default function Login({ onLogin }) {
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
@@ -34,16 +45,6 @@ export default function Login({ onLogin }) {
     const [heroText, setHeroText] = useState("");
     const [heroFading, setHeroFading] = useState(false);
 
-    // PRECISE values - akronim dari 7 nilai perusahaan
-    const PRECISE_VALUES = [
-        { letter: "P", word: "Professionalism" },
-        { letter: "R", word: "Resilience" },
-        { letter: "E", word: "Empathy" },
-        { letter: "C", word: "Collaboration" },
-        { letter: "I", word: "Innovation" },
-        { letter: "S", word: "Sustainability" },
-        { letter: "E", word: "Excellence" },
-    ];
     // 0 = tampilkan akronim PRECISE penuh, 1..7 = highlight per huruf + tampilkan kata
     const [valueStep, setValueStep] = useState(0);
 

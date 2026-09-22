@@ -179,7 +179,6 @@ export default function DailyTasksCard() {
       const calculated = Math.floor(availableHeight / ITEM_HEIGHT_ESTIMATE);
       // Clamp antara MIN_PER_PAGE dan 8 (agar tidak terlalu banyak)
       const optimal = Math.max(MIN_PER_PAGE, Math.min(8, calculated));
-      console.log(`[DailyTasks] viewport=${viewportHeight}px, available=${availableHeight}px, itemsPerPage=${optimal}`);
       setItemsPerPage(optimal);
     };
 

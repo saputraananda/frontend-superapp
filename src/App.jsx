@@ -190,9 +190,23 @@ export default function App() {
       }
     };
 
-    const loadRoles = async () => {
+    checkAuth();
+  }, []);
+
+  // Otorisasi hanya bisa diambil setelah ada sesi; fetch ulang tiap user berubah
+  // (login/logout), bukan sekali saat mount.
+  useEffect(() => {
+    if (!user) {
+      setAppRoles({});
+      setRolesLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setRolesLoaded(false);
+    (async () => {
       try {
         const data = await api("/apps/authorization");
+        if (cancelled) return;
         const mapping = {};
         data.forEach((app) => {
           mapping[app.path] = app.authorization
@@ -201,15 +215,15 @@ export default function App() {
         });
         setAppRoles(mapping);
       } catch {
-        setAppRoles({});
+        if (!cancelled) setAppRoles({});
       } finally {
-        setRolesLoaded(true);
+        if (!cancelled) setRolesLoaded(true);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    checkAuth();
-    loadRoles();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (authChecked && rolesLoaded) {
