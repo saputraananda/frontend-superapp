@@ -83,6 +83,11 @@ const formatRp = (v) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
         .format(Number(v) || 0);
 
+const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 const formatDate = (s) => {
     if (!s) return "—";
     const d = new Date(s);
@@ -114,28 +119,95 @@ function Toast({ toast }) {
     );
 }
 
-// ── Period filter (hanya untuk mode department & me) ──────────────────────────
-function PeriodFilter({ period }) {
+// ── Date filter: cutoff / rentang tanggal / satu hari / semua ────────────────
+const DATE_MODES = [
+    { key: "cutoff", label: "Cutoff" },
+    { key: "range",  label: "Rentang Tanggal" },
+    { key: "single", label: "Satu Hari" },
+    { key: "all",    label: "Semua" },
+];
+
+const INPUT_CLS = "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition";
+
+function DateFilter({
+    period,
+    dateMode, setDateMode,
+    customFrom, setCustomFrom,
+    customTo, setCustomTo,
+    singleDate, setSingleDate,
+}) {
     const { years, months, selectedYear, selectedMonth, handleYearChange, setSelectedMonth, monthLabel, rangeLabelShort } = period;
+
     return (
         <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
                 <HiOutlineCalendarDays className="h-3.5 w-3.5" />
-                <span className="font-semibold">Cutoff:</span>
+                <span className="font-semibold">Filter Tanggal:</span>
             </div>
-            <select value={selectedYear} onChange={e => handleYearChange(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-                {years.length === 0 && <option value={selectedYear}>{selectedYear}</option>}
-            </select>
-            <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
-                {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
-                {months.length === 0 && <option value={selectedMonth}>{monthLabel(selectedMonth)}</option>}
-            </select>
-            {rangeLabelShort && (
-                <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5 hidden sm:inline">
-                    {rangeLabelShort}
+
+            {/* mode switcher */}
+            <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5">
+                {DATE_MODES.map(m => (
+                    <button key={m.key} type="button" onClick={() => setDateMode(m.key)}
+                        className={cn(
+                            "rounded-[10px] px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap",
+                            dateMode === m.key
+                                ? "bg-emerald-600 text-white shadow-sm"
+                                : "text-slate-600 hover:bg-slate-50"
+                        )}>
+                        {m.label}
+                    </button>
+                ))}
+            </div>
+
+            {dateMode === "cutoff" && (
+                <>
+                    <select value={selectedYear} onChange={e => handleYearChange(e.target.value)} className={INPUT_CLS}>
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                        {years.length === 0 && <option value={selectedYear}>{selectedYear}</option>}
+                    </select>
+                    <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className={INPUT_CLS}>
+                        {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+                        {months.length === 0 && <option value={selectedMonth}>{monthLabel(selectedMonth)}</option>}
+                    </select>
+                    {rangeLabelShort && (
+                        <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5 hidden sm:inline">
+                            {rangeLabelShort}
+                        </span>
+                    )}
+                </>
+            )}
+
+            {dateMode === "range" && (
+                <>
+                    <input type="date" value={customFrom} max={customTo || undefined}
+                        onChange={e => setCustomFrom(e.target.value)} className={INPUT_CLS} />
+                    <span className="text-xs font-semibold text-slate-400">s/d</span>
+                    <input type="date" value={customTo} min={customFrom || undefined}
+                        onChange={e => setCustomTo(e.target.value)} className={INPUT_CLS} />
+                    {(!customFrom || !customTo) && (
+                        <span className="text-[11px] text-amber-600 bg-amber-50 rounded-full px-3 py-1.5">
+                            Pilih tanggal awal & akhir
+                        </span>
+                    )}
+                </>
+            )}
+
+            {dateMode === "single" && (
+                <>
+                    <input type="date" value={singleDate}
+                        onChange={e => setSingleDate(e.target.value)} className={INPUT_CLS} />
+                    {!singleDate && (
+                        <span className="text-[11px] text-amber-600 bg-amber-50 rounded-full px-3 py-1.5">
+                            Pilih tanggal
+                        </span>
+                    )}
+                </>
+            )}
+
+            {dateMode === "all" && (
+                <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1.5">
+                    Menampilkan semua periode
                 </span>
             )}
         </div>
@@ -180,7 +252,11 @@ export default function PengajuanBarang() {
     const [filterStatus, setFS]   = useState("");
     const [filterType, setFT]     = useState("");
     const [filterMethod, setFM]   = useState("");
-    const [showAllDates, setShowAllDates] = useState(false);
+    // date filter: "cutoff" | "range" | "single" | "all"
+    const [dateMode, setDateMode]     = useState("cutoff");
+    const [customFrom, setCustomFrom] = useState(todayStr());
+    const [customTo, setCustomTo]     = useState(todayStr());
+    const [singleDate, setSingleDate] = useState(todayStr());
     const [toast, setToast]       = useState(null);
     const [detailId, setDetailId] = useState(null);
     const [prDocId, setPrDocId]   = useState(null);
@@ -198,7 +274,13 @@ export default function PengajuanBarang() {
         ? "all"
         : (mode === "approval" ? "approval" : mode);
     const period      = useCutoffPeriod(periodScope);
-    const usePeriod   = true;
+
+    // rentang tanggal efektif yang dikirim ke backend
+    let effFrom = "", effTo = "";
+    if (dateMode === "cutoff")      { effFrom = period.dateFrom; effTo = period.dateTo; }
+    else if (dateMode === "range")  { effFrom = customFrom;      effTo = customTo; }
+    else if (dateMode === "single") { effFrom = singleDate;      effTo = singleDate; }
+    const useDateFilter = dateMode !== "all";
 
     const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
 
@@ -209,8 +291,8 @@ export default function PengajuanBarang() {
     }, [searchInput]);
 
     // reset page saat mode / period berubah
-    useEffect(() => { setPage(1); setShowAllDates(false); setSelectedDeptId(""); }, [mode]);
-    useEffect(() => { if (!showAllDates) setPage(1); }, [period.dateFrom, period.dateTo]);
+    useEffect(() => { setPage(1); setDateMode("cutoff"); setSelectedDeptId(""); }, [mode]);
+    useEffect(() => { setPage(1); }, [dateMode, effFrom, effTo]);
 
     // fetch departments list for filter
     useEffect(() => {
@@ -227,7 +309,7 @@ export default function PengajuanBarang() {
 
     // ── load list ────────────────────────────────────────────────────────────
     const loadList = useCallback(async (silent = false) => {
-        if (usePeriod && !showAllDates && !period.dateFrom) return;
+        if (useDateFilter && (!effFrom || !effTo)) return;
         if (!silent) setLoading(true);
         try {
             const params = new URLSearchParams({ page, limit: LIMIT });
@@ -238,9 +320,9 @@ export default function PengajuanBarang() {
             if (mode === "all" && selectedDeptId) {
                 params.set("department_id", selectedDeptId);
             }
-            if (usePeriod && !showAllDates) {
-                params.set("date_from", period.dateFrom);
-                params.set("date_to",   period.dateTo);
+            if (useDateFilter) {
+                params.set("date_from", effFrom);
+                params.set("date_to",   effTo);
             }
 
             const endpoints = {
@@ -260,7 +342,7 @@ export default function PengajuanBarang() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [mode, page, search, filterStatus, filterType, filterMethod, selectedDeptId, usePeriod, showAllDates, period.dateFrom, period.dateTo, limit]);
+    }, [mode, page, search, filterStatus, filterType, filterMethod, selectedDeptId, useDateFilter, effFrom, effTo, limit]);
 
     useEffect(() => { loadList(); }, [loadList]);
 
@@ -323,7 +405,11 @@ export default function PengajuanBarang() {
         if (!data.length) return showToast("error", "Tidak ada data untuk diexport");
         exportPengajuanExcel({
             records: data,
-            periodLabel: period.periodLabel || "",
+            periodLabel:
+                dateMode === "all"    ? "Semua Periode"
+              : dateMode === "single" ? formatDate(singleDate)
+              : dateMode === "range"  ? `${formatDate(customFrom)} s/d ${formatDate(customTo)}`
+              : (period.periodLabel || ""),
             filters: {
                 type: filterType || null,
                 status: filterStatus || null,
@@ -499,16 +585,13 @@ export default function PengajuanBarang() {
 
             {/* ── Period filter ── */}
             <div className="flex items-center gap-3 flex-wrap">
-                {!showAllDates && <PeriodFilter period={period} />}
-                <button onClick={() => { setShowAllDates(prev => !prev); setPage(1); }}
-                    className={cn(
-                        "rounded-xl border px-3.5 py-2 text-xs font-semibold transition",
-                        showAllDates
-                            ? "bg-emerald-600 border-emerald-600 text-white"
-                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                    )}>
-                    {showAllDates ? "✓ Semua Periode" : "Tampilkan Semua"}
-                </button>
+                <DateFilter
+                    period={period}
+                    dateMode={dateMode} setDateMode={setDateMode}
+                    customFrom={customFrom} setCustomFrom={setCustomFrom}
+                    customTo={customTo}     setCustomTo={setCustomTo}
+                    singleDate={singleDate} setSingleDate={setSingleDate}
+                />
             </div>
 
             {/* ── Search + filters ── */}
