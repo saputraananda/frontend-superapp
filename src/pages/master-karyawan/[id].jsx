@@ -333,6 +333,14 @@ const selectCls = () => cn(
   "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
 );
 
+function formatSalaryDisplay(value) {
+  if (value === "" || value == null) return "";
+  const s = String(value).trim();
+  const n = /^\d+(\.\d+)?$/.test(s) ? Math.round(Number(s)) : Number(s.replace(/\D/g, ""));
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("id-ID");
+}
+
 function Field({ label, required, hint, error, children }) {
   return (
     <div>
@@ -1241,6 +1249,25 @@ export default function EmployeeDetail() {
                   {/* ── FINANCIAL ── */}
                   {activeTab === "financial" && (
                     <>
+                      <Panel title="Gaji Pokok">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                          <Field label="Gaji Pokok (Rp)" hint="Wajib diisi untuk karyawan Waschen. Limit kasbon dan pinjaman adalah 50% dari gaji pokok.">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              name="basic_salary"
+                              value={formatSalaryDisplay(formData.basic_salary)}
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(/\D/g, "");
+                                setFormData((p) => ({ ...p, basic_salary: digits }));
+                              }}
+                              className={inputCls(false)}
+                              placeholder="Contoh: 2.000.000"
+                            />
+                          </Field>
+                        </div>
+                      </Panel>
                       <Panel title="Informasi Rekening">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                           <Field label="Bank">

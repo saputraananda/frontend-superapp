@@ -61,18 +61,19 @@ export function MobileSkeleton({ count = 4, className = "h-28" }) {
   );
 }
 
-export function SortTh({ col, label, sort, onSort, className = "" }) {
+export function SortTh({ col, label, sort, onSort, className = "", align = "start" }) {
   const active = sort.col === col;
   return (
     <th
       className={cn(
         "px-4 py-3 font-semibold cursor-pointer select-none whitespace-nowrap transition-colors hover:bg-slate-100/80",
+        align === "center" && "text-center",
         active ? "text-[#5f1340] bg-[#5f1340]/5" : "",
         className,
       )}
       onClick={() => onSort(col)}
     >
-      <div className="flex items-center gap-1">
+      <div className={cn("flex items-center gap-1", align === "center" && "justify-center", align === "end" && "justify-end")}>
         {label}
         {active
           ? sort.dir === "asc"
@@ -268,15 +269,15 @@ export function KasbonMobileCard({ row, onDetail, onProcess, onApprove, onReject
         <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", kasbonStatusBadge(row.status))}>{capitalizeStatus(row.status)}</span>
         <PhotoThumb url={row.proof_url} label="Bukti" onView={onViewPhoto} />
       </div>
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button type="button" onClick={() => onDetail(row.id)} className="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-slate-600">Detail</button>
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        <button type="button" onClick={() => onDetail(row.id)} className="inline-flex items-center rounded-lg border border-blue-100 bg-blue-50/60 px-2.5 py-1.5 text-xs font-semibold text-blue-700">Detail</button>
         {row.status === "pengajuan" && (
-          <button type="button" disabled={submitting} onClick={() => onProcess(row.id)} className="rounded-lg bg-sky-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">Proses</button>
+          <button type="button" disabled={submitting} onClick={() => onProcess(row.id)} className="inline-flex items-center rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky-700 disabled:opacity-50">Proses</button>
         )}
         {(row.status === "pengajuan" || row.status === "proses") && (
           <>
-            <button type="button" disabled={submitting} onClick={() => onApprove(row.id)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">Setujui</button>
-            <button type="button" disabled={submitting} onClick={() => onReject(row)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-[11px] font-bold text-rose-600 disabled:opacity-50">Tolak</button>
+            <button type="button" disabled={submitting} onClick={() => onApprove(row.id)} className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50">Setujui</button>
+            <button type="button" disabled={submitting} onClick={() => onReject(row)} className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 disabled:opacity-50">Tolak</button>
           </>
         )}
       </div>

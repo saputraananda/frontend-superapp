@@ -4,8 +4,6 @@ import { api } from "../../../lib/api";
 import {
     HiOutlineDocumentPlus,
     HiOutlineCreditCard,
-    HiOutlineClock,
-    HiOutlineCheckCircle,
     HiOutlineArrowRight,
     HiOutlineBuildingOffice2,
     HiOutlineExclamationTriangle,
@@ -41,16 +39,6 @@ const STATUS_CONFIG = {
     9: { label: "Ditolak",              cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 
-const STATUS_BAR = [
-    { key: 1, label: "Diajukan",  bar: "bg-amber-400" },
-    { key: 2, label: "Acc SPV",   bar: "bg-blue-400" },
-    { key: 4, label: "PR Ready",  bar: "bg-indigo-400" },
-    { key: 5, label: "Mng Bayar", bar: "bg-orange-400" },
-    { key: 6, label: "Terbayar",  bar: "bg-cyan-500" },
-    { key: 7, label: "Selesai",   bar: "bg-emerald-500" },
-    { key: 9, label: "Ditolak",   bar: "bg-rose-400" },
-];
-
 const formatRupiah = (v) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
         .format(Number(v) || 0);
@@ -72,54 +60,27 @@ const isFinanceOrGAPosition = (positionName) => {
 };
 
 // ── StatCard ─────────────────────────────────────────────────────────────────
-function StatCard({ icon: Icon, label, value, sub, iconBg, iconText, onClick, active }) {
+function StatCard({ icon: Icon, label, value, sub, iconBg, iconText, onClick, active, large }) {
     const Component = onClick ? "button" : "div";
     return (
         <Component
             onClick={onClick}
             className={cn(
-                "bg-white rounded-2xl border shadow-lg shadow-slate-300/40 p-5 flex items-start gap-4 text-left w-full transition",
+                "bg-white rounded-2xl border shadow-lg shadow-slate-300/40 flex items-start gap-4 text-left w-full transition",
+                large ? "p-4" : "p-5",
                 onClick && "cursor-pointer hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0",
                 active ? "border-cyan-400 ring-2 ring-cyan-200" : "border-slate-200/80",
             )}
         >
-            <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", iconBg)}>
-                <Icon className={cn("h-5 w-5", iconText)} />
+            <div className={cn("flex shrink-0 items-center justify-center rounded-xl", large ? "h-10 w-10" : "h-11 w-11", iconBg)}>
+                <Icon className={cn(large ? "h-5 w-5" : "h-5 w-5", iconText)} />
             </div>
             <div className="min-w-0">
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider leading-none">{label}</p>
-                <p className="text-2xl font-bold text-slate-800 mt-1.5 leading-none">{value}</p>
-                {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+                <p className={cn("font-bold text-slate-800 mt-1.5 leading-none tabular-nums", large ? "text-lg sm:text-xl" : "text-2xl")}>{value}</p>
+                {sub && <p className="text-xs text-slate-500 mt-1.5">{sub}</p>}
             </div>
         </Component>
-    );
-}
-
-// ── StatusBreakdown ───────────────────────────────────────────────────────────
-function StatusBreakdown({ title, total, byStatus }) {
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 p-5">
-            <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-slate-700">{title}</p>
-                <span className="text-[11px] text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">{total} total</span>
-            </div>
-            <div className="space-y-2.5">
-                {STATUS_BAR.map(({ key, label, bar }) => {
-                    const count = byStatus[key] || 0;
-                    const pct = total > 0 ? (count / total) * 100 : 0;
-                    return (
-                        <div key={key} className="flex items-center gap-2.5">
-                            <span className="w-[68px] shrink-0 text-[11px] text-slate-500">{label}</span>
-                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className={cn("h-full rounded-full transition-all duration-500", bar)}
-                                    style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="w-4 shrink-0 text-right text-[11px] font-semibold text-slate-600">{count}</span>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
     );
 }
 
@@ -171,8 +132,8 @@ export default function DashboardPengajuan() {
     const [summaryLoaded, setSummaryLoaded]   = useState(false); // first-load flag
     const [summary, setSummary] = useState({
         department: { id: null, name: "—" },
-        pengajuan:  { total: 0, byStatus: {}, totalNominal: 0 },
-        reimburse:  { total: 0, byStatus: {}, totalNominal: 0 },
+        pengajuan:  { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
+        reimburse:  { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
     });
 
     // ── Total Kredit (khusus finance/GA, dari endpoint credit) ───────────
@@ -232,8 +193,8 @@ export default function DashboardPengajuan() {
                 if (!cancel) {
                     setSummary({
                         department: d.department || { id: null, name: "—" },
-                        pengajuan:  d.summary?.pengajuan || { total: 0, byStatus: {}, totalNominal: 0 },
-                        reimburse:  d.summary?.reimburse || { total: 0, byStatus: {}, totalNominal: 0 },
+                        pengajuan:  d.summary?.pengajuan || { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
+                        reimburse:  d.summary?.reimburse || { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
                     });
                     setSummaryLoaded(true);
                 }
@@ -350,9 +311,13 @@ export default function DashboardPengajuan() {
 
     const totalPages    = Math.ceil(listTotal / LIMIT) || 1;
     const { pengajuan, reimburse } = summary;
-    const pendingTotal  = (pengajuan.byStatus[1] || 0) + (pengajuan.byStatus[2] || 0)
-                        + (reimburse.byStatus[1] || 0) + (reimburse.byStatus[2] || 0);
-    const approvedTotal = (pengajuan.byStatus[3] || 0) + (reimburse.byStatus[3] || 0);
+
+    // Status 4 ke atas = sudah disetujui sampai tahap finance (PR Ready, Menunggu Bayar, Terbayar, Selesai)
+    const FINANCE_STATUSES = [4, 5, 6, 7];
+    const pengajuanNominalFinance = FINANCE_STATUSES.reduce(
+        (sum, s) => sum + Number(pengajuan.nominalByStatus?.[s] || 0), 0);
+    const pengajuanCountFinance = FINANCE_STATUSES.reduce(
+        (sum, s) => sum + Number(pengajuan.byStatus?.[s] || 0), 0);
 
     const handleChangedRefresh = () => { setRefreshTick(t => t + 1); loadCredit(true); loadList(true); };
 
@@ -482,27 +447,21 @@ export default function DashboardPengajuan() {
 
             {/* ── Stat cards ── */}
             {(summaryLoading && !summaryLoaded) ? (
-                <div className={cn("grid grid-cols-2 gap-4", isFinanceOrGA ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
-                    {[...Array(isFinanceOrGA ? 5 : 4)].map((_, i) => (
-                        <div key={i} className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 p-5 h-24 animate-pulse" />
+                <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", isFinanceOrGA && "xl:grid-cols-3")}>
+                    {[...Array(isFinanceOrGA ? 3 : 2)].map((_, i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 p-5 h-28 animate-pulse" />
                     ))}
                 </div>
             ) : (
-                <div className={cn("grid grid-cols-2 gap-4", isFinanceOrGA ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
+                <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", isFinanceOrGA && "xl:grid-cols-3")}>
                     <StatCard icon={HiOutlineDocumentPlus} label="Pengajuan Barang"
-                        value={pengajuan.total}
-                        sub={`${pengajuan.byStatus[3] || 0} disetujui`}
-                        iconBg="bg-emerald-100" iconText="text-emerald-700" />
+                        value={formatRupiah(pengajuanNominalFinance)}
+                        sub={`${pengajuanCountFinance} pengajuan disetujui hingga finance · ${pengajuan.total} total`}
+                        iconBg="bg-emerald-100" iconText="text-emerald-700" large />
                     <StatCard icon={HiOutlineCreditCard} label="Reimburse"
-                        value={reimburse.total}
-                        sub={formatRupiah(reimburse.totalNominal)}
-                        iconBg="bg-teal-100" iconText="text-teal-700" />
-                    <StatCard icon={HiOutlineClock} label="Menunggu Approval"
-                        value={pendingTotal} sub="perlu tindak lanjut"
-                        iconBg="bg-amber-100" iconText="text-amber-700" />
-                    <StatCard icon={HiOutlineCheckCircle} label="Total Disetujui"
-                        value={approvedTotal} sub="lolos direktur"
-                        iconBg="bg-blue-100" iconText="text-blue-700" />
+                        value={formatRupiah(reimburse.totalNominal)}
+                        sub={`${reimburse.total} pengajuan`}
+                        iconBg="bg-teal-100" iconText="text-teal-700" large />
                     {isFinanceOrGA && (
                         <StatCard icon={HiOutlineBanknotes} label="Total Kredit"
                             value={creditSummary.countUnpaid}
@@ -529,21 +488,9 @@ export default function DashboardPengajuan() {
                     deptName={summary.department.name}
                 />
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* breakdown bars */}
-                    <div className="space-y-4">
-                        <StatusBreakdown
-                            title="Status Pengajuan Barang"
-                            total={pengajuan.total}
-                            byStatus={pengajuan.byStatus} />
-                        <StatusBreakdown
-                            title="Status Reimburse"
-                            total={reimburse.total}
-                            byStatus={reimburse.byStatus} />
-                    </div>
-
+                <div className="grid grid-cols-1 gap-5">
                     {/* department list */}
-                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 flex flex-col overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 flex flex-col overflow-hidden">
 
                         {/* list header + search/filter */}
                         <div className="px-5 pt-4 pb-3 border-b border-slate-100 space-y-3">
