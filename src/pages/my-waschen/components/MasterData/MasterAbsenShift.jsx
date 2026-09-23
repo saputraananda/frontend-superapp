@@ -13,6 +13,7 @@ import {
   HiOutlineBriefcase,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 
 function cn(...classes) {
@@ -117,8 +118,8 @@ export default function MasterAbsenShift() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [a, g, s] = await Promise.all([
         api("/waschen/hris/time-masters/attendance"),
@@ -131,10 +132,11 @@ export default function MasterAbsenShift() {
     } catch (err) {
       showToast(err.message || "Gagal memuat master jam", "error");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
+  useLiveRefresh(() => load(true));
   useEffect(() => {
     load();
   }, [load]);

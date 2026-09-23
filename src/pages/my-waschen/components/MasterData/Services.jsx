@@ -19,6 +19,7 @@ import {
   HiOutlineArchiveBox,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 
 function cn(...classes) {
@@ -162,8 +163,8 @@ export default function Services() {
     }
   };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const query = new URLSearchParams();
       if (search) query.set("search", search);
@@ -177,10 +178,11 @@ export default function Services() {
     } catch (err) {
       showToast(err.message, "error");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  useLiveRefresh(() => loadData(true));
   useEffect(() => {
     loadCategories();
     loadUnits();

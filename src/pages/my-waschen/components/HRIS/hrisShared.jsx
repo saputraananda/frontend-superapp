@@ -242,7 +242,7 @@ export function LeaveMobileCard({ row, onApprove, onReject, onViewPhoto, submitt
   );
 }
 
-export function KasbonMobileCard({ row, onDetail, onProcess, onApprove, onReject, onViewPhoto, submitting, cicilanPct }) {
+export function KasbonMobileCard({ row, onDetail, onApprove, onReject, onViewPhoto, submitting, cicilanPct }) {
   const pct = cicilanPct?.(row);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm space-y-3">
@@ -271,9 +271,6 @@ export function KasbonMobileCard({ row, onDetail, onProcess, onApprove, onReject
       </div>
       <div className="flex flex-wrap gap-1.5 pt-1">
         <button type="button" onClick={() => onDetail(row.id)} className="inline-flex items-center rounded-lg border border-blue-100 bg-blue-50/60 px-2.5 py-1.5 text-xs font-semibold text-blue-700">Detail</button>
-        {row.status === "pengajuan" && (
-          <button type="button" disabled={submitting} onClick={() => onProcess(row.id)} className="inline-flex items-center rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky-700 disabled:opacity-50">Proses</button>
-        )}
         {(row.status === "pengajuan" || row.status === "proses") && (
           <>
             <button type="button" disabled={submitting} onClick={() => onApprove(row.id)} className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50">Setujui</button>

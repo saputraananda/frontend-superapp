@@ -12,6 +12,7 @@ import {
   HiOutlineTableCells,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import HrisOutletRoleFilter from "../HrisOutletRoleFilter";
@@ -80,9 +81,9 @@ export default function Perizinan() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!startDate || !endDate) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams({ startDate, endDate });
       appendFilters(q);
@@ -93,14 +94,16 @@ export default function Perizinan() {
       setRows(res.data || []);
       setSummary(res.summary || { total: 0, pengajuan: 0, disetujui: 0, ditolak: 0 });
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat perizinan");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [startDate, endDate, statusFilter, typeFilter, search, appendFilters]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(() => load(true));
 
   const sorted = useMemo(
     () => applySort(rows, {

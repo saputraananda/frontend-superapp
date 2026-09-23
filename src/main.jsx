@@ -9,6 +9,12 @@ if ('scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 
+// Scroll di atas input angka jangan menambah/mengurangi nilainya.
+document.addEventListener('wheel', () => {
+  const el = document.activeElement;
+  if (el?.type === 'number') el.blur();
+}, { passive: true });
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

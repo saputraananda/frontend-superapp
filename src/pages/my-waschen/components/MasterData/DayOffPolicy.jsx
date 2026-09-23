@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { HiOutlineSun, HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash, HiOutlineXMark } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
@@ -17,14 +18,15 @@ export default function DayOffPolicy() {
 
   const showToast = (m, t = "success") => { setToast({ message: m, type: t }); setTimeout(() => setToast(null), 3500); };
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await api("/waschen/day-off-policies");
       setRows(res.data || []);
-    } catch (err) { showToast(err.message, "error"); } finally { setLoading(false); }
+    } catch (err) { showToast(err.message, "error"); } finally { if (!silent) setLoading(false); }
   };
 
+  useLiveRefresh(() => load(true));
   useEffect(() => { load(); }, []);
 
   const openCreate = () => { setForm(EMPTY); setModalOpen(true); };

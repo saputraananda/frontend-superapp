@@ -10,6 +10,7 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
@@ -213,9 +214,9 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
     setTimeout(() => setToast(null), 3200);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError("");
     try {
       const qs = new URLSearchParams({ listType: "active" });
       if (search.trim()) qs.set("search", search.trim());
@@ -226,16 +227,18 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
       const res = await api(`/waschen/transactions?${qs}`);
       setRows(res.data || []);
     } catch (err) {
+      if (silent) return;
       setError(err.message || "Gagal memuat transaksi");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
 
   useEffect(() => {
     load();
   }, [load]);
+  useLiveRefresh(() => load(true));
 
   useEffect(() => {
     api("/waschen/payment-methods")

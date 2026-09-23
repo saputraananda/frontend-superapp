@@ -15,6 +15,7 @@ import {
   HiOutlineTruck,
 } from "react-icons/hi2";
 import { api, waschenUploadUrl } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
 import ChangeFulfillmentModal from "./ChangeFulfillmentModal";
@@ -547,23 +548,25 @@ export default function DetailTransaction() {
     }
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError("");
     try {
       const res = await api(`/waschen/transactions/${id}`);
       setData(res.data || null);
     } catch (err) {
+      if (silent) return;
       setError(err.message || "Gagal memuat detail");
       setData(null);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
     load();
   }, [load]);
+  useLiveRefresh(() => load(true));
 
   const updateItemStatus = async (itemId, status) => {
     setSavingItem(itemId);

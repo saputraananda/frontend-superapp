@@ -9,15 +9,15 @@ import {
   HiOutlineMagnifyingGlass,
   HiOutlineClock,
   HiOutlineInformationCircle,
-  HiOutlinePlay,
   HiOutlineAdjustmentsHorizontal,
   HiOutlineChevronRight,
   HiOutlineTableCells,
 } from "react-icons/hi2";
-import { api } from "../../../../lib/api";
+import { api, apiUpload } from "../../../../lib/api";
 import PageHero from "../PageHero";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 import useHrisOutletRoleFilters from "../../hooks/useHrisOutletRoleFilters";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import {
   PAGE_WRAP,
   SUMMARY_GRID,
@@ -110,6 +110,11 @@ export default function Kasbon() {
   const [approveRow, setApproveRow] = useState(null);
   const [approveMethod, setApproveMethod] = useState("potong_gaji");
   const [approveAmount, setApproveAmount] = useState("");
+  const [approveNote, setApproveNote] = useState("");
+  const [limitInfo, setLimitInfo] = useState(null);
+  const [payTarget, setPayTarget] = useState(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payFile, setPayFile] = useState(null);
   const [openingOpen, setOpeningOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [tab, setTab] = useState("pengajuan");
@@ -132,9 +137,9 @@ export default function Kasbon() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!allPeriods && (!startDate || !endDate)) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams();
       if (allPeriods) q.set("all", "1");
@@ -152,33 +157,40 @@ export default function Kasbon() {
       const years = Array.isArray(res.years) ? res.years.map(Number).filter((y) => y > 0) : [];
       setDbYears(years);
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat kasbon");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [allPeriods, startDate, endDate, statusFilter, typeFilter, search, appendFilters]);
 
   useEffect(() => { load(); }, [load]);
 
-  const loadMonitor = useCallback(async () => {
-    setMonitorLoading(true);
+  const loadMonitor = useCallback(async (silent = false) => {
+    if (!silent) setMonitorLoading(true);
     try {
       const q = new URLSearchParams();
       appendFilters(q);
       const res = await api(`/waschen/hris/kasbon/monitor?${q}`);
       setMonitorRows(res.data || []);
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat pantauan kasbon");
       setMonitorRows([]);
     } finally {
-      setMonitorLoading(false);
+      if (!silent) setMonitorLoading(false);
     }
   }, [appendFilters]);
 
   useEffect(() => {
     if (tab === "pantau") loadMonitor();
   }, [tab, loadMonitor]);
+
+  useLiveRefresh(() => {
+    if (tab === "pantau") loadMonitor(true);
+    else load(true);
+  });
 
   useEffect(() => {
     api("/waschen/employees").then((r) => setEmployees(r.data || [])).catch(() => setEmployees([]));
@@ -241,12 +253,30 @@ export default function Kasbon() {
     }
   };
 
+  const loadEmployeeLimit = async (employeeId, excludeId) => {
+    setLimitInfo(null);
+    try {
+      const res = await api(`/waschen/hris/kasbon/monitor/${employeeId}?exclude=${excludeId}`);
+      setLimitInfo({ limit: res.data?.limit || 0, sisa: res.data?.sisa || 0 });
+    } catch {
+      setLimitInfo(null);
+    }
+  };
+
   const openApprove = (id) => {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
     setApproveMethod("potong_gaji");
     setApproveAmount(String(Math.round(Number(row.amount_requested) || 0)));
+    setApproveNote("");
     setApproveRow(row);
+    loadEmployeeLimit(row.employee_id, row.id);
+  };
+
+  const openReject = (row) => {
+    setRejectNote("");
+    setRejectRow(row);
+    loadEmployeeLimit(row.employee_id, row.id);
   };
 
   const submitApprove = async () => {
@@ -255,7 +285,11 @@ export default function Kasbon() {
     try {
       await api(`/waschen/hris/kasbon/${approveRow.id}/approve`, {
         method: "PATCH",
-        body: JSON.stringify({ payment_method: approveMethod, amount_approved: Number(approveAmount) }),
+        body: JSON.stringify({
+          payment_method: approveMethod,
+          amount_approved: Number(approveAmount),
+          approved_note: approveNote.trim(),
+        }),
       });
       showToast("success", "Kasbon disetujui");
       setApproveRow(null);
@@ -267,12 +301,31 @@ export default function Kasbon() {
     }
   };
 
-  const markPaid = async (id, paymentId) => {
+  const openPay = (kasbon, payment) => {
+    setPayTarget({ kasbonId: kasbon.id, type: kasbon.type, payment });
+    setPayAmount(String(Math.round(Number(payment.amount) || 0)));
+    setPayFile(null);
+  };
+
+  const submitPay = async () => {
+    if (!payTarget) return;
+    if (!payFile) {
+      showToast("error", "Lampirkan bukti pembayaran");
+      return;
+    }
     setSubmitting(true);
     try {
-      await api(`/waschen/hris/kasbon/${id}/payments/${paymentId}/paid`, { method: "PATCH" });
-      showToast("success", "Termin ditandai lunas");
-      openDetail(id);
+      const body = new FormData();
+      body.append("amount", String(Number(payAmount) || 0));
+      body.append("proof", payFile);
+      const res = await apiUpload(`/waschen/hris/kasbon/${payTarget.kasbonId}/payments/${payTarget.payment.id}/paid`, {
+        method: "PATCH",
+        body,
+      });
+      showToast("success", res.message || "Pembayaran dicatat");
+      const kasbonId = payTarget.kasbonId;
+      setPayTarget(null);
+      openDetail(kasbonId);
       load();
     } catch (err) {
       showToast("error", err.message);
@@ -510,9 +563,8 @@ export default function Kasbon() {
                   submitting={submitting}
                   cicilanPct={cicilanPct}
                   onDetail={openDetail}
-                  onProcess={(id) => act(id, "process")}
                   onApprove={openApprove}
-                  onReject={setRejectRow}
+                  onReject={openReject}
                   onViewPhoto={setPhotoView}
                 />
               ))}
@@ -566,17 +618,12 @@ export default function Kasbon() {
                         <button type="button" onClick={() => openDetail(r.id)} className={`${actionBtn} border-blue-100 bg-blue-50/60 text-blue-700 hover:bg-blue-100`}>
                           <HiOutlineInformationCircle className="h-3.5 w-3.5" /> Detail
                         </button>
-                        {r.status === "pengajuan" && (
-                          <button type="button" disabled={submitting} onClick={() => act(r.id, "process")} className={`${actionBtn} border-sky-200 bg-white text-sky-700 hover:bg-sky-50`}>
-                            <HiOutlinePlay className="h-3.5 w-3.5" /> Proses
-                          </button>
-                        )}
                         {(r.status === "pengajuan" || r.status === "proses") && (
                           <>
                             <button type="button" disabled={submitting} onClick={() => openApprove(r.id)} className={`${actionBtn} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}>
                               <HiOutlineCheckCircle className="h-3.5 w-3.5" /> Setujui
                             </button>
-                            <button type="button" disabled={submitting} onClick={() => setRejectRow(r)} className={`${actionBtn} border-rose-200 bg-white text-rose-600 hover:bg-rose-50`}>
+                            <button type="button" disabled={submitting} onClick={() => openReject(r)} className={`${actionBtn} border-rose-200 bg-white text-rose-600 hover:bg-rose-50`}>
                               <HiOutlineXMark className="h-3.5 w-3.5" /> Tolak
                             </button>
                           </>
@@ -724,14 +771,20 @@ export default function Kasbon() {
                           {item.payment_method && <p className="mt-0.5 text-xs text-slate-400">{item.payment_method === "langsung" ? "Bayar langsung" : "Potong gaji"}</p>}
                         </div>
                       </div>
+                      {item.approved_note && <p className="mt-2 text-xs text-emerald-700">{item.approved_note}</p>}
                       {item.rejection_note && <p className="mt-2 text-xs text-rose-600">{item.rejection_note}</p>}
                       {item.payments.length > 0 && (
                         <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
                           {item.payments.map((pay) => (
                             <div key={pay.id} className="flex items-center justify-between gap-3 text-xs">
-                              <span className="text-slate-500">Termin {pay.installment_no || "—"} · {fmtDateShort(pay.due_date)}</span>
+                              <span className="text-slate-500">{item.type === "kasbon" ? "Pembayaran" : `Termin ${pay.installment_no || "—"}`} · {fmtDateShort(pay.due_date)}</span>
                               <span className="font-semibold text-slate-700">{fmtIDR(pay.amount)}</span>
-                              <span className={pay.status === "terbayar" ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>{pay.status === "terbayar" ? "Lunas" : "Belum"}</span>
+                              <span className="flex items-center gap-2">
+                                {pay.proof_url && (
+                                  <button type="button" onClick={() => setPhotoView({ url: pay.proof_url, label: "Bukti pembayaran" })} className="font-semibold text-blue-700">Bukti</button>
+                                )}
+                                <span className={pay.status === "terbayar" ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>{pay.status === "terbayar" ? "Lunas" : "Belum"}</span>
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -762,6 +815,8 @@ export default function Kasbon() {
                 <div><p className="text-xs font-semibold text-slate-500">Disetujui</p><p className="mt-0.5 text-base font-bold text-emerald-700">{detail.amount_approved != null ? fmtIDR(detail.amount_approved) : "—"}</p></div>
               </div>
               <div><p className="text-xs font-semibold text-slate-500">Keperluan</p><p className="mt-1 text-sm text-slate-700">{detail.purpose}</p></div>
+              {detail.approved_note && <div><p className="text-xs font-semibold text-slate-500">Alasan persetujuan</p><p className="mt-1 text-sm text-slate-700">{detail.approved_note}</p></div>}
+              {detail.rejection_note && <div><p className="text-xs font-semibold text-slate-500">Alasan penolakan</p><p className="mt-1 text-sm text-rose-700">{detail.rejection_note}</p></div>}
               {detail.notes && <div><p className="text-xs font-semibold text-slate-500">Catatan</p><p className="mt-1 text-sm text-slate-600">{detail.notes}</p></div>}
               {detail.proof_url && (
                 <div>
@@ -776,15 +831,18 @@ export default function Kasbon() {
                     {detail.payments.map((p) => (
                       <div key={p.id} className="flex items-center justify-between gap-3 px-3 py-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">Termin {p.installment_no || "—"}</p>
+                          <p className="text-sm font-semibold text-slate-800">{detail.type === "kasbon" ? "Pembayaran" : `Termin ${p.installment_no || "—"}`}</p>
                           <p className="text-xs text-slate-400">{fmtDateShort(p.due_date || p.payment_date)}</p>
+                          {p.proof_url && (
+                            <button type="button" onClick={() => setPhotoView({ url: p.proof_url, label: "Bukti pembayaran" })} className="mt-1 text-xs font-semibold text-blue-700">Lihat bukti</button>
+                          )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1.5">
                           <p className="whitespace-nowrap text-sm font-semibold text-slate-800">{fmtIDR(p.amount)}</p>
                           {p.status === "terbayar" ? (
                             <span className="text-xs font-semibold text-emerald-600">Lunas</span>
                           ) : (
-                            <button type="button" disabled={submitting} onClick={() => markPaid(detail.id, p.id)} className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Tandai lunas</button>
+                            <button type="button" disabled={submitting} onClick={() => openPay(detail, p)} className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Tandai lunas</button>
                           )}
                         </div>
                       </div>
@@ -807,6 +865,13 @@ export default function Kasbon() {
               <button type="button" onClick={() => setApproveRow(null)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"><HiOutlineXMark className="h-5 w-5" /></button>
             </div>
             <div className="space-y-4 px-6 py-5">
+              {limitInfo && (
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-center">
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Limit</p><p className="mt-1 text-sm font-bold text-slate-800">{fmtIDR(limitInfo.limit)}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Saldo Sisa</p><p className="mt-1 text-sm font-bold text-emerald-700">{fmtIDR(limitInfo.sisa)}</p></div>
+                  <p className="col-span-2 text-[11px] text-slate-400">Saldo sisa belum menghitung pengajuan ini.</p>
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Nominal disetujui</label>
                 <div className="relative">
@@ -820,6 +885,10 @@ export default function Kasbon() {
                   <option value="potong_gaji">Potong gaji</option>
                   <option value="langsung">Bayar langsung</option>
                 </select>
+              </div>
+              <div>
+                <label className={labelCls}>Alasan persetujuan <span className="font-normal text-slate-400">(opsional)</span></label>
+                <textarea value={approveNote} onChange={(e) => setApproveNote(e.target.value)} rows={2} placeholder="Alasan, kalau ada" className={`${fieldCls} resize-none`} />
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
@@ -899,6 +968,13 @@ export default function Kasbon() {
               <button type="button" onClick={() => setRejectRow(null)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"><HiOutlineXMark className="h-5 w-5" /></button>
             </div>
             <div className="space-y-4 px-6 py-5">
+              {limitInfo && (
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-center">
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Limit</p><p className="mt-1 text-sm font-bold text-slate-800">{fmtIDR(limitInfo.limit)}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Saldo Sisa</p><p className="mt-1 text-sm font-bold text-emerald-700">{fmtIDR(limitInfo.sisa)}</p></div>
+                  <p className="col-span-2 text-[11px] text-slate-400">Saldo sisa belum menghitung pengajuan ini.</p>
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Alasan penolakan</label>
                 <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} rows={3} placeholder="Alasan penolakan..." className={`${fieldCls} resize-none`} />
@@ -907,6 +983,37 @@ export default function Kasbon() {
             <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
               <button type="button" onClick={() => setRejectRow(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Batal</button>
               <button type="button" disabled={submitting} onClick={() => act(rejectRow.id, "reject", { rejection_note: rejectNote })} className="rounded-xl bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">Tolak</button>
+            </div>
+          </div>
+        </div>, document.body)}
+
+      {payTarget && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setPayTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">{payTarget.type === "kasbon" ? "Catat pembayaran" : `Termin ${payTarget.payment.installment_no || "—"}`}</h3>
+                <p className="mt-0.5 text-xs text-slate-400">{fmtDateShort(payTarget.payment.due_date || payTarget.payment.payment_date)} · Jadwal {fmtIDR(payTarget.payment.amount)}</p>
+              </div>
+              <button type="button" onClick={() => setPayTarget(null)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"><HiOutlineXMark className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              <div>
+                <label className={labelCls}>Nominal dibayar</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">Rp</span>
+                  <input type="text" inputMode="numeric" value={formatDigits(payAmount)} onChange={(e) => setPayAmount(e.target.value.replace(/\D/g, ""))} className={`${fieldCls} pl-9`} />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Bukti pembayaran</label>
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf" onChange={(e) => setPayFile(e.target.files?.[0] || null)} className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700" />
+                <p className="mt-1 text-xs text-slate-400">JPG, PNG, WEBP, atau PDF. Maksimal 6MB.</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+              <button type="button" onClick={() => setPayTarget(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Batal</button>
+              <button type="button" disabled={submitting} onClick={submitPay} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Simpan</button>
             </div>
           </div>
         </div>, document.body)}

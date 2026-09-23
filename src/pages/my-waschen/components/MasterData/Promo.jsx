@@ -15,6 +15,7 @@ import {
   HiOutlineArrowsUpDown,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 
 function cn(...classes) {
@@ -68,8 +69,8 @@ export default function Promo() {
 
   const showToast = (message, type = "success") => { setToast({ message, type }); setTimeout(() => setToast(null), 3500); };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const query = new URLSearchParams();
       if (search) query.set("search", search);
@@ -79,9 +80,10 @@ export default function Promo() {
       if (sortDir) query.set("sortDir", sortDir);
       const res = await api(`/waschen/promos?${query.toString()}`);
       setData(res.data || []);
-    } catch (err) { showToast(err.message, "error"); } finally { setLoading(false); }
+    } catch (err) { showToast(err.message, "error"); } finally { if (!silent) setLoading(false); }
   };
 
+  useLiveRefresh(() => loadData(true));
   useEffect(() => { loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [search, filterActive, filterType, sortBy, sortDir]);
 
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("asc"); } };

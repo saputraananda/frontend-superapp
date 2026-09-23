@@ -14,6 +14,7 @@ import {
   HiOutlineUser,
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
@@ -155,8 +156,8 @@ export default function PettyCash() {
     }
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams();
       if (outletId) q.set("outletId", outletId);
@@ -175,10 +176,11 @@ export default function PettyCash() {
       setRows(listRes.data || []);
       setSummary({ ...EMPTY_SUMMARY, ...(sumRes.data || {}) });
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat petty cash");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [outletId, statusFilter, search, cutoff.dateFrom, cutoff.dateTo]);
 
@@ -189,6 +191,7 @@ export default function PettyCash() {
   useEffect(() => {
     load();
   }, [load]);
+  useLiveRefresh(() => load(true));
 
   const loggedInEmployee = useMemo(() => readLoggedInEmployee(), []);
 

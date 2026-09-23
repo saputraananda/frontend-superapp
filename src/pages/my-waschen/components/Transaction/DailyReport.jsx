@@ -9,6 +9,7 @@ import {
   HiOutlineArrowPath,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
@@ -83,8 +84,8 @@ export default function DailyReport() {
     }
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams();
       if (cutoff.dateFrom) q.set("dateFrom", cutoff.dateFrom);
@@ -93,10 +94,11 @@ export default function DailyReport() {
       const res = await api(`/waschen/daily-report?${q}`);
       setShifts(res.data || []);
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat daily report");
       setShifts([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [cutoff.dateFrom, cutoff.dateTo, outletId]);
 
@@ -107,6 +109,7 @@ export default function DailyReport() {
   useEffect(() => {
     load();
   }, [load]);
+  useLiveRefresh(() => load(true));
 
   const outletName = useMemo(() => {
     if (!outletId) return "Semua Outlet";

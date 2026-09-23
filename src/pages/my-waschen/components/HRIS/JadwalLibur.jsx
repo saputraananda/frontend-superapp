@@ -13,6 +13,7 @@ import {
   HiOutlineArrowPathRoundedSquare,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import HrisOutletRoleFilter from "../HrisOutletRoleFilter";
@@ -86,9 +87,9 @@ export default function JadwalLibur() {
     cutoff.setSelectedMonth(m);
   }, [cutoff, selectedMonth, selectedYear]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!startDate || !endDate) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams({ startDate, endDate });
       appendFilters(q);
@@ -98,14 +99,19 @@ export default function JadwalLibur() {
       setRows(res.data || []);
       setSummary(res.summary || { total: 0, pengajuan: 0, disetujui: 0, ditolak: 0 });
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat jadwal libur");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [startDate, endDate, statusFilter, search, appendFilters]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(() => {
+    load(true);
+    if (selectedDay) loadDay(selectedDay);
+  });
 
   // Baris untuk tanggal terpilih diambil terpisah TANPA filter status/outlet/role,
   // supaya karyawan yang sudah punya jadwal (mis. 'disetujui') tetap terdeteksi

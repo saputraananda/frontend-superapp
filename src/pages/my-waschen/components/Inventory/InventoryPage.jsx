@@ -20,6 +20,7 @@ import {
   HiOutlineCalendarDays,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
@@ -184,6 +185,10 @@ export default function InventoryPage() {
     loadEmployees();
     loadUnits();
   }, [loadOutlets, loadEmployees, loadUnits]);
+  useLiveRefresh(() => {
+    loadStock({ silent: true });
+    loadLogs();
+  });
 
   // Debounce search — hindari skeleton/scroll-jump tiap ketikan
   useEffect(() => {

@@ -7,6 +7,7 @@ import {
   HiOutlineArrowPath,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
@@ -46,22 +47,24 @@ export default function RequestRefundTransaction({ employees = [], onChanged }) 
     setTimeout(() => setToast(null), 3200);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await api("/waschen/transactions?listType=refund");
       setRows(res.data || []);
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat request refund");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+  useLiveRefresh(() => load(true));
 
   const pendingCount = rows.filter((r) => isPending(r.refundApprovalStatus)).length;
   const approvedCount = rows.filter((r) => isApproved(r.refundApprovalStatus)).length;

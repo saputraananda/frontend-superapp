@@ -16,6 +16,7 @@ import {
   HiOutlineSparkles,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import HrisOutletRoleFilter from "../HrisOutletRoleFilter";
@@ -155,9 +156,9 @@ export default function Absensi() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!startDate || !endDate) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams({ startDate, endDate });
       appendFilters(q);
@@ -167,28 +168,35 @@ export default function Absensi() {
       setRows(res.data || []);
       setSummary(res.summary || { totalRecords: 0, completeCount: 0, incompleteCount: 0, totalCheckIn: 0, totalLeave: 0 });
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat data absensi");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [startDate, endDate, onlyIncomplete, search, appendFilters]);
 
-  const loadCleanliness = useCallback(async () => {
+  const loadCleanliness = useCallback(async (silent = false) => {
     if (!startDate || !endDate) return;
-    setCleanlinessLoading(true);
+    if (!silent) setCleanlinessLoading(true);
     try {
       const q = new URLSearchParams({ startDate, endDate });
       appendFilters(q);
       const res = await api(`/waschen/hris/attendance/cleanliness?${q}`);
       setCleanlinessRows(res.data || []);
     } catch (err) {
+      if (silent) return;
       showToast("error", err.message || "Gagal memuat foto kebersihan");
       setCleanlinessRows([]);
     } finally {
-      setCleanlinessLoading(false);
+      if (!silent) setCleanlinessLoading(false);
     }
   }, [startDate, endDate, appendFilters]);
+
+  useLiveRefresh(() => {
+    if (pageTab === "kebersihan") loadCleanliness(true);
+    else load(true);
+  });
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {

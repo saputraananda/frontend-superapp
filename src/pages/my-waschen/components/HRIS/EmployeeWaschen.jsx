@@ -41,6 +41,7 @@ import {
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import { formatEmployeeName } from "../../utils/FormatName";
 
@@ -838,32 +839,37 @@ export default function EmployeeWaschen() {
     }, []);
 
     // Fetch employees
-    useEffect(() => {
-        const fetchEmployees = async () => {
-            try {
+    const fetchEmployees = async (silent = false) => {
+        try {
+            if (!silent) {
                 setLoading(true);
                 setError("");
-
-                const qs = new URLSearchParams();
-                qs.set("sortBy", sortBy);
-                qs.set("sortDir", sortDir);
-                if (search) qs.set("search", search);
-                if (filterRole) qs.set("role", filterRole);
-                if (filterOutletId) qs.set("outletId", filterOutletId);
-                if (filterIsLeader !== "") qs.set("isLeader", filterIsLeader);
-
-                const response = await api(`/waschen/employees?${qs.toString()}`);
-                setRows(response.data || []);
-            } catch (err) {
-                setError(err.message || "Gagal memuat data karyawan Waschen");
-                setRows([]);
-            } finally {
-                setLoading(false);
             }
-        };
 
+            const qs = new URLSearchParams();
+            qs.set("sortBy", sortBy);
+            qs.set("sortDir", sortDir);
+            if (search) qs.set("search", search);
+            if (filterRole) qs.set("role", filterRole);
+            if (filterOutletId) qs.set("outletId", filterOutletId);
+            if (filterIsLeader !== "") qs.set("isLeader", filterIsLeader);
+
+            const response = await api(`/waschen/employees?${qs.toString()}`);
+            setRows(response.data || []);
+        } catch (err) {
+            if (silent) return;
+            setError(err.message || "Gagal memuat data karyawan Waschen");
+            setRows([]);
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchEmployees();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, sortBy, sortDir, refreshKey, filterRole, filterOutletId, filterIsLeader]);
+    useLiveRefresh(() => fetchEmployees(true));
 
     // Fetch assignable active employees when modal opens
     useEffect(() => {

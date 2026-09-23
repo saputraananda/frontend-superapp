@@ -5,6 +5,7 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import HistoryTransaction from "./HistoryTransaction";
 import RequestRefundTransaction from "./RequestRefundTransaction";
@@ -57,6 +58,8 @@ export default function History() {
         /* optional meta */
       });
   }, [applyMeta]);
+
+  useLiveRefresh(loadMeta);
 
   // Load sekali saat mount via event-style kickoff (bukan sync setState di effect body)
   if (!metaReady) {

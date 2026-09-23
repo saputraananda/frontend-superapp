@@ -24,6 +24,7 @@ import {
   HiOutlineUserGroup,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
@@ -123,9 +124,9 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError("");
     try {
       const qs = new URLSearchParams();
       if (outletId) qs.set("outletId", outletId);
@@ -134,10 +135,11 @@ export default function DashboardPage() {
       const res = await api(`/waschen/dashboard?${qs.toString()}`);
       setData(res.data || null);
     } catch (err) {
+      if (silent) return;
       setError(err.message || "Gagal memuat dashboard");
       setData(null);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [outletId, dateFrom, dateTo]);
 
@@ -148,6 +150,7 @@ export default function DashboardPage() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+  useLiveRefresh(() => loadDashboard(true));
 
   const summary = data?.summary || {};
   const salesTrend = useMemo(

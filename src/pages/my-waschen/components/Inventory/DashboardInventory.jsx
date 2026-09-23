@@ -12,6 +12,7 @@ import {
   HiOutlineCube,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
+import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
@@ -107,6 +108,7 @@ export default function DashboardInventory() {
   useEffect(() => {
     load();
   }, [load]);
+  useLiveRefresh(() => load({ silent: true }));
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350);
