@@ -80,6 +80,12 @@ function sharePct(part, total) {
   return Math.round(((Number(part) || 0) / base) * 100);
 }
 
+// Total terpakai = kasbon + pinjaman. Fallback ke field lama biar aman saat API belum ter-deploy.
+function rowTerpakai(row) {
+  if (row?.terpakai != null) return Number(row.terpakai) || 0;
+  return (Number(row?.kasbon) || 0) + (Number(row?.pinjaman) || 0);
+}
+
 const TYPE_FILTERS = [
   { key: "Semua", label: "Semua Tipe" },
   { key: "kasbon", label: "Kasbon" },
@@ -646,7 +652,7 @@ export default function Kasbon() {
           <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-bold text-slate-800">Pantau Saldo Karyawan</h2>
-              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Limit, besaran pinjaman yang masih tertahan, dan saldo sisa. Klik baris untuk melihat riwayat.</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Limit, besaran pinjaman dan kasbon yang masih tertahan, serta saldo sisa. Klik baris untuk melihat riwayat.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative min-w-0 flex-1">
@@ -675,14 +681,15 @@ export default function Kasbon() {
             <>
               <div className="space-y-3 p-3 xl:hidden">
                 {visibleMonitor.map((row, index) => {
-                  const pinjamanPct = sharePct(row.pinjaman, row.limit);
+                  const pinjamanPct = sharePct(rowTerpakai(row), row.limit);
                   return (
                   <button key={row.employee_id} type="button" onClick={() => openMonitor(row.employee_id)} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left hover:border-[#5f1340]/30">
                     <p className="text-sm font-bold text-slate-800"><span className="mr-2 text-slate-400">{index + 1}.</span>{fmtEmployeeName(row.employee_name)}</p>
                     {row.employee_code && <p className="mt-0.5 text-xs text-slate-400">{row.employee_code}</p>}
-                    <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                    <div className="mt-3 grid grid-cols-5 gap-2 text-center">
                       <div><p className="text-[10px] font-semibold uppercase text-slate-400">Limit</p><p className="mt-1 text-xs font-bold text-slate-800">{fmtIDR(row.limit)}</p></div>
                       <div><p className="text-[10px] font-semibold uppercase text-slate-400">Pinjaman</p><p className="mt-1 text-xs font-bold text-[#5f1340]">{fmtIDR(row.pinjaman)}</p></div>
+                      <div><p className="text-[10px] font-semibold uppercase text-slate-400">Kasbon</p><p className="mt-1 text-xs font-bold text-sky-700">{fmtIDR(row.kasbon)}</p></div>
                       <div><p className="text-[10px] font-semibold uppercase text-slate-400">%</p><p className="mt-1 text-xs font-bold text-slate-700">{pinjamanPct == null ? "—" : `${pinjamanPct}%`}</p></div>
                       <div><p className="text-[10px] font-semibold uppercase text-slate-400">Sisa</p><p className="mt-1 text-xs font-bold text-emerald-700">{fmtIDR(row.sisa)}</p></div>
                     </div>
@@ -697,14 +704,15 @@ export default function Kasbon() {
                       <th className="w-14 px-4 py-3 text-center">No</th>
                       <th className="px-4 py-3 text-left">Karyawan</th>
                       <th className="px-4 py-3 text-center">Limit</th>
-                      <th className="px-4 py-3 text-center">Besaran Pinjaman</th>
+                      <th className="px-4 py-3 text-center">Pinjaman</th>
+                      <th className="px-4 py-3 text-center">Kasbon</th>
                       <th className="px-4 py-3 text-center">%</th>
                       <th className="px-4 py-3 text-center">Saldo Sisa</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visibleMonitor.map((row, index) => {
-                      const pinjamanPct = sharePct(row.pinjaman, row.limit);
+                      const pinjamanPct = sharePct(rowTerpakai(row), row.limit);
                       return (
                       <tr key={row.employee_id} onClick={() => openMonitor(row.employee_id)} className="cursor-pointer border-b border-slate-50 hover:bg-slate-50">
                         <td className="px-4 py-3.5 text-center text-slate-500">{index + 1}</td>
@@ -714,6 +722,7 @@ export default function Kasbon() {
                         </td>
                         <td className="px-4 py-3.5 text-center font-semibold text-slate-700">{fmtIDR(row.limit)}</td>
                         <td className="px-4 py-3.5 text-center font-semibold text-[#5f1340]">{fmtIDR(row.pinjaman)}</td>
+                        <td className="px-4 py-3.5 text-center font-semibold text-sky-700">{fmtIDR(row.kasbon)}</td>
                         <td className="px-4 py-3.5 text-center font-semibold text-slate-700">{pinjamanPct == null ? "—" : `${pinjamanPct}%`}</td>
                         <td className="px-4 py-3.5 text-center font-semibold text-emerald-700">{fmtIDR(row.sisa)}</td>
                       </tr>
@@ -741,10 +750,11 @@ export default function Kasbon() {
               <div className="px-6 py-10 text-center text-sm text-slate-400">Memuat...</div>
             ) : (
               <div className="overflow-y-auto px-6 py-5">
-                <div className="grid grid-cols-4 gap-3 rounded-xl bg-slate-50 p-3 text-center">
+                <div className="grid grid-cols-5 gap-3 rounded-xl bg-slate-50 p-3 text-center">
                   <div><p className="text-[11px] font-semibold uppercase text-slate-400">Limit</p><p className="mt-1 text-sm font-bold text-slate-800">{fmtIDR(monitorDetail.limit)}</p></div>
-                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Besaran Pinjaman</p><p className="mt-1 text-sm font-bold text-[#5f1340]">{fmtIDR(monitorDetail.pinjaman)}</p></div>
-                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">%</p><p className="mt-1 text-sm font-bold text-slate-700">{sharePct(monitorDetail.pinjaman, monitorDetail.limit) == null ? "—" : `${sharePct(monitorDetail.pinjaman, monitorDetail.limit)}%`}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Pinjaman</p><p className="mt-1 text-sm font-bold text-[#5f1340]">{fmtIDR(monitorDetail.pinjaman)}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">Kasbon</p><p className="mt-1 text-sm font-bold text-sky-700">{fmtIDR(monitorDetail.kasbon)}</p></div>
+                  <div><p className="text-[11px] font-semibold uppercase text-slate-400">%</p><p className="mt-1 text-sm font-bold text-slate-700">{sharePct(rowTerpakai(monitorDetail), monitorDetail.limit) == null ? "—" : `${sharePct(rowTerpakai(monitorDetail), monitorDetail.limit)}%`}</p></div>
                   <div><p className="text-[11px] font-semibold uppercase text-slate-400">Saldo Sisa</p><p className="mt-1 text-sm font-bold text-emerald-700">{fmtIDR(monitorDetail.sisa)}</p></div>
                 </div>
                 {!monitorDetail.has_salary && (
