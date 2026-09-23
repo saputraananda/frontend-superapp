@@ -1249,18 +1249,18 @@ export default function EmployeeDetail() {
                   {/* ── FINANCIAL ── */}
                   {activeTab === "financial" && (
                     <>
-                      <Panel title="Gaji Pokok">
+                      <Panel title="Take Home Pay">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                          <Field label="Gaji Pokok (Rp)" hint="Wajib diisi untuk karyawan Waschen. Limit kasbon dan pinjaman adalah 50% dari gaji pokok.">
+                          <Field label="Take Home Pay (Rp)" hint="Wajib diisi untuk karyawan Waschen. Limit kasbon dan pinjaman adalah 50% dari Take Home Pay.">
                             <input
                               type="text"
                               inputMode="numeric"
                               autoComplete="off"
-                              name="basic_salary"
-                              value={formatSalaryDisplay(formData.basic_salary)}
+                              name="take_home_pay"
+                              value={formatSalaryDisplay(formData.take_home_pay)}
                               onChange={(e) => {
                                 const digits = e.target.value.replace(/\D/g, "");
-                                setFormData((p) => ({ ...p, basic_salary: digits }));
+                                setFormData((p) => ({ ...p, take_home_pay: digits }));
                               }}
                               className={inputCls(false)}
                               placeholder="Contoh: 2.000.000"

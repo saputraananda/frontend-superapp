@@ -701,7 +701,7 @@ export default function Kasbon() {
                   <div><p className="text-[11px] font-semibold uppercase text-slate-400">Saldo Sisa</p><p className="mt-1 text-sm font-bold text-emerald-700">{fmtIDR(monitorDetail.sisa)}</p></div>
                 </div>
                 {!monitorDetail.has_salary && (
-                  <p className="mt-3 text-xs text-amber-700">Gaji pokok belum diisi. Limit kasbon belum bisa dihitung.</p>
+                  <p className="mt-3 text-xs text-amber-700">Take Home Pay belum diisi. Limit kasbon belum bisa dihitung.</p>
                 )}
                 <div className="mt-4 space-y-3">
                   {(monitorDetail.history || []).length === 0 ? (
