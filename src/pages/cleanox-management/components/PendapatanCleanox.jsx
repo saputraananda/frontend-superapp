@@ -63,6 +63,34 @@ function formatCurrency(value) {
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
+/** Fill daily trend for full cutoff window (26→25), zeros for days without sales. */
+function padDailyTrend(trend, dateStart, dateEnd) {
+	if (!dateStart || !dateEnd) return trend || [];
+	const byDate = new Map((trend || []).map((d) => [String(d.date).slice(0, 10), Number(d.sales) || 0]));
+	const out = [];
+	const cur = new Date(`${dateStart}T12:00:00`);
+	const end = new Date(`${dateEnd}T12:00:00`);
+	if (Number.isNaN(cur.getTime()) || Number.isNaN(end.getTime())) return trend || [];
+	while (cur <= end) {
+		const y = cur.getFullYear();
+		const m = String(cur.getMonth() + 1).padStart(2, "0");
+		const d = String(cur.getDate()).padStart(2, "0");
+		const key = `${y}-${m}-${d}`;
+		out.push({ date: key, sales: byDate.get(key) || 0 });
+		cur.setDate(cur.getDate() + 1);
+	}
+	return out;
+}
+
+function formatChartDayTick(isoDate) {
+	const parts = String(isoDate || "").split("-");
+	if (parts.length < 3) return String(isoDate || "");
+	const day = parseInt(parts[2], 10);
+	const monthIdx = parseInt(parts[1], 10) - 1;
+	const mon = MONTH_NAMES[monthIdx] || parts[1];
+	return `${day} ${mon}`;
+}
+
 export default function PendapatanCleanox() {
 	const defaults = getDefaultDashboardFilters();
 	const [serviceMode, setServiceMode] = useState(defaults.serviceMode);
@@ -126,7 +154,8 @@ export default function PendapatanCleanox() {
 					endDate: end,
 					payment_status: "lunas",
 					service_mode: filters.serviceMode || "all",
-					date_by: "settled",
+					date_by: "omzet",
+					source: "unified",
 				});
 				const response = await api(`/cleanox/riwayat-transaksi?${qs.toString()}`);
 				if (!cancelled) setLunasRows(response.data || []);
@@ -146,7 +175,11 @@ export default function PendapatanCleanox() {
 	const meta = data?.meta ?? {};
 	const isYearFilter = filters.filterType === "year";
 
-	const chartTrendDaily = trend;
+	const chartTrendDaily = padDailyTrend(
+		trend,
+		meta.dateStart,
+		meta.asOfDate || meta.dateEnd,
+	);
 	const chartTrend = isYearFilter
 		? Object.values(
 				chartTrendDaily.reduce((acc, d) => {
@@ -174,6 +207,9 @@ export default function PendapatanCleanox() {
 	const lunasPeriodLabel = meta.dateStart
 		? `${meta.dateStart} – ${meta.asOfDate || meta.dateEnd}`
 		: "";
+	const lunasPeriodLabelId = meta.dateStart
+		? `${formatDate(meta.dateStart)} – ${formatDate(meta.asOfDate || meta.dateEnd)}`
+		: "";
 
 	return (
 		<div className="min-h-full space-y-5 bg-slate-50 py-6">
@@ -181,7 +217,10 @@ export default function PendapatanCleanox() {
 				<h1 className="text-2xl font-bold tracking-tight text-[#1b3459] sm:text-3xl">
 					Dashboard Pendapatan
 				</h1>
-				<p className="mt-1 text-sm text-slate-500">Cleanox — omzet POS lunas vs target</p>
+				<p className="mt-1 text-sm text-slate-500">
+					Omzet lunas POS + Smartlink (unified) vs target. Lihat semua transaksi / input history:
+					Cleanox Only.
+				</p>
 			</div>
 
 			<div className="px-4 sm:px-6">
@@ -267,7 +306,7 @@ export default function PendapatanCleanox() {
 								{isYearFilter ? "Tren Pendapatan Bulanan" : "Tren Pendapatan Harian"}
 								{meta.dateStart && (
 									<span className="ml-2 text-xs font-normal text-slate-400">
-										({meta.dateStart} s.d {meta.asOfDate})
+										(cutoff {formatDate(meta.dateStart)} s.d {formatDate(meta.asOfDate || meta.dateEnd)})
 									</span>
 								)}
 							</p>
@@ -283,13 +322,15 @@ export default function PendapatanCleanox() {
 										<CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.3)" />
 										<XAxis
 											dataKey={isYearFilter ? "label" : "date"}
-											tick={{ fontSize: 11 }}
+											tick={{ fontSize: 10 }}
 											axisLine={false}
 											tickLine={false}
+											interval="preserveStartEnd"
+											minTickGap={28}
 											tickFormatter={
 												isYearFilter
 													? undefined
-													: (v) => String(parseInt(String(v)?.split("-")[2] || v, 10))
+													: (v) => formatChartDayTick(v)
 											}
 										/>
 										<YAxis
@@ -455,8 +496,14 @@ export default function PendapatanCleanox() {
 						<div>
 							<h2 className="text-base font-bold text-slate-800">Rincian Transaksi Lunas</h2>
 							<p className="mt-0.5 text-xs text-slate-500">
-								Transaksi POS sudah lunas berdasarkan tanggal pelunasan pada periode aktif, beserta bukti pembayaran.
+								Smartlink &amp; POS lunas pada periode cutoff (26 s.d 25). Tanggal omzet = pelunasan
+								POS jika ada, else tanggal layanan; Smartlink = tanggal layanan.
 							</p>
+							{lunasPeriodLabelId ? (
+								<p className="mt-1 text-xs font-semibold text-[#1b3459]">
+									Periode: {lunasPeriodLabelId}
+								</p>
+							) : null}
 							<p className="mt-1 text-xs text-slate-400">
 								{lunasLoading ? "Memuat..." : `${lunasRows.length} transaksi`}
 							</p>
@@ -476,8 +523,8 @@ export default function PendapatanCleanox() {
 										title: "Pendapatan Cleanox — Transaksi Lunas",
 										filePrefix: "Pendapatan_Cleanox_Lunas",
 										sheetName: "Lunas",
-										dateField: "payment_settled_date",
-										dateHeader: "TGL PELUNASAN",
+										dateField: "omzet_date",
+										dateHeader: "TGL OMZET",
 										includeRekonsiliasi: true,
 									});
 								} catch (err) {
@@ -501,7 +548,10 @@ export default function PendapatanCleanox() {
 										Customer
 									</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-										Tgl Pelunasan
+										Sumber
+									</th>
+									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+										Tgl Omzet
 									</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
 										Kategori
@@ -523,19 +573,30 @@ export default function PendapatanCleanox() {
 							<tbody className="divide-y divide-slate-100">
 								{lunasLoading ? (
 									<tr>
-										<td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
+										<td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
 											Memuat transaksi lunas...
 										</td>
 									</tr>
 								) : lunasRows.length === 0 ? (
 									<tr>
-										<td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
+										<td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
 											Tidak ada transaksi lunas pada periode ini.
 										</td>
 									</tr>
 								) : (
-									lunasRows.map((row) => (
-										<tr key={row.id} className="hover:bg-slate-50">
+									lunasRows.map((row) => {
+										const sourceLabel = row.is_history_entry
+											? "History"
+											: row.source_system === "smartlink"
+												? "Smartlink"
+												: "POS";
+										const omzetDisplay =
+											row.omzet_date || row.payment_settled_date || row.service_date;
+										return (
+										<tr
+											key={`${row.source_system || "pos"}-${row.transaction_no}-${row.id ?? "x"}`}
+											className="hover:bg-slate-50"
+										>
 											<td className="whitespace-nowrap px-4 py-3 font-semibold text-[#1b3459]">
 												{row.transaction_no}
 											</td>
@@ -543,8 +604,21 @@ export default function PendapatanCleanox() {
 												<div className="font-medium text-slate-800">{row.customer_name}</div>
 												<div className="text-xs text-slate-400">{row.customer_phone || "-"}</div>
 											</td>
+											<td className="whitespace-nowrap px-4 py-3">
+												<span
+													className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+														sourceLabel === "Smartlink"
+															? "bg-violet-50 text-violet-700"
+															: sourceLabel === "History"
+																? "bg-amber-50 text-amber-700"
+																: "bg-sky-50 text-sky-700"
+													}`}
+												>
+													{sourceLabel}
+												</span>
+											</td>
 											<td className="whitespace-nowrap px-4 py-3 text-slate-600">
-												{formatDate(row.payment_settled_date)}
+												{formatDate(omzetDisplay)}
 											</td>
 											<td className="whitespace-nowrap px-4 py-3 text-slate-600">
 												{row.kategori || "-"}
@@ -558,7 +632,7 @@ export default function PendapatanCleanox() {
 											<td className="px-4 py-3">
 												<div className="flex flex-wrap gap-1.5">
 													{(row.payment_proofs || []).length === 0 ? (
-														<span className="text-xs text-slate-300">-</span>
+														<span className="text-xs text-slate-300">—</span>
 													) : (
 														(row.payment_proofs || []).map((p, idx) => (
 															<PhotoThumb
@@ -580,7 +654,8 @@ export default function PendapatanCleanox() {
 												{formatCurrency(row.final_amount)}
 											</td>
 										</tr>
-									))
+										);
+									})
 								)}
 							</tbody>
 						</table>

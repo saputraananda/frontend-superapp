@@ -95,6 +95,22 @@ function toDateKey(value) {
 	return `${y}-${m}-${d}`;
 }
 
+function isTunaiKategori(kategori) {
+	return String(kategori || "")
+		.trim()
+		.toUpperCase() === "TUNAI";
+}
+
+/** Excel rekonsiliasi NON TUNAI: includes SMARTLINK; excludes COLLABORATION / TUNAI / empty. */
+function isNonTunaiReconKategori(kategori) {
+	const k = String(kategori || "")
+		.trim()
+		.toUpperCase();
+	if (!k || k === "-" || isTunaiKategori(k)) return false;
+	if (k === "COLLABORATION") return false;
+	return true;
+}
+
 function buildRekonsiliasiAggregates(list, dateField) {
 	const map = new Map();
 	for (const r of list || []) {
@@ -104,8 +120,8 @@ function buildRekonsiliasiAggregates(list, dateField) {
 		if (!map.has(dateKey)) map.set(dateKey, { tunai: 0, nonTunai: 0 });
 		const bucket = map.get(dateKey);
 		const kategori = String(r.kategori || "").trim().toUpperCase();
-		if (kategori === "TUNAI") bucket.tunai += amount;
-		else if (kategori === "TF BANK") bucket.nonTunai += amount;
+		if (isTunaiKategori(kategori)) bucket.tunai += amount;
+		else if (isNonTunaiReconKategori(kategori)) bucket.nonTunai += amount;
 	}
 	return Array.from(map.entries())
 		.sort(([a], [b]) => a.localeCompare(b))

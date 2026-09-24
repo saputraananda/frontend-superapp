@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  HiOutlineArrowDownTray,
   HiOutlineCheckCircle,
   HiOutlineClock,
   HiOutlineExclamationTriangle,
@@ -11,6 +12,32 @@ import { api, BASE_URL } from "../../../lib/api";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
+}
+
+function resolvePhotoFileName(item) {
+  if (item?.file) return String(item.file);
+  const raw = String(item?.url || "");
+  const segment = raw.split("/").pop() || "";
+  try {
+    return decodeURIComponent(segment) || "foto-kebersihan.jpg";
+  } catch {
+    return segment || "foto-kebersihan.jpg";
+  }
+}
+
+async function downloadAuthenticatedPhoto({ url, fileName }) {
+  const fullUrl = url.startsWith("http") ? url : `${BASE_URL}${url}`;
+  const res = await fetch(fullUrl, { credentials: "include" });
+  if (!res.ok) throw new Error("Gagal mengunduh foto");
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  const objectUrl = URL.createObjectURL(blob);
+  a.href = objectUrl;
+  a.download = fileName || fullUrl.split("/").pop() || "foto-kebersihan.jpg";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 function toDateInput(date) {
@@ -153,10 +180,41 @@ function PhotoThumb({ path, label, onOpen, className = "h-11 w-11" }) {
 }
 
 function PhotoViewerModal({ item, onClose }) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    if (!item?.url || downloading) return;
+    setDownloadError("");
+    setDownloading(true);
+    try {
+      await downloadAuthenticatedPhoto({
+        url: item.url,
+        fileName: resolvePhotoFileName(item),
+      });
+    } catch {
+      setDownloadError("Gagal mengunduh foto. Coba lagi.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (!item) return null;
+
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative inline-flex max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
+      <div className="relative inline-flex max-w-[94vw] flex-col items-center" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={downloading || !item.url}
+          className="absolute right-14 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-600 shadow-md transition hover:bg-white hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="Unduh foto"
+          title="Unduh foto"
+        >
+          <HiOutlineArrowDownTray className={cn("h-5 w-5", downloading && "animate-pulse")} />
+        </button>
         <button
           type="button"
           onClick={onClose}
@@ -172,6 +230,9 @@ function PhotoViewerModal({ item, onClose }) {
           objectFit="contain"
           iconSize="h-10 w-10"
         />
+        {downloadError ? (
+          <p className="mt-2 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">{downloadError}</p>
+        ) : null}
       </div>
     </div>,
     document.body,
@@ -377,6 +438,7 @@ export default function MasterAreaKebersihanCleanox() {
                                   setPhotoViewer({
                                     url: photo.url,
                                     label: `${photo.name} · ${capitalEachWord(row.full_name)} · ${row.session}`,
+                                    file: photo.file || null,
                                   })
                                 }
                               />
@@ -425,6 +487,7 @@ export default function MasterAreaKebersihanCleanox() {
                               setPhotoViewer({
                                 url: photo.url,
                                 label: `${photo.name} · ${capitalEachWord(row.full_name)}`,
+                                file: photo.file || null,
                               })
                             }
                             className="h-12 w-12"
