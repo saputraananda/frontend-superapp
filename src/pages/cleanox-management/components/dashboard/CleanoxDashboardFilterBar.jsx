@@ -62,7 +62,14 @@ export default function CleanoxDashboardFilterBar({
 				</div>
 
 				{filterType === "month" && (
-					<input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className={inputCls} />
+					<div className="flex flex-wrap items-center gap-2">
+						<input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className={inputCls} />
+						{month ? (
+							<span className="text-[11px] font-medium text-slate-400">
+								Cutoff: tgl 26 s/d 25
+							</span>
+						) : null}
+					</div>
 				)}
 				{filterType === "year" && (
 					<select value={year} onChange={(e) => setYear(e.target.value)} className={inputCls}>

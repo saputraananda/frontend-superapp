@@ -63,6 +63,34 @@ function formatCurrency(value) {
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
+/** Fill daily trend for full cutoff window (26→25), zeros for days without sales. */
+function padDailyTrend(trend, dateStart, dateEnd) {
+	if (!dateStart || !dateEnd) return trend || [];
+	const byDate = new Map((trend || []).map((d) => [String(d.date).slice(0, 10), Number(d.sales) || 0]));
+	const out = [];
+	const cur = new Date(`${dateStart}T12:00:00`);
+	const end = new Date(`${dateEnd}T12:00:00`);
+	if (Number.isNaN(cur.getTime()) || Number.isNaN(end.getTime())) return trend || [];
+	while (cur <= end) {
+		const y = cur.getFullYear();
+		const m = String(cur.getMonth() + 1).padStart(2, "0");
+		const d = String(cur.getDate()).padStart(2, "0");
+		const key = `${y}-${m}-${d}`;
+		out.push({ date: key, sales: byDate.get(key) || 0 });
+		cur.setDate(cur.getDate() + 1);
+	}
+	return out;
+}
+
+function formatChartDayTick(isoDate) {
+	const parts = String(isoDate || "").split("-");
+	if (parts.length < 3) return String(isoDate || "");
+	const day = parseInt(parts[2], 10);
+	const monthIdx = parseInt(parts[1], 10) - 1;
+	const mon = MONTH_NAMES[monthIdx] || parts[1];
+	return `${day} ${mon}`;
+}
+
 export default function PendapatanCleanox() {
 	const defaults = getDefaultDashboardFilters();
 	const [serviceMode, setServiceMode] = useState(defaults.serviceMode);
@@ -147,7 +175,11 @@ export default function PendapatanCleanox() {
 	const meta = data?.meta ?? {};
 	const isYearFilter = filters.filterType === "year";
 
-	const chartTrendDaily = trend;
+	const chartTrendDaily = padDailyTrend(
+		trend,
+		meta.dateStart,
+		meta.asOfDate || meta.dateEnd,
+	);
 	const chartTrend = isYearFilter
 		? Object.values(
 				chartTrendDaily.reduce((acc, d) => {
@@ -174,6 +206,9 @@ export default function PendapatanCleanox() {
 
 	const lunasPeriodLabel = meta.dateStart
 		? `${meta.dateStart} – ${meta.asOfDate || meta.dateEnd}`
+		: "";
+	const lunasPeriodLabelId = meta.dateStart
+		? `${formatDate(meta.dateStart)} – ${formatDate(meta.asOfDate || meta.dateEnd)}`
 		: "";
 
 	return (
@@ -271,7 +306,7 @@ export default function PendapatanCleanox() {
 								{isYearFilter ? "Tren Pendapatan Bulanan" : "Tren Pendapatan Harian"}
 								{meta.dateStart && (
 									<span className="ml-2 text-xs font-normal text-slate-400">
-										({meta.dateStart} s.d {meta.asOfDate})
+										(cutoff {formatDate(meta.dateStart)} s.d {formatDate(meta.asOfDate || meta.dateEnd)})
 									</span>
 								)}
 							</p>
@@ -287,13 +322,15 @@ export default function PendapatanCleanox() {
 										<CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.3)" />
 										<XAxis
 											dataKey={isYearFilter ? "label" : "date"}
-											tick={{ fontSize: 11 }}
+											tick={{ fontSize: 10 }}
 											axisLine={false}
 											tickLine={false}
+											interval="preserveStartEnd"
+											minTickGap={28}
 											tickFormatter={
 												isYearFilter
 													? undefined
-													: (v) => String(parseInt(String(v)?.split("-")[2] || v, 10))
+													: (v) => formatChartDayTick(v)
 											}
 										/>
 										<YAxis
@@ -459,9 +496,14 @@ export default function PendapatanCleanox() {
 						<div>
 							<h2 className="text-base font-bold text-slate-800">Rincian Transaksi Lunas</h2>
 							<p className="mt-0.5 text-xs text-slate-500">
-								Smartlink &amp; POS lunas pada periode aktif (tanggal omzet = pelunasan POS jika ada,
-								else tanggal layanan; Smartlink = tanggal layanan).
+								Smartlink &amp; POS lunas pada periode cutoff (26 s.d 25). Tanggal omzet = pelunasan
+								POS jika ada, else tanggal layanan; Smartlink = tanggal layanan.
 							</p>
+							{lunasPeriodLabelId ? (
+								<p className="mt-1 text-xs font-semibold text-[#1b3459]">
+									Periode: {lunasPeriodLabelId}
+								</p>
+							) : null}
 							<p className="mt-1 text-xs text-slate-400">
 								{lunasLoading ? "Memuat..." : `${lunasRows.length} transaksi`}
 							</p>
