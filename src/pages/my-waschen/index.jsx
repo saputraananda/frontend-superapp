@@ -228,6 +228,12 @@ const MENU_SECTIONS = [
         description: "Varian aroma & parfum premium",
       },
       {
+        to: "/my-waschen/master/item-kg",
+        icon: HiOutlineSwatch,
+        label: "Item Kiloan",
+        description: "Jenis pakaian rincian QC kiloan",
+      },
+      {
         to: "/my-waschen/master/membership-packages",
         icon: HiOutlineCreditCard,
         label: "Paket Membership",

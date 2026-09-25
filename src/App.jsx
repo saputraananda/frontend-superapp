@@ -129,6 +129,7 @@ import CategoryServices from "./pages/my-waschen/components/MasterData/CategoryS
 import ServicesMaster from "./pages/my-waschen/components/MasterData/Services";
 import ServiceSpeed from "./pages/my-waschen/components/MasterData/ServiceSpeed";
 import ParfumeMaster from "./pages/my-waschen/components/MasterData/Parfume";
+import ItemKgMaster from "./pages/my-waschen/components/MasterData/ItemKg";
 import MembershipPackage from "./pages/my-waschen/components/MasterData/MembershipPackage";
 import UnitMaster from "./pages/my-waschen/components/MasterData/Unit";
 import CustomerPage from "./pages/my-waschen/components/Transaction/Customer";
@@ -683,6 +684,7 @@ export default function App() {
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
           <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />
           <Route path="/my-waschen/master/parfumes" element={<ParfumeMaster />} />
+          <Route path="/my-waschen/master/item-kg" element={<ItemKgMaster />} />
           <Route path="/my-waschen/master/membership-packages" element={<MembershipPackage />} />
           <Route path="/my-waschen/master/units" element={<UnitMaster />} />
           <Route path="/my-waschen/customers" element={<CustomerPage />} />
