@@ -428,9 +428,9 @@ export default function Absensi() {
               {cleanlinessGroups.map((g) => (
               <div key={g.role || "all"}>
                 {g.role && (
-                  <h3 className="mb-2 flex items-center gap-2 text-xs">
-                    <span className="rounded-full bg-[#5f1340]/10 px-2.5 py-1 font-bold text-[#5f1340]">{g.role}</span>
-                    <span className="font-medium text-slate-400">{g.photos.length} foto</span>
+                  <h3 className="mb-2 flex w-full items-center justify-between gap-2 rounded-xl bg-[#5f1340]/10 px-3 py-2 text-xs">
+                    <span className="min-w-0 truncate font-bold text-[#5f1340]">{g.role}</span>
+                    <span className="shrink-0 font-semibold text-[#5f1340]/70">{g.photos.length} foto</span>
                   </h3>
                 )}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
