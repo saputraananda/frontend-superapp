@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import {
 	HiOutlineArrowsUpDown,
 	HiOutlineCalendarDays,
-	HiOutlineCheckCircle,
 	HiOutlineChevronDown,
 	HiOutlineChevronLeft,
 	HiOutlineChevronRight,
@@ -12,26 +11,12 @@ import {
 	HiOutlineExclamationTriangle,
 	HiOutlineFunnel,
 	HiOutlineMagnifyingGlass,
-	HiOutlineNoSymbol,
 	HiOutlineXMark,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
 
 function cn(...classes) {
 	return classes.filter(Boolean).join(" ");
-}
-
-const HRD_POSITION_IDS = [1, 8, 17, 18, 19];
-
-function getCurrentUserEmployee() {
-	try {
-		const raw = localStorage.getItem("user");
-		if (!raw) return null;
-		const parsed = JSON.parse(raw);
-		return parsed?.employee || parsed?.user?.employee || null;
-	} catch {
-		return null;
-	}
 }
 
 function formatDateOnly(value) {
@@ -140,14 +125,6 @@ function formatFundingSummary(row) {
 	return parts.length ? parts.join(" · ") : "-";
 }
 
-function isRoOnlyIzin(row) {
-	if (!row || row.leave_type !== "izin") return false;
-	const ro = Number(row.funding_ro_hours || 0);
-	const ot = Number(row.funding_overtime_hours || 0);
-	const unpaid = Number(row.funding_unpaid_hours || 0);
-	return ro > 0 && ot === 0 && unpaid === 0;
-}
-
 const STATUS_META = {
 	Pending_Supervisor: { label: "Menunggu Supervisor", cls: "bg-amber-50 text-amber-700 border-amber-200" },
 	Pending_HRD: { label: "Menunggu HRD", cls: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -209,79 +186,7 @@ function SkeletonRow({ cols = 10 }) {
 	);
 }
 
-function ActionModal({ mode, role, item, onClose, onConfirm, busy }) {
-	const [note, setNote] = useState("");
-	if (!item || !mode) return null;
-	const isReject = mode === "reject";
-
-	return createPortal(
-		<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
-			<div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-				<div className="mb-4 flex items-start justify-between gap-3">
-					<div>
-						<h2 className="text-base font-bold text-slate-800">
-							{isReject ? `Tolak (${role})` : `Setujui (${role})`}
-						</h2>
-						<p className="mt-1 text-sm text-slate-500">
-							{item.employee_name} — <strong>{LEAVE_TYPE_META[item.leave_type]?.label ?? item.leave_type}</strong>
-						</p>
-						<p className="text-xs text-slate-400">
-							{formatDateOnly(item.start_date)}
-							{item.end_date !== item.start_date ? ` s/d ${formatDateOnly(item.end_date)}` : ""}
-						</p>
-					</div>
-					<button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50">
-						<HiOutlineXMark className="h-4 w-4" />
-					</button>
-				</div>
-
-				{isReject ? (
-					<div className="mb-5">
-						<label className="mb-1.5 block text-xs font-semibold text-slate-500">
-							Alasan Penolakan <span className="text-rose-500">*</span>
-						</label>
-						<textarea
-							rows={3}
-							value={note}
-							onChange={(e) => setNote(e.target.value)}
-							placeholder="Tuliskan alasan penolakan..."
-							className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 resize-none"
-							maxLength={1000}
-						/>
-					</div>
-				) : (
-					<p className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-						{role === "Supervisor"
-							? isRoOnlyIzin(item)
-								? "Pengajuan izin RO akan langsung disetujui."
-								: "Pengajuan akan diteruskan ke HRD."
-							: "Pengajuan akan disetujui final dan dapat mengunci absensi full-day."}
-					</p>
-				)}
-
-				<div className="flex justify-end gap-2">
-					<button type="button" onClick={onClose} disabled={busy} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-						Batal
-					</button>
-					<button
-						type="button"
-						disabled={busy || (isReject && !note.trim())}
-						onClick={() => onConfirm(note)}
-						className={cn(
-							"rounded-xl px-5 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-60",
-							isReject ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700",
-						)}
-					>
-						{busy ? "Memproses..." : isReject ? "Tolak" : "Setujui"}
-					</button>
-				</div>
-			</div>
-		</div>,
-		document.body,
-	);
-}
-
-function LeaveDetailModal({ item, onClose, canSpvAct, canHrdAct, onSpvApprove, onSpvReject, onHrdApprove, onHrdReject }) {
+function LeaveDetailModal({ item, onClose }) {
 	if (!item) return null;
 
 	return createPortal(
@@ -367,66 +272,20 @@ function LeaveDetailModal({ item, onClose, canSpvAct, canHrdAct, onSpvApprove, o
 
 					<p className="text-[11px] text-slate-400">Diajukan: {formatDateTime(item.created_at)}</p>
 				</div>
-
-				{item.status === "Pending_Supervisor" && canSpvAct && (
-					<div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
-						<button type="button" onClick={() => onSpvReject(item)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
-							<HiOutlineNoSymbol className="h-4 w-4" /> Tolak SPV
-						</button>
-						<button type="button" onClick={() => onSpvApprove(item)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-							<HiOutlineCheckCircle className="h-4 w-4" /> Setujui SPV
-						</button>
-					</div>
-				)}
-
-				{item.status === "Pending_HRD" && canHrdAct && (
-					<div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
-						<button type="button" onClick={() => onHrdReject(item)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
-							<HiOutlineNoSymbol className="h-4 w-4" /> Tolak HRD
-						</button>
-						<button type="button" onClick={() => onHrdApprove(item)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-							<HiOutlineCheckCircle className="h-4 w-4" /> Setujui HRD
-						</button>
-					</div>
-				)}
 			</div>
 		</div>,
 		document.body,
 	);
 }
 
-function RowActions({ row, canSpv, canHrd, onSpvApprove, onSpvReject, onHrdApprove, onHrdReject }) {
-	if (canSpv) {
-		return (
-			<div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-				<button type="button" onClick={() => onSpvApprove(row)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">
-					<HiOutlineCheckCircle className="h-3.5 w-3.5" /> Setujui
-				</button>
-				<button type="button" onClick={() => onSpvReject(row)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition">
-					<HiOutlineNoSymbol className="h-3.5 w-3.5" /> Tolak
-				</button>
-			</div>
-		);
-	}
-	if (canHrd) {
-		return (
-			<div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-				<button type="button" onClick={() => onHrdApprove(row)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">
-					<HiOutlineCheckCircle className="h-3.5 w-3.5" /> Setujui
-				</button>
-				<button type="button" onClick={() => onHrdReject(row)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition">
-					<HiOutlineNoSymbol className="h-3.5 w-3.5" /> Tolak
-				</button>
-			</div>
-		);
-	}
+function StatusNote({ row }) {
 	if (row.status === "disetujui" && row.approved_by_name) {
 		return <span className="text-xs text-slate-400">oleh {row.approved_by_name}</span>;
 	}
 	return <span className="text-xs text-slate-300">—</span>;
 }
 
-function MobileLeaveCard({ row, onDetail, canSpv, canHrd, onSpvApprove, onSpvReject, onHrdApprove, onHrdReject }) {
+function MobileLeaveCard({ row, onDetail }) {
 	return (
 		<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
 			<button type="button" className="w-full text-left space-y-3" onClick={() => onDetail(row)}>
@@ -468,27 +327,11 @@ function MobileLeaveCard({ row, onDetail, canSpv, canHrd, onSpvApprove, onSpvRej
 					/>
 				)}
 			</button>
-			{(canSpv || canHrd) && (
-				<div className="pt-1 border-t border-slate-100">
-					<RowActions
-						row={row}
-						canSpv={canSpv}
-						canHrd={canHrd}
-						onSpvApprove={onSpvApprove}
-						onSpvReject={onSpvReject}
-						onHrdApprove={onHrdApprove}
-						onHrdReject={onHrdReject}
-					/>
-				</div>
-			)}
 		</div>
 	);
 }
 
 export default function PerizinanAlora() {
-	const employee = useMemo(() => getCurrentUserEmployee(), []);
-	const isSpv = Number(employee?.job_level_id) <= 3;
-	const isHR = HRD_POSITION_IDS.includes(Number(employee?.position_id));
 	const defaultCutoff = useMemo(() => getDefaultCutoff(), []);
 	const yearOptions = useMemo(() => {
 		const base = new Date().getFullYear();
@@ -501,7 +344,7 @@ export default function PerizinanAlora() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
-	const [filterStatus, setFilterStatus] = useState("Pending_Supervisor");
+	const [filterStatus, setFilterStatus] = useState("");
 	const [filterLeaveType, setFilterLeaveType] = useState("");
 	const [cutoffMonth, setCutoffMonth] = useState(defaultCutoff.cutoffMonth);
 	const [cutoffYear, setCutoffYear] = useState(defaultCutoff.cutoffYear);
@@ -512,25 +355,8 @@ export default function PerizinanAlora() {
 	const [sort, setSort] = useState({ col: "created_at", dir: "desc" });
 
 	const [detailItem, setDetailItem] = useState(null);
-	const [actionState, setActionState] = useState(null);
-	const [busy, setBusy] = useState(false);
-	const [toast, setToast] = useState(null);
 
 	const fetchInFlight = useRef(false);
-
-	const showToast = useCallback((message, type = "success") => {
-		setToast({ message, type });
-		setTimeout(() => setToast(null), 3500);
-	}, []);
-
-	const canSpvActOn = useCallback(
-		(item) => isSpv && item?.status === "Pending_Supervisor" && Number(employee?.department_id) === Number(item?.department_id),
-		[isSpv, employee?.department_id],
-	);
-	const canHrdActOn = useCallback(
-		(item) => isHR && item?.status === "Pending_HRD",
-		[isHR],
-	);
 
 	const fetchLeaves = useCallback(
 		async ({ silent = false } = {}) => {
@@ -605,69 +431,12 @@ export default function PerizinanAlora() {
 		});
 	}, [records, sort]);
 
-	const runAction = async (note) => {
-		if (!actionState?.item) return;
-		const { item, mode, role } = actionState;
-		setBusy(true);
-		try {
-			let path = "";
-			if (role === "Supervisor" && mode === "approve") path = `/alora/leaves/${item.id}/supervisor-approve`;
-			if (role === "Supervisor" && mode === "reject") path = `/alora/leaves/${item.id}/supervisor-reject`;
-			if (role === "HRD" && mode === "approve") path = `/alora/leaves/${item.id}/hrd-approve`;
-			if (role === "HRD" && mode === "reject") path = `/alora/leaves/${item.id}/hrd-reject`;
-
-			await api(path, {
-				method: "PUT",
-				body: JSON.stringify(mode === "reject" ? { reason: note } : {}),
-			});
-			showToast(mode === "reject" ? "Pengajuan ditolak" : "Pengajuan disetujui");
-			setActionState(null);
-			setDetailItem(null);
-			await fetchLeaves({ silent: true });
-		} catch (err) {
-			showToast(err.message || "Gagal memproses pengajuan", "error");
-		} finally {
-			setBusy(false);
-		}
-	};
-
-	const openSpvApprove = (item) => {
-		setDetailItem(null);
-		setActionState({ item, mode: "approve", role: "Supervisor" });
-	};
-	const openSpvReject = (item) => {
-		setDetailItem(null);
-		setActionState({ item, mode: "reject", role: "Supervisor" });
-	};
-	const openHrdApprove = (item) => {
-		setDetailItem(null);
-		setActionState({ item, mode: "approve", role: "HRD" });
-	};
-	const openHrdReject = (item) => {
-		setDetailItem(null);
-		setActionState({ item, mode: "reject", role: "HRD" });
-	};
-
 	const pages = generatePages(pagination.page, pagination.totalPages);
 	const from = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
 	const to = Math.min(pagination.page * pagination.limit, pagination.total);
 
 	return (
 		<div className="space-y-5 p-4 md:p-6">
-			{toast && (
-				<div
-					className={cn(
-						"fixed bottom-5 right-5 z-[80] flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-xl",
-						toast.type === "error"
-							? "border-rose-200 bg-rose-50 text-rose-700"
-							: "border-emerald-200 bg-emerald-50 text-emerald-700",
-					)}
-				>
-					{toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4 shrink-0" /> : <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />}
-					{toast.message}
-				</div>
-			)}
-
 			<div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 				<div>
 					<div className="mb-1 inline-flex items-center gap-2 text-blue-600">
@@ -676,7 +445,7 @@ export default function PerizinanAlora() {
 					</div>
 					<h1 className="text-xl font-black text-slate-800">Cuti & Perizinan Alora</h1>
 					<p className="mt-1 text-sm text-slate-500">
-						Approval pola training: Supervisor (dept sama) → HRD. Periode cutoff 26–25.
+						Monitoring izin, sakit & cuti. Periode cutoff 26–25.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2 text-xs">
@@ -810,7 +579,7 @@ export default function PerizinanAlora() {
 					<button
 						type="button"
 						onClick={() => {
-							setFilterStatus("Pending_Supervisor");
+							setFilterStatus("");
 							setFilterLeaveType("");
 							const def = getDefaultCutoff();
 							setCutoffMonth(def.cutoffMonth);
@@ -853,7 +622,7 @@ export default function PerizinanAlora() {
 								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Alasan</th>
 								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Lampiran</th>
 								<SortTh col="status" label="Status" sort={sort} onSort={handleSort} />
-								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Aksi</th>
+								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Catatan</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -906,15 +675,7 @@ export default function PerizinanAlora() {
 											</td>
 											<td className="whitespace-nowrap px-4 py-3"><StatusBadge status={row.status} /></td>
 											<td className="whitespace-nowrap px-4 py-3">
-												<RowActions
-													row={row}
-													canSpv={canSpvActOn(row)}
-													canHrd={canHrdActOn(row)}
-													onSpvApprove={openSpvApprove}
-													onSpvReject={openSpvReject}
-													onHrdApprove={openHrdApprove}
-													onHrdReject={openHrdReject}
-												/>
+												<StatusNote row={row} />
 											</td>
 										</tr>
 									))}
@@ -934,12 +695,6 @@ export default function PerizinanAlora() {
 									key={row.id}
 									row={row}
 									onDetail={setDetailItem}
-									canSpv={canSpvActOn(row)}
-									canHrd={canHrdActOn(row)}
-									onSpvApprove={openSpvApprove}
-									onSpvReject={openSpvReject}
-									onHrdApprove={openHrdApprove}
-									onHrdReject={openHrdReject}
 								/>
 							))}
 				</div>
@@ -1009,23 +764,6 @@ export default function PerizinanAlora() {
 				<LeaveDetailModal
 					item={detailItem}
 					onClose={() => setDetailItem(null)}
-					canSpvAct={canSpvActOn(detailItem)}
-					canHrdAct={canHrdActOn(detailItem)}
-					onSpvApprove={openSpvApprove}
-					onSpvReject={openSpvReject}
-					onHrdApprove={openHrdApprove}
-					onHrdReject={openHrdReject}
-				/>
-			)}
-
-			{actionState && (
-				<ActionModal
-					mode={actionState.mode}
-					role={actionState.role}
-					item={actionState.item}
-					busy={busy}
-					onClose={() => setActionState(null)}
-					onConfirm={runAction}
 				/>
 			)}
 		</div>

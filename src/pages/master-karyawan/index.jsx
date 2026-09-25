@@ -36,14 +36,14 @@ const MENU_ITEMS = [
         to: "/master-karyawan/perizinan",
         icon: HiOutlineClipboardDocumentList,
         label: "Cuti & Perizinan",
-        description: "Approval izin, sakit & cuti Alora",
+        description: "Monitoring izin, sakit & cuti Alora",
         end: false,
     },
     {
         to: "/master-karyawan/attendance-approval",
         icon: HiOutlineClock,
-        label: "Approval WFA/WOD",
-        description: "Persetujuan absensi WFA & Work on Day Off",
+        label: "Monitoring WFA/WOD",
+        description: "Monitoring pengajuan WFA & WOD",
         end: false,
     },
     {
@@ -63,8 +63,8 @@ const MENU_ITEMS = [
     {
         to: "/master-karyawan/annual-leave",
         icon: HiOutlineCalendarDays,
-        label: "Saldo Cuti",
-        description: "Saldo cuti tahunan karyawan",
+        label: "Saldo Karyawan",
+        description: "Saldo cuti, lembur, dan RO",
         end: false,
     },
     {
