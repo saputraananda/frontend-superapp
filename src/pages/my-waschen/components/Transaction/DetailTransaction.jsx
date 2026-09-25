@@ -298,6 +298,85 @@ function ItemProgressTimeline({ workers, onViewPhoto }) {
   );
 }
 
+/** Pemantauan kiloan: jumlah per plastik tiap tahap + rincian jenis pakaian Tim Cuci per plastik */
+function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
+  if (!bagHistory.length && !kgItems.length) return null;
+  const bagNos = [...new Set([...bagHistory.flatMap((h) => h.bags.map((b) => Number(b.bag_no))), ...kgItems.map((k) => Number(k.bag_no))])].sort((a, b) => a - b);
+  const qtyOf = (h, no) => h.bags.find((b) => Number(b.bag_no) === no)?.qty_pcs;
+  const fl = bagHistory.find((h) => h.stage === "frontliner");
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Rincian Plastik Kiloan</p>
+
+      {bagHistory.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600">
+                <th className="px-2.5 py-2 text-left font-bold">Tahap</th>
+                {bagNos.map((no) => <th key={no} className="px-2 py-2 text-center font-bold">P{no}</th>)}
+                <th className="px-2 py-2 text-center font-bold">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {bagHistory.map((h) => (
+                <tr key={h.stage}>
+                  <td className="px-2.5 py-2">
+                    <p className="font-semibold text-slate-800">{h.stage_label}</p>
+                    <p className="text-[10px] text-slate-400">{fmtEmployeeName(h.employee_name)} · {fmtDate(h.completed_at)}</p>
+                  </td>
+                  {bagNos.map((no) => {
+                    const q = qtyOf(h, no);
+                    const ref = fl && h !== fl ? qtyOf(fl, no) : undefined;
+                    const mismatch = ref != null && q != null && Number(q) !== Number(ref);
+                    return (
+                      <td key={no} className={cn("px-2 py-2 text-center font-bold tabular-nums", mismatch ? "text-amber-600" : "text-slate-800")}>
+                        {q ?? "—"}
+                      </td>
+                    );
+                  })}
+                  <td className="px-2 py-2 text-center font-bold text-[#5f1340] tabular-nums">
+                    {h.bags.reduce((s, b) => s + Number(b.qty_pcs || 0), 0)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {kgItems.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold text-slate-500">Jenis pakaian (Tim Cuci)</p>
+          {bagNos.filter((no) => kgItems.some((k) => Number(k.bag_no) === no)).map((no) => {
+            const rows = kgItems.filter((k) => Number(k.bag_no) === no);
+            return (
+              <details key={no} className="group rounded-lg border border-[#5f1340]/20 bg-[#5f1340]/5 overflow-hidden">
+                <summary className="list-none cursor-pointer px-3 py-2 flex items-center justify-between text-xs font-bold text-[#5f1340]">
+                  <span>Plastik {no}</span>
+                  <span className="flex items-center gap-1.5">
+                    {rows.reduce((s, k) => s + Number(k.qty_pcs || 0), 0)} pcs
+                    <HiOutlineChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
+                <div className="bg-white border-t border-[#5f1340]/10 divide-y divide-slate-100">
+                  {rows.map((k, i) => (
+                    <div key={i} className="px-3 py-1.5 flex justify-between text-xs">
+                      <span className="text-slate-700">{k.item_name}</span>
+                      <span className="font-bold text-slate-800 tabular-nums">{k.qty_pcs} pcs</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatusTimeline({ logs, items }) {
   const itemMap = Object.fromEntries((items || []).map((i) => [i.id, i]));
   if (!logs?.length) return null;
@@ -508,6 +587,8 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
                   : "Tidak ada catatan kondisi"}
               </p>
             </div>
+
+            <KiloanBagMonitor bagHistory={item.bag_history} kgItems={item.kg_items} />
 
             <ItemProgressTimeline workers={item.workers} onViewPhoto={onViewPhoto} />
           </div>

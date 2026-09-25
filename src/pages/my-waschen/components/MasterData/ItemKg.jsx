@@ -149,7 +149,7 @@ export default function ItemKg() {
           <table className="w-full text-left text-sm sm:text-[15px] border-collapse">
             <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-xs sm:text-[13px]">
               <tr>
-                <th className="px-3 sm:px-5 py-3.5 font-bold uppercase tracking-wider w-14 sm:w-20 text-center">No</th>
+                <th className="px-3 sm:px-5 py-3.5 font-bold uppercase tracking-wider w-14 sm:w-20 text-center">Urutan</th>
                 <th className="px-3 sm:px-5 py-3.5 font-bold uppercase tracking-wider">Nama Item</th>
                 <th className="px-3 sm:px-5 py-3.5 font-bold uppercase tracking-wider text-center">Status</th>
                 <th className="px-3 sm:px-5 py-3.5 font-bold uppercase tracking-wider text-right">Aksi</th>
@@ -214,7 +214,8 @@ export default function ItemKg() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Urutan</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Urutan Tampil</label>
+                  <p className="text-xs text-slate-500 mb-1">Menentukan urutan item di QC Tim Cuci (kecil tampil duluan).</p>
                   <input type="number" min={0} max={9999}
                     value={formData.sort_order} onChange={(e) => setFormData((p) => ({ ...p, sort_order: e.target.value }))} className={inputCls} />
                 </div>
