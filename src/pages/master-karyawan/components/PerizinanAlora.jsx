@@ -13,10 +13,17 @@ import {
 	HiOutlineMagnifyingGlass,
 	HiOutlineXMark,
 } from "react-icons/hi2";
-import { api } from "../../../lib/api";
+import { api, BASE_URL } from "../../../lib/api";
 
 function cn(...classes) {
 	return classes.filter(Boolean).join(" ");
+}
+
+function resolveAssetUrl(url) {
+	if (!url) return null;
+	if (/^https?:\/\//i.test(url)) return url;
+	const base = (BASE_URL || "").replace(/\/$/, "");
+	return `${base}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 function formatDateOnly(value) {
@@ -263,7 +270,7 @@ function LeaveDetailModal({ item, onClose }) {
 						<div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
 							<p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Surat Dokter</p>
 							<img
-								src={item.doctor_note_url}
+								src={resolveAssetUrl(item.doctor_note_url)}
 								alt="Surat dokter"
 								className="max-h-56 w-auto max-w-full rounded-xl border border-slate-200 object-contain"
 							/>
@@ -320,7 +327,7 @@ function MobileLeaveCard({ row, onDetail }) {
 				<p className="text-xs text-slate-500 line-clamp-2">{row.reason || "-"}</p>
 				{row.doctor_note_url && (
 					<img
-						src={row.doctor_note_url}
+						src={resolveAssetUrl(row.doctor_note_url)}
 						alt="Surat dokter"
 						className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
 						onClick={(e) => e.stopPropagation()}
@@ -664,7 +671,7 @@ export default function PerizinanAlora() {
 											<td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
 												{row.doctor_note_url ? (
 													<img
-														src={row.doctor_note_url}
+														src={resolveAssetUrl(row.doctor_note_url)}
 														alt="surat dokter"
 														loading="lazy"
 														className="h-10 w-10 rounded-lg border border-slate-200 object-cover"
