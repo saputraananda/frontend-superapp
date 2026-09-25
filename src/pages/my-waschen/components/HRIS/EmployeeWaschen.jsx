@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
     HiOutlineUsers,
@@ -163,11 +163,9 @@ function FloatingDropdown({
     const triggerRef = useRef(null);
     const [pos, setPos] = useState(null);
 
-    useEffect(() => {
-        if (!open) {
-            setPos(null);
-            return;
-        }
+    // Layout effect: posisi dihitung sebelum paint, jadi pos lama tak sempat berkedip saat dibuka ulang.
+    useLayoutEffect(() => {
+        if (!open) return undefined;
         const place = () => {
             const r = triggerRef.current?.getBoundingClientRect();
             if (!r) return;
@@ -250,14 +248,13 @@ function PinEditor({
 }) {
     const [value, setValue] = useState(codePin ? String(codePin) : "");
 
-    useEffect(() => {
-        if (open) setValue(codePin ? String(codePin) : "");
-    }, [open, codePin]);
-
     return (
         <FloatingDropdown
             open={open}
-            onOpen={onOpen}
+            onOpen={() => {
+                setValue(codePin ? String(codePin) : "");
+                onOpen();
+            }}
             onClose={onClose}
             align={align}
             width={208}

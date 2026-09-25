@@ -47,6 +47,7 @@ import {
   AbsensiMobileCard,
 } from "./hrisShared";
 
+const CLEANLINESS_ROLE_ORDER = ["Frontliner", "Delivery Staff", "Washing Staff", "Ironing Staff", "Packing Staff"];
 const STATUS_FILTERS = ["Semua", "Lengkap", "Belum check-out", "Belum check-in", "Foto belum lengkap"];
 const EMPTY_FORM = { employee_id: "", outlet_id: "", work_date: "", check_in_time: "", check_out_time: "" };
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
@@ -219,6 +220,29 @@ export default function Absensi() {
       setDetailLoading(false);
     }
   };
+
+  const outletById = useMemo(
+    () => new Map(outlets.map((o) => [String(o.id), o])),
+    [outlets],
+  );
+
+  // Tanpa filter outlet & posisi: kelompokkan foto per posisi.
+  const cleanlinessGroups = useMemo(() => {
+    if (hrisFilters.outletId || hrisFilters.role) return [{ role: null, photos: cleanlinessRows }];
+    const map = new Map();
+    cleanlinessRows.forEach((p) => {
+      const k = p.role_code || "Lainnya";
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(p);
+    });
+    const rank = (r) => {
+      const i = CLEANLINESS_ROLE_ORDER.indexOf(r);
+      return i === -1 ? CLEANLINESS_ROLE_ORDER.length : i;
+    };
+    return [...map.keys()]
+      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+      .map((role) => ({ role, photos: map.get(role) }));
+  }, [cleanlinessRows, hrisFilters.outletId, hrisFilters.role]);
 
   const filtered = useMemo(() => {
     let list = rows;
@@ -400,8 +424,17 @@ export default function Absensi() {
               <p className="text-sm font-semibold">Tidak ada foto kebersihan</p>
             </div>
           ) : (
-            <div className="p-3 sm:p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {cleanlinessRows.map((p) => (
+            <div className="p-3 sm:p-4 space-y-5">
+              {cleanlinessGroups.map((g) => (
+              <div key={g.role || "all"}>
+                {g.role && (
+                  <h3 className="mb-2 flex items-center gap-2 text-xs">
+                    <span className="rounded-full bg-[#5f1340]/10 px-2.5 py-1 font-bold text-[#5f1340]">{g.role}</span>
+                    <span className="font-medium text-slate-400">{g.photos.length} foto</span>
+                  </h3>
+                )}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {g.photos.map((p) => (
                 <button
                   key={p.cleanliness_photo_id}
                   type="button"
@@ -417,10 +450,17 @@ export default function Absensi() {
                   </div>
                   <div className="p-2.5 space-y-0.5">
                     <p className="text-[11px] font-bold text-slate-800 truncate">{p.uploaded_by_name || "—"}</p>
-                    <p className="text-[10px] text-slate-500">{fmtDateShort(p.work_date)} · {p.role_code}</p>
+                    <p className="flex flex-wrap items-center gap-1 pt-0.5">
+                      <span className="rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{p.role_code || "—"}</span>
+                      <span className="text-[10px] font-semibold text-slate-600">{outletById.get(String(p.outlet_id))?.name || "—"}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500">{fmtDateShort(p.work_date)}</p>
                     <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
                   </div>
                 </button>
+              ))}
+            </div>
+              </div>
               ))}
             </div>
           )}
@@ -540,6 +580,7 @@ export default function Absensi() {
                 <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
                   <tr>
                     <SortTh col="work_date" label="Tanggal" sort={sort} onSort={toggleSort} />
+                    <th className="px-4 py-3 font-semibold">Outlet</th>
                     <SortTh col="employee_name" label="Karyawan" sort={sort} onSort={toggleSort} />
                     <SortTh col="check_in_time" label="Absen In" sort={sort} onSort={toggleSort} />
                     <th className="px-4 py-3 font-semibold text-center">Foto In</th>
@@ -555,6 +596,7 @@ export default function Absensi() {
                   {filtered.map((r) => (
                     <tr key={r.attendance_id} className="hover:bg-slate-50/80">
                       <td className="px-4 py-3.5 font-mono text-slate-600 whitespace-nowrap">{fmtDateShort(r.work_date)}</td>
+                      <td className="px-4 py-3.5 font-mono text-slate-600 whitespace-nowrap">{outletById.get(String(r.outlet_id))?.outlet_code || "—"}</td>
                       <td className="px-4 py-3.5">
                         <p className="font-semibold text-slate-800">{fmtEmployeeName(r.employee_name)}</p>
                         {r.employee_code && <p className="text-[10px] text-slate-400">{r.employee_code}</p>}

@@ -17,7 +17,7 @@ function mondayFirstPad(date) {
 }
 
 /** Grid tanggal periode cutoff: 26 bulan lalu s/d 25 bulan cutoff */
-export function buildCutoffCells(rangeFrom, rangeTo) {
+function buildCutoffCells(rangeFrom, rangeTo) {
   if (!rangeFrom || !rangeTo) return [];
 
   const start = new Date(`${rangeFrom}T12:00:00`);
