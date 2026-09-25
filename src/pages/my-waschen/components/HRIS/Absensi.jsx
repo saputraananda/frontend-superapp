@@ -65,7 +65,7 @@ function SessionDivider({ session, count }) {
   return (
     <div className={`mb-2 flex items-center justify-between rounded-lg px-3 py-1.5 text-xs font-bold ${pulang ? "bg-indigo-50 text-indigo-800" : "bg-amber-50 text-amber-800"}`}>
       <span>Foto Kebersihan {session}</span>
-      <span className="font-semibold">{count} foto · {pulang ? "16:00–24:00" : "sebelum 16:00"}</span>
+      <span className="font-semibold">{count} foto</span>
     </div>
   );
 }
