@@ -57,6 +57,19 @@ const PAGE_TABS = [
   { id: "kebersihan", label: "Kebersihan" },
 ];
 
+// Pagi: sebelum 16:00 WIB · Pulang: 16:00–24:00 WIB (ditentukan server Waschen Mobile saat upload)
+const CLEANLINESS_SESSIONS = ["Pagi", "Pulang"];
+
+function SessionDivider({ session, count }) {
+  const pulang = session === "Pulang";
+  return (
+    <div className={`mb-2 flex items-center justify-between rounded-lg px-3 py-1.5 text-xs font-bold ${pulang ? "bg-indigo-50 text-indigo-800" : "bg-amber-50 text-amber-800"}`}>
+      <span>Foto Kebersihan {session}</span>
+      <span className="font-semibold">{count} foto · {pulang ? "16:00–24:00" : "sebelum 16:00"}</span>
+    </div>
+  );
+}
+
 function toDateTimeLocalInput(value) {
   if (!value) return "";
   const d = new Date(value);
@@ -433,8 +446,14 @@ export default function Absensi() {
                     <span className="shrink-0 font-semibold text-[#5f1340]/70">{g.photos.length} foto</span>
                   </h3>
                 )}
+            {CLEANLINESS_SESSIONS.map((session) => {
+              const photos = g.photos.filter((p) => (p.photo_session || "Pagi") === session);
+              if (!photos.length) return null;
+              return (
+            <div key={session} className="mb-3">
+              <SessionDivider session={session} count={photos.length} />
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {g.photos.map((p) => (
+              {photos.map((p) => (
                 <button
                   key={p.cleanliness_photo_id}
                   type="button"
@@ -460,6 +479,9 @@ export default function Absensi() {
                 </button>
               ))}
             </div>
+            </div>
+              );
+            })}
               </div>
               ))}
             </div>
@@ -833,9 +855,14 @@ export default function Absensi() {
                         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-slate-400">
                           Belum ada foto kebersihan untuk outlet + posisi hari ini.
                         </div>
-                      ) : (
+                      ) : CLEANLINESS_SESSIONS.map((session) => {
+                        const photos = detailRow.cleanliness_photos.filter((p) => (p.photo_session || "Pagi") === session);
+                        if (!photos.length) return null;
+                        return (
+                        <div key={session} className="mb-3">
+                          <SessionDivider session={session} count={photos.length} />
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {detailRow.cleanliness_photos.map((p) => (
+                          {photos.map((p) => (
                             <button
                               key={p.id}
                               type="button"
@@ -856,7 +883,9 @@ export default function Absensi() {
                             </button>
                           ))}
                         </div>
-                      )}
+                        </div>
+                        );
+                      })}
                     </section>
                   )}
                 </>
