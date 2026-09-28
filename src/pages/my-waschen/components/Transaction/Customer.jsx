@@ -32,6 +32,14 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+function waHref(phone) {
+  let digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0")) digits = `62${digits.slice(1)}`;
+  else if (digits.startsWith("8")) digits = `62${digits}`;
+  return `https://wa.me/${digits}`;
+}
+
 function formatRupiah(val) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(val) || 0);
 }
@@ -198,7 +206,7 @@ function toFormData(item) {
 export default function Customer() {
   const cutoff = useCutoffPeriod();
   const [data, setData] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, active: 0, vip: 0, totalDeposit: 0, newCustomers: 0, churnCount: 0 });
+  const [meta, setMeta] = useState({ total: 0, active: 0, vip: 0, gold: 0, reguler: 0, oneTime: 0 });
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [tiers, setTiers] = useState([]);
@@ -217,6 +225,7 @@ export default function Customer() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [tierList, setTierList] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -319,6 +328,35 @@ export default function Customer() {
     setModalMode("edit");
   };
 
+  const openTierList = (card) => {
+    const tier = tiers.find((t) => t.code === card.code);
+    if (!tier) return;
+    setTierList({ label: card.l, tierId: tier.id, page: 1, rows: [], total: 0, loading: true });
+  };
+
+  useEffect(() => {
+    if (!tierList?.tierId) return undefined;
+    let cancel = false;
+    const query = new URLSearchParams();
+    if (search) query.set("search", search);
+    if (filterActive) query.set("isActive", filterActive);
+    if (filterOutletId) query.set("preferredOutletId", filterOutletId);
+    query.set("spendingTierId", String(tierList.tierId));
+    query.set("sortBy", "name");
+    query.set("sortDir", "asc");
+    query.set("page", String(tierList.page));
+    query.set("limit", "50");
+    api(`/waschen/customers?${query}`)
+      .then((res) => {
+        if (cancel) return;
+        setTierList((t) => (t && String(t.tierId) === String(tierList.tierId) && t.page === tierList.page
+          ? { ...t, loading: false, rows: res.data || [], total: Number(res.meta?.total) || 0 }
+          : t));
+      })
+      .catch(() => { if (!cancel) setTierList((t) => (t ? { ...t, loading: false } : t)); });
+    return () => { cancel = true; };
+  }, [tierList?.tierId, tierList?.page, search, filterActive, filterOutletId]);
+
   const stats = meta;
 
   const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340] focus:ring-1 focus:ring-[#5f1340]";
@@ -356,17 +394,25 @@ export default function Customer() {
         {[
           { l: "Total Customer", v: stats.total },
           { l: "Aktif", v: stats.active, c: "text-emerald-600" },
-          { l: "Tier VIP", v: stats.vip, c: "text-purple-600" },
-          { l: "Total Deposit", v: formatRupiah(stats.totalDeposit), c: "text-[#5f1340]", small: true },
-          { l: "Customer Baru", v: stats.newCustomers, c: "text-sky-600", sub: cutoff.periodLabel },
-          { l: "Churn", v: stats.churnCount, c: "text-rose-600", sub: "46–60 hari (POS)" },
-        ].map((s) => (
-          <div key={s.l} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.l}</p>
-            <p className={cn(s.small ? "text-lg" : "text-2xl", "font-bold mt-0.5", s.c || "text-slate-800")}>{s.v}</p>
-            {s.sub && <p className="mt-1 text-[10px] font-medium text-slate-400">{s.sub}</p>}
-          </div>
-        ))}
+          { l: "Tier VIP", v: stats.vip, c: "text-purple-600", code: "VIP" },
+          { l: "Gold", v: stats.gold, c: "text-amber-700", code: "GOLD" },
+          { l: "Reguler", v: stats.reguler, c: "text-slate-700", code: "REGULER" },
+          { l: "One-Time", v: stats.oneTime, c: "text-rose-600", code: "ONE_TIME" },
+        ].map((s) => {
+          const card = (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.l}</p>
+              <p className={cn("text-2xl font-bold mt-0.5", s.c || "text-slate-800")}>{s.v}</p>
+            </>
+          );
+          return s.code ? (
+            <button key={s.l} type="button" onClick={() => openTierList(s)} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-[#5f1340]/30">
+              {card}
+            </button>
+          ) : (
+            <div key={s.l} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">{card}</div>
+          );
+        })}
       </div>
 
       <section className={FILTER_SECTION}>
@@ -376,7 +422,7 @@ export default function Customer() {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Periode & Data</h2>
-            <p className="text-[11px] sm:text-xs text-slate-500">Filter diterapkan otomatis saat pilihan diubah. Periode dipakai untuk hitungan Customer Baru.</p>
+            <p className="text-[11px] sm:text-xs text-slate-500">Filter diterapkan otomatis saat pilihan diubah.</p>
           </div>
         </div>
 
@@ -553,6 +599,50 @@ export default function Customer() {
                 </button>
               </div>
             </form>
+            )}
+          </div>
+        </div>, document.body)}
+
+      {tierList && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <div>
+                <h3 className="text-sm font-bold">{tierList.label}</h3>
+                <p className="text-[11px] text-slate-400">{tierList.total} customer</p>
+              </div>
+              <button type="button" aria-label="Tutup" onClick={() => setTierList(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {tierList.loading ? (
+                <p className="px-5 py-8 text-center text-xs text-slate-400">Memuat...</p>
+              ) : tierList.rows.length === 0 ? (
+                <p className="px-5 py-8 text-center text-xs text-slate-400">Tidak ada customer</p>
+              ) : tierList.rows.map((c) => {
+                const href = waHref(c.phone);
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">{c.name || "—"}</p>
+                      <p className="truncate text-[11px] text-slate-400">{c.preferred_outlet_name || c.home_branch || "—"}</p>
+                    </div>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 font-mono text-[11px] text-emerald-700 hover:underline">{c.phone}</a>
+                    ) : (
+                      <span className="shrink-0 text-[11px] text-slate-300">—</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {tierList.total > 50 && (
+              <div className="flex items-center justify-between border-t px-5 py-3">
+                <p className="text-[11px] text-slate-400">Hal {tierList.page}/{Math.max(1, Math.ceil(tierList.total / 50))}</p>
+                <div className="flex gap-1">
+                  <button type="button" disabled={tierList.page <= 1 || tierList.loading} onClick={() => setTierList((t) => (t ? { ...t, page: t.page - 1, loading: true } : t))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40">Sebelumnya</button>
+                  <button type="button" disabled={tierList.page >= Math.ceil(tierList.total / 50) || tierList.loading} onClick={() => setTierList((t) => (t ? { ...t, page: t.page + 1, loading: true } : t))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40">Berikutnya</button>
+                </div>
+              </div>
             )}
           </div>
         </div>, document.body)}
