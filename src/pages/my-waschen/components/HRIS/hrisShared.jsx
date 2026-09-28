@@ -85,11 +85,11 @@ export function SortTh({ col, label, sort, onSort, className = "", align = "star
   );
 }
 
-export function PhotoViewerModal({ open, url, label, onClose }) {
+export function PhotoViewerModal({ open, url, label, onClose, closeOnBackdrop = true }) {
   if (!open || !url) return null;
   const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/75 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div data-modal-root className="fixed inset-0 z-[120] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/75 p-4 backdrop-blur-sm" onClick={closeOnBackdrop ? onClose : undefined}>
       <div className="relative inline-flex max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <button type="button" onClick={onClose} className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-600 shadow-md">
           <HiOutlineXMark className="h-5 w-5" />
@@ -242,7 +242,7 @@ export function LeaveMobileCard({ row, onApprove, onReject, onViewPhoto, submitt
   );
 }
 
-export function KasbonMobileCard({ row, onDetail, onApprove, onReject, onViewPhoto, submitting, cicilanPct }) {
+export function KasbonMobileCard({ row, onDetail, onApprove, onReject, onDelete, onViewPhoto, submitting, cicilanPct }) {
   const pct = cicilanPct?.(row);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm space-y-3">
@@ -277,6 +277,7 @@ export function KasbonMobileCard({ row, onDetail, onApprove, onReject, onViewPho
             <button type="button" disabled={submitting} onClick={() => onReject(row)} className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 disabled:opacity-50">Tolak</button>
           </>
         )}
+        <button type="button" disabled={submitting} onClick={() => onDelete?.(row)} className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 disabled:opacity-50">Hapus</button>
       </div>
     </div>
   );

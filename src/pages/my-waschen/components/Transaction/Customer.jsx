@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineMagnifyingGlass,
@@ -11,16 +11,22 @@ import {
   HiOutlineArrowPath,
   HiOutlineChevronUp,
   HiOutlineChevronDown,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight,
   HiOutlineArrowsUpDown,
   HiOutlineSparkles,
   HiOutlinePhone,
+  HiOutlineAdjustmentsHorizontal,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
-import { fmtDateShort } from "../../utils/hrisUtils";
+import { fmtDateShort, FILTER_SECTION, TABLE_SECTION } from "../../utils/hrisUtils";
+import { FilterScroll, FilterPill } from "../HRIS/hrisShared";
+
+const PAGE_SIZE = 50;
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -56,8 +62,8 @@ function TierBadge({ name, code }) {
   };
   const key = (code || name || "").toUpperCase().replace("-", "_");
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold border", colors[key] || "bg-slate-100 text-slate-700 border-slate-200")}>
-      <HiOutlineSparkles className="h-3 w-3" />{name || "—"}
+    <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold border", colors[key] || "bg-slate-100 text-slate-700 border-slate-200")}>
+      <HiOutlineSparkles className="h-3 w-3 shrink-0" />{name || "—"}
     </span>
   );
 }
@@ -112,7 +118,9 @@ function toFormData(item) {
 export default function Customer() {
   const cutoff = useCutoffPeriod();
   const [data, setData] = useState([]);
-  const [meta, setMeta] = useState({ newCustomers: 0, churnCount: 0 });
+  const [meta, setMeta] = useState({ total: 0, active: 0, vip: 0, totalDeposit: 0, newCustomers: 0, churnCount: 0 });
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
   const [tiers, setTiers] = useState([]);
   const [sources, setSources] = useState([]);
   const [outlets, setOutlets] = useState([]);
@@ -120,6 +128,7 @@ export default function Customer() {
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState("");
   const [filterTierId, setFilterTierId] = useState("");
+  const [filterOutletId, setFilterOutletId] = useState("");
   const [sortBy, setSortBy] = useState("id");
   const [sortDir, setSortDir] = useState("desc");
   const [modalOpen, setModalOpen] = useState(false);
@@ -152,25 +161,31 @@ export default function Customer() {
       if (search) query.set("search", search);
       if (filterActive) query.set("isActive", filterActive);
       if (filterTierId) query.set("spendingTierId", filterTierId);
+      if (filterOutletId) query.set("preferredOutletId", filterOutletId);
       if (sortBy) query.set("sortBy", sortBy);
       if (sortDir) query.set("sortDir", sortDir);
       if (cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
       if (cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
+      query.set("page", String(page));
+      query.set("limit", String(PAGE_SIZE));
       const res = await api(`/waschen/customers?${query.toString()}`);
       setData(res.data || []);
-      setMeta({
-        newCustomers: Number(res.meta?.newCustomers) || 0,
-        churnCount: Number(res.meta?.churnCount) || 0,
-      });
+      setMeta((m) => ({ ...m, ...(res.meta || {}) }));
     } catch (err) { if (!silent) showToast(err.message, "error"); } finally { if (!silent) setLoading(false); }
   };
 
+  useEffect(() => { loadLookups(); }, []);
   useEffect(() => {
-    loadLookups();
+    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+  useEffect(() => { setPage(1); }, [filterActive, filterTierId, filterOutletId, sortBy, sortDir, cutoff.dateFrom, cutoff.dateTo]);
+  useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filterActive, filterTierId, sortBy, sortDir, cutoff.dateFrom, cutoff.dateTo]);
+  }, [page, search, filterActive, filterTierId, filterOutletId, sortBy, sortDir, cutoff.dateFrom, cutoff.dateTo]);
   useLiveRefresh(() => loadData(true));
+  const totalPages = Math.max(1, Math.ceil((Number(meta.total) || 0) / PAGE_SIZE));
 
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("asc"); } };
 
@@ -197,10 +212,10 @@ export default function Customer() {
       };
       if (formData.id) {
         await api(`/waschen/customers/${formData.id}`, { method: "PUT", body: JSON.stringify(payload) });
-        showToast("Pelanggan berhasil diperbarui");
+        showToast("Customer berhasil diperbarui");
       } else {
         await api("/waschen/customers", { method: "POST", body: JSON.stringify(payload) });
-        showToast("Pelanggan berhasil ditambahkan");
+        showToast("Customer berhasil ditambahkan");
       }
       setModalOpen(false); loadData();
     } catch (err) { setFormError(err.message); } finally { setSubmitting(false); }
@@ -211,18 +226,11 @@ export default function Customer() {
     setDeleting(true);
     try {
       await api(`/waschen/customers/${deleteTarget.id}`, { method: "DELETE" });
-      showToast("Pelanggan berhasil dihapus"); setDeleteTarget(null); loadData();
+      showToast("Customer berhasil dihapus"); setDeleteTarget(null); loadData();
     } catch (err) { showToast(err.message, "error"); } finally { setDeleting(false); }
   };
 
-  const stats = useMemo(() => ({
-    total: data.length,
-    active: data.filter((d) => Number(d.is_active) === 1).length,
-    vip: data.filter((d) => d.spending_tier_code === "VIP").length,
-    totalDeposit: data.reduce((sum, d) => sum + (Number(d.deposit_balance) || 0), 0),
-    newCustomers: meta.newCustomers,
-    churnCount: meta.churnCount,
-  }), [data, meta]);
+  const stats = meta;
 
   const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340] focus:ring-1 focus:ring-[#5f1340]";
 
@@ -238,9 +246,9 @@ export default function Customer() {
       <PageHero>
 
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Master Pelanggan</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Master Customer</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Kelola data pelanggan laundry Waschen
+                Kelola data customer laundry Waschen
               </p>
             </div>
             <button
@@ -249,7 +257,7 @@ export default function Customer() {
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#5f1340] shadow-md shadow-black/10 transition hover:bg-pink-50 active:scale-95"
             >
               <HiOutlinePlus className="h-4 w-4" />
-              Tambah Pelanggan
+              Tambah Customer
             </button>
           
         
@@ -257,7 +265,7 @@ export default function Customer() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { l: "Total Pelanggan", v: stats.total },
+          { l: "Total Customer", v: stats.total },
           { l: "Aktif", v: stats.active, c: "text-emerald-600" },
           { l: "Tier VIP", v: stats.vip, c: "text-purple-600" },
           { l: "Total Deposit", v: formatRupiah(stats.totalDeposit), c: "text-[#5f1340]", small: true },
@@ -272,41 +280,49 @@ export default function Customer() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-100 p-3 sm:p-4 bg-slate-50/50">
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3 items-start">
-            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 min-w-0">
-              <div className="relative min-w-0">
-                <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari kode, nama, telepon..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs outline-none focus:border-[#5f1340]"
-                />
-              </div>
-              <select
-                value={filterTierId}
-                onChange={(e) => setFilterTierId(e.target.value)}
-                className="min-w-0 sm:min-w-[9.5rem] rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]"
-              >
-                <option value="">Semua Tier</option>
-                {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <select
-                value={filterActive}
-                onChange={(e) => setFilterActive(e.target.value)}
-                className="min-w-0 sm:min-w-[8rem] rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]"
-              >
-                <option value="">Semua Status</option>
-                <option value="1">Aktif</option>
-                <option value="0">Nonaktif</option>
-              </select>
-            </div>
-            <CutoffPeriodFilter cutoff={cutoff} variant="compact" />
+      <section className={FILTER_SECTION}>
+        <div className="mb-3 sm:mb-4 flex items-center gap-2">
+          <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <HiOutlineAdjustmentsHorizontal className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Periode & Data</h2>
+            <p className="text-[11px] sm:text-xs text-slate-500">Filter diterapkan otomatis saat pilihan diubah. Periode dipakai untuk hitungan Customer Baru.</p>
           </div>
         </div>
+
+        <div className="space-y-3">
+          <CutoffPeriodFilter cutoff={cutoff} />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Cari kode, nama, telepon..." className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]/40" />
+            </div>
+            <select aria-label="Filter outlet" value={filterOutletId} onChange={(e) => setFilterOutletId(e.target.value)} className="sm:w-60 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40">
+              <option value="">Semua Outlet</option>
+              {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+            <FilterScroll className="flex-1">
+              <FilterPill active={!filterTierId} onClick={() => setFilterTierId("")}>Semua Tier</FilterPill>
+              {tiers.map((t) => (
+                <FilterPill key={t.id} active={String(filterTierId) === String(t.id)} onClick={() => setFilterTierId(String(t.id))}>{t.name}</FilterPill>
+              ))}
+            </FilterScroll>
+            <FilterScroll className="shrink-0">
+              {[["", "Semua Status"], ["1", "Aktif"], ["0", "Nonaktif"]].map(([v, l]) => (
+                <FilterPill key={l} active={filterActive === v} onClick={() => setFilterActive(v)}>{l}</FilterPill>
+              ))}
+            </FilterScroll>
+            <button type="button" aria-label="Muat ulang" onClick={() => loadData()} className="shrink-0 self-end sm:self-auto rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+              <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div className={TABLE_SECTION}>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500">
@@ -330,16 +346,16 @@ export default function Customer() {
               {loading ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}><td colSpan={13} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
               )) : data.length === 0 ? (
-                <tr><td colSpan={13} className="px-4 py-12 text-center text-slate-400">Tidak ada data pelanggan</td></tr>
+                <tr><td colSpan={13} className="px-4 py-12 text-center text-slate-400">Tidak ada data customer</td></tr>
               ) : data.map((item, idx) => (
-                <tr key={item.id} className="hover:bg-slate-50/80">
-                  <td className="px-4 py-3.5 text-center text-slate-400">{idx + 1}</td>
+                <tr key={item.id} onClick={() => { setFormData(toFormData(item)); setFormError(""); setModalOpen(true); }} className="cursor-pointer hover:bg-slate-50/80">
+                  <td className="px-4 py-3.5 text-center text-slate-400">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.customer_code || "—"}</td>
                   <td className="px-4 py-3.5">
-                    <p className="font-semibold text-slate-800">{item.name}</p>
+                    <p className="font-semibold text-slate-800">{item.name || "—"}</p>
                     {item.city && <p className="text-[10px] text-slate-400 mt-0.5">{item.city}</p>}
                   </td>
-                  <td className="px-4 py-3.5"><span className="inline-flex items-center gap-1 text-slate-600"><HiOutlinePhone className="h-3 w-3" />{item.phone}</span></td>
+                  <td className="px-4 py-3.5"><span className="inline-flex items-center gap-1 text-slate-600"><HiOutlinePhone className="h-3 w-3" />{item.phone || "—"}</span></td>
                   <td className="px-4 py-3.5 text-slate-600">{item.preferred_outlet_name || item.home_branch || "—"}</td>
                   <td className="px-4 py-3.5"><TierBadge name={item.spending_tier_name} code={item.spending_tier_code} /></td>
                   <td className="px-4 py-3.5 text-slate-600">{item.customer_source_label || item.customer_source_name || "—"}</td>
@@ -349,23 +365,36 @@ export default function Customer() {
                   <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateShort(item.last_transaction_at)}</td>
                   <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active} /></td>
                   <td className="px-4 py-3.5 text-right">
-                    <div className="inline-flex gap-1">
-                      <button type="button" onClick={() => { setFormData(toFormData(item)); setFormError(""); setModalOpen(true); }} className="rounded-lg border p-1.5 hover:border-amber-300 hover:bg-amber-50"><HiOutlinePencilSquare className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => setDeleteTarget(item)} className="rounded-lg border p-1.5 hover:border-rose-300 hover:bg-rose-50"><HiOutlineTrash className="h-4 w-4" /></button>
-                    </div>
+                    <button type="button" aria-label={`Hapus ${item.name}`} onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }} className="rounded-lg border p-1.5 hover:border-rose-300 hover:bg-rose-50"><HiOutlineTrash className="h-4 w-4" /></button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between bg-slate-50/50">
+            <p className="text-[11px] text-slate-400">
+              Hal <span className="font-semibold text-slate-600">{page}</span>/{totalPages}
+              <span className="ml-1">({meta.total} data)</span>
+            </p>
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label="Halaman sebelumnya" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="flex items-center justify-center h-7 w-7 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                <HiOutlineChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" aria-label="Halaman berikutnya" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="flex items-center justify-center h-7 w-7 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                <HiOutlineChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {modalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border overflow-hidden max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/95 shrink-0">
-              <h3 className="font-bold text-sm">{formData.id ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}</h3>
+              <h3 className="font-bold text-sm">{formData.id ? "Edit Customer" : "Tambah Customer Baru"}</h3>
               <button type="button" onClick={() => setModalOpen(false)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto">
@@ -374,23 +403,23 @@ export default function Customer() {
               <FormSection title="Identitas">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold mb-1">Kode Pelanggan</label>
+                    <label className="block font-semibold mb-1">Kode Customer</label>
                     <input type="text" value={formData.customer_code} onChange={(e) => setFormData((p) => ({ ...p, customer_code: e.target.value.toUpperCase() }))} placeholder="Auto: CUSCG26080001" className={cn(inputCls, "font-mono")} />
                     <p className="mt-1 text-[10px] text-slate-400">Kosongkan untuk generate otomatis dari outlet pilihan</p>
                   </div>
-                  <div><label className="block font-semibold mb-1">Nama Lengkap *</label><input type="text" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} className={inputCls} required /></div>
-                  <div><label className="block font-semibold mb-1">Telepon *</label><input type="tel" value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} className={inputCls} required /></div>
-                  <div><label className="block font-semibold mb-1">Email</label><input type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} className={inputCls} /></div>
+                  <div><label className="block font-semibold mb-1">Nama Lengkap *</label><input type="text" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} placeholder="Contoh: Angga Nurman" className={inputCls} required /></div>
+                  <div><label className="block font-semibold mb-1">Telepon *</label><input type="tel" value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} placeholder="Contoh: 087770597000 / +61421620240" className={inputCls} required /></div>
+                  <div><label className="block font-semibold mb-1">Email</label><input type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} placeholder="Contoh: nama@email.com" className={inputCls} /></div>
                 </div>
               </FormSection>
 
               <FormSection title="Alamat & Cabang">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="sm:col-span-2"><label className="block font-semibold mb-1">Alamat</label><textarea rows={2} value={formData.address} onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))} className={inputCls} /></div>
-                  <div><label className="block font-semibold mb-1">Kota</label><input type="text" value={formData.city} onChange={(e) => setFormData((p) => ({ ...p, city: e.target.value }))} className={inputCls} /></div>
-                  <div><label className="block font-semibold mb-1">Kode Pos</label><input type="text" value={formData.postal_code} onChange={(e) => setFormData((p) => ({ ...p, postal_code: e.target.value }))} className={inputCls} /></div>
-                  <div><label className="block font-semibold mb-1">Landmark</label><input type="text" value={formData.landmark} onChange={(e) => setFormData((p) => ({ ...p, landmark: e.target.value }))} className={inputCls} /></div>
-                  <div><label className="block font-semibold mb-1">Cabang Favorit (teks)</label><input type="text" value={formData.home_branch} onChange={(e) => setFormData((p) => ({ ...p, home_branch: e.target.value }))} className={inputCls} /></div>
+                  <div className="sm:col-span-2"><label className="block font-semibold mb-1">Alamat</label><textarea rows={2} value={formData.address} onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))} placeholder="Nama jalan / cluster, blok, nomor rumah" className={inputCls} /></div>
+                  <div><label className="block font-semibold mb-1">Kota</label><input type="text" value={formData.city} onChange={(e) => setFormData((p) => ({ ...p, city: e.target.value }))} placeholder="Contoh: Bogor" className={inputCls} /></div>
+                  <div><label className="block font-semibold mb-1">Kode Pos</label><input type="text" value={formData.postal_code} onChange={(e) => setFormData((p) => ({ ...p, postal_code: e.target.value }))} placeholder="Contoh: 16968" className={inputCls} /></div>
+                  <div><label className="block font-semibold mb-1">Landmark</label><input type="text" value={formData.landmark} onChange={(e) => setFormData((p) => ({ ...p, landmark: e.target.value }))} placeholder="Patokan, contoh: dekat masjid" className={inputCls} /></div>
+                  <div><label className="block font-semibold mb-1">Cabang Favorit (teks)</label><input type="text" value={formData.home_branch} onChange={(e) => setFormData((p) => ({ ...p, home_branch: e.target.value }))} placeholder="Contoh: Waschen Laundry Citra Gran" className={inputCls} /></div>
                   <div className="sm:col-span-2">
                     <label className="block font-semibold mb-1">Outlet Preferensi</label>
                     <select value={formData.preferred_outlet_id} onChange={(e) => setFormData((p) => ({ ...p, preferred_outlet_id: e.target.value }))} className={inputCls}>
@@ -404,9 +433,9 @@ export default function Customer() {
               <FormSection title="Tier & Catatan">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className="block font-semibold mb-1">Tier Spending</label><select value={formData.spending_tier_id} onChange={(e) => setFormData((p) => ({ ...p, spending_tier_id: e.target.value }))} className={inputCls}><option value="">— Pilih Tier —</option>{tiers.map((t) => <option key={t.id} value={t.id}>{t.label || t.name}</option>)}</select></div>
-                  <div><label className="block font-semibold mb-1">Sumber Pelanggan</label><select value={formData.customer_source_id} onChange={(e) => setFormData((p) => ({ ...p, customer_source_id: e.target.value }))} className={inputCls}><option value="">— Pilih Sumber —</option>{sources.map((s) => <option key={s.id} value={s.id}>{s.label || s.name}</option>)}</select></div>
+                  <div><label className="block font-semibold mb-1">Sumber Customer</label><select value={formData.customer_source_id} onChange={(e) => setFormData((p) => ({ ...p, customer_source_id: e.target.value }))} className={inputCls}><option value="">— Pilih Sumber —</option>{sources.map((s) => <option key={s.id} value={s.id}>{s.label || s.name}</option>)}</select></div>
                   <div><label className="block font-semibold mb-1">Status</label><select value={formData.is_active} onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))} className={inputCls}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
-                  <div className="sm:col-span-2"><label className="block font-semibold mb-1">Catatan</label><textarea rows={2} value={formData.notes} onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))} className={inputCls} /></div>
+                  <div className="sm:col-span-2"><label className="block font-semibold mb-1">Catatan</label><textarea rows={2} value={formData.notes} onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan tambahan tentang customer" className={inputCls} /></div>
                 </div>
                 {formData.id && (
                   <p className="text-[10px] text-slate-400">Deposit, total order, dan membership aktif dikelola otomatis oleh sistem POS.</p>

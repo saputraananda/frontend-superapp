@@ -68,7 +68,7 @@ function StatusBadge({ isActive }) {
 function SkeletonRow() {
   return (
     <tr className="border-t border-slate-100 animate-pulse">
-      {[16, 24, 36, 48, 24, 24].map((w, i) => (
+      {[16, 24, 36, 48, 24, 24, 24].map((w, i) => (
         <td key={i} className="px-4 py-4">
           <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
         </td>
@@ -84,6 +84,7 @@ const EMPTY_FORM = {
   icon: "",
   description: "",
   is_active: 1,
+  is_production: 1,
 };
 
 export default function CategoryServices() {
@@ -159,6 +160,7 @@ export default function CategoryServices() {
       icon: item.icon || "",
       description: item.description || "",
       is_active: item.is_active,
+      is_production: Number(item.is_production) === 0 ? 0 : 1,
     });
     setFormError("");
     setModalOpen(true);
@@ -327,6 +329,7 @@ export default function CategoryServices() {
                 <SortTh col="code" label="Kode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="name" label="Nama Kategori" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider">Deskripsi</th>
+                <th className="px-4 py-3 font-semibold uppercase tracking-wider">Alur</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
               </tr>
@@ -336,7 +339,7 @@ export default function CategoryServices() {
                 Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data kategori layanan
                   </td>
                 </tr>
@@ -347,6 +350,9 @@ export default function CategoryServices() {
                     <td className="px-4 py-3.5 font-bold font-mono text-[#5f1340] whitespace-nowrap">{item.code}</td>
                     <td className="px-4 py-3.5 font-semibold text-slate-800 whitespace-nowrap">{item.name}</td>
                     <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.description || "-"}</td>
+                    <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                      {Number(item.is_production) === 0 ? "Biaya tambahan" : "Produksi & QC"}
+                    </td>
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <StatusBadge isActive={item.is_active} />
                     </td>
@@ -436,6 +442,18 @@ export default function CategoryServices() {
                   onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Alur Layanan</label>
+                <select
+                  value={formData.is_production}
+                  onChange={(e) => setFormData((p) => ({ ...p, is_production: Number(e.target.value) }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
+                >
+                  <option value={1}>Masuk Produksi & QC</option>
+                  <option value={0}>Hanya Biaya Tambahan (tidak diproses)</option>
+                </select>
               </div>
 
               <div>
