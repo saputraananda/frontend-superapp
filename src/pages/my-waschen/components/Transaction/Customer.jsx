@@ -81,6 +81,9 @@ const EMPTY_FORM = {
   home_branch: "",
   preferred_outlet_id: "",
   spending_tier_id: "",
+  total_spent: 0,
+  spending_value_year: 0,
+  monthly_spending: 0,
   customer_source_id: "",
   notes: "",
   is_active: 1,
@@ -92,6 +95,80 @@ function FormSection({ title, children }) {
       <p className="text-[10px] font-bold uppercase tracking-wider text-[#5f1340]">{title}</p>
       {children}
     </div>
+  );
+}
+
+function filled(v) {
+  return v != null && String(v).trim() !== "";
+}
+
+function CustomerReport({ item, onClose, onEdit }) {
+  const facts = [
+    ["Telepon", item.phone],
+    ["Email", item.email],
+    ["Outlet", item.preferred_outlet_name || item.preferred_outlet_full_name],
+    ["Cabang", item.home_branch],
+    ["Alamat", item.address],
+    ["Kota", item.city],
+    ["Kode pos", item.postal_code],
+    ["Landmark", item.landmark],
+    ["Sumber", item.customer_source_label || item.customer_source_name],
+  ].filter(([, v]) => filled(v));
+  const figures = [
+    ["Tahun", item.spending_value_year],
+    ["Periode", item.monthly_spending],
+    ["Deposit", item.deposit_balance],
+  ];
+  return (
+    <>
+      <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-4 pt-5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xl font-bold tracking-tight text-slate-900">{item.name || "Customer"}</h3>
+            <TierBadge name={item.spending_tier_name} code={item.spending_tier_code} />
+            <StatusBadge isActive={item.is_active} />
+          </div>
+          <p className="mt-1 font-mono text-[11px] text-slate-400">{item.customer_code || "—"}</p>
+        </div>
+        <button type="button" aria-label="Tutup" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+          <HiOutlineXMark className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+        <div className="rounded-2xl bg-gradient-to-br from-[#5f1340] to-[#3d0c2a] px-5 py-5 text-white">
+          <p className="text-xs text-white/70">Total spending</p>
+          <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{formatRupiah(item.total_spent)}</p>
+          <div className="mt-4 grid grid-cols-3 gap-3 border-t border-white/15 pt-4">
+            {figures.map(([label, val]) => (
+              <div key={label}>
+                <p className="text-[11px] text-white/60">{label}</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums">{formatRupiah(val)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          {item.total_orders ?? 0} order. Terdaftar {fmtDateShort(item.created_at)}. Transaksi terakhir {fmtDateShort(item.last_transaction_at)}.
+        </p>
+        {facts.length > 0 && (
+          <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8">
+            {facts.map(([label, val]) => (
+              <div key={label} className="border-b border-slate-100 py-2.5">
+                <dt className="text-[11px] text-slate-400">{label}</dt>
+                <dd className="mt-0.5 text-sm text-slate-800">{val}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {filled(item.notes) && <p className="mt-4 text-sm leading-relaxed text-slate-600">{item.notes}</p>}
+      </div>
+      <div className="flex shrink-0 justify-end gap-2 border-t px-5 py-3">
+        <button type="button" onClick={onClose} className="rounded-xl border px-4 py-2 text-xs font-semibold text-slate-600">Tutup</button>
+        <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#5f1340] to-[#4a0d31] px-4 py-2 text-xs font-semibold text-white">
+          <HiOutlinePencilSquare className="h-3.5 w-3.5" />Edit
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -109,6 +186,9 @@ function toFormData(item) {
     home_branch: item.home_branch || "",
     preferred_outlet_id: item.preferred_outlet_id || "",
     spending_tier_id: item.spending_tier_id || "",
+    total_spent: Number(item.total_spent) || 0,
+    spending_value_year: Number(item.spending_value_year) || 0,
+    monthly_spending: Number(item.monthly_spending) || 0,
     customer_source_id: item.customer_source_id || "",
     notes: item.notes || "",
     is_active: Number(item.is_active) === 0 ? 0 : 1,
@@ -131,7 +211,8 @@ export default function Customer() {
   const [filterOutletId, setFilterOutletId] = useState("");
   const [sortBy, setSortBy] = useState("id");
   const [sortDir, setSortDir] = useState("desc");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -217,7 +298,7 @@ export default function Customer() {
         await api("/waschen/customers", { method: "POST", body: JSON.stringify(payload) });
         showToast("Customer berhasil ditambahkan");
       }
-      setModalOpen(false); loadData();
+      setModalMode(null); loadData();
     } catch (err) { setFormError(err.message); } finally { setSubmitting(false); }
   };
 
@@ -228,6 +309,14 @@ export default function Customer() {
       await api(`/waschen/customers/${deleteTarget.id}`, { method: "DELETE" });
       showToast("Customer berhasil dihapus"); setDeleteTarget(null); loadData();
     } catch (err) { showToast(err.message, "error"); } finally { setDeleting(false); }
+  };
+
+  const closeModal = () => setModalMode(null);
+  const openView = (item) => { setSelected(item); setFormData(toFormData(item)); setFormError(""); setModalMode("view"); };
+  const openEdit = (item) => {
+    if (item) { setSelected(item); setFormData(toFormData(item)); }
+    setFormError("");
+    setModalMode("edit");
   };
 
   const stats = meta;
@@ -253,7 +342,7 @@ export default function Customer() {
             </div>
             <button
               type="button"
-              onClick={() => { setFormData(EMPTY_FORM); setFormError(""); setModalOpen(true); }}
+              onClick={() => { setSelected(null); setFormData(EMPTY_FORM); setFormError(""); setModalMode("edit"); }}
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#5f1340] shadow-md shadow-black/10 transition hover:bg-pink-50 active:scale-95"
             >
               <HiOutlinePlus className="h-4 w-4" />
@@ -335,20 +424,22 @@ export default function Customer() {
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Sumber</th>
                 <SortTh col="deposit_balance" label="Deposit" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="total_spent" label="Total" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="spending_value_year" label="Tahun" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="monthly_spending" label="Periode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="total_orders" label="Order" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} className="text-center" />
                 <SortTh col="created_at" label="Terdaftar" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="last_transaction_at" label="Transaksi" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}><td colSpan={13} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
+                <tr key={i}><td colSpan={15} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
               )) : data.length === 0 ? (
-                <tr><td colSpan={13} className="px-4 py-12 text-center text-slate-400">Tidak ada data customer</td></tr>
+                <tr><td colSpan={15} className="px-4 py-12 text-center text-slate-400">Tidak ada data customer</td></tr>
               ) : data.map((item, idx) => (
-                <tr key={item.id} onClick={() => { setFormData(toFormData(item)); setFormError(""); setModalOpen(true); }} className="cursor-pointer hover:bg-slate-50/80">
+                <tr key={item.id} onClick={() => openView(item)} className="cursor-pointer hover:bg-slate-50/80">
                   <td className="px-4 py-3.5 text-center text-slate-400">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.customer_code || "—"}</td>
                   <td className="px-4 py-3.5">
@@ -360,12 +451,17 @@ export default function Customer() {
                   <td className="px-4 py-3.5"><TierBadge name={item.spending_tier_name} code={item.spending_tier_code} /></td>
                   <td className="px-4 py-3.5 text-slate-600">{item.customer_source_label || item.customer_source_name || "—"}</td>
                   <td className="px-4 py-3.5 font-semibold text-emerald-700">{formatRupiah(item.deposit_balance)}</td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-slate-700">{formatRupiah(item.total_spent)}</td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-slate-700">{formatRupiah(item.spending_value_year)}</td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-slate-700">{formatRupiah(item.monthly_spending)}</td>
                   <td className="px-4 py-3.5 text-center font-mono">{item.total_orders ?? 0}</td>
                   <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateShort(item.created_at)}</td>
                   <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{fmtDateShort(item.last_transaction_at)}</td>
-                  <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active} /></td>
                   <td className="px-4 py-3.5 text-right">
-                    <button type="button" aria-label={`Hapus ${item.name}`} onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }} className="rounded-lg border p-1.5 hover:border-rose-300 hover:bg-rose-50"><HiOutlineTrash className="h-4 w-4" /></button>
+                    <div className="inline-flex gap-1">
+                      <button type="button" aria-label={`Edit ${item.name}`} onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="rounded-lg border p-1.5 hover:border-[#5f1340]/30 hover:bg-[#5f1340]/5"><HiOutlinePencilSquare className="h-4 w-4" /></button>
+                      <button type="button" aria-label={`Hapus ${item.name}`} onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }} className="rounded-lg border p-1.5 hover:border-rose-300 hover:bg-rose-50"><HiOutlineTrash className="h-4 w-4" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -390,13 +486,18 @@ export default function Customer() {
         )}
       </div>
 
-      {modalOpen && createPortal(
+      {modalMode && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border overflow-hidden max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/95 shrink-0">
-              <h3 className="font-bold text-sm">{formData.id ? "Edit Customer" : "Tambah Customer Baru"}</h3>
-              <button type="button" onClick={() => setModalOpen(false)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
-            </div>
+            {modalMode !== "view" && (
+              <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/95 shrink-0">
+                <h3 className="font-bold text-sm">{formData.id ? "Edit Customer" : "Tambah Customer Baru"}</h3>
+                <button type="button" onClick={closeModal}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+              </div>
+            )}
+            {modalMode === "view" && selected ? (
+              <CustomerReport item={selected} onClose={closeModal} onEdit={() => openEdit()} />
+            ) : (
             <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto">
               {formError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700">{formError}</div>}
 
@@ -433,6 +534,9 @@ export default function Customer() {
               <FormSection title="Tier & Catatan">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className="block font-semibold mb-1">Tier Spending</label><select value={formData.spending_tier_id} onChange={(e) => setFormData((p) => ({ ...p, spending_tier_id: e.target.value }))} className={inputCls}><option value="">— Pilih Tier —</option>{tiers.map((t) => <option key={t.id} value={t.id}>{t.label || t.name}</option>)}</select></div>
+                  <div><label className="block font-semibold mb-1">Total Spending</label><input readOnly value={formatRupiah(formData.total_spent)} className={cn(inputCls, "bg-slate-50 text-slate-500")} /></div>
+                  <div><label className="block font-semibold mb-1">Spending Periode</label><input readOnly value={formatRupiah(formData.monthly_spending)} className={cn(inputCls, "bg-slate-50 text-slate-500")} /></div>
+                  <div><label className="block font-semibold mb-1">Spending Tahun</label><input readOnly value={formatRupiah(formData.spending_value_year)} className={cn(inputCls, "bg-slate-50 text-slate-500")} /></div>
                   <div><label className="block font-semibold mb-1">Sumber Customer</label><select value={formData.customer_source_id} onChange={(e) => setFormData((p) => ({ ...p, customer_source_id: e.target.value }))} className={inputCls}><option value="">— Pilih Sumber —</option>{sources.map((s) => <option key={s.id} value={s.id}>{s.label || s.name}</option>)}</select></div>
                   <div><label className="block font-semibold mb-1">Status</label><select value={formData.is_active} onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))} className={inputCls}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
                   <div className="sm:col-span-2"><label className="block font-semibold mb-1">Catatan</label><textarea rows={2} value={formData.notes} onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))} placeholder="Catatan tambahan tentang customer" className={inputCls} /></div>
@@ -443,12 +547,13 @@ export default function Customer() {
               </FormSection>
 
               <div className="flex justify-end gap-2 pt-3 border-t">
-                <button type="button" onClick={() => setModalOpen(false)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
+                <button type="button" onClick={closeModal} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
                 <button type="submit" disabled={submitting} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#5f1340] to-[#4a0d31] px-4 py-2 font-semibold text-white disabled:opacity-50">
                   {submitting && <HiOutlineArrowPath className="h-3.5 w-3.5 animate-spin" />}Simpan
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>, document.body)}
 
