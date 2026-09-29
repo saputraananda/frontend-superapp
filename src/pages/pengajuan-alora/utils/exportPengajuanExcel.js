@@ -145,6 +145,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
   if (filters?.type) filterParts.push(`Tipe: ${filters.type}`);
   if (filters?.status) filterParts.push(`Status: ${STATUS_LABELS[filters.status] || filters.status}`);
   if (filters?.payment_method) filterParts.push(`Metode: ${filters.payment_method}`);
+  if (filters?.company) filterParts.push(`Kategori: ${filters.company}`);
   const filterLabel = filterParts.length > 0 ? filterParts.join("  |  ") : "Semua data";
 
   // ══════════════════════════════════════════════════════════════════════════

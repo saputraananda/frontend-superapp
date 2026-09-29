@@ -5,6 +5,7 @@ import {
   HiOutlineBanknotes,
   HiOutlineCheckCircle,
   HiOutlineXMark,
+  HiOutlineTrash,
   HiOutlineExclamationTriangle,
   HiOutlineMagnifyingGlass,
   HiOutlineClock,
@@ -68,6 +69,25 @@ const STATUS_COLOR = {
 const labelCls = "mb-1.5 block text-xs font-semibold text-slate-600";
 const actionBtn = "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-50";
 
+function todayLocalISO() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function emptyOpening() {
+  return {
+    employee_id: "",
+    type: "kasbon",
+    amount: "",
+    tenor_count: "2",
+    current_installment_no: "1",
+    payment_method: "potong_gaji",
+    purpose: "",
+    submission_date: todayLocalISO(),
+  };
+}
+
 function formatDigits(value) {
   const digits = String(value ?? "").replace(/\D/g, "");
   if (!digits) return "";
@@ -109,6 +129,7 @@ export default function Kasbon() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
   const [rejectRow, setRejectRow] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
@@ -122,21 +143,35 @@ export default function Kasbon() {
   const [payAmount, setPayAmount] = useState("");
   const [payFile, setPayFile] = useState(null);
   const [openingOpen, setOpeningOpen] = useState(false);
+  const [empQuery, setEmpQuery] = useState("");
+  const [empOpen, setEmpOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [tab, setTab] = useState("pengajuan");
   const [monitorRows, setMonitorRows] = useState([]);
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [monitorSearch, setMonitorSearch] = useState("");
   const [monitorDetail, setMonitorDetail] = useState(null);
-  const [opening, setOpening] = useState({
-    employee_id: "",
-    type: "kasbon",
-    amount: "",
-    tenor_count: "2",
-    current_installment_no: "1",
-    payment_method: "potong_gaji",
-    purpose: "Saldo awal",
-  });
+  const [opening, setOpening] = useState(emptyOpening);
+
+  const modalOpen = Boolean(detail || monitorDetail || approveRow || rejectRow || deleteRow || payTarget || openingOpen || photoView);
+  useEffect(() => {
+    if (!modalOpen) return undefined;
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    const locked = [];
+    document.querySelectorAll(".overflow-y-auto, .overflow-auto").forEach((el) => {
+      if (el.closest("[data-modal-root]")) return;
+      locked.push([el, el.style.overflow]);
+      el.style.overflow = "hidden";
+    });
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+      locked.forEach(([el, value]) => { el.style.overflow = value; });
+    };
+  }, [modalOpen]);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -240,6 +275,21 @@ export default function Kasbon() {
       setDetail(res.data);
     } catch (err) {
       showToast("error", err.message);
+    }
+  };
+
+  const removeKasbon = async (row) => {
+    setSubmitting(true);
+    try {
+      await api(`/waschen/hris/kasbon/${row.id}`, { method: "DELETE" });
+      showToast("success", "Pengajuan dihapus");
+      setDeleteRow(null);
+      if (detail?.id === row.id) setDetail(null);
+      load();
+    } catch (err) {
+      showToast("error", err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -362,6 +412,14 @@ export default function Kasbon() {
       setSubmitting(false);
     }
   };
+
+  const openingEmployees = useMemo(() => {
+    const q = empQuery.trim().toLowerCase();
+    const list = q
+      ? employees.filter((emp) => `${emp.full_name || ""} ${emp.employee_code || ""}`.toLowerCase().includes(q))
+      : employees;
+    return list.slice(0, 20);
+  }, [employees, empQuery]);
 
   const cicilanPct = (r) => {
     if (r.type !== "pinjaman" || r.status !== "disetujui") return null;
@@ -547,7 +605,7 @@ export default function Kasbon() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-            <button type="button" onClick={() => setOpeningOpen(true)} className="inline-flex items-center rounded-xl bg-[#5f1340] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4d0f34] transition">Saldo Awal</button>
+            <button type="button" onClick={() => { setOpening(emptyOpening()); setEmpQuery(""); setOpeningOpen(true); }} className="inline-flex items-center rounded-xl bg-[#5f1340] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4d0f34] transition">Saldo Awal</button>
             {!loading && <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">{sorted.length} data</span>}
           </div>
         </div>
@@ -571,6 +629,7 @@ export default function Kasbon() {
                   onDetail={openDetail}
                   onApprove={openApprove}
                   onReject={openReject}
+                  onDelete={setDeleteRow}
                   onViewPhoto={setPhotoView}
                 />
               ))}
@@ -634,6 +693,9 @@ export default function Kasbon() {
                             </button>
                           </>
                         )}
+                        <button type="button" disabled={submitting} onClick={() => setDeleteRow(r)} className={`${actionBtn} border-rose-200 bg-white text-rose-600 hover:bg-rose-50`}>
+                          <HiOutlineTrash className="h-3.5 w-3.5" /> Hapus
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -737,7 +799,7 @@ export default function Kasbon() {
       )}
 
       {monitorDetail && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setMonitorDetail(null)}>
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
@@ -807,10 +869,10 @@ export default function Kasbon() {
           </div>
         </div>, document.body)}
 
-      <PhotoViewerModal open={Boolean(photoView)} url={photoView?.url} label={photoView?.label} onClose={() => setPhotoView(null)} />
+      <PhotoViewerModal open={Boolean(photoView)} url={photoView?.url} label={photoView?.label} onClose={() => setPhotoView(null)} closeOnBackdrop={false} />
 
       {detail && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setDetail(null)}>
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
@@ -865,7 +927,7 @@ export default function Kasbon() {
         </div>, document.body)}
 
       {approveRow && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setApproveRow(null)}>
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
@@ -909,22 +971,51 @@ export default function Kasbon() {
         </div>, document.body)}
 
       {openingOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setOpeningOpen(false)}>
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
               <h3 className="text-base font-bold text-slate-800">Saldo Awal</h3>
               <button type="button" onClick={() => setOpeningOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"><HiOutlineXMark className="h-5 w-5" /></button>
             </div>
-            <div className="space-y-4 px-6 py-5">
-              <p className="text-sm text-slate-500">Isi sisa pokok yang masih berjalan. Termin sebelum jatuh tempo sekarang dicatat sudah lunas.</p>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+              <p className="text-sm text-slate-500">Isi saldo terakhir yang masih berjalan. Termin sebelum jatuh tempo sekarang dicatat sudah lunas.</p>
               <div>
                 <label className={labelCls}>Karyawan</label>
-                <select value={opening.employee_id} onChange={(e) => setOpening((p) => ({ ...p, employee_id: e.target.value }))} className={fieldCls}>
-                  <option value="">— Pilih —</option>
-                  {employees.map((emp) => (
-                    <option key={emp.employee_id} value={emp.employee_id}>{fmtEmployeeName(emp.full_name)}{emp.employee_code ? ` · ${emp.employee_code}` : ""}</option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={empQuery}
+                  onChange={(e) => {
+                    setEmpQuery(e.target.value);
+                    setOpening((p) => ({ ...p, employee_id: "" }));
+                    setEmpOpen(true);
+                  }}
+                  onFocus={() => setEmpOpen(true)}
+                  onBlur={() => window.setTimeout(() => setEmpOpen(false), 150)}
+                  placeholder="Cari nama atau kode karyawan"
+                  className={fieldCls}
+                  autoComplete="off"
+                />
+                {empOpen && (
+                  <div className="mt-1 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+                    {openingEmployees.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-slate-400">Tidak ditemukan</p>
+                    ) : openingEmployees.map((emp) => (
+                      <button
+                        key={emp.employee_id}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setOpening((p) => ({ ...p, employee_id: String(emp.employee_id) }));
+                          setEmpQuery(`${fmtEmployeeName(emp.full_name)}${emp.employee_code ? ` · ${emp.employee_code}` : ""}`);
+                          setEmpOpen(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        {fmtEmployeeName(emp.full_name)}{emp.employee_code ? ` · ${emp.employee_code}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className={labelCls}>Jenis</label>
@@ -934,7 +1025,11 @@ export default function Kasbon() {
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Sisa pokok</label>
+                <label className={labelCls}>Tanggal</label>
+                <input type="date" value={opening.submission_date} onChange={(e) => setOpening((p) => ({ ...p, submission_date: e.target.value }))} className={fieldCls} />
+              </div>
+              <div>
+                <label className={labelCls}>{opening.type === "pinjaman" ? "Saldo Terakhir Pinjaman" : "Saldo Terakhir Kasbon"}</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">Rp</span>
                   <input type="text" inputMode="numeric" value={formatDigits(opening.amount)} onChange={(e) => setOpening((p) => ({ ...p, amount: e.target.value.replace(/\D/g, "") }))} className={`${fieldCls} pl-9`} placeholder="500.000" />
@@ -959,16 +1054,40 @@ export default function Kasbon() {
                   <option value="langsung">Bayar langsung</option>
                 </select>
               </div>
+              <div>
+                <label className={labelCls}>Catatan <span className="font-normal text-slate-400">(opsional)</span></label>
+                <textarea value={opening.purpose} onChange={(e) => setOpening((p) => ({ ...p, purpose: e.target.value }))} rows={2} placeholder="Tulis catatan sendiri" className={`${fieldCls} resize-none`} />
+              </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-6 py-4">
               <button type="button" onClick={() => setOpeningOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Batal</button>
               <button type="button" disabled={submitting} onClick={submitOpening} className="rounded-xl bg-[#5f1340] px-5 py-2 text-sm font-semibold text-white hover:bg-[#4d0f34] disabled:opacity-50">Simpan</button>
             </div>
           </div>
         </div>, document.body)}
 
+      {deleteRow && createPortal(
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">Hapus pengajuan</h3>
+                <p className="mt-0.5 text-xs text-slate-400">{fmtEmployeeName(deleteRow.employee_name)} · {fmtIDR(deleteRow.amount_requested)}</p>
+              </div>
+              <button type="button" onClick={() => setDeleteRow(null)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"><HiOutlineXMark className="h-5 w-5" /></button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-slate-600">Pengajuan ini akan dihapus beserta jadwal cicilannya. Tindakan ini tidak bisa dibatalkan.</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+              <button type="button" onClick={() => setDeleteRow(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Batal</button>
+              <button type="button" disabled={submitting} onClick={() => removeKasbon(deleteRow)} className="rounded-xl bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">Hapus</button>
+            </div>
+          </div>
+        </div>, document.body)}
+
       {rejectRow && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setRejectRow(null)}>
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
@@ -998,7 +1117,7 @@ export default function Kasbon() {
         </div>, document.body)}
 
       {payTarget && createPortal(
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setPayTarget(null)}>
+        <div data-modal-root className="fixed inset-0 z-[110] flex items-center justify-center overflow-hidden overscroll-none bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>

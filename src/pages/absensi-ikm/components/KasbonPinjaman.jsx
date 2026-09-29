@@ -556,6 +556,7 @@ function FormModal({ open, onClose, onSaved, employees, editData }) {
           type: editData.type || "kasbon",
           submission_date: editData.submission_date || todayISO(),
           amount_requested: editData.amount_requested || "",
+          amount_approved: editData.amount_approved || "",
           purpose: editData.purpose || "",
           notes: editData.notes || "",
         });
@@ -573,13 +574,21 @@ function FormModal({ open, onClose, onSaved, employees, editData }) {
     if (!form.employee_id || !form.employee_name) { setErr("Pilih karyawan terlebih dahulu"); return; }
     if (!form.submission_date) { setErr("Tanggal pengajuan wajib diisi"); return; }
     if (!form.amount_requested || Number(form.amount_requested) <= 0) { setErr("Jumlah pengajuan harus lebih dari 0"); return; }
+    if (isEdit && editData?.status === "disetujui") {
+      if (!form.amount_approved || Number(form.amount_approved) <= 0) {
+        setErr("Jumlah yang disetujui wajib diisi"); return;
+      }
+    }
     if (!form.purpose.trim()) { setErr("Keperluan wajib diisi"); return; }
 
     setSaving(true);
     setErr("");
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      Object.entries(form).forEach(([k, v]) => {
+        if (k === "amount_approved" && !isEdit) return;
+        fd.append(k, v ?? "");
+      });
       if (file) fd.append("proof_file", file);
       if (removeProof) fd.append("remove_proof", "true");
 
@@ -665,6 +674,24 @@ function FormModal({ open, onClose, onSaved, employees, editData }) {
               placeholder="Contoh: 1.500.000"
             />
           </div>
+
+          {isEdit && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                Jumlah Disetujui (Rp)
+                {editData?.status === "disetujui" && <span className="text-rose-500"> *</span>}
+              </label>
+              <RupiahInput
+                value={form.amount_approved}
+                onChange={(raw) => setForm((f) => ({ ...f, amount_approved: raw }))}
+                placeholder="Contoh: 1.000.000"
+                min={editData?.status === "disetujui" ? "1" : "0"}
+              />
+              {editData?.status !== "disetujui" && (
+                <p className="mt-1 text-[11px] text-slate-400">Opsional — isi jika ingin mengatur jumlah disetujui sebelum/saat proses.</p>
+              )}
+            </div>
+          )}
 
           {/* Keperluan */}
           <div>

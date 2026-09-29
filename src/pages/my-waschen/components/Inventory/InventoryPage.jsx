@@ -47,6 +47,45 @@ function fmtDate(v) {
   });
 }
 
+function toDateKey(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function movementLabel(type) {
+  switch (String(type || "")) {
+    case "In":
+      return "Masuk";
+    case "Out":
+      return "Keluar";
+    case "Usage":
+      return "Pemakaian";
+    case "Adjust":
+      return "Penyesuaian";
+    default:
+      return type || "—";
+  }
+}
+
+function movementTone(type) {
+  switch (String(type || "")) {
+    case "In":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "Out":
+    case "Usage":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "Adjust":
+      return "border-slate-200 bg-slate-100 text-slate-800";
+    default:
+      return "border-slate-200 bg-white text-slate-700";
+  }
+}
+
 function readLoggedInEmployee() {
   try {
     const raw = localStorage.getItem("user");
@@ -60,10 +99,10 @@ function readLoggedInEmployee() {
 
 const EMPTY_ITEM = { id: null, code: "", name: "", unit_id: "2", description: "", is_active: 1 };
 const EMPTY_ADJUST = { movementType: "In", qty: "", setQty: "", notes: "", employeeId: "" };
-const EMPTY_OPENING = { qty_opening: "", period_start: "", min_stock: "" };
+const EMPTY_OPENING = { qty_opening: "", period_start: "", min_stock: "", employeeId: "" };
 
 export default function InventoryPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [outlets, setOutlets] = useState([]);
   const [outletId, setOutletId] = useState(() => searchParams.get("outletId") || "");
   const [stock, setStock] = useState([]);
@@ -87,6 +126,13 @@ export default function InventoryPage() {
   const [thresholdsModal, setThresholdsModal] = useState(null);
   const [thresholdsForm, setThresholdsForm] = useState({ min_stock: 0, par_stock: 0 });
   const [logsOpen, setLogsOpen] = useState(false);
+  const [itemLogModal, setItemLogModal] = useState(null);
+  const [itemLogs, setItemLogs] = useState([]);
+  const [itemLogsLoading, setItemLogsLoading] = useState(false);
+  const [itemLogSearch, setItemLogSearch] = useState("");
+  const [itemLogDateFrom, setItemLogDateFrom] = useState("");
+  const [itemLogDateTo, setItemLogDateTo] = useState("");
+  const [itemLogType, setItemLogType] = useState("all");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -108,13 +154,32 @@ export default function InventoryPage() {
     const res = await api("/waschen/outlets");
     const list = res.data || [];
     setOutlets(list);
+    setOutletId((prev) => {
+      if (prev && list.some((o) => String(o.id) === String(prev))) return String(prev);
+      return list.length ? String(list[0].id) : "";
+    });
+  }, []);
+
+  // Ikuti query ?outletId= (dashboard / ganti outlet)
+  useEffect(() => {
     const fromUrl = searchParams.get("outletId");
-    if (fromUrl && list.some((o) => String(o.id) === String(fromUrl))) {
-      setOutletId(String(fromUrl));
-    } else if (!outletId && list.length) {
-      setOutletId(String(list[0].id));
-    }
-  }, [outletId, searchParams]);
+    if (!fromUrl) return;
+    setOutletId((prev) => (String(prev) === String(fromUrl) ? prev : String(fromUrl)));
+  }, [searchParams]);
+
+  const changeOutlet = (id) => {
+    const next = String(id || "");
+    setOutletId(next);
+    setSearchParams(
+      (prev) => {
+        const q = new URLSearchParams(prev);
+        if (next) q.set("outletId", next);
+        else q.delete("outletId");
+        return q;
+      },
+      { replace: true }
+    );
+  };
 
   const loadEmployees = useCallback(async () => {
     try {
@@ -248,20 +313,27 @@ export default function InventoryPage() {
     setSubmitting(true);
     setFormError("");
     try {
-      const payload = {
-        ...itemForm,
-        unit_id: Number(itemForm.unit_id),
-      };
       if (itemForm.id) {
         await api(`/waschen/inventory/items/${itemForm.id}`, {
           method: "PUT",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            code: itemForm.code,
+            name: itemForm.name,
+            unit_id: Number(itemForm.unit_id),
+            description: itemForm.description,
+            is_active: itemForm.is_active,
+          }),
         });
         showToast("Item diperbarui");
       } else {
         await api("/waschen/inventory/items", {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            name: itemForm.name,
+            unit_id: Number(itemForm.unit_id),
+            description: itemForm.description,
+            is_active: itemForm.is_active,
+          }),
         });
         showToast("Item katalog ditambahkan");
       }
@@ -287,13 +359,17 @@ export default function InventoryPage() {
   const submitAdjust = async (e) => {
     e.preventDefault();
     if (!adjustModal) return;
+    if (!adjustForm.employeeId) {
+      setFormError("Petugas wajib dipilih");
+      return;
+    }
     setSubmitting(true);
     setFormError("");
     try {
       const body = {
         movementType: adjustForm.movementType,
         notes: adjustForm.notes || null,
-        employeeId: adjustForm.employeeId ? Number(adjustForm.employeeId) : null,
+        employeeId: Number(adjustForm.employeeId),
       };
       if (adjustForm.movementType === "Adjust") {
         body.setQty = Number(adjustForm.setQty);
@@ -362,9 +438,58 @@ export default function InventoryPage() {
     await loadLogs();
   };
 
+  const openItemLogs = async (row) => {
+    if (!outletId || !row?.item_id) return;
+    setItemLogModal(row);
+    setItemLogs([]);
+    setItemLogSearch("");
+    setItemLogDateFrom("");
+    setItemLogDateTo("");
+    setItemLogType("all");
+    setItemLogsLoading(true);
+    try {
+      const res = await api(
+        `/waschen/inventory/logs?outletId=${outletId}&itemId=${row.item_id}&limit=200`
+      );
+      setItemLogs(res.data || []);
+    } catch (err) {
+      setItemLogs([]);
+      showToast(err.message || "Gagal memuat riwayat", "error");
+    } finally {
+      setItemLogsLoading(false);
+    }
+  };
+
+  const filteredItemLogs = useMemo(() => {
+    const q = itemLogSearch.trim().toLowerCase();
+    return itemLogs.filter((log) => {
+      if (itemLogType !== "all" && String(log.movement_type) !== itemLogType) return false;
+      const key = toDateKey(log.created_at);
+      if (itemLogDateFrom && key && key < itemLogDateFrom) return false;
+      if (itemLogDateTo && key && key > itemLogDateTo) return false;
+      if (!q) return true;
+      const hay = [
+        log.notes,
+        log.employee_name,
+        movementLabel(log.movement_type),
+        log.movement_type,
+        fmtQty(log.qty),
+        fmtQty(log.qty_before),
+        fmtQty(log.qty_after),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [itemLogs, itemLogSearch, itemLogDateFrom, itemLogDateTo, itemLogType]);
+
   const openOpening = (row) => {
     setOpeningModal(row);
-    setOpeningForm(EMPTY_OPENING);
+    setOpeningForm({
+      ...EMPTY_OPENING,
+      employeeId: currentEmployee?.employee_id ? String(currentEmployee.employee_id) : "",
+    });
     setFormError("");
   };
 
@@ -379,12 +504,17 @@ export default function InventoryPage() {
       setFormError("Awal periode wajib diisi");
       return;
     }
+    if (!openingForm.employeeId) {
+      setFormError("Petugas wajib dipilih");
+      return;
+    }
     setSubmitting(true);
     setFormError("");
     try {
       const payload = {
         qty_opening: Number(openingForm.qty_opening),
         period_start: openingForm.period_start,
+        employeeId: Number(openingForm.employeeId),
       };
       if (String(openingForm.min_stock).trim() !== "") {
         payload.min_stock = Number(openingForm.min_stock);
@@ -465,6 +595,10 @@ export default function InventoryPage() {
   const submitOpname = async (e) => {
     e.preventDefault();
     if (!outletId) return;
+    if (!opnameEmployeeId) {
+      setFormError("Petugas wajib dipilih");
+      return;
+    }
     setSubmitting(true);
     setFormError("");
     try {
@@ -485,7 +619,7 @@ export default function InventoryPage() {
         body: JSON.stringify({
           outletId: Number(outletId),
           usageDate: opnameDate,
-          employeeId: opnameEmployeeId ? Number(opnameEmployeeId) : null,
+          employeeId: Number(opnameEmployeeId),
           lines,
         }),
       });
@@ -581,7 +715,7 @@ export default function InventoryPage() {
               <HiOutlineBuildingStorefront className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <select
                 value={outletId}
-                onChange={(e) => setOutletId(e.target.value)}
+                onChange={(e) => changeOutlet(e.target.value)}
                 className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10"
               >
                 {outlets.map((o) => (
@@ -673,10 +807,14 @@ export default function InventoryPage() {
                 </tr>
               ) : (
                 stock.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/80">
+                  <tr
+                    key={row.id}
+                    onClick={() => openItemLogs(row)}
+                    className="cursor-pointer hover:bg-[#5f1340]/5"
+                    title="Klik untuk lihat riwayat stok"
+                  >
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-800">{row.item_name}</p>
-                      <p className="text-[11px] font-mono text-slate-400">{row.item_code}</p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{row.item_unit}</td>
                     <td className="px-4 py-3 text-center font-semibold text-slate-800">
@@ -705,7 +843,7 @@ export default function InventoryPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <button
                           type="button"
@@ -776,17 +914,11 @@ export default function InventoryPage() {
               </div>
               {formError && <p className="text-xs text-rose-600">{formError}</p>}
               <input
-                placeholder="Kode (opsional, auto jika kosong)"
-                value={itemForm.code}
-                onChange={(e) => setItemForm((p) => ({ ...p, code: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
                 required
                 placeholder="Nama item"
                 value={itemForm.name}
                 onChange={(e) => setItemForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-900"
               />
               <select
                 required
@@ -869,7 +1001,7 @@ export default function InventoryPage() {
                   placeholder="Qty akhir"
                   value={adjustForm.setQty}
                   onChange={(e) => setAdjustForm((p) => ({ ...p, setQty: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                 />
               ) : (
                 <input
@@ -880,15 +1012,16 @@ export default function InventoryPage() {
                   placeholder="Jumlah"
                   value={adjustForm.qty}
                   onChange={(e) => setAdjustForm((p) => ({ ...p, qty: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                 />
               )}
               <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Petugas
                 <select
+                  required
                   value={adjustForm.employeeId}
                   onChange={(e) => setAdjustForm((p) => ({ ...p, employeeId: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                 >
                   <option value="">— Pilih petugas —</option>
                   {employeeOptions.map((e) => (
@@ -942,7 +1075,7 @@ export default function InventoryPage() {
                   step="0.01"
                   value={thresholdsForm.min_stock}
                   onChange={(e) => setThresholdsForm((p) => ({ ...p, min_stock: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                 />
               </label>
               <label className="block text-[10px] font-bold uppercase text-slate-400">
@@ -953,7 +1086,7 @@ export default function InventoryPage() {
                   step="0.01"
                   value={thresholdsForm.par_stock}
                   onChange={(e) => setThresholdsForm((p) => ({ ...p, par_stock: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                 />
               </label>
               <button type="submit" disabled={submitting} className="w-full rounded-xl bg-[#5f1340] py-2.5 text-xs font-bold text-white">
@@ -996,7 +1129,7 @@ export default function InventoryPage() {
                   value={openingForm.qty_opening}
                   onChange={(e) => setOpeningForm((p) => ({ ...p, qty_opening: e.target.value }))}
                   placeholder="Contoh: 10"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400"
                 />
               </label>
               <label className="block text-[10px] font-bold uppercase text-slate-400">
@@ -1006,7 +1139,7 @@ export default function InventoryPage() {
                   type="date"
                   value={openingForm.period_start}
                   onChange={(e) => setOpeningForm((p) => ({ ...p, period_start: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                 />
               </label>
               <label className="block text-[10px] font-bold uppercase text-slate-400">
@@ -1018,8 +1151,24 @@ export default function InventoryPage() {
                   value={openingForm.min_stock}
                   onChange={(e) => setOpeningForm((p) => ({ ...p, min_stock: e.target.value }))}
                   placeholder="Opsional"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400"
                 />
+              </label>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Petugas
+                <select
+                  required
+                  value={openingForm.employeeId}
+                  onChange={(e) => setOpeningForm((p) => ({ ...p, employeeId: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                >
+                  <option value="">— Pilih petugas —</option>
+                  {employeeOptions.map((e) => (
+                    <option key={e.employee_id} value={e.employee_id}>
+                      {fmtEmployeeName(e.full_name)}
+                    </option>
+                  ))}
+                </select>
               </label>
               <button type="submit" disabled={submitting} className="w-full rounded-xl bg-[#5f1340] py-2.5 text-xs font-bold text-white disabled:opacity-50">
                 {submitting ? "Menyimpan..." : "Simpan Stok Awal"}
@@ -1057,15 +1206,16 @@ export default function InventoryPage() {
                       setOpnameDate(e.target.value);
                       reloadOpnameLines(e.target.value);
                     }}
-                    className="mt-1 block rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                   />
                 </label>
                 <label className="flex-1 min-w-[180px] text-[10px] font-bold uppercase text-slate-400">
                   Petugas
                   <select
+                    required
                     value={opnameEmployeeId}
                     onChange={(e) => setOpnameEmployeeId(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
                   >
                     <option value="">— Pilih petugas —</option>
                     {employeeOptions.map((e) => (
@@ -1104,7 +1254,7 @@ export default function InventoryPage() {
                                 prev.map((l, i) => (i === idx ? { ...l, qtyUsed: e.target.value } : l))
                               )
                             }
-                            className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-right text-sm font-semibold text-slate-900"
                           />
                         </td>
                       </tr>
@@ -1198,6 +1348,161 @@ export default function InventoryPage() {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Modal: Riwayat per item (tr_inventory_log) */}
+      {itemLogModal &&
+        createPortal(
+          <div
+            data-modal-root
+            className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-slate-900/50 p-4 backdrop-blur-sm"
+          >
+            <div
+              className="flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-slate-800">Riwayat Stok</h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    {itemLogModal.item_name}
+                    {selectedOutlet?.name ? ` · ${selectedOutlet.name}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setItemLogModal(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <HiOutlineXMark className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="shrink-0 space-y-2 border-b border-slate-100 px-5 py-3">
+                <div className="relative">
+                  <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={itemLogSearch}
+                    onChange={(e) => setItemLogSearch(e.target.value)}
+                    placeholder="Cari petugas, catatan, tipe…"
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-medium text-slate-900 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Dari tanggal
+                    <input
+                      type="date"
+                      value={itemLogDateFrom}
+                      onChange={(e) => setItemLogDateFrom(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                    />
+                  </label>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Sampai tanggal
+                    <input
+                      type="date"
+                      value={itemLogDateTo}
+                      onChange={(e) => setItemLogDateTo(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                    />
+                  </label>
+                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Jenis
+                    <select
+                      value={itemLogType}
+                      onChange={(e) => setItemLogType(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                    >
+                      <option value="all">Semua</option>
+                      <option value="In">Masuk</option>
+                      <option value="Out">Keluar</option>
+                      <option value="Usage">Pemakaian</option>
+                      <option value="Adjust">Penyesuaian</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-slate-500">
+                    Menampilkan <span className="font-semibold text-slate-800">{filteredItemLogs.length}</span> dari{" "}
+                    {itemLogs.length} entri
+                  </p>
+                  {(itemLogSearch || itemLogDateFrom || itemLogDateTo || itemLogType !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setItemLogSearch("");
+                        setItemLogDateFrom("");
+                        setItemLogDateTo("");
+                        setItemLogType("all");
+                      }}
+                      className="text-[11px] font-semibold text-[#5f1340] hover:underline"
+                    >
+                      Reset filter
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-2">
+                {itemLogsLoading ? (
+                  <p className="py-12 text-center text-xs text-slate-400">Memuat riwayat…</p>
+                ) : filteredItemLogs.length === 0 ? (
+                  <p className="py-12 text-center text-xs text-slate-400">
+                    {itemLogs.length === 0 ? "Belum ada riwayat untuk item ini" : "Tidak ada data sesuai filter"}
+                  </p>
+                ) : (
+                  filteredItemLogs.map((log) => {
+                    const unit =
+                      log.item_unit || itemLogModal.item_unit || itemLogModal.unit || "";
+                    const badge = `${movementLabel(log.movement_type)} ${fmtQty(log.qty)}${unit ? ` ${unit}` : ""}`;
+                    return (
+                      <div key={log.id} className="rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900">{fmtDate(log.created_at)}</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                              {fmtQty(log.qty_before)} → {fmtQty(log.qty_after)}
+                              {unit ? (
+                                <span className="ml-1 text-xs font-medium text-slate-500">{unit}</span>
+                              ) : null}
+                            </p>
+                            {log.employee_name ? (
+                              <p className="mt-0.5 text-[11px] text-slate-600">
+                                Petugas: {fmtEmployeeName(log.employee_name)}
+                              </p>
+                            ) : null}
+                            {log.notes ? (
+                              <p className="mt-1 text-[11px] text-slate-600">{log.notes}</p>
+                            ) : null}
+                          </div>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-lg border px-2 py-1 text-[11px] font-bold",
+                              movementTone(log.movement_type)
+                            )}
+                          >
+                            {badge}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="flex shrink-0 justify-end border-t border-slate-100 px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setItemLogModal(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Tutup
+                </button>
               </div>
             </div>
           </div>,

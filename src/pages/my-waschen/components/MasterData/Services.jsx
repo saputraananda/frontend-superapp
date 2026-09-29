@@ -77,7 +77,7 @@ function StatusBadge({ isActive }) {
 function SkeletonRow() {
   return (
     <tr className="border-t border-slate-100 animate-pulse">
-      {[16, 24, 40, 24, 20, 28, 20, 24, 24].map((w, i) => (
+      {[16, 40, 24, 20, 28, 20, 24, 24, 24, 24].map((w, i) => (
         <td key={i} className="px-4 py-4">
           <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
         </td>
@@ -114,7 +114,7 @@ export default function Services() {
   const [search, setSearch] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [filterActive, setFilterActive] = useState("");
-  const [sortBy, setSortBy] = useState("s.name");
+  const [sortBy, setSortBy] = useState("s.id");
   const [sortDir, setSortDir] = useState("asc");
 
   // Modal Form State
@@ -256,18 +256,7 @@ export default function Services() {
     setBomLines((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Kode otomatis WS-KG-### (Kiloan) / WS-SAT-### (Satuan) saat pilih kategori (mode tambah)
-  const handleCategoryChange = async (catId) => {
-    setFormData((p) => ({ ...p, category_id: catId }));
-    if (formData.id || !catId) return;
-    try {
-      const res = await api(`/waschen/services/next-code?categoryId=${catId}`);
-      const nextCode = res.data?.code || "";
-      setFormData((p) => ({ ...p, category_id: catId, code: nextCode }));
-    } catch (err) {
-      console.error("next-code error:", err);
-    }
-  };
+  const handleCategoryChange = (catId) => setFormData((p) => ({ ...p, category_id: catId }));
 
   const handleUnitChange = (uId) => {
     const selected = units.find((u) => Number(u.id) === Number(uId));
@@ -284,8 +273,8 @@ export default function Services() {
       setFormError("Kategori Layanan wajib dipilih");
       return;
     }
-    if (!formData.code.trim() || !formData.name.trim()) {
-      setFormError("Kode dan Nama Layanan wajib diisi");
+    if (!formData.name.trim()) {
+      setFormError("Nama Layanan wajib diisi");
       return;
     }
 
@@ -464,14 +453,13 @@ export default function Services() {
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="px-4 py-3 font-semibold uppercase tracking-wider w-12 text-center">No</th>
-                <SortTh col="code" label="Kode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="s.id" label="No" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} className="w-12" />
                 <SortTh col="name" label="Nama Layanan" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="category_id" label="Kategori" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider">Satuan</th>
-                <SortTh col="price" label="Tarif Dasar" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <SortTh col="regular_duration_days" label="Durasi Reguler" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Min. Order</th>
+                <SortTh col="price" label="Tarif" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortTh col="regular_duration_days" label="Durasi" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Min</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">BOM</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
@@ -482,15 +470,18 @@ export default function Services() {
                 Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data katalog layanan
                   </td>
                 </tr>
               ) : (
-                data.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-4 py-3.5 text-center text-slate-400 font-medium tabular-nums">{idx + 1}</td>
-                    <td className="px-4 py-3.5 font-bold font-mono text-[#5f1340] whitespace-nowrap">{item.code}</td>
+                data.map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() => handleOpenEdit(item)}
+                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="px-4 py-3.5 text-slate-400 font-medium tabular-nums">{item.id}</td>
                     <td className="px-4 py-3.5 font-semibold text-slate-800 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span>{item.name}</span>
@@ -545,7 +536,7 @@ export default function Services() {
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <StatusBadge isActive={item.is_active} />
                     </td>
-                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex items-center gap-1">
                         <button
                           type="button"
@@ -617,14 +608,12 @@ export default function Services() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Kode Layanan *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Kode Layanan</label>
                   <input
                     type="text"
-                    placeholder="Misal: K-01, S-01"
-                    value={formData.code}
-                    onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340] font-mono uppercase"
-                    required
+                    value={formData.id ? formData.code : "Otomatis saat disimpan"}
+                    readOnly
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 outline-none font-mono"
                   />
                 </div>
               </div>

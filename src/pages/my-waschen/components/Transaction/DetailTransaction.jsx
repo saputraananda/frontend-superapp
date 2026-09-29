@@ -515,7 +515,7 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
             </div>
           </button>
 
-          <div className="sm:w-40 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {Number(item.is_production) !== 0 && <div className="sm:w-40 shrink-0" onClick={(e) => e.stopPropagation()}>
             <select
               value={item.item_work_status}
               disabled={saving}
@@ -529,7 +529,7 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
         </div>
 
         {/* Detail — accordion */}
