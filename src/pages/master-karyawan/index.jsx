@@ -11,6 +11,7 @@ import {
     HiOutlineHeart,
     HiOutlineSpeakerWave,
     HiOutlineClock,
+    HiOutlineBanknotes,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -65,6 +66,13 @@ const MENU_ITEMS = [
         icon: HiOutlineCalendarDays,
         label: "Saldo Karyawan",
         description: "Saldo cuti, lembur, dan RO",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/slip-gaji",
+        icon: HiOutlineBanknotes,
+        label: "Slip Gaji",
+        description: "Upload slip gaji PDF karyawan",
         end: false,
     },
     {

@@ -192,7 +192,7 @@ export default function AnnualLeaveAlora() {
 				</div>
 				<h1 className="text-xl font-black text-slate-800">Saldo Cuti, Lembur & RO</h1>
 				<p className="mt-1 text-sm text-slate-500">
-					Daftar saldo karyawan. Set angka cuti, lembur, atau RO dari aksi per baris.
+					Daftar saldo karyawan aktif. Set angka cuti, lembur, atau RO dari aksi per baris.
 				</p>
 			</div>
 

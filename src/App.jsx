@@ -32,6 +32,7 @@ import PlannedLateAlora from "./pages/master-karyawan/components/PlannedLateAlor
 import LemburRoAlora from "./pages/master-karyawan/components/LemburRoAlora";
 import ReportAbsensiAlora from "./pages/master-karyawan/components/ReportAbsensiAlora";
 import AnnualLeaveAlora from "./pages/master-karyawan/components/AnnualLeaveAlora";
+import PayslipAlora from "./pages/master-karyawan/components/PayslipAlora";
 import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
 import PengumumanAlora from "./pages/master-karyawan/components/PengumumanAlora";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
@@ -363,6 +364,7 @@ export default function App() {
           <Route path="/master-karyawan/pengumuman" element={<PengumumanAlora />} />
           <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
           <Route path="/master-karyawan/annual-leave" element={<AnnualLeaveAlora />} />
+          <Route path="/master-karyawan/slip-gaji" element={<PayslipAlora />} />
           <Route path="/master-karyawan/report-bugar" element={<ReportBugarAlora />} />
         </Route>
 
