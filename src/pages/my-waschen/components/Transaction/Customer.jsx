@@ -205,6 +205,8 @@ function toFormData(item) {
 
 export default function Customer() {
   const cutoff = useCutoffPeriod();
+  const [allPeriods, setAllPeriods] = useState(true);
+  const [dbYears, setDbYears] = useState([]);
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({ total: 0, active: 0, vip: 0, gold: 0, reguler: 0, oneTime: 0 });
   const [page, setPage] = useState(1);
@@ -254,13 +256,17 @@ export default function Customer() {
       if (filterOutletId) query.set("preferredOutletId", filterOutletId);
       if (sortBy) query.set("sortBy", sortBy);
       if (sortDir) query.set("sortDir", sortDir);
-      if (cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
-      if (cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
+      if (!allPeriods && cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
+      if (!allPeriods && cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
       query.set("page", String(page));
       query.set("limit", String(PAGE_SIZE));
       const res = await api(`/waschen/customers?${query.toString()}`);
       setData(res.data || []);
       setMeta((m) => ({ ...m, ...(res.meta || {}) }));
+      const years = Array.isArray(res.meta?.years)
+        ? res.meta.years.map(Number).filter((y) => y > 0)
+        : [];
+      if (years.length) setDbYears(years);
     } catch (err) { if (!silent) showToast(err.message, "error"); } finally { if (!silent) setLoading(false); }
   };
 
@@ -269,11 +275,11 @@ export default function Customer() {
     const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [searchInput]);
-  useEffect(() => { setPage(1); }, [filterActive, filterTierId, filterOutletId, sortBy, sortDir, cutoff.dateFrom, cutoff.dateTo]);
+  useEffect(() => { setPage(1); }, [filterActive, filterTierId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, filterActive, filterTierId, filterOutletId, sortBy, sortDir, cutoff.dateFrom, cutoff.dateTo]);
+  }, [page, search, filterActive, filterTierId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
   useLiveRefresh(() => loadData(true));
   const totalPages = Math.max(1, Math.ceil((Number(meta.total) || 0) / PAGE_SIZE));
 
@@ -341,6 +347,8 @@ export default function Customer() {
     if (search) query.set("search", search);
     if (filterActive) query.set("isActive", filterActive);
     if (filterOutletId) query.set("preferredOutletId", filterOutletId);
+    if (!allPeriods && cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
+    if (!allPeriods && cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
     query.set("spendingTierId", String(tierList.tierId));
     query.set("sortBy", "name");
     query.set("sortDir", "asc");
@@ -355,7 +363,7 @@ export default function Customer() {
       })
       .catch(() => { if (!cancel) setTierList((t) => (t ? { ...t, loading: false } : t)); });
     return () => { cancel = true; };
-  }, [tierList?.tierId, tierList?.page, search, filterActive, filterOutletId]);
+  }, [tierList?.tierId, tierList?.page, search, filterActive, filterOutletId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
 
   const stats = meta;
 
@@ -422,12 +430,20 @@ export default function Customer() {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Periode & Data</h2>
-            <p className="text-[11px] sm:text-xs text-slate-500">Filter diterapkan otomatis saat pilihan diubah.</p>
+            <p className="text-[11px] sm:text-xs text-slate-500">Filter tanggal berdasarkan tanggal terdaftar. Default: tampilkan semua.</p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <CutoffPeriodFilter cutoff={cutoff} />
+          <CutoffPeriodFilter
+            cutoff={cutoff}
+            allowAll
+            showAll={allPeriods}
+            onShowAllChange={setAllPeriods}
+            allLabel="Tampilkan Semua"
+            periodBadgePrefix="Terdaftar"
+            years={dbYears.length ? dbYears : undefined}
+          />
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

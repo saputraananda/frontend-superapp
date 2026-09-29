@@ -15,6 +15,14 @@ export default function CutoffPeriodFilter({
   variant = "default",
   showPeriodBadge = true,
   className = "",
+  /** Opsi "Tampilkan Semua" (tanpa filter tanggal). Dipakai Master Customer. */
+  allowAll = false,
+  showAll = false,
+  onShowAllChange,
+  allLabel = "Tampilkan Semua",
+  periodBadgePrefix = "Periode",
+  /** Override opsi tahun (mis. dari DB). Fallback ke cutoff.years */
+  years: yearsProp,
 }) {
   const {
     isCustomDate,
@@ -27,9 +35,21 @@ export default function CutoffPeriodFilter({
     dateTo,
     setDateTo,
     handleCustomStartChange,
-    years,
+    years: cutoffYears,
     monthOptions,
   } = cutoff;
+
+  const years = (Array.isArray(yearsProp) && yearsProp.length) ? yearsProp : cutoffYears;
+
+  const pickYear = (value) => {
+    if (allowAll && value === "all") {
+      onShowAllChange?.(true);
+      if (isCustomDate) toggleCustom();
+      return;
+    }
+    onShowAllChange?.(false);
+    handleYearChange(value);
+  };
 
   const isHero = variant === "hero";
   const isCompact = variant === "compact";
@@ -38,18 +58,31 @@ export default function CutoffPeriodFilter({
     return (
       <div className={cn("flex flex-col gap-2 min-w-0", className)}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 min-w-0">
-          <select
-            value={isCustomDate ? "custom" : "cutoff"}
-            onChange={(e) => {
-              const nextCustom = e.target.value === "custom";
-              if (nextCustom !== isCustomDate) toggleCustom();
-            }}
-            className={cn(INPUT_COMPACT, "col-span-2 sm:col-span-1")}
-          >
-            <option value="cutoff">Cutoff</option>
-            <option value="custom">Custom tanggal</option>
-          </select>
-          {isCustomDate ? (
+          {allowAll ? (
+            <select
+              value={showAll ? "all" : selectedYear}
+              onChange={(e) => pickYear(e.target.value)}
+              className={cn(INPUT_COMPACT, "col-span-2 sm:col-span-1")}
+            >
+              <option value="all">{allLabel}</option>
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={isCustomDate ? "custom" : "cutoff"}
+              onChange={(e) => {
+                const nextCustom = e.target.value === "custom";
+                if (nextCustom !== isCustomDate) toggleCustom();
+              }}
+              className={cn(INPUT_COMPACT, "col-span-2 sm:col-span-1")}
+            >
+              <option value="cutoff">Cutoff</option>
+              <option value="custom">Custom tanggal</option>
+            </select>
+          )}
+          {!showAll && (isCustomDate ? (
             <>
               <input
                 type="date"
@@ -76,23 +109,40 @@ export default function CutoffPeriodFilter({
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
-              <select
-                value={selectedYear}
-                onChange={(e) => handleYearChange(e.target.value)}
-                className={INPUT_COMPACT}
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              {!allowAll && (
+                <select
+                  value={selectedYear}
+                  onChange={(e) => handleYearChange(e.target.value)}
+                  className={INPUT_COMPACT}
+                >
+                  {years.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              )}
+              {allowAll && (
+                <select
+                  value={isCustomDate ? "custom" : "cutoff"}
+                  onChange={(e) => {
+                    const nextCustom = e.target.value === "custom";
+                    if (nextCustom !== isCustomDate) toggleCustom();
+                  }}
+                  className={INPUT_COMPACT}
+                >
+                  <option value="cutoff">Cutoff</option>
+                  <option value="custom">Custom tanggal</option>
+                </select>
+              )}
             </>
-          )}
+          ))}
         </div>
-        {showPeriodBadge && dateFrom && dateTo && (
+        {showPeriodBadge && (showAll ? (
+          <p className="text-[10px] font-semibold text-slate-400 px-0.5">{allLabel}</p>
+        ) : dateFrom && dateTo ? (
           <p className="text-[10px] font-semibold text-slate-400 px-0.5">
-            Periode {fmtDateShort(dateFrom)} – {fmtDateShort(dateTo)}
+            {periodBadgePrefix} {fmtDateShort(dateFrom)} – {fmtDateShort(dateTo)}
           </p>
-        )}
+        ) : null)}
       </div>
     );
   }
@@ -109,11 +159,22 @@ export default function CutoffPeriodFilter({
   return (
     <div className={cn("space-y-3", className)}>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {!isCustomDate ? (
+        {showAll ? (
+          <label className={labelCls}>
+            Tahun
+            <select value="all" onChange={(e) => pickYear(e.target.value)} className={inputCls}>
+              <option value="all" className="text-slate-800">{allLabel}</option>
+              {years.map((y) => (
+                <option key={y} value={y} className="text-slate-800">{y}</option>
+              ))}
+            </select>
+          </label>
+        ) : !isCustomDate ? (
           <>
             <label className={labelCls}>
               Tahun
-              <select value={selectedYear} onChange={(e) => handleYearChange(e.target.value)} className={inputCls}>
+              <select value={selectedYear} onChange={(e) => pickYear(e.target.value)} className={inputCls}>
+                {allowAll && <option value="all" className="text-slate-800">{allLabel}</option>}
                 {years.map((y) => (
                   <option key={y} value={y} className="text-slate-800">{y}</option>
                 ))}
@@ -130,6 +191,17 @@ export default function CutoffPeriodFilter({
           </>
         ) : (
           <>
+            {allowAll && (
+              <label className={labelCls}>
+                Tahun
+                <select value={selectedYear} onChange={(e) => pickYear(e.target.value)} className={inputCls}>
+                  <option value="all" className="text-slate-800">{allLabel}</option>
+                  {years.map((y) => (
+                    <option key={y} value={y} className="text-slate-800">{y}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className={labelCls}>
               Tanggal Awal
               <input type="date" value={dateFrom || ""} onChange={(e) => handleCustomStartChange(e.target.value)} className={inputCls} />
@@ -141,19 +213,23 @@ export default function CutoffPeriodFilter({
           </>
         )}
 
-        <div className="sm:col-span-2 lg:col-span-1 flex items-end">
-          <button type="button" onClick={toggleCustom} className={toggleCls}>
-            <HiOutlineCalendarDays className={cn("h-4 w-4 shrink-0", isHero ? "text-white/70" : "text-slate-400")} />
-            <span className="truncate">{isCustomDate ? "Cutoff Bulanan" : "Custom Tanggal"}</span>
-          </button>
-        </div>
+        {!showAll && (
+          <div className="sm:col-span-2 lg:col-span-1 flex items-end">
+            <button type="button" onClick={toggleCustom} className={toggleCls}>
+              <HiOutlineCalendarDays className={cn("h-4 w-4 shrink-0", isHero ? "text-white/70" : "text-slate-400")} />
+              <span className="truncate">{isCustomDate ? "Cutoff Bulanan" : "Custom Tanggal"}</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {showPeriodBadge && dateFrom && dateTo && (
+      {showPeriodBadge && (showAll ? (
+        <div className={badgeCls}>{allLabel} — tanpa filter tanggal terdaftar</div>
+      ) : dateFrom && dateTo ? (
         <div className={badgeCls}>
-          Periode: {fmtDateShort(dateFrom)} – {fmtDateShort(dateTo)}
+          {periodBadgePrefix}: {fmtDateShort(dateFrom)} – {fmtDateShort(dateTo)}
         </div>
-      )}
+      ) : null)}
     </div>
   );
 }

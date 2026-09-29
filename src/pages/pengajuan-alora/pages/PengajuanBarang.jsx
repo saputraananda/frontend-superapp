@@ -38,6 +38,12 @@ const toTitleCase = (str) => {
     return String(str).toLowerCase().replace(/(?:^|\s+)\S/g, (c) => c.toUpperCase());
 };
 
+// Nama perusahaan: jangan title-case (biar casing asli aman), hanya pastikan "PT" kapital penuh
+const formatCompanyName = (str) => {
+    if (!str) return str;
+    return String(str).replace(/\bpt\b/gi, "PT");
+};
+
 const STATUS_CONFIG = {
     1: { label: "Telah Diajukan",       cls: "bg-amber-50 text-amber-700 border-amber-200" },
     2: { label: "Disetujui Supervisor", cls: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -252,6 +258,7 @@ export default function PengajuanBarang() {
     const [filterStatus, setFS]   = useState("");
     const [filterType, setFT]     = useState("");
     const [filterMethod, setFM]   = useState("");
+    const [filterCompany, setFC]  = useState("");
     // date filter: "cutoff" | "range" | "single" | "all"
     const [dateMode, setDateMode]     = useState("cutoff");
     const [customFrom, setCustomFrom] = useState(todayStr());
@@ -265,6 +272,7 @@ export default function PengajuanBarang() {
     const [approvalCount, setAC]  = useState(0);
     const [selectedDeptId, setSelectedDeptId] = useState("");
     const [departments, setDepartments]       = useState([]);
+    const [companies, setCompanies]           = useState([]);
 
     const [limit, setLimit] = useState(10);
     const LIMIT = limit === "all" ? 999999 : limit;
@@ -307,6 +315,18 @@ export default function PengajuanBarang() {
         return () => { cancel = true; };
     }, [isGAFinance]);
 
+    // fetch companies list for kategori filter
+    useEffect(() => {
+        let cancel = false;
+        (async () => {
+            try {
+                const d = await api("/pengajuan/companies");
+                if (!cancel) setCompanies(d.data || []);
+            } catch { /* ignore */ }
+        })();
+        return () => { cancel = true; };
+    }, []);
+
     // ── load list ────────────────────────────────────────────────────────────
     const loadList = useCallback(async (silent = false) => {
         if (useDateFilter && (!effFrom || !effTo)) return;
@@ -317,6 +337,7 @@ export default function PengajuanBarang() {
             if (filterStatus) params.set("status",    filterStatus);
             if (filterType)   params.set("type",      filterType);
             if (filterMethod) params.set("payment_method", filterMethod);
+            if (filterCompany) params.set("company_id", filterCompany);
             if (mode === "all" && selectedDeptId) {
                 params.set("department_id", selectedDeptId);
             }
@@ -342,7 +363,7 @@ export default function PengajuanBarang() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [mode, page, search, filterStatus, filterType, filterMethod, selectedDeptId, useDateFilter, effFrom, effTo, limit]);
+    }, [mode, page, search, filterStatus, filterType, filterMethod, filterCompany, selectedDeptId, useDateFilter, effFrom, effTo, limit]);
 
     useEffect(() => { loadList(); }, [loadList]);
 
@@ -414,6 +435,9 @@ export default function PengajuanBarang() {
                 type: filterType || null,
                 status: filterStatus || null,
                 payment_method: filterMethod || null,
+                company: filterCompany
+                    ? (companies.find(c => String(c.company_id) === String(filterCompany))?.company_name || filterCompany)
+                    : null,
             },
         });
         showToast("success", "File Excel berhasil diunduh");
@@ -614,6 +638,15 @@ export default function PengajuanBarang() {
                     {Object.entries(STATUS_CONFIG).map(([k, v]) =>
                         <option key={k} value={k}>{v.label}</option>
                     )}
+                </select>
+                <select value={filterCompany} onChange={e => { setFC(e.target.value); setPage(1); }}
+                    className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
+                    <option value="">Semua Kategori</option>
+                    {companies.map(c => (
+                        <option key={c.company_id} value={c.company_id}>
+                            {formatCompanyName(c.company_name)}
+                        </option>
+                    ))}
                 </select>
                 {isAll && (
                     <select value={filterMethod} onChange={e => { setFM(e.target.value); setPage(1); }}
