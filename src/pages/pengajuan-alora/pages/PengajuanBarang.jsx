@@ -363,7 +363,7 @@ export default function PengajuanBarang() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [mode, page, search, filterStatus, filterType, filterMethod, filterCompany, selectedDeptId, useDateFilter, effFrom, effTo, limit]);
+    }, [mode, page, search, filterStatus, filterType, filterMethod, filterCompany, selectedDeptId, useDateFilter, effFrom, effTo, LIMIT]);
 
     useEffect(() => { loadList(); }, [loadList]);
 
