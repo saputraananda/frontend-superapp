@@ -410,7 +410,8 @@ export default function Overtime() {
                       </span>
                     </div>
                   </div>
-                  <p className="text-slate-600"><span className="font-semibold">Alasan:</span> {detail.overtime.reason}</p>
+                  <p className="text-slate-600"><span className="font-semibold">Alasan:</span> {detail.overtime.reason || "—"}</p>
+                  <p className="text-slate-600 whitespace-pre-wrap"><span className="font-semibold">Catatan Kerja:</span> {detail.overtime.work_note || "—"}</p>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div className="rounded-xl border bg-slate-50 p-2.5"><p className="text-[10px] text-slate-400 font-bold">Item</p><p className="text-lg font-bold text-slate-800">{detail.totals.items}</p></div>
@@ -426,6 +427,7 @@ export default function Overtime() {
                       <table className="w-full min-w-[720px] text-left">
                         <thead className="bg-slate-50 text-[10px] uppercase text-slate-500">
                           <tr>
+                            <th className="px-3 py-2">Tgl Kerja</th>
                             <th className="px-3 py-2">Nota</th>
                             <th className="px-3 py-2">Item</th>
                             <th className="px-3 py-2">Stage</th>
@@ -440,6 +442,7 @@ export default function Overtime() {
                             const fl = FLAG_LABEL[w.work_time_flag] || FLAG_LABEL.normal;
                             return (
                               <tr key={w.progress_id}>
+                                <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{w.work_date ? fmtDateShort(w.work_date) : '—'}</td>
                                 <td className="px-3 py-2">
                                   <p className="font-semibold text-slate-800">{w.order_no || w.barcode || `#${w.transaction_id}`}</p>
                                   <p className="text-[10px] text-slate-400">{w.customer_name}</p>
