@@ -187,7 +187,7 @@ export function exportMakanSiangRekapExcel({ rows, periodLabel, activePeriod, gr
     : "–";
   const exportedAt = `Diekspor: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}`;
 
-  const TOTAL_COLS = 8;
+  const TOTAL_COLS = 10;
   const wsData = [];
   const emptyTitle = Array.from({ length: TOTAL_COLS - 1 }, () => empty(titleStyle));
   const emptyMeta = Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle));
@@ -202,7 +202,7 @@ export function exportMakanSiangRekapExcel({ rows, periodLabel, activePeriod, gr
   wsData.push([cell(exportedAt, metaStyle), ...emptyMeta]);
   wsData.push(emptySpacer);
 
-  const headers = ["No", "Nama", "Kode", "Hari", "Kantor (10k)", "Half", "Full", "Total"];
+  const headers = ["No", "Nama", "Kode", "Hari", "Kantor", "Libur", "Cuti/Izin", "Half", "Full", "Total"];
   wsData.push(headers.map((h) => cell(h, headerStyle)));
 
   (rows || []).forEach((r, idx) => {
@@ -215,6 +215,8 @@ export function exportMakanSiangRekapExcel({ rows, periodLabel, activePeriod, gr
       cell(r.employee_code || "-", csCenter),
       cell(Number(r.days) || 0, csCenter),
       cell(Number(r.office_days) || 0, csCenter),
+      cell(Number(r.off_days) || 0, csCenter),
+      cell(Number(r.leave_days) || 0, csCenter),
       cell(Number(r.half_days) || 0, csCenter),
       cell(Number(r.full_days) || 0, csCenter),
       cell(Number(r.total_amount) || 0, csCenter),
@@ -235,7 +237,9 @@ export function exportMakanSiangRekapExcel({ rows, periodLabel, activePeriod, gr
       { wch: 24 },
       { wch: 12 },
       { wch: 8 },
-      { wch: 12 },
+      { wch: 10 },
+      { wch: 8 },
+      { wch: 10 },
       { wch: 8 },
       { wch: 8 },
       { wch: 14 },

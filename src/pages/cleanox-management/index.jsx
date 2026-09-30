@@ -70,8 +70,8 @@ const MENU_GROUPS = [
       {
         to: "/cleanox-management-system/makan-siang",
         icon: HiOutlineBuildingStorefront,
-        label: "Makan Siang",
-        description: "Plot pengajuan, rekap & bukti TF uang makan",
+        label: "Uang Makan",
+        description: "Pengajuan rapel, transfer Finance & rekap HR",
         end: false,
       },
     ],
