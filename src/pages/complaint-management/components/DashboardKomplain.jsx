@@ -223,11 +223,13 @@ function TrendChart({ data, onItemClick }) {
 }
 
 const PROGRESS_META = {
+  Request: { cls: "border-orange-200 bg-orange-50 text-orange-700", dot: "bg-orange-500" },
   Open: { cls: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" },
   "On Progress": { cls: "border-sky-200 bg-sky-50 text-sky-700", dot: "bg-sky-500" },
   "Waiting Customer": { cls: "border-violet-200 bg-violet-50 text-violet-700", dot: "bg-violet-500" },
   Resolved: { cls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
   Closed: { cls: "border-slate-200 bg-slate-50 text-slate-600", dot: "bg-slate-400" },
+  Archive: { cls: "border-rose-200 bg-rose-50 text-rose-700", dot: "bg-rose-400" },
 };
 
 function DetailModal({ open, config, onClose }) {
@@ -285,7 +287,7 @@ function DetailModal({ open, config, onClose }) {
     ].some((value) => String(value || "").toLowerCase().includes(normalizedSearch)))
     : rows;
 
-  const openCount = rows.filter((row) => !["Resolved", "Closed"].includes(row.progress)).length;
+  const openCount = rows.filter((row) => !["Resolved", "Closed", "Archive"].includes(row.progress)).length;
   const resolvedCount = rows.length - openCount;
 
   // Render via portal agar keluar dari overflow-y-auto container
@@ -562,11 +564,13 @@ export default function DashboardKomplain() {
 
   const statCards = [
     { label: "Total Komplain",    value: t?.total             ?? 0, icon: HiOutlineExclamationCircle, colorClass: "bg-fuchsia-100/80 text-fuchsia-800 border-fuchsia-200", detail: { title: "Semua Komplain", params: {}, iconClass: "bg-gradient-to-br from-fuchsia-700 to-fuchsia-400" } },
+    { label: "Request",          value: t?.request_count     ?? 0, icon: HiOutlineClock,             colorClass: "bg-orange-50 text-orange-700 border-orange-100", detail: { title: "Pengajuan Request", params: { progress: "Request" }, iconClass: "bg-gradient-to-br from-orange-500 to-amber-400" } },
     { label: "Open",              value: t?.open_count        ?? 0, icon: HiOutlineClock,             colorClass: "bg-amber-50 text-amber-600 border-amber-100", detail: { title: "Komplain Open", params: { progress: "Open" }, iconClass: "bg-gradient-to-br from-amber-500 to-orange-400" } },
     { label: "On Progress",       value: t?.on_progress_count ?? 0, icon: HiOutlineArrowPath,         colorClass: "bg-sky-50 text-sky-600 border-sky-100", detail: { title: "Komplain On Progress", params: { progress: "On Progress" }, iconClass: "bg-gradient-to-br from-sky-600 to-cyan-400" } },
     { label: "Waiting Customer",  value: t?.waiting_count     ?? 0, icon: HiOutlineUserGroup,         colorClass: "bg-violet-50 text-violet-600 border-violet-100", detail: { title: "Komplain Waiting Customer", params: { progress: "Waiting Customer" }, iconClass: "bg-gradient-to-br from-violet-600 to-fuchsia-400" } },
     { label: "Resolved",          value: t?.resolved_count    ?? 0, icon: HiOutlineCheckCircle,       colorClass: "bg-emerald-50 text-emerald-600 border-emerald-100", detail: { title: "Komplain Resolved", params: { progress: "Resolved" }, iconClass: "bg-gradient-to-br from-emerald-600 to-teal-400" } },
     { label: "Closed",            value: t?.closed_count      ?? 0, icon: HiOutlineXCircle,           colorClass: "bg-slate-50 text-slate-500 border-slate-100", detail: { title: "Komplain Closed", params: { progress: "Closed" }, iconClass: "bg-gradient-to-br from-slate-600 to-slate-400" } },
+    { label: "Archive",           value: t?.archive_count     ?? 0, icon: HiOutlineXCircle,           colorClass: "bg-rose-50 text-rose-600 border-rose-100", detail: { title: "Pengajuan Archive", params: { progress: "Archive" }, iconClass: "bg-gradient-to-br from-rose-600 to-rose-400" } },
   ];
 
   return (

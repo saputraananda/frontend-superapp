@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { api, apiUpload, assetUrl } from "../../../lib/api";
+import { api, apiUpload, complaintFileUrl } from "../../../lib/api";
 import {
   HiOutlineChevronDown,
   HiOutlineClipboardDocumentList,
@@ -658,7 +658,7 @@ export default function FormKomplain() {
                       const isDeleted = deletedDocIds.includes(d.doc_id);
                       if (isDeleted) return null; // hide if marked for deletion
 
-                      const url = assetUrl(d.file_path);
+                      const url = complaintFileUrl(d.file_path);
                       const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
                       return (
                         <div key={d.doc_id} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">

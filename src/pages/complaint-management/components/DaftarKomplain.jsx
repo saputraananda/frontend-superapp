@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { api, apiUpload, assetUrl } from "../../../lib/api";
+import { api, apiUpload, complaintFileUrl } from "../../../lib/api";
 import {
   HiOutlineArrowPath,
   HiOutlineArrowsUpDown,
@@ -65,23 +65,27 @@ const MONTH_LABELS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const PROGRESS_OPTIONS = ["Open", "On Progress", "Waiting Customer", "Resolved", "Closed"];
+const PROGRESS_OPTIONS = ["Request", "Open", "On Progress", "Waiting Customer", "Resolved", "Closed", "Archive"];
 const DEDUCTION_OPTIONS = ["None", "Company", "Management"];
 
 const PROGRESS_BADGE = {
+  Request:           "bg-orange-100 text-orange-800 border-orange-200",
   Open:              "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200",
   "On Progress":     "bg-amber-100 text-amber-700 border-amber-200",
   "Waiting Customer":"bg-sky-100 text-sky-700 border-sky-200",
   Resolved:          "bg-emerald-100 text-emerald-700 border-emerald-200",
   Closed:            "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Archive:           "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 const PROGRESS_DOT = {
+  Request:           "bg-orange-500",
   Open:              "bg-fuchsia-600",
   "On Progress":     "bg-amber-400",
   "Waiting Customer":"bg-sky-400",
   Resolved:          "bg-emerald-500",
   Closed:            "bg-emerald-500",
+  Archive:           "bg-rose-500",
 };
 
 
@@ -351,7 +355,7 @@ function ProgressTimeline({ logs, complaint, onPreviewDoc, onEditLog, onDeleteLo
               {log.documents?.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {log.documents.map((d) => {
-                    const url = assetUrl(d.file_path);
+                    const url = complaintFileUrl(d.file_path);
                     const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
                     return isImg ? (
                       <div
@@ -413,6 +417,8 @@ export default function DaftarKomplain() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewing, setReviewing] = useState(false);
 
   // Progress log modal
   const [progressOpen, setProgressOpen] = useState(false);
@@ -501,12 +507,32 @@ export default function DaftarKomplain() {
     setDetailOpen(true);
     setLoadingDetail(true);
     setDetailData(null);
+    setReviewNote("");
     try {
       const data = await api(`/complaints/${id}`);
       setDetailData(data);
     } catch {
       // ignore
     } finally { setLoadingDetail(false); }
+  };
+
+  const submitReview = async (decision) => {
+    if (!detailData?.complaint?.complaint_id || reviewing) return;
+    if (decision === "reject" && !reviewNote.trim()) return;
+    setReviewing(true);
+    try {
+      await api(`/complaints/${detailData.complaint.complaint_id}/review`, {
+        method: "POST",
+        body: JSON.stringify({ decision, note: reviewNote.trim() }),
+      });
+      setReviewNote("");
+      await openDetail(detailData.complaint.complaint_id);
+      fetchComplaints();
+    } catch (err) {
+      window.alert(err.message || "Gagal meninjau pengajuan");
+    } finally {
+      setReviewing(false);
+    }
   };
 
   // ── Form helpers ──────────────────────────────────────────────────
@@ -1024,6 +1050,35 @@ export default function DaftarKomplain() {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Status Komplain</p>
                   <Badge progress={detailData.complaint.progress} />
+                  {detailData.complaint.progress === "Request" && (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        rows={2}
+                        value={reviewNote}
+                        onChange={(e) => setReviewNote(e.target.value)}
+                        placeholder="Catatan. Wajib jika ditolak."
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-800 outline-none focus:border-fuchsia-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={reviewing}
+                          onClick={() => submitReview("approve")}
+                          className="h-8 rounded-lg bg-[#5f1340] px-3 text-[11px] font-bold text-white disabled:opacity-50"
+                        >
+                          Setujui → Open
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewing || !reviewNote.trim()}
+                          onClick={() => submitReview("reject")}
+                          className="h-8 rounded-lg border border-rose-200 bg-rose-50 px-3 text-[11px] font-bold text-rose-700 disabled:opacity-50"
+                        >
+                          Tolak → Archive
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="text-right space-y-1">
                   <div>
@@ -1088,7 +1143,7 @@ export default function DaftarKomplain() {
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Dokumentasi Awal</p>
                   <div className="flex flex-wrap gap-2.5">
                     {detailData.documents.map((d) => {
-                      const url = assetUrl(d.file_path);
+                      const url = complaintFileUrl(d.file_path);
                       const isImg = /\.(jpe?g|png|gif|webp)$/i.test(d.file_path);
                       return (
                         <div
