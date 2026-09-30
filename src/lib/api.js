@@ -64,6 +64,16 @@ export function assetUrl(p) {
   return `${BASE_URL}/${clean}`;
 }
 
+/** Lampiran komplain: {WASCHEN_POS_PUBLIC_BASE_URL}/uploads/assets/... */
+export function complaintFileUrl(p) {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  let clean = String(p).replace(/^\/+/, "");
+  if (!clean.startsWith("assets/")) clean = `assets/${clean}`;
+  const origin = (import.meta.env.VITE_WASCHEN_POS_PUBLIC_BASE_URL || "https://pos.mywaschen.com").replace(/\/$/, "");
+  return `${origin}/uploads/${clean}`;
+}
+
 /**
  * Build URL thumbnail WebP (420×315, q70) untuk aset photo.
  * path_value harus berformat "aset_photos/filename.ext"
