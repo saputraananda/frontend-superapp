@@ -176,7 +176,7 @@ export default function AttendanceSessionsAlora() {
 						Clock session dari mobile · Earned RO wajib bukti BOD saat approve
 					</p>
 				</div>
-				<Link to="/master-karyawan/lembur-ro-legacy" className="text-sm font-semibold text-slate-500 underline">
+				<Link to="/master-karyawan/lembur-ro" className="text-sm font-semibold text-slate-500 underline">
 					Pengajuan Lembur
 				</Link>
 			</div>
