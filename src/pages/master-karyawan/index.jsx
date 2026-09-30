@@ -48,10 +48,10 @@ const MENU_ITEMS = [
         end: false,
     },
     {
-        to: "/master-karyawan/attendance-sessions",
+        to: "/master-karyawan/lembur-ro",
         icon: HiOutlineClock,
-        label: "Sesi Lembur & RO",
-        description: "Approval clock session lembur & earned RO",
+        label: "Monitoring Lembur",
+        description: "Monitoring pengajuan lembur karyawan",
         end: false,
     },
     {

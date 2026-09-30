@@ -360,7 +360,7 @@ export default function App() {
           <Route path="/master-karyawan/attendance-sessions" element={<AttendanceSessionsAlora />} />
           <Route path="/master-karyawan/planned-late" element={<PlannedLateAlora />} />
           <Route path="/master-karyawan/lembur-ro-legacy" element={<LemburRoAlora />} />
-          <Route path="/master-karyawan/lembur-ro" element={<AttendanceSessionsAlora />} />
+          <Route path="/master-karyawan/lembur-ro" element={<LemburRoAlora />} />
           <Route path="/master-karyawan/pengumuman" element={<PengumumanAlora />} />
           <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
           <Route path="/master-karyawan/annual-leave" element={<AnnualLeaveAlora />} />

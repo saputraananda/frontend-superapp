@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
 import {
 	HiOutlineArrowsUpDown,
 	HiOutlineCalendarDays,
@@ -277,7 +276,7 @@ export default function LemburRoAlora() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
-	const [filterStatus, setFilterStatus] = useState("Pending_Supervisor");
+	const [filterStatus, setFilterStatus] = useState("");
 	const [cutoffMonth, setCutoffMonth] = useState(defaultCutoff.cutoffMonth);
 	const [cutoffYear, setCutoffYear] = useState(defaultCutoff.cutoffYear);
 	const cutoffRange = useMemo(() => getCutoffRange(cutoffMonth, cutoffYear), [cutoffMonth, cutoffYear]);
@@ -343,7 +342,7 @@ export default function LemburRoAlora() {
 	);
 
 	useEffect(() => {
-		document.title = "Lembur Alora | Alora Group Indonesia";
+		document.title = "Monitoring Lembur | Alora Group Indonesia";
 	}, []);
 
 	useEffect(() => {
@@ -426,9 +425,9 @@ export default function LemburRoAlora() {
 						<HiOutlineClock className="h-5 w-5" />
 						<span className="text-xs font-bold uppercase tracking-wider">Master Karyawan</span>
 					</div>
-					<h1 className="text-xl font-black text-slate-800">Lembur Alora</h1>
+					<h1 className="text-xl font-black text-slate-800">Monitoring Lembur</h1>
 					<p className="mt-1 text-sm text-slate-500">
-						Staff: SPV approve final. Supervisor+: langsung antrian HRD. Cutoff 26–25.
+						Pengajuan lembur dari Alora Mobile. Staff: SPV approve final. Supervisor+: langsung antrian HRD. Cutoff 26–25.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2 text-xs">
@@ -458,14 +457,6 @@ export default function LemburRoAlora() {
 					{error}
 				</div>
 			)}
-
-			<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-				<strong>Legacy:</strong> Pengajuan form lama — fitur baru via absensi sesi di{" "}
-				<Link to="/master-karyawan/attendance-sessions" className="font-semibold underline">
-					Sesi Lembur &amp; RO
-				</Link>
-				.
-			</div>
 
 			<section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
 				<div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -533,7 +524,7 @@ export default function LemburRoAlora() {
 							type="text"
 							value={searchInput}
 							onChange={(e) => setSearchInput(e.target.value)}
-							placeholder="Cari ID karyawan..."
+							placeholder="Cari nama, NIK, atau ID..."
 							className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
 						/>
 					</div>
@@ -569,7 +560,7 @@ export default function LemburRoAlora() {
 									<td className="px-4 py-3 text-xs text-slate-400">{from + idx}</td>
 									<td className="px-4 py-3">
 										<p className="font-semibold text-slate-800">{row.employee_name}</p>
-										<p className="text-xs text-slate-400">{row.jabatan}</p>
+										<p className="text-xs text-slate-400">{row.employee_code ? `${row.employee_code} · ${row.jabatan}` : row.jabatan}</p>
 									</td>
 									<td className="px-4 py-3"><TypeBadge type={row.request_type} /></td>
 									<td className="px-4 py-3 text-xs text-slate-600">{formatDateOnly(row.work_date)}</td>
