@@ -18,16 +18,6 @@ const C = {
   shift_siang_bg:   "FEF3C7", shift_siang_text:   "92400E",
   shift_sore_bg:    "FFEDD5", shift_sore_text:     "9A3412",
   shift_lembur_bg:  "F3E8FF", shift_lembur_text:   "7C3AED",
-
-  // Status colours
-  status_lengkap_bg:      "D1FAE5", status_lengkap_text:      "065F46",
-  status_belum_out_bg:    "FEF3C7", status_belum_out_text:    "92400E",
-  status_belum_in_bg:     "FFE4E6", status_belum_in_text:     "9F1239",
-  status_foto_bg:         "FFEDD5", status_foto_text:         "9A3412",
-
-  // Lupa absen keluar
-  lupa_absen_bg:    "FEE2E2", // red-100
-  lupa_absen_text:  "DC2626", // red-600
 };
 
 // ─── Style factories ─────────────────────────────────────────────────────────
@@ -64,64 +54,6 @@ const makeCellStyle = (isAlt, align = "left") => ({
   border: border(),
 });
 
-const makeShiftStyle = (shiftType, isAlt) => {
-  const key = String(shiftType || "").toLowerCase();
-  const map = {
-    pagi:   { bg: C.shift_pagi_bg,   text: C.shift_pagi_text },
-    siang:  { bg: C.shift_siang_bg,  text: C.shift_siang_text },
-    sore:   { bg: C.shift_sore_bg,   text: C.shift_sore_text },
-    lembur: { bg: C.shift_lembur_bg, text: C.shift_lembur_text },
-  };
-  const colors = map[key] || { bg: isAlt ? C.altRowBg : C.whiteBg, text: C.textDark };
-  return {
-    fill: { fgColor: { rgb: colors.bg } },
-    font: { bold: true, sz: 10, color: { rgb: colors.text }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center" },
-    border: border(),
-  };
-};
-
-const makeStatusStyle = (statusLabel, isAlt) => {
-  const map = {
-    "Lengkap":            { bg: C.status_lengkap_bg,   text: C.status_lengkap_text },
-    "Belum check-out":    { bg: C.status_belum_out_bg,  text: C.status_belum_out_text },
-    "Belum check-in":     { bg: C.status_belum_in_bg,   text: C.status_belum_in_text },
-    "Foto belum lengkap": { bg: C.status_foto_bg,       text: C.status_foto_text },
-  };
-  const colors = map[statusLabel] || { bg: isAlt ? C.altRowBg : C.whiteBg, text: C.textDark };
-  return {
-    fill: { fgColor: { rgb: colors.bg } },
-    font: { bold: true, sz: 10, color: { rgb: colors.text }, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center" },
-    border: border(),
-  };
-};
-
-const lupaAbsenStyle = {
-  fill: { fgColor: { rgb: C.lupa_absen_bg } },
-  font: { bold: true, sz: 10, color: { rgb: C.lupa_absen_text }, name: "Calibri" },
-  alignment: { horizontal: "center", vertical: "center" },
-  border: border(),
-};
-
-// Summary row styles
-const summaryLabelStyle = {
-  fill: { fgColor: { rgb: C.headerBg } },
-  font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
-  alignment: { horizontal: "right", vertical: "center" },
-  border: border(),
-};
-const summaryValueStyle = {
-  fill: { fgColor: { rgb: C.headerBg } },
-  font: { bold: true, sz: 10, color: { rgb: "FFFFFF" }, name: "Calibri" },
-  alignment: { horizontal: "center", vertical: "center" },
-  border: border(),
-};
-const summaryEmptyStyle = {
-  fill: { fgColor: { rgb: C.headerBg } },
-  border: border(),
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const cell = (v, s) => ({ v, t: typeof v === "number" ? "n" : "s", s });
 const empty = (s) => ({ v: "", t: "s", s });
@@ -147,42 +79,12 @@ function fmtTime(d) {
   }).format(date);
 }
 
-function calcDuration(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return "-";
-  const diff = new Date(checkOut) - new Date(checkIn);
-  if (diff <= 0) return "-";
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  return h > 0 ? `${h}j ${m}m` : `${m}m`;
-}
-
-function getStatusLabel(row) {
-  const hasCheckIn = Boolean(row.check_in_time);
-  const hasCheckOut = Boolean(row.check_out_time);
-  const hasCheckInPhoto = Boolean(row.check_in_photo_name || row.check_in_photo_url);
-  const hasCheckOutPhoto = Boolean(row.check_out_photo_name || row.check_out_photo_url);
-
-  if (!hasCheckIn) return "Belum check-in";
-  if (!hasCheckOut) return "Belum check-out";
-  if (!hasCheckInPhoto || !hasCheckOutPhoto) return "Foto belum lengkap";
-  return "Lengkap";
-}
-
-/**
- * Determine if an employee "lupa absen keluar" — they checked in but never checked out.
- * If check_in_time exists but check_out_time is falsy → lupa absen keluar.
- */
-function isLupaAbsenKeluar(row) {
-  return Boolean(row.check_in_time) && !row.check_out_time;
-}
-
 // ─── Main export function ─────────────────────────────────────────────────────
 export function exportAbsensiExcel({
   records,
   periodLabel,
   activePeriod,
   filters,
-  summary,
   leaveResumeMap = new Map(),
 }) {
   const periodStr = activePeriod
@@ -466,7 +368,6 @@ export function exportAbsensiExcel({
   });
 
   const summaryWsData = [];
-  const emptyS2 = { fill: { fgColor: { rgb: C.headerBg } }, border: border() };
 
   // Style helpers for new stat columns
   const statHdrStyle = (bg) => ({

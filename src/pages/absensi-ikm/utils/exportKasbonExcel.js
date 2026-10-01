@@ -23,7 +23,6 @@ const C = {
   ditolak_bg:    "FFE4E6", ditolak_text:    "9F1239",
 
   // Daily summary
-  total_bg:      "EFF6FF", total_text:    "1E40AF",
   grandTotalBg:  "1E3A5F", grandTotalText:"FFFFFF",
 };
 
@@ -104,13 +103,6 @@ const makeTipeStyle = (type, isAlt) => {
   };
 };
 
-const totalRowStyle = (align = "center") => ({
-  fill: { fgColor: { rgb: C.total_bg } },
-  font: { bold: true, sz: 10, color: { rgb: C.total_text }, name: "Calibri" },
-  alignment: { horizontal: align, vertical: "center" },
-  border: border(),
-});
-
 const grandTotalStyle = (align = "center") => ({
   fill: { fgColor: { rgb: C.grandTotalBg } },
   font: { bold: true, sz: 10, color: { rgb: C.grandTotalText }, name: "Calibri" },
@@ -120,11 +112,6 @@ const grandTotalStyle = (align = "center") => ({
 
 const grandTotalRupiahStyle = () => ({
   ...grandTotalStyle("right"),
-  numFmt: '#,##0',
-});
-
-const totalRowRupiahStyle = () => ({
-  ...totalRowStyle("right"),
   numFmt: '#,##0',
 });
 
@@ -213,7 +200,6 @@ export function exportKasbonExcel({ rows = [], summary = [], startDate, endDate,
     cell("Keperluan",        headerStyleLeft),
   ]);
 
-  const dataStartRow = wsData1.length; // 0-based
   let totalRequested = 0;
   let totalApproved = 0;
 
@@ -239,7 +225,6 @@ export function exportKasbonExcel({ rows = [], summary = [], startDate, endDate,
   });
 
   // Total footer row
-  const emptyTotalStyle = { fill: { fgColor: { rgb: C.total_bg } }, border: border() };
   wsData1.push([
     cell("TOTAL", grandTotalStyle("left")),
     empty(grandTotalStyle()),
