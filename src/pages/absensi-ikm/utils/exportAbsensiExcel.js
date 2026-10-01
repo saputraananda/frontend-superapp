@@ -603,11 +603,118 @@ export function exportAbsensiExcel({
     { hpt: 30 }, // Column header
   ];
 
+  // ── Build Worksheet 3: Keterlambatan ─────────────────────────────────────
+  // Karyawan reguler (is_valet = 0), shift pagi, masuk setelah 10:15.
+  // Valet dikosongkan dan tidak dihitung.
+  const LATE_AFTER_MIN = 10 * 60 + 15;
+  const clockMinutes = (v) => {
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.getHours() * 60 + d.getMinutes();
+  };
+  const isValetRow = (row) => row.is_valet === 1 || row.is_valet === true || row.is_valet === "1";
+
+  const lateRows = records
+    .filter((row) => {
+      if (isValetRow(row)) return false;
+      if (String(row.shift_type || "").toLowerCase() !== "pagi") return false;
+      if (!row.check_in_time) return false;
+      const mins = clockMinutes(row.check_in_time);
+      return mins != null && mins > LATE_AFTER_MIN;
+    })
+    .sort((a, b) => {
+      const byName = String(a.employee_name || "").localeCompare(String(b.employee_name || ""), "id-ID");
+      if (byName) return byName;
+      const byId = String(a.employee_id ?? "").localeCompare(String(b.employee_id ?? ""));
+      if (byId) return byId;
+      return String(a.work_date || a.check_in_time).localeCompare(String(b.work_date || b.check_in_time));
+    });
+
+  const groups = [];
+  lateRows.forEach((row) => {
+    const key = row.employee_id ?? row.employee_name;
+    const last = groups[groups.length - 1];
+    if (!last || last.key !== key) groups.push({ key, name: row.employee_name || "-", rows: [row] });
+    else last.rows.push(row);
+  });
+
+  const LATE_COLS = 9;
+  const lateMark = () => ({
+    fill: { fgColor: { rgb: "FEF3C7" } },
+    font: { bold: true, sz: 10, color: { rgb: "92400E" }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  });
+  const mergeStyle = (align = "center") => ({
+    fill: { fgColor: { rgb: "FFFFFF" } },
+    font: { bold: true, sz: 10, color: { rgb: C.textDark }, name: "Calibri" },
+    alignment: { horizontal: align, vertical: "center", wrapText: true },
+    border: border(),
+  });
+  const lateWs = [];
+  const lateMerges = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: LATE_COLS - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: LATE_COLS - 1 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: LATE_COLS - 1 } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: LATE_COLS - 1 } },
+  ];
+  lateWs.push([cell("Keterlambatan Absensi IKM", titleStyle), ...Array.from({ length: LATE_COLS - 1 }, () => empty(titleStyle))]);
+  lateWs.push([cell(`Periode: ${periodLabel || periodStr}`, metaStyle), ...Array.from({ length: LATE_COLS - 1 }, () => empty(metaStyle))]);
+  lateWs.push([cell("Karyawan reguler · shift pagi · masuk setelah 10:15 · valet tidak dihitung", metaStyle), ...Array.from({ length: LATE_COLS - 1 }, () => empty(metaStyle))]);
+  lateWs.push([cell(`${exportedAt}  ·  ${lateRows.length} keterlambatan · ${groups.length} karyawan`, metaStyle), ...Array.from({ length: LATE_COLS - 1 }, () => empty(metaStyle))]);
+  lateWs.push(Array.from({ length: LATE_COLS }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
+  lateWs.push(["No", "Nama Karyawan", "Total Keterlambatan", "Tanggal", "Shift", "Jam Masuk", "Jam Keluar", "Batas", "Terlambat"].map((h) => cell(h, headerStyle)));
+
+  groups.forEach((g, gi) => {
+    const start = lateWs.length;
+    g.rows.forEach((row, i) => {
+      const isAlt = i % 2 === 1;
+      const csCenter = makeCellStyle(isAlt, "center");
+      const mins = clockMinutes(row.check_in_time);
+      const lateMin = Math.max(0, (mins ?? 0) - LATE_AFTER_MIN);
+      const idStyle = mergeStyle("center");
+      const nameStyle = mergeStyle("left");
+      lateWs.push([
+        i === 0 ? cell(gi + 1, idStyle) : empty(idStyle),
+        i === 0 ? cell(g.name, nameStyle) : empty(nameStyle),
+        i === 0 ? cell(`${g.rows.length}X`, idStyle) : empty(idStyle),
+        cell(fmtDate(row.work_date || row.check_in_time), csCenter),
+        cell("Pagi", csCenter),
+        cell(fmtTime(row.check_in_time), lateMark(isAlt)),
+        cell(row.check_out_time ? fmtTime(row.check_out_time) : "-", csCenter),
+        cell("10:15", csCenter),
+        cell(fmtMin(lateMin), lateMark(isAlt)),
+      ]);
+    });
+    if (g.rows.length > 1) {
+      const end = start + g.rows.length - 1;
+      lateMerges.push({ s: { r: start, c: 0 }, e: { r: end, c: 0 } });
+      lateMerges.push({ s: { r: start, c: 1 }, e: { r: end, c: 1 } });
+      lateMerges.push({ s: { r: start, c: 2 }, e: { r: end, c: 2 } });
+    }
+  });
+
+  if (!groups.length) {
+    lateWs.push([
+      cell("Tidak ada keterlambatan pada filter ini", makeCellStyle(false, "center")),
+      ...Array.from({ length: LATE_COLS - 1 }, () => empty(makeCellStyle(false))),
+    ]);
+    lateMerges.push({ s: { r: lateWs.length - 1, c: 0 }, e: { r: lateWs.length - 1, c: LATE_COLS - 1 } });
+  }
+
+  const ws3 = XLSXStyle.utils.aoa_to_sheet(lateWs);
+  ws3["!merges"] = lateMerges;
+  ws3["!cols"] = [
+    { wch: 5 }, { wch: 28 }, { wch: 20 }, { wch: 16 }, { wch: 10 },
+    { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
+  ];
+  ws3["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 24 }];
 
   // ── Build workbook ────────────────────────────────────────────────────────
   const wb = XLSXStyle.utils.book_new();
   XLSXStyle.utils.book_append_sheet(wb, ws, "Riwayat Absensi");
   XLSXStyle.utils.book_append_sheet(wb, ws2, "Resume Karyawan");
+  XLSXStyle.utils.book_append_sheet(wb, ws3, "Keterlambatan");
 
   const buf = XLSXStyle.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
 
