@@ -255,7 +255,7 @@ export function exportReportAbsensiAloraExcel({
 	const metaCommon = { periodLabel, periodStr, filterLabel, exportedAt };
 
 	// —— Sheet 1: Absensi ——
-	const ABSEN_COLS = 17;
+	const ABSEN_COLS = 19;
 	const absenMeta = buildMetaHeader(ABSEN_COLS, { title: "Report Absensi Alora", ...metaCommon });
 	const absenData = [...absenMeta.rows];
 	absenData.push([
@@ -276,6 +276,8 @@ export function exportReportAbsensiAloraExcel({
 		"Kategori Terlambat",
 		"Durasi Terlambat (jam)",
 		"Alasan Terlambat",
+		"Catatan Luar (In)",
+		"Catatan Luar (Out)",
 	].map((h) => cell(h, headerStyle)));
 
 	records.forEach((r, idx) => {
@@ -300,6 +302,8 @@ export function exportReportAbsensiAloraExcel({
 			cell(lateLabel(r), csCenter),
 			cell(lateHoursLabel(r), csCenter),
 			cell(lateReasonLabel(r), cs),
+			cell(r.clock_in_outside_note?.trim() || "-", cs),
+			cell(r.clock_out_outside_note?.trim() || "-", cs),
 		]);
 	});
 
@@ -308,6 +312,7 @@ export function exportReportAbsensiAloraExcel({
 		{ wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 14 }, { wch: 12 },
 		{ wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 12 },
 		{ wch: 18 }, { wch: 12 }, { wch: 36 },
+		{ wch: 36 }, { wch: 36 },
 	]);
 
 	// —— Sheet 2: Total Lembur (grouped headers) ——

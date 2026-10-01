@@ -1180,6 +1180,12 @@ export default function ReportAbsensiAlora() {
 												<td className="px-4 py-3 text-xs">
 													<div className="flex flex-col gap-1">
 														<div className="text-slate-600">{row.clock_in_location_name || "-"}</div>
+														{row.clock_in_outside_note ? (
+															<span className="text-[11px] text-amber-700">Catatan in: {row.clock_in_outside_note}</span>
+														) : null}
+														{row.clock_out_outside_note ? (
+															<span className="text-[11px] text-amber-700">Catatan out: {row.clock_out_outside_note}</span>
+														) : null}
 														{row.location_context ? (
 															<span className="text-[11px] font-semibold text-slate-500">{row.location_context}</span>
 														) : null}
@@ -1258,6 +1264,12 @@ export default function ReportAbsensiAlora() {
 											<div>
 												<p className="font-semibold text-slate-400">Lokasi In</p>
 												<p>{row.clock_in_location_name || "-"}</p>
+												{row.clock_in_outside_note ? (
+													<p className="text-[11px] text-amber-700">Catatan in: {row.clock_in_outside_note}</p>
+												) : null}
+												{row.clock_out_outside_note ? (
+													<p className="text-[11px] text-amber-700">Catatan out: {row.clock_out_outside_note}</p>
+												) : null}
 											</div>
 											<div>
 												<p className="font-semibold text-slate-400">Mode</p>
