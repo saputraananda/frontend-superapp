@@ -10,6 +10,7 @@ import {
   HiOutlineMagnifyingGlass,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
+import { exportLeaderReportExcel } from "../utils/exportLeaderReportExcel";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -642,6 +643,7 @@ export default function LeaderDailyReport() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (formOpen || Boolean(deleteTarget) || Boolean(detailData)) {
@@ -713,6 +715,57 @@ export default function LeaderDailyReport() {
     setSort((prev) => (prev.col === col ? { col, dir: prev.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" }));
 
   const handlePage = (p) => fetchData(Math.max(1, Math.min(p, pagination.totalPages)));
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const pageSize = 100;
+      const base = new URLSearchParams({ limit: String(pageSize) });
+      if (activePeriod.startDate) base.set("startDate", activePeriod.startDate);
+      if (activePeriod.endDate) base.set("endDate", activePeriod.endDate);
+      if (filters.area_id) base.set("area_id", filters.area_id);
+      if (search) base.set("search", search);
+
+      const all = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const qs = new URLSearchParams(base);
+        qs.set("page", String(page));
+        const res = await api(`/ikm/leader-daily-report?${qs}`);
+        all.push(...(res.data || []));
+        totalPages = res.pagination?.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      const sorted = [...all].sort((a, b) => {
+        let va = a[sort.col] ?? "";
+        let vb = b[sort.col] ?? "";
+        if (typeof va === "string") va = va.toLowerCase();
+        if (typeof vb === "string") vb = vb.toLowerCase();
+        if (va < vb) return sort.dir === "asc" ? -1 : 1;
+        if (va > vb) return sort.dir === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      const areaLabel = filters.area_id
+        ? (areas.find((a) => String(a.id) === String(filters.area_id))?.area_name || "Area terpilih")
+        : "Semua Area";
+
+      exportLeaderReportExcel({
+        rows: sorted,
+        startDate: activePeriod.startDate,
+        endDate: activePeriod.endDate,
+        areaLabel,
+        search,
+        periodMode,
+      });
+    } catch (e) {
+      showToast(e.message || "Gagal mengekspor Excel", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -891,9 +944,22 @@ export default function LeaderDailyReport() {
                 <HiOutlineClipboardDocumentList className="h-5 w-5 text-violet-500" />
                 <h2 className="text-base font-bold text-slate-800">Daftar Leader Daily Report</h2>
               </div>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
-                {pagination.total.toLocaleString("id-ID")} data
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
+                  {pagination.total.toLocaleString("id-ID")} data
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
+                >
+                  {exporting
+                    ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-700" />
+                    : <HiOutlineArrowDownTray className="h-3.5 w-3.5" />}
+                  {exporting ? "Memproses..." : "Export Excel"}
+                </button>
+              </div>
             </div>
 
             {/* Desktop table */}
