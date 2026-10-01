@@ -15,7 +15,7 @@ import {
 } from "./mealUtils";
 
 const MAX_RANGE_DAYS = 31;
-const NEXT_TYPE = { undefined: "half_day", half_day: "full_day", full_day: undefined };
+const NEXT_TYPE = { undefined: "half_day", half_day: "full_day", full_day: "office", office: undefined };
 const CONFLICT_REASON = {
 	sudah_diajukan: "Sudah diajukan",
 	libur: "Libur",
@@ -46,6 +46,8 @@ export default function MealAdminTab({ onSubmitted }) {
 	const [selectedIds, setSelectedIds] = useState(() => new Set());
 	const [plots, setPlots] = useState({});
 	const [notes, setNotes] = useState("");
+	const [transferMode, setTransferMode] = useState("individual");
+	const [recipientId, setRecipientId] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
@@ -134,9 +136,11 @@ export default function MealAdminTab({ onSubmitted }) {
 				const byDate = plots[w.employee_id] || {};
 				let half = 0;
 				let full = 0;
+				let office = 0;
 				for (const type of Object.values(byDate)) {
 					if (type === "half_day") half += 1;
 					else if (type === "full_day") full += 1;
+					else if (type === "office") office += 1;
 				}
 				return {
 					worker_id: w.employee_id,
@@ -145,14 +149,32 @@ export default function MealAdminTab({ onSubmitted }) {
 					bank_account_number: w.bank_account_number,
 					half_days: half,
 					full_days: full,
-					amount: half * rates.half_day + full * rates.full_day,
+					office_days: office,
+					amount: half * rates.half_day + full * rates.full_day + office * rates.office,
 				};
 			})
-			.filter((r) => r.half_days + r.full_days > 0);
-	}, [selectedWorkers, plots, rates.half_day, rates.full_day]);
+			.filter((r) => r.half_days + r.full_days + r.office_days > 0);
+	}, [selectedWorkers, plots, rates.half_day, rates.full_day, rates.office]);
 
-	const plottedDays = summaryRows.reduce((sum, r) => sum + r.half_days + r.full_days, 0);
+	const plottedDays = summaryRows.reduce((sum, r) => sum + r.half_days + r.full_days + r.office_days, 0);
 	const totalAmount = summaryRows.reduce((sum, r) => sum + r.amount, 0);
+
+	const canCombine = summaryRows.length >= 2;
+	const isCombined = transferMode === "combined" && canCombine;
+
+	useEffect(() => {
+		if (isCombined && !summaryRows.some((r) => r.worker_id === recipientId)) {
+			setRecipientId(summaryRows[0]?.worker_id ?? null);
+		}
+		if (!canCombine && transferMode === "combined") {
+			setTransferMode("individual");
+		}
+	}, [isCombined, canCombine, transferMode, summaryRows, recipientId]);
+
+	const recipientRow = isCombined ? summaryRows.find((r) => r.worker_id === recipientId) || null : null;
+	const missingAccountNames = (isCombined ? (recipientRow ? [recipientRow] : []) : summaryRows)
+		.filter((r) => !r.bank_account_number)
+		.map((r) => capitalEachWord(r.full_name));
 
 	const applyRange = (range) => {
 		setStartDate(range.startDate);
@@ -201,6 +223,7 @@ export default function MealAdminTab({ onSubmitted }) {
 			periodEnd: endDate,
 			rows: summaryRows,
 			total: totalAmount,
+			combinedRecipient: recipientRow || undefined,
 		});
 		try {
 			await navigator.clipboard.writeText(text);
@@ -209,7 +232,7 @@ export default function MealAdminTab({ onSubmitted }) {
 		} catch {
 			setError("Gagal menyalin ke clipboard");
 		}
-	}, [startDate, endDate, summaryRows, totalAmount]);
+	}, [startDate, endDate, summaryRows, totalAmount, recipientRow]);
 
 	const handleSubmit = async () => {
 		if (plottedDays === 0 || submitting) return;
@@ -232,6 +255,8 @@ export default function MealAdminTab({ onSubmitted }) {
 					period_end: endDate,
 					notes: notes.trim() || null,
 					items,
+					transfer_mode: isCombined ? "combined" : "individual",
+					recipient_worker_id: isCombined ? recipientId : null,
 				}),
 			});
 			const body = await res.json().catch(() => ({}));
@@ -242,6 +267,8 @@ export default function MealAdminTab({ onSubmitted }) {
 			}
 			setPlots({});
 			setNotes("");
+			setTransferMode("individual");
+			setRecipientId(null);
 			setConflicts([]);
 			setReloadKey((k) => k + 1);
 			onSubmitted?.();
@@ -258,7 +285,7 @@ export default function MealAdminTab({ onSubmitted }) {
 			let label = "Libur";
 			let title = "Hari libur karyawan";
 			if (lock.kind === "existing") {
-				label = lock.type === "full_day" ? "F" : "H";
+				label = lock.type === "full_day" ? "F" : lock.type === "office" ? "K" : "H";
 				title = "Sudah diajukan";
 			} else if (lock.kind === "leave") {
 				label = lock.leaveType === "izin" ? "Izin" : "Cuti";
@@ -285,10 +312,11 @@ export default function MealAdminTab({ onSubmitted }) {
 					"h-9 w-full rounded-lg border text-xs font-bold transition",
 					type === "half_day" && "border-amber-200 bg-amber-50 text-amber-700",
 					type === "full_day" && "border-blue-200 bg-blue-50 text-blue-700",
+					type === "office" && "border-emerald-200 bg-emerald-50 text-emerald-700",
 					!type && "border-dashed border-slate-200 text-slate-300 hover:bg-slate-50",
 				)}
 			>
-				{type === "half_day" ? "H" : type === "full_day" ? "F" : "–"}
+				{type === "half_day" ? "H" : type === "full_day" ? "F" : type === "office" ? "K" : "–"}
 			</button>
 		);
 	};
@@ -405,7 +433,7 @@ export default function MealAdminTab({ onSubmitted }) {
 				<section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 					<div className="border-b border-slate-100 px-4 py-3 sm:px-5">
 						<h2 className="text-base font-bold text-slate-800">Plot tipe per hari</h2>
-						<p className="mt-0.5 text-xs text-slate-500">Klik sel untuk mengganti: kosong → Half → Full → kosong.</p>
+						<p className="mt-0.5 text-xs text-slate-500">Klik sel untuk mengganti: kosong → Half → Full → Kantor → kosong.</p>
 					</div>
 					<div className="overflow-x-auto">
 						<table className="min-w-full text-sm">
@@ -441,6 +469,9 @@ export default function MealAdminTab({ onSubmitted }) {
 													<button type="button" onClick={() => fillRow(w.employee_id, "full_day")} className="text-blue-700 hover:underline">
 														Semua Full
 													</button>
+													<button type="button" onClick={() => fillRow(w.employee_id, "office")} className="text-emerald-700 hover:underline">
+														Semua Kantor
+													</button>
 													<button type="button" onClick={() => fillRow(w.employee_id, null)} className="text-slate-500 hover:underline">
 														Kosongkan
 													</button>
@@ -467,8 +498,93 @@ export default function MealAdminTab({ onSubmitted }) {
 						<span>
 							<strong className="text-blue-700">F</strong> = Full Day ({formatRp(rates.full_day)})
 						</span>
+						<span>
+							<strong className="text-emerald-700">K</strong> = Kantor ({formatRp(rates.office)})
+						</span>
 						<span>Libur / Cuti / Izin / sudah diajukan tidak bisa diplot.</span>
 					</div>
+				</section>
+			) : null}
+
+			{summaryRows.length > 0 ? (
+				<section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+					<h2 className="text-base font-bold text-slate-800">Rincian nominal</h2>
+					<p className="mt-0.5 text-xs text-slate-500">Dihitung otomatis dari plot.</p>
+
+					<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{summaryRows.map((r) => (
+							<div key={r.worker_id} className="rounded-xl border border-slate-200 p-3">
+								<div className="flex items-start justify-between gap-2">
+									<p className="text-sm font-semibold text-slate-800">{capitalEachWord(r.full_name)}</p>
+									<p className="text-sm font-bold text-[#1b3459]">{formatRp(r.amount)}</p>
+								</div>
+								<p className="mt-1 text-xs text-slate-500">
+									{r.half_days} Half · {r.full_days} Full · {r.office_days} Kantor
+								</p>
+								<p className="mt-0.5 text-xs text-slate-400">
+									{isCombined && r.worker_id !== recipientId
+										? `Digabung ke rek. ${capitalEachWord(recipientRow?.full_name || "")}`
+										: `${r.bank_name || "Bank -"} · ${r.bank_account_number || "belum diisi"}`}
+								</p>
+							</div>
+						))}
+					</div>
+
+					<div className="mt-4">
+						<p className="mb-2 text-xs font-semibold text-slate-500">Transfer ke</p>
+						<div className="flex flex-wrap items-center gap-4">
+							<label className="inline-flex items-center gap-2 text-sm text-slate-700">
+								<input
+									type="radio"
+									name="meal-transfer-mode"
+									value="individual"
+									checked={!isCombined}
+									onChange={() => setTransferMode("individual")}
+								/>
+								Rekening masing-masing
+							</label>
+							<label className={cn("inline-flex items-center gap-2 text-sm text-slate-700", !canCombine && "opacity-50")}>
+								<input
+									type="radio"
+									name="meal-transfer-mode"
+									value="combined"
+									checked={isCombined}
+									disabled={!canCombine}
+									onChange={() => setTransferMode("combined")}
+								/>
+								Gabung ke satu rekening
+							</label>
+							{isCombined ? (
+								<select
+									value={recipientId ?? ""}
+									onChange={(e) => setRecipientId(Number(e.target.value))}
+									className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+								>
+									{summaryRows.map((r) => (
+										<option key={r.worker_id} value={r.worker_id}>
+											{capitalEachWord(r.full_name)} · {r.bank_name || "Bank -"}
+										</option>
+									))}
+								</select>
+							) : null}
+						</div>
+					</div>
+
+					{isCombined && recipientRow ? (
+						<div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+							Finance cukup transfer 1 kali: {formatRp(totalAmount)} ke {capitalEachWord(recipientRow.full_name)} (
+							{recipientRow.bank_account_number
+								? `${recipientRow.bank_name || "Bank -"} ${recipientRow.bank_account_number}`
+								: "rekening belum diisi"}
+							). Bagian tiap karyawan tetap tercatat terpisah untuk HR.
+						</div>
+					) : null}
+
+					{missingAccountNames.length > 0 ? (
+						<div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+							Rekening belum lengkap untuk: {missingAccountNames.join(", ")}. Lengkapi di tab Pengaturan.
+						</div>
+					) : null}
 				</section>
 			) : null}
 
@@ -485,7 +601,7 @@ export default function MealAdminTab({ onSubmitted }) {
 						</div>
 						<div>
 							<p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Jumlah transfer</p>
-							<p className="text-xl font-bold text-slate-800">{summaryRows.length}</p>
+							<p className="text-xl font-bold text-slate-800">{isCombined ? 1 : summaryRows.length}</p>
 						</div>
 						<div>
 							<p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total transfer</p>

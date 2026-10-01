@@ -20,6 +20,7 @@ import {
 	formatRp,
 	getCutoffRange,
 	getDefaultCutoffSelection,
+	groupTransfersByRecipient,
 	PERIOD_MONTHS,
 	resolveAssetUrl,
 } from "./mealUtils";
@@ -230,6 +231,8 @@ export default function MealFinanceTab({ refreshKey }) {
 						const isOpen = openId === rec.id;
 						const detail = details[rec.id];
 						const transfers = detail?.transfers || [];
+						const groups = groupTransfersByRecipient(transfers);
+						const isCombinedRecord = detail?.record?.transfer_mode === "combined";
 						return (
 							<div key={rec.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 								<button
@@ -281,6 +284,13 @@ export default function MealFinanceTab({ refreshKey }) {
 																		periodEnd: rec.period_end,
 																		rows: transfers,
 																		total: rec.total_amount,
+																		combinedRecipient: isCombinedRecord
+																			? {
+																					full_name: groups[0]?.recipient_name,
+																					bank_name: groups[0]?.bank_name,
+																					bank_account_number: groups[0]?.bank_account_number,
+																				}
+																			: undefined,
 																	}),
 																)
 															}
@@ -315,29 +325,47 @@ export default function MealFinanceTab({ refreshKey }) {
 															</tr>
 														</thead>
 														<tbody className="divide-y divide-slate-100">
-															{transfers.map((t) => (
-																<tr key={t.id} className="hover:bg-slate-50/80">
+															{groups.map((g) => (
+																<tr key={g.key} className="hover:bg-slate-50/80">
 																	<td className="px-4 py-3">
-																		<div className="font-semibold text-slate-800">{capitalEachWord(t.full_name)}</div>
-																		<div className="text-xs text-slate-400">{t.employee_code || "-"}</div>
+																		{g.is_combined ? (
+																			<>
+																				<div className="font-semibold text-slate-800">
+																					Gabungan ke rek. {capitalEachWord(g.recipient_name)}
+																				</div>
+																				<ul className="mt-1 space-y-0.5">
+																					{g.members.map((m) => (
+																						<li key={m.id} className="text-xs text-slate-500">
+																							{capitalEachWord(m.full_name)} — {m.half_days} Half · {m.full_days} Full · {m.office_days} Kantor —{" "}
+																							{formatRp(m.amount)}
+																						</li>
+																					))}
+																				</ul>
+																			</>
+																		) : (
+																			<>
+																				<div className="font-semibold text-slate-800">{capitalEachWord(g.lead.full_name)}</div>
+																				<div className="text-xs text-slate-400">{g.lead.employee_code || "-"}</div>
+																			</>
+																		)}
 																	</td>
 																	<td className="whitespace-nowrap px-4 py-3 text-slate-600">
-																		{t.half_days} Half · {t.full_days} Full
+																		{g.half_days} Half · {g.full_days} Full · {g.office_days} Kantor
 																	</td>
-																	<td className="whitespace-nowrap px-4 py-3 text-slate-600">{t.bank_name || "-"}</td>
+																	<td className="whitespace-nowrap px-4 py-3 text-slate-600">{g.bank_name || "-"}</td>
 																	<td className="whitespace-nowrap px-4 py-3">
-																		{t.bank_account_number ? (
+																		{g.bank_account_number ? (
 																			<span className="inline-flex items-center gap-1.5 text-slate-700">
-																				{t.bank_account_number}
+																				{g.bank_account_number}
 																				<button
 																					type="button"
-																					onClick={() => copyText(`rek-${t.id}`, t.bank_account_number)}
+																					onClick={() => copyText(`rek-${g.key}`, g.bank_account_number)}
 																					className="text-slate-400 hover:text-[#1b3459]"
 																					title="Salin nomor rekening"
 																				>
 																					<HiOutlineClipboardDocument className="h-4 w-4" />
 																				</button>
-																				{copiedKey === `rek-${t.id}` ? (
+																				{copiedKey === `rek-${g.key}` ? (
 																					<span className="text-[11px] text-emerald-600">Tersalin</span>
 																				) : null}
 																			</span>
@@ -346,25 +374,33 @@ export default function MealFinanceTab({ refreshKey }) {
 																		)}
 																	</td>
 																	<td className="whitespace-nowrap px-4 py-3 font-semibold text-[#1b3459]">
-																		{formatRp(t.amount)}
+																		{formatRp(g.amount)}
 																	</td>
 																	<td className="whitespace-nowrap px-4 py-3">
-																		<StatusBadge status={t.status} />
+																		<StatusBadge status={g.status} />
 																	</td>
 																	<td className="whitespace-nowrap px-4 py-3">
-																		{t.status === "menunggu_tf" ? (
+																		{g.status === "menunggu_tf" ? (
 																			<button
 																				type="button"
-																				onClick={() => setProofTarget(t)}
+																				onClick={() =>
+																					setProofTarget({
+																						...g.lead,
+																						full_name: g.is_combined
+																							? `Gabungan ke ${g.recipient_name}`
+																							: g.lead.full_name,
+																						amount: g.amount,
+																					})
+																				}
 																				className="rounded-lg bg-[#1b3459] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#152a4a]"
 																			>
 																				Upload Bukti TF
 																			</button>
 																		) : (
 																			<div>
-																				{t.proof_url ? (
+																				{g.proof_url ? (
 																					<a
-																						href={resolveAssetUrl(t.proof_url)}
+																						href={resolveAssetUrl(g.proof_url)}
 																						target="_blank"
 																						rel="noreferrer"
 																						className="text-xs font-semibold text-[#1b3459] underline"
@@ -373,7 +409,7 @@ export default function MealFinanceTab({ refreshKey }) {
 																					</a>
 																				) : null}
 																				<p className="text-[11px] text-slate-400">
-																					Diproses {formatDateTime(t.processed_at)} · {t.processed_by_name || "-"}
+																					Diproses {formatDateTime(g.processed_at)} · {g.processed_by_name || "-"}
 																				</p>
 																			</div>
 																		)}

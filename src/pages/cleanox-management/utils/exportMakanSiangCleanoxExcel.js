@@ -84,7 +84,7 @@ function fileStamp(date = new Date()) {
   return `${y}${m}${d}`;
 }
 
-const TYPE_LABEL = { half_day: "Half Day", full_day: "Full Day" };
+const TYPE_LABEL = { half_day: "Half Day", full_day: "Full Day", office: "Kantor" };
 const STATUS_LABEL = { menunggu_tf: "Menunggu TF", selesai: "Selesai" };
 
 function makeStatusStyle(status, isAlt) {
