@@ -156,6 +156,7 @@ export default function PendapatanCleanox() {
 					service_mode: filters.serviceMode || "all",
 					date_by: "omzet",
 					source: "unified",
+					split_payment: "1",
 				});
 				const response = await api(`/cleanox/riwayat-transaksi?${qs.toString()}`);
 				if (!cancelled) setLunasRows(response.data || []);
@@ -170,6 +171,9 @@ export default function PendapatanCleanox() {
 		};
 	}, [data?.meta?.dateStart, data?.meta?.dateEnd, data?.meta?.asOfDate, filters.serviceMode]);
 
+	const lunasTransactionCount = new Set(
+		lunasRows.map((r) => `${r.source_system || "pos"}-${r.id ?? r.transaction_no}`),
+	).size;
 	const outlets = data?.outlets ?? [];
 	const trend = data?.trend ?? [];
 	const meta = data?.meta ?? {};
@@ -505,7 +509,13 @@ export default function PendapatanCleanox() {
 								</p>
 							) : null}
 							<p className="mt-1 text-xs text-slate-400">
-								{lunasLoading ? "Memuat..." : `${lunasRows.length} transaksi`}
+								{lunasLoading
+									? "Memuat..."
+									: `${lunasTransactionCount} transaksi${
+											lunasRows.length !== lunasTransactionCount
+												? ` (${lunasRows.length} baris)`
+												: ""
+										}`}
 							</p>
 						</div>
 						<button
@@ -594,7 +604,7 @@ export default function PendapatanCleanox() {
 											row.omzet_date || row.payment_settled_date || row.service_date;
 										return (
 										<tr
-											key={`${row.source_system || "pos"}-${row.transaction_no}-${row.id ?? "x"}`}
+											key={`${row.source_system || "pos"}-${row.transaction_no}-${row.id ?? "x"}-${row.split_index ?? 0}`}
 											className="hover:bg-slate-50"
 										>
 											<td className="whitespace-nowrap px-4 py-3 font-semibold text-[#1b3459]">
@@ -622,6 +632,11 @@ export default function PendapatanCleanox() {
 											</td>
 											<td className="whitespace-nowrap px-4 py-3 text-slate-600">
 												{row.kategori || "-"}
+												{row.split_total > 1 && (
+													<span className="ml-1.5 inline-flex rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+														Split {row.split_index}/{row.split_total}
+													</span>
+												)}
 											</td>
 											<td className="whitespace-nowrap px-4 py-3 text-slate-600">{row.status}</td>
 											<td className="whitespace-nowrap px-4 py-3">
