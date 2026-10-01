@@ -117,7 +117,7 @@ export const PERIOD_MONTHS = [
 	{ value: 12, label: "Desember" },
 ];
 
-export const TYPE_LABEL = { half_day: "Half Day", full_day: "Full Day" };
+export const TYPE_LABEL = { half_day: "Half Day", full_day: "Full Day", office: "Kantor" };
 
 export const REQUEST_STATUS_LABEL = {
 	diajukan: "Diajukan",
@@ -156,7 +156,7 @@ export function formatDayHeader(dateStr) {
 	return `${weekday} ${date.getDate()}`;
 }
 
-export function buildMealWaText({ periodStart, periodEnd, rows, total }) {
+export function buildMealWaText({ periodStart, periodEnd, rows, total, combinedRecipient }) {
 	const lines = [
 		"*Pengajuan Uang Makan Cleanox*",
 		`Periode: ${formatDate(periodStart)} - ${formatDate(periodEnd)}`,
@@ -165,15 +165,57 @@ export function buildMealWaText({ periodStart, periodEnd, rows, total }) {
 	rows.forEach((row, idx) => {
 		const half = Number(row.half_days || 0);
 		const full = Number(row.full_days || 0);
+		const office = Number(row.office_days || 0);
 		lines.push(
-			`${idx + 1}. ${capitalEachWord(row.full_name)} — ${half + full} hari (${half} Half, ${full} Full) — ${formatRp(row.amount)}`,
+			`${idx + 1}. ${capitalEachWord(row.full_name)} — ${half + full + office} hari (${half} Half, ${full} Full, ${office} Kantor) — ${formatRp(row.amount)}`,
 		);
-		const account = row.bank_account_number
-			? `${row.bank_name || "Bank -"} ${row.bank_account_number}`
-			: "Rekening belum diisi";
-		lines.push(`   ${account}`);
+		if (!combinedRecipient) {
+			const account = row.bank_account_number
+				? `${row.bank_name || "Bank -"} ${row.bank_account_number}`
+				: "Rekening belum diisi";
+			lines.push(`   ${account}`);
+		}
 	});
 	lines.push("");
-	lines.push(`Total: ${formatRp(total)} (${rows.length} karyawan)`);
+	if (combinedRecipient) {
+		lines.push(`Transfer gabungan ke: ${capitalEachWord(combinedRecipient.full_name)}`);
+		lines.push(
+			combinedRecipient.bank_account_number
+				? `   ${combinedRecipient.bank_name || "Bank -"} ${combinedRecipient.bank_account_number}`
+				: "   Rekening belum diisi",
+		);
+		lines.push(`Total: ${formatRp(total)} (${rows.length} karyawan, 1 transfer)`);
+	} else {
+		lines.push(`Total: ${formatRp(total)} (${rows.length} karyawan)`);
+	}
 	return lines.join("\n");
+}
+
+export function groupTransfersByRecipient(transfers) {
+	const groups = new Map();
+	for (const t of transfers || []) {
+		const key = t.recipient_worker_id;
+		if (!groups.has(key)) {
+			groups.set(key, { key, lead: t, members: [] });
+		}
+		groups.get(key).members.push(t);
+	}
+	return [...groups.values()].map(({ key, lead, members }) => ({
+		key,
+		recipient_worker_id: key,
+		is_combined: Boolean(lead.is_combined),
+		recipient_name: lead.account_name || lead.full_name,
+		bank_name: lead.bank_name,
+		bank_account_number: lead.bank_account_number,
+		amount: members.reduce((sum, m) => sum + Number(m.amount || 0), 0),
+		half_days: members.reduce((sum, m) => sum + Number(m.half_days || 0), 0),
+		full_days: members.reduce((sum, m) => sum + Number(m.full_days || 0), 0),
+		office_days: members.reduce((sum, m) => sum + Number(m.office_days || 0), 0),
+		status: members.every((m) => m.status === "selesai") ? "selesai" : "menunggu_tf",
+		members,
+		lead,
+		proof_url: lead.proof_url,
+		processed_at: lead.processed_at,
+		processed_by_name: lead.processed_by_name,
+	}));
 }
