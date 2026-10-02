@@ -97,7 +97,30 @@ function readLoggedInEmployee() {
   }
 }
 
-const EMPTY_ITEM = { id: null, code: "", name: "", unit_id: "2", description: "", is_active: 1 };
+const EMPTY_ITEM = { id: null, code: "", name: "", unit_id: "2", description: "", owner_role: "", is_active: 1 };
+const OWNER_ROLES = [
+  ["Frontliner", "Frontliner"],
+  ["Washing Staff", "Tim Cuci"],
+  ["Ironing Staff", "Tim Setrika"],
+  ["Packing Staff", "Tim Packing"],
+  ["Delivery Staff", "Tim Delivery"],
+];
+
+function ownerLabel(value) {
+  if (!value) return "";
+  return String(value)
+    .split(",")
+    .map((part) => OWNER_ROLES.find(([role]) => role === part.trim())?.[1] || part.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function toggleOwner(current, role) {
+  const set = new Set(String(current || "").split(",").map((s) => s.trim()).filter(Boolean));
+  if (set.has(role)) set.delete(role);
+  else set.add(role);
+  return OWNER_ROLES.map(([value]) => value).filter((value) => set.has(value)).join(",");
+}
 const EMPTY_ADJUST = { movementType: "In", qty: "", setQty: "", notes: "", employeeId: "" };
 const EMPTY_OPENING = { qty_opening: "", period_start: "", min_stock: "", employeeId: "" };
 
@@ -115,6 +138,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
+  const [roleFilter, setRoleFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState(null);
@@ -268,6 +292,11 @@ export default function InventoryPage() {
     loadStock({ silent });
   }, [loadStock, outletId]);
 
+  const filteredStock = useMemo(() => {
+    if (!roleFilter) return stock;
+    return stock.filter((row) => String(row.owner_role || "").split(",").map((s) => s.trim()).includes(roleFilter));
+  }, [stock, roleFilter]);
+
   const selectedOutlet = useMemo(
     () => outlets.find((o) => String(o.id) === String(outletId)),
     [outlets, outletId]
@@ -294,6 +323,7 @@ export default function InventoryPage() {
       name: row.item_name || "",
       unit_id: String(row.item_unit_id || row.unit_id || "2"),
       description: row.item_description || "",
+      owner_role: row.owner_role || "",
       is_active: 1,
     });
     setFormError("");
@@ -321,6 +351,7 @@ export default function InventoryPage() {
             name: itemForm.name,
             unit_id: Number(itemForm.unit_id),
             description: itemForm.description,
+            owner_role: itemForm.owner_role,
             is_active: itemForm.is_active,
           }),
         });
@@ -332,6 +363,7 @@ export default function InventoryPage() {
             name: itemForm.name,
             unit_id: Number(itemForm.unit_id),
             description: itemForm.description,
+            owner_role: itemForm.owner_role,
             is_active: itemForm.is_active,
           }),
         });
@@ -735,6 +767,16 @@ export default function InventoryPage() {
                 className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm"
               />
             </div>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40"
+            >
+              <option value="">Semua tim</option>
+              {OWNER_ROLES.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
             <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 cursor-pointer">
               <input
                 type="checkbox"
@@ -797,7 +839,7 @@ export default function InventoryPage() {
                     </td>
                   </tr>
                 ))
-              ) : stock.length === 0 ? (
+              ) : filteredStock.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-16 text-center text-slate-400">
                     <HiOutlineArchiveBox className="mx-auto mb-2 h-8 w-8 opacity-40" />
@@ -806,7 +848,7 @@ export default function InventoryPage() {
                   </td>
                 </tr>
               ) : (
-                stock.map((row) => (
+                filteredStock.map((row) => (
                   <tr
                     key={row.id}
                     onClick={() => openItemLogs(row)}
@@ -815,6 +857,9 @@ export default function InventoryPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-800">{row.item_name}</p>
+                      {row.owner_role ? (
+                        <p className="text-[10px] font-medium text-slate-400">{ownerLabel(row.owner_role)}</p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{row.item_unit}</td>
                     <td className="px-4 py-3 text-center font-semibold text-slate-800">
@@ -933,6 +978,22 @@ export default function InventoryPage() {
                   </option>
                 ))}
               </select>
+              <div className="flex flex-wrap gap-2">
+                {OWNER_ROLES.map(([value, label]) => {
+                  const on = String(itemForm.owner_role || "").split(",").includes(value);
+                  return (
+                    <label key={value} className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold cursor-pointer ${on ? "border-[#5f1340] bg-[#5f1340]/5 text-[#5f1340]" : "border-slate-200 text-slate-600"}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => setItemForm((p) => ({ ...p, owner_role: toggleOwner(p.owner_role, value) }))}
+                        className="rounded border-slate-300 text-[#5f1340]"
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
               <textarea
                 placeholder="Deskripsi"
                 value={itemForm.description}

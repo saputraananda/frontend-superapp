@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
     HiOutlineUsers,
@@ -38,6 +39,7 @@ import {
     HiOutlineUserPlus as UserPlusIcon,
     HiOutlineSparkles as SparklesIcon,
     HiOutlineLockClosed as LockClosedIcon,
+    HiOutlineEye as EyeIcon,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
 import { api } from "../../../../lib/api";
@@ -136,7 +138,7 @@ function LeaderBadge({ isLeader }) {
 function SkeletonRow() {
     return (
         <tr className="border-t border-slate-100 animate-pulse">
-            {[24, 30, 45, 30, 36, 28, 30, 24, 28].map((w, i) => (
+            {[24, 30, 45, 30, 36, 28, 30, 24, 28, 16].map((w, i) => (
                 <td key={i} className="px-4 py-4">
                     <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
                 </td>
@@ -352,7 +354,7 @@ function GenderBadge({ gender }) {
     );
 }
 
-function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUpdateRole, onToggleLeader, onUpdateOutlet, onUpdatePin, updating }) {
+function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUpdateRole, onToggleLeader, onUpdateOutlet, onUpdatePin, onView, updating }) {
     const isDropdownOpen = activeDropdownId === `mobile-${item.employee_id}`;
     const isOutletDropdownOpen = activeDropdownId === `mobile-outlet-${item.employee_id}`;
     const isLeaderDropdownOpen = activeDropdownId === `mobile-leader-${item.employee_id}`;
@@ -367,6 +369,14 @@ function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUp
                         NIK: <span className="font-medium text-slate-600">{item.employee_code || "Tanpa NIK"}</span>
                     </p>
                 </div>
+                <button
+                    type="button"
+                    title="Lihat data karyawan"
+                    onClick={() => onView(item.employee_id)}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#5f1340] hover:bg-[#5f1340]/10"
+                >
+                    <EyeIcon className="h-4 w-4" />
+                </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 relative">
@@ -572,6 +582,8 @@ function MobileCard({ item, activeDropdownId, setActiveDropdownId, outlets, onUp
 }
 
 export default function EmployeeWaschen() {
+    const navigate = useNavigate();
+    const pendingScroll = useRef(Number(sessionStorage.getItem("mw-employees-scroll") || 0));
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -580,6 +592,32 @@ export default function EmployeeWaschen() {
     const [updatingIds, setUpdatingIds] = useState(new Set());
     const [outlets, setOutlets] = useState([]);
     const [pinWarn, setPinWarn] = useState(null); // { pin, ownerName, message }
+
+    const openEmployee = (employeeId) => {
+        const scroller = document.getElementById("mw-content");
+        const y = scroller ? scroller.scrollTop : 0;
+        sessionStorage.setItem("mw-employees-scroll", String(y));
+        pendingScroll.current = y;
+        navigate(`/my-waschen/employees/${employeeId}`);
+    };
+
+    useLayoutEffect(() => {
+        const y = pendingScroll.current;
+        if (loading || !y) return undefined;
+        const scroller = document.getElementById("mw-content");
+        if (!scroller || scroller.scrollHeight < y + 80) return undefined;
+        const apply = () => { scroller.scrollTop = y; };
+        apply();
+        const frame = requestAnimationFrame(apply);
+        const timer = setTimeout(() => {
+            apply();
+            if (Math.abs(scroller.scrollTop - y) < 8) pendingScroll.current = 0;
+        }, 60);
+        return () => {
+            cancelAnimationFrame(frame);
+            clearTimeout(timer);
+        };
+    }, [loading, rows.length]);
 
     const handleUpdateRole = async (employeeId, newRole) => {
         try {
@@ -1210,6 +1248,9 @@ export default function EmployeeWaschen() {
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                                         PIN
                                     </th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                                        Aksi
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -1217,7 +1258,7 @@ export default function EmployeeWaschen() {
 
                                 {!loading && rows.length === 0 && (
                                     <tr>
-                                        <td colSpan={9} className="px-4 py-14 text-center">
+                                        <td colSpan={10} className="px-4 py-14 text-center">
                                             <div className="flex flex-col items-center gap-2 text-slate-400">
                                                 <UsersIcon className="h-9 w-9 opacity-40" />
                                                 <p className="text-sm">
@@ -1453,6 +1494,16 @@ export default function EmployeeWaschen() {
                                                     align="right"
                                                 />
                                             </td>
+                                            <td className="whitespace-nowrap px-4 py-3.5">
+                                                <button
+                                                    type="button"
+                                                    title="Lihat data karyawan"
+                                                    onClick={() => openEmployee(item.employee_id)}
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#5f1340] hover:bg-[#5f1340]/10"
+                                                >
+                                                    <EyeIcon className="h-4 w-4" />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                             </tbody>
@@ -1494,6 +1545,7 @@ export default function EmployeeWaschen() {
                                         onToggleLeader={handleToggleLeader}
                                         onUpdateOutlet={handleUpdateOutlet}
                                         onUpdatePin={handleUpdatePin}
+                                        onView={(employeeId) => openEmployee(employeeId)}
                                         updating={updatingIds.has(item.employee_id)}
                                     />
                                 ))}

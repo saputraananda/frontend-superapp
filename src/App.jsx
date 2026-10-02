@@ -126,6 +126,7 @@ import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
 import DashboardPage from "./pages/my-waschen/components/Transaction/DashboardPage";
 import EmployeeWaschen from "./pages/my-waschen/components/HRIS/EmployeeWaschen";
+import EmployeeWaschenDetail from "./pages/my-waschen/components/HRIS/[id]";
 import CategoryServices from "./pages/my-waschen/components/MasterData/CategoryServices";
 import ServicesMaster from "./pages/my-waschen/components/MasterData/Services";
 import ServiceSpeed from "./pages/my-waschen/components/MasterData/ServiceSpeed";
@@ -677,6 +678,7 @@ export default function App() {
         >
           <Route path="/my-waschen" element={<DashboardPage />} />
           <Route path="/my-waschen/employees" element={<EmployeeWaschen />} />
+          <Route path="/my-waschen/employees/:id" element={<EmployeeWaschenDetail />} />
           <Route path="/my-waschen/hris/absensi" element={<AbsensiWaschen />} />
           <Route path="/my-waschen/hris/perizinan" element={<PerizinanWaschen />} />
           <Route path="/my-waschen/hris/kasbon" element={<KasbonWaschen />} />

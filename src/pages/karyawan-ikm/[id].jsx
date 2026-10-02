@@ -18,6 +18,16 @@ import { FiSave } from "react-icons/fi";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
+const ALORA_ASSET_HOST = "https://api.waschenalora.com";
+
+function assetOn(host, p) {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  let clean = String(p).replace(/^\/+/, "");
+  if (!clean.startsWith("assets/")) clean = `assets/${clean}`;
+  return `${String(host).replace(/\/$/, "")}/${clean}`;
+}
+
 // ── DocPreviewModal ───────────────────────────────────────────────────────
 function DocPreviewModal({ url, fileName, label, onClose }) {
   const isPdf = fileName?.toLowerCase().endsWith(".pdf") || url?.toLowerCase().endsWith(".pdf");
@@ -111,13 +121,13 @@ function DocPreviewModal({ url, fileName, label, onClose }) {
 }
 
 // ── PhotoCard — support gambar & PDF ──────────────────────────────────────
-function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPreview }) {
+function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, assetHost, onPreview, onDelete, onUpload, isDeleting, isUploading }) {
   let url;
   const effectiveBase = avatarBaseUrl || baseUrl;
   if (effectiveBase) {
     url = fileName ? `${effectiveBase.replace(/\/$/, "")}/${fileName}` : null;
   } else if (filePath) {
-    url = assetUrl(filePath);
+    url = assetHost ? assetOn(assetHost, filePath) : assetUrl(filePath);
   } else {
     url = null;
   }
@@ -230,6 +240,20 @@ function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPrevie
           </button>
         </div>
       )}
+      {url && onDelete && (
+        <button type="button" onClick={onDelete} disabled={isDeleting || isUploading}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50">
+          <HiOutlineXMark className="w-3.5 h-3.5" />
+          {isDeleting ? "Menghapus..." : "Hapus Dokumen"}
+        </button>
+      )}
+      {!url && onUpload && (
+        <button type="button" onClick={onUpload} disabled={isUploading}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50">
+          <HiOutlineDocumentText className="w-3.5 h-3.5" />
+          {isUploading ? "Mengupload..." : "Upload Dokumen"}
+        </button>
+      )}
     </div>
   );
 }
@@ -301,9 +325,12 @@ function Panel({ title, children }) {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
-export default function EmployeeDetail() {
+export default function EmployeeDetail({ variant = "ikm" }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isWaschen = variant === "waschen";
+  const payslipBase = isWaschen ? `/waschen/employees/${id}/payslips` : `/ikm/employees/${id}/payslips`;
+  const listPath = isWaschen ? "/my-waschen/employees" : "/karyawan-ikm";
 
   const [employee, setEmployee] = useState(null);
   const [formData, setFormData] = useState({});
@@ -342,6 +369,11 @@ export default function EmployeeDetail() {
   const [previewDoc, setPreviewDoc] = useState(null); // { url, fileName, label }
 
   const fileInputRef = useRef(null);
+  const docFileRef = useRef(null);
+  const [docDelete, setDocDelete] = useState(null);
+  const [deletingKey, setDeletingKey] = useState(null);
+  const [uploadingKey, setUploadingKey] = useState(null);
+  const [uploadDocKey, setUploadDocKey] = useState(null);
   const [payslips, setPayslips] = useState([]);
   const [payslipsLoading, setPayslipsLoading] = useState(false);
   const [payslipFilterMonth, setPayslipFilterMonth] = useState("");
@@ -380,7 +412,7 @@ export default function EmployeeDetail() {
   const fetchPayslips = async () => {
     setPayslipsLoading(true);
     try {
-      const res = await api(`/ikm/employees/${id}/payslips`);
+      const res = await api(payslipBase);
       if (res.success) {
         setPayslips(res.data || []);
       }
@@ -409,7 +441,7 @@ export default function EmployeeDetail() {
       formDataUpload.append("file", selectedFile);
       formDataUpload.append("payslip_month", selectedUploadMonth);
 
-      const res = await apiUpload(`/ikm/employees/${id}/payslips`, {
+      const res = await apiUpload(payslipBase, {
         method: "POST",
         body: formDataUpload,
       });
@@ -437,7 +469,7 @@ export default function EmployeeDetail() {
     const payslipId = deleteConfirm.id;
     if (!payslipId) return;
     try {
-      const res = await api(`/ikm/employees/${id}/payslips/${payslipId}`, {
+      const res = await api(`${payslipBase}/${payslipId}`, {
         method: "DELETE",
       });
       if (res.success) {
@@ -483,7 +515,7 @@ export default function EmployeeDetail() {
         if (baseUrl) {
           url = fileName ? `${baseUrl.replace(/\/$/, "")}/${fileName}` : null;
         } else if (filePath) {
-          url = assetUrl(filePath);
+          url = isWaschen ? assetOn(ALORA_ASSET_HOST, filePath) : assetUrl(filePath);
         } else {
           url = null;
         }
@@ -530,11 +562,14 @@ export default function EmployeeDetail() {
         ["birth_date", "join_date", "contract_end_date", "exit_date"].forEach((f) => {
           if (emp[f]) emp[f] = emp[f].split("T")[0];
         });
-        setEmployee(empRes.employee);
+        if (isWaschen && Number(emp.company_id) !== 5) {
+          throw new Error("Halaman ini hanya untuk karyawan Waschen Laundry");
+        }
+        setEmployee(isWaschen ? emp : empRes.employee);
         setFormData(emp);
         setInitialData(emp);
         setMasterData(masterRes);
-        document.title = `${emp.full_name ?? "Karyawan"} | Karyawan IKM`;
+        document.title = `${emp.full_name ?? "Karyawan"} | ${isWaschen ? "Karyawan Waschen" : "Karyawan IKM"}`;
       } catch (e) {
         setError(e.message);
       } finally {
@@ -569,7 +604,7 @@ export default function EmployeeDetail() {
     try {
       await api(`/hr/employees/${id}`, {
         method: "PUT",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(isWaschen ? { ...formData, company_id: 5 } : formData),
       });
       setSuccess("Data karyawan berhasil disimpan.");
       setInitialData(formData);
@@ -607,12 +642,13 @@ export default function EmployeeDetail() {
   }, [employee]);
 
   const showPayslipTab = useMemo(() => {
+    if (isWaschen) return true;
     if (!currentUser) return false;
     const currentEmpId = Number(currentUser.employee_id);
     const isAllowedId = [25, 30, 31, 42, 43].includes(currentEmpId);
     const isDirektur = Number(currentUser.job_level_id) === 1;
     return isAllowedId || isDirektur;
-  }, [currentUser]);
+  }, [currentUser, isWaschen]);
 
   const visibleTabs = useMemo(() => {
     return TABS.filter((tab) => tab.id !== "payslip" || showPayslipTab);
@@ -637,7 +673,7 @@ export default function EmployeeDetail() {
     const filePath = employee?.[pathKey];
     const fileName = employee?.[nameKey];
     if (baseUrl) return fileName ? `${baseUrl.replace(/\/$/, "")}/${fileName}` : null;
-    if (filePath) return assetUrl(filePath);
+    if (filePath) return isWaschen ? assetOn(ALORA_ASSET_HOST, filePath) : assetUrl(filePath);
     return null;
   };
 
@@ -646,12 +682,91 @@ export default function EmployeeDetail() {
     const fileName = employee?.profile_name;
     const filePath = employee?.profile_path;
     if (base) return fileName ? `${base.replace(/\/$/, "")}/${fileName}` : null;
-    if (filePath) return assetUrl(filePath);
+    if (filePath) return isWaschen ? assetOn(ALORA_ASSET_HOST, filePath) : assetUrl(filePath);
     return null;
   };
 
+  const patchDoc = (pathKey, nameKey, path, name) => {
+    const next = { [pathKey]: path, [nameKey]: name };
+    setEmployee((p) => ({ ...p, ...next }));
+    setFormData((p) => ({ ...p, ...next }));
+    setInitialData((p) => ({ ...p, ...next }));
+  };
+
+  const confirmDeleteDoc = async () => {
+    if (!docDelete) return;
+    setDeletingKey(docDelete.key);
+    try {
+      await api(`/hr/employees/${id}/document/${docDelete.key}`, { method: "DELETE" });
+      patchDoc(docDelete.pathKey, docDelete.nameKey, null, null);
+      setSuccess(`Dokumen ${docDelete.label} berhasil dihapus.`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeletingKey(null);
+      setDocDelete(null);
+    }
+  };
+
+  const onDocFile = async (e) => {
+    const file = e.target.files?.[0];
+    const key = uploadDocKey;
+    e.target.value = "";
+    setUploadDocKey(null);
+    if (!file || !key) return;
+    const doc = EMPLOYEE_DOCS.find((d) => d.key === key);
+    if (!doc) return;
+    setUploadingKey(key);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await apiUpload(`/hr/employees/${id}/document/${key}`, { method: "POST", body });
+      patchDoc(doc.pathKey, doc.nameKey, res.path, res.name);
+      setSuccess(`Dokumen ${doc.label} berhasil diupload.`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#f4f6f9]" ref={topRef}>
+    <div className={cn("min-h-screen bg-[#f4f6f9]", isWaschen && "waschen-emp")} ref={topRef}>
+      {isWaschen && (
+        <style>{`
+          .waschen-emp .bg-blue-600 { background-color: #5f1340 !important; }
+          .waschen-emp .hover\\:bg-blue-700:hover { background-color: #4a0d31 !important; }
+          .waschen-emp .text-blue-600, .waschen-emp .text-blue-700, .waschen-emp .hover\\:text-blue-600:hover { color: #5f1340 !important; }
+          .waschen-emp .bg-blue-50, .waschen-emp .bg-blue-100, .waschen-emp .hover\\:bg-blue-100:hover { background-color: #f6eef3 !important; }
+          .waschen-emp .border-blue-200 { border-color: #e7c9d8 !important; }
+          .waschen-emp .file\\:bg-blue-50::file-selector-button { background-color: #f6eef3 !important; }
+          .waschen-emp .file\\:text-blue-700::file-selector-button { color: #5f1340 !important; }
+        `}</style>
+      )}
+      {isWaschen && (
+        <input
+          ref={docFileRef}
+          type="file"
+          className="hidden"
+          accept={uploadDocKey === "profile" ? ".jpg,.jpeg,.png,.webp" : ".jpg,.jpeg,.png,.webp,.pdf"}
+          onChange={onDocFile}
+        />
+      )}
+      {docDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDocDelete(null)} />
+          <div className="relative z-10 w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl p-6">
+            <h2 className="text-base font-bold text-slate-800 mb-2">Hapus Dokumen</h2>
+            <p className="text-sm text-slate-600">Hapus dokumen <strong>{docDelete.label}</strong>? File tidak bisa dikembalikan.</p>
+            <div className="flex gap-2 mt-5">
+              <button type="button" onClick={() => setDocDelete(null)} className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">Batal</button>
+              <button type="button" disabled={deletingKey !== null} onClick={confirmDeleteDoc} className="flex-1 rounded-lg bg-rose-600 text-white px-4 py-2.5 text-sm font-semibold disabled:opacity-50">Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
       {success && <AlertSuccess message={success} onClose={() => setSuccess("")} />}
 
       {/* ── Doc Preview Modal ── */}
@@ -756,9 +871,9 @@ export default function EmployeeDetail() {
               </button>
               <div>
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-0.5">
-                  <button onClick={() => navigate("/portal")} className="hover:text-blue-600 transition">Portal</button>
+                  <button onClick={() => navigate(isWaschen ? "/my-waschen" : "/portal")} className="hover:text-blue-600 transition">{isWaschen ? "My Waschen" : "Portal"}</button>
                   <span>/</span>
-                  <button onClick={() => navigate("/karyawan-ikm")} className="hover:text-blue-600 transition">Karyawan IKM</button>
+                  <button onClick={() => navigate(listPath)} className="hover:text-blue-600 transition">{isWaschen ? "Karyawan Waschen" : "Karyawan IKM"}</button>
                   <span>/</span>
                   <span className="text-slate-600 font-medium truncate max-w-[160px]">{formData.full_name ?? "Detail"}</span>
                 </div>
@@ -1111,7 +1226,7 @@ export default function EmployeeDetail() {
                             />
                           </Field>
                           <Field label="Perusahaan">
-                            <select name="company_id" value={formData.company_id || ""} onChange={(e) => {
+                            <select name="company_id" value={formData.company_id || ""} disabled={isWaschen} onChange={(e) => {
                               setFormData((p) => ({ ...p, company_id: e.target.value }));
                               if (fieldErrors.company_id) setFieldErrors((p) => ({ ...p, company_id: "" }));
                             }} className={selectCls()}>
@@ -1276,7 +1391,12 @@ export default function EmployeeDetail() {
                             fileName={employee?.[nameKey]}
                             baseUrl={employee?.documents_base_url}
                             avatarBaseUrl={key === "profile" ? employee?.avatars_base_url : undefined}
+                            assetHost={isWaschen ? ALORA_ASSET_HOST : undefined}
                             onPreview={setPreviewDoc}
+                            onDelete={isWaschen ? () => setDocDelete({ key, label, pathKey, nameKey }) : undefined}
+                            onUpload={isWaschen ? () => { setUploadDocKey(key); setTimeout(() => docFileRef.current?.click(), 0); } : undefined}
+                            isDeleting={deletingKey === key}
+                            isUploading={uploadingKey === key}
                           />
                         ))}
                       </div>
@@ -1402,7 +1522,7 @@ export default function EmployeeDetail() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-slate-700">
                                   {filteredPayslips.map((slip) => {
-                                    const viewUrl = `${BASE_URL}/ikm/employees/${id}/payslips/${slip.id}/view`;
+                                    const viewUrl = `${BASE_URL}${payslipBase}/${slip.id}/view`;
                                     return (
                                       <tr key={slip.id} className="hover:bg-slate-50/50 transition">
                                         <td className="px-6 py-4 font-semibold text-slate-800">
