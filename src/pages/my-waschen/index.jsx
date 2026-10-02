@@ -733,7 +733,7 @@ export default function MyWaschen() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div id="mw-content" className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </div>
       </div>
