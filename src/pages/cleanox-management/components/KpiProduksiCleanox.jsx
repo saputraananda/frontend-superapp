@@ -106,6 +106,7 @@ const RANK_BADGE = {
 
 const EMPTY_INSIGHTS = {
     daily_stage: [],
+    daily_layanan: [],
     aging_processing_hours: [],
     top_services: [],
     sla: null,
@@ -228,6 +229,54 @@ function EmployeeCard({ employee, rank, onClick, maxTotal }) {
                     );
                 })}
             </div>
+        </button>
+    );
+}
+
+function EmployeeLayananCard({ employee, rank, onClick, maxTotal }) {
+    const progressPct = maxTotal > 0 ? Math.round((employee.total / maxTotal) * 100) : 0;
+    const topServices = employee.top_services || [];
+
+    return (
+        <button
+            type="button"
+            onClick={() => onClick(employee)}
+            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:border-[#97bd3f]/30 hover:-translate-y-0.5 w-full"
+        >
+            {rank && rank <= 3 && (
+                <div className={cn("absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-black shadow-sm ring-2 ring-white", RANK_BADGE[rank]?.bg || "bg-slate-400")}>
+                    {rank === 1 ? "1" : rank === 2 ? "2" : "3"}
+                </div>
+            )}
+            <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b3459] text-sm font-bold text-white">
+                    {(employee.name || "?")[0].toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{capitalEachWord(employee.name)}</p>
+                    <p className="text-[11px] text-slate-400">
+                        {formatNumber(employee.total_layanan)} layanan &middot; {formatNumber(employee.total_nota)} nota &middot; Rank #{employee.rank || rank}
+                    </p>
+                </div>
+            </div>
+            <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#97bd3f] to-[#1b3459] transition-all duration-500"
+                    style={{ width: `${Math.min(progressPct, 100)}%` }}
+                />
+            </div>
+            {topServices.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                    {topServices.map((s) => (
+                        <div key={s.service_name} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
+                            <span className="text-[10px] font-semibold text-slate-500 truncate">{s.service_name}</span>
+                            <span className="ml-auto text-[10px] font-bold text-slate-700">&times;{formatNumber(s.count)}</span>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-[10px] text-slate-400">-</p>
+            )}
         </button>
     );
 }
@@ -370,6 +419,148 @@ function DetailModal({ employee, dateStart, dateEnd, dataSource = "waschen", ser
                                             <span>&bull;</span>
                                             <span className="flex items-center gap-1"><HiOutlineClock className="h-3 w-3" />{it.date ? formatDateShort(it.date) : "-"}</span>
                                         </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function LayananDetailModal({ employee, dateStart, dateEnd, onClose }) {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [activeService, setActiveService] = useState(null);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (!employee) return;
+        const fetchDetail = async () => {
+            try {
+                setLoading(true);
+                setError("");
+                const params = new URLSearchParams({
+                    employee_name: employee.name,
+                    date_start: dateStart,
+                    date_end: dateEnd,
+                    service_mode: "home_service",
+                });
+                const res = await api(`/kpi/only/detail?${params.toString()}`);
+                setItems(res.items || []);
+            } catch (err) {
+                setError(err.message || "Gagal memuat detail");
+                setItems([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchDetail();
+    }, [employee, dateStart, dateEnd]);
+
+    const serviceCounts = useMemo(() => {
+        const counts = new Map();
+        items.forEach((it) => counts.set(it.service_name, (counts.get(it.service_name) || 0) + 1));
+        return Array.from(counts.entries())
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }, [items]);
+
+    const filtered = useMemo(() => {
+        if (!activeService) return items;
+        return items.filter((it) => it.service_name === activeService);
+    }, [items, activeService]);
+
+    if (!employee) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
+                    <div>
+                        <h3 className="text-lg font-black text-slate-800">{capitalEachWord(employee.name)}</h3>
+                        <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                            {formatNumber(employee.total_layanan)} layanan &middot; {formatNumber(employee.total_nota)} nota &middot; Rank #{employee.rank}
+                        </p>
+                    </div>
+                    <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                        <HiOutlineXMark className="h-5 w-5" />
+                    </button>
+                </div>
+                <div className="flex gap-2 overflow-x-auto border-b border-slate-100 px-6 py-4 shrink-0 scrollbar-none" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                    <style>{`.scrollbar-none::-webkit-scrollbar { display: none; }`}</style>
+                    <button
+                        type="button"
+                        onClick={() => setActiveService(null)}
+                        className={cn(
+                            "shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold transition duration-200",
+                            !activeService
+                                ? "bg-[#1b3459] text-white border-[#1b3459] shadow-sm"
+                                : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                        )}
+                    >
+                        Semua ({items.length})
+                    </button>
+                    {serviceCounts.map((svc) => {
+                        const isActive = activeService === svc.name;
+                        return (
+                            <button
+                                key={svc.name}
+                                type="button"
+                                onClick={() => setActiveService(isActive ? null : svc.name)}
+                                className={cn(
+                                    "shrink-0 rounded-full border px-4 py-1.5 text-xs font-bold transition duration-200",
+                                    isActive
+                                        ? "bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm"
+                                        : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                                )}
+                            >
+                                {svc.name} ({svc.count})
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="flex-1 overflow-y-auto p-6">
+                    {loading ? (
+                        <div className="space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="h-12 animate-pulse rounded-lg bg-slate-100" />
+                            ))}
+                        </div>
+                    ) : error ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-sm text-rose-500">
+                            <HiOutlineExclamationTriangle className="h-8 w-8" />
+                            <p>{error}</p>
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-sm text-slate-400">
+                            <HiOutlineCube className="h-8 w-8 opacity-40" />
+                            <p>Tidak ada layanan.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {filtered.map((it) => (
+                                <div key={`${it.transaction_item_id}`} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <span className="text-xs font-black text-slate-800 font-mono bg-slate-100 px-1.5 py-0.5 rounded">{it.invoice || "-"}</span>
+                                            <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-wide">{it.customer_name || "-"}</p>
+                                        </div>
+                                        <span className="shrink-0 max-w-[50%] truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                            {it.service_name}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+                                        <p className="text-xs font-semibold text-slate-700 truncate max-w-[65%]">
+                                            Tim: {(it.team || []).map(capitalEachWord).join(", ") || "-"}
+                                        </p>
+                                        <span className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                                            <HiOutlineClock className="h-3 w-3" />
+                                            {it.service_date ? formatDateShort(it.service_date) : "-"}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
@@ -760,6 +951,8 @@ export default function KpiProduksiPage() {
 
 
 
+    const isLayananMode = dataSource === "only" && serviceMode === "home_service";
+
     const overallStages = overall ? [
         { key: "pickup", label: "Pickup", value: overall.pickup_done || 0 },
         { key: "cuci_jemur", label: "Cuci & Jemur", value: overall.cuci_jemur_done || 0 },
@@ -946,6 +1139,25 @@ export default function KpiProduksiPage() {
                                 <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100" />
                             ))}
                         </div>
+                    ) : isLayananMode && overall ? (
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                            <div className="rounded-xl bg-gradient-to-br from-[#1b3459] to-[#12233c] p-4 text-white">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/70">Total Layanan</p>
+                                <p className="mt-1 text-2xl font-black">{formatNumber(overall.total_layanan || 0)}</p>
+                            </div>
+                            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Total Nota</p>
+                                <p className="mt-1 text-2xl font-black text-blue-700">{formatNumber(overall.total_nota || 0)}</p>
+                            </div>
+                            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Worker Aktif</p>
+                                <p className="mt-1 text-2xl font-black text-green-700">{formatNumber(overall.active_workers || 0)}</p>
+                            </div>
+                            <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Rata-rata Layanan / Worker</p>
+                                <p className="mt-1 text-2xl font-black text-purple-700">{String(overall.avg_layanan_per_worker ?? 0).replace(".", ",")}</p>
+                            </div>
+                        </div>
                     ) : overall ? (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                             <div className="rounded-xl bg-gradient-to-br from-[#1b3459] to-[#12233c] p-4 text-white">
@@ -970,12 +1182,12 @@ export default function KpiProduksiPage() {
                     )}
                 </section>
                 {/* Insights Grid */}
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className={cn("grid grid-cols-1 gap-6", isLayananMode ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
                     {/* Daily Stage */}
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
                             <HiOutlineSquares2X2 className="h-4 w-4 text-[#97bd3f]" />
-                            Produksi Harian per Tahap
+                            {isLayananMode ? "Produksi Harian (Layanan)" : "Produksi Harian per Tahap"}
                         </h3>
                         {dataLoading ? (
                             <div className="space-y-2">
@@ -983,6 +1195,26 @@ export default function KpiProduksiPage() {
                                     <div key={i} className="h-8 animate-pulse rounded-lg bg-slate-100" />
                                 ))}
                             </div>
+                        ) : isLayananMode ? (
+                            (insights.daily_layanan || []).length > 0 ? (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {insights.daily_layanan.map((d) => (
+                                        <div key={d.date} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                                            <span className="text-xs font-medium text-slate-600">{formatDateShort(d.date)}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="rounded-md border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                                    {formatNumber(d.total_layanan)} layanan
+                                                </span>
+                                                <span className="rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                                    {formatNumber(d.total_nota)} nota
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center py-8 text-xs text-slate-400">Belum ada data harian.</div>
+                            )
                         ) : insights.daily_stage.length > 0 ? (
                             <div className="space-y-2 max-h-64 overflow-y-auto">
                                 {insights.daily_stage.map((d, i) => (
@@ -1009,6 +1241,7 @@ export default function KpiProduksiPage() {
                     </section>
 
                     {/* Aging Processing Time */}
+                    {!isLayananMode && (
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
                             <HiOutlineClock className="h-4 w-4 text-[#97bd3f]" />
@@ -1047,6 +1280,7 @@ export default function KpiProduksiPage() {
                             <div className="flex items-center justify-center py-8 text-xs text-slate-400">Belum ada data aging.</div>
                         )}
                     </section>
+                    )}
 
                     {/* Top Services */}
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1063,7 +1297,8 @@ export default function KpiProduksiPage() {
                         ) : insights.top_services.length > 0 ? (
                             <div className="space-y-1.5 max-h-64 overflow-y-auto">
                                 {insights.top_services.map((s, i) => {
-                                    const pct = overall?.total_items > 0 ? Math.round((s.volume / overall.total_items) * 100) : 0;
+                                    const pctBase = isLayananMode ? overall?.total_layanan : overall?.total_items;
+                                    const pct = pctBase > 0 ? Math.round((s.volume / pctBase) * 100) : 0;
                                     return (
                                         <div key={i} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors">
                                             <div className="flex items-center gap-2 min-w-0">
@@ -1280,6 +1515,84 @@ export default function KpiProduksiPage() {
                             <HiOutlineUserGroup className="h-8 w-8 opacity-40" />
                             <p>Belum ada data karyawan.</p>
                         </div>
+                    ) : viewMode === "leaderboard" && isLayananMode ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[850px]">
+                                <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-center w-16">Rank</th>
+                                        <th className="px-6 py-3">Karyawan</th>
+                                        <th className="px-6 py-3 text-center w-36">Total Layanan</th>
+                                        <th className="px-6 py-3 text-center">Jumlah Nota</th>
+                                        <th className="px-6 py-3 text-center">Rata-rata / Nota</th>
+                                        <th className="px-6 py-3">Layanan Terbanyak</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-xs">
+                                    {sortedEmployees.map((emp, idx) => {
+                                        const rankNum = emp.rank || idx + 1;
+                                        const totalPct = Math.round((emp.total / maxTotal) * 100);
+
+                                        return (
+                                            <tr
+                                                key={emp.name}
+                                                onClick={() => handleEmployeeClick(emp)}
+                                                className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                                            >
+                                                <td className="px-6 py-4 text-center">
+                                                    {rankNum === 1 ? (
+                                                        <span className="text-xl">🥇</span>
+                                                    ) : rankNum === 2 ? (
+                                                        <span className="text-xl">🥈</span>
+                                                    ) : rankNum === 3 ? (
+                                                        <span className="text-xl">🥉</span>
+                                                    ) : (
+                                                        <span className="font-bold text-slate-400">#{rankNum}</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1b3459] text-xs font-bold text-white group-hover:scale-105 transition-transform">
+                                                            {(emp.name || "?")[0].toUpperCase()}
+                                                        </div>
+                                                        <span className="font-bold text-slate-800 group-hover:text-[#1b3459] transition-colors">
+                                                            {capitalEachWord(emp.name)}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="inline-flex flex-col items-center">
+                                                        <span className="font-black text-slate-800 text-sm">{formatNumber(emp.total)}</span>
+                                                        <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
+                                                            <div className="h-full bg-slate-500" style={{ width: `${totalPct}%` }} />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-bold text-slate-700">
+                                                    {formatNumber(emp.total_nota)}
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-bold text-slate-700">
+                                                    {String(emp.avg_layanan_per_nota ?? 0).replace(".", ",")}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {(emp.top_services || []).length > 0 ? (
+                                                            emp.top_services.map((s) => (
+                                                                <span key={s.service_name} className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                                                    {s.service_name} &times;{formatNumber(s.count)}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-slate-400">-</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     ) : viewMode === "leaderboard" ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse min-w-[850px]">
@@ -1355,13 +1668,23 @@ export default function KpiProduksiPage() {
                     ) : (
                         <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {sortedEmployees.map((emp, idx) => (
-                                <EmployeeCard
-                                    key={emp.name}
-                                    employee={emp}
-                                    rank={emp.rank || idx + 1}
-                                    maxTotal={maxTotal}
-                                    onClick={handleEmployeeClick}
-                                />
+                                isLayananMode ? (
+                                    <EmployeeLayananCard
+                                        key={emp.name}
+                                        employee={emp}
+                                        rank={emp.rank || idx + 1}
+                                        maxTotal={maxTotal}
+                                        onClick={handleEmployeeClick}
+                                    />
+                                ) : (
+                                    <EmployeeCard
+                                        key={emp.name}
+                                        employee={emp}
+                                        rank={emp.rank || idx + 1}
+                                        maxTotal={maxTotal}
+                                        onClick={handleEmployeeClick}
+                                    />
+                                )
                             ))}
                         </div>
                     )}
@@ -1369,7 +1692,15 @@ export default function KpiProduksiPage() {
             </div>
 
             {/* Detail Modal */}
-            {selectedEmployee && (
+            {selectedEmployee && isLayananMode && (
+                <LayananDetailModal
+                    employee={selectedEmployee}
+                    dateStart={dateStart}
+                    dateEnd={dateEnd}
+                    onClose={() => setSelectedEmployee(null)}
+                />
+            )}
+            {selectedEmployee && !isLayananMode && (
                 <DetailModal
                     employee={selectedEmployee}
                     dateStart={dateStart}

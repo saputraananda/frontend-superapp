@@ -166,6 +166,57 @@ function StatusBadge({ label }) {
   );
 }
 
+const KEHADIRAN_OPTIONS = ["Hadir", "Hadir - Terlambat"];
+
+function KehadiranBadge({ label, reason, isLate }) {
+  if (!label) return <span className="text-xs text-slate-300">-</span>;
+  const late = isLate || label === "Hadir - Terlambat";
+  const BadgeIcon = late ? HiOutlineClock : HiOutlineCheckCircle;
+  return (
+    <div>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+          late ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200",
+        )}
+      >
+        <BadgeIcon className="h-3.5 w-3.5" />
+        {label}
+      </span>
+      {late && (
+        <p className="mt-1 max-w-[220px] whitespace-normal text-[11px] text-slate-500">Alasan: {reason || "-"}</p>
+      )}
+    </div>
+  );
+}
+
+function CheckOutLocationInfo({ row }) {
+  if (!row?.check_out_at) return null;
+  return (
+    <div className="mt-1 max-w-[240px] space-y-0.5 whitespace-normal text-[11px] text-slate-500">
+      <p>{row.check_out_location_name || "Lokasi belum tercatat"}</p>
+      {row.check_out_outside_label && (
+        <span
+          className={cn(
+            "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+            row.check_out_outside_type === "layanan"
+              ? "bg-amber-50 text-amber-700 border-amber-200"
+              : "bg-orange-50 text-orange-700 border-orange-200",
+          )}
+        >
+          {row.check_out_outside_label}
+        </span>
+      )}
+      {(row.check_out_outside_services || []).map((s) => (
+        <p key={s.transaction_id}>
+          {s.transaction_no} · {s.customer_name}
+        </p>
+      ))}
+      {row.check_out_outside_type && <p>Catatan: {row.check_out_outside_note || "-"}</p>}
+    </div>
+  );
+}
+
 function AuthenticatedImage({ path, alt, className, onClick, iconSize = "h-5 w-5", objectFit = "cover" }) {
   const [src, setSrc] = useState(null);
   const [error, setError] = useState(false);
@@ -296,14 +347,18 @@ function PhotoViewerModal({ item, onClose }) {
 function EditAttendanceModal({ item, onClose, onSaved }) {
   const [checkIn, setCheckIn] = useState(toDateTimeLocalInput(item?.check_in_at));
   const [checkOut, setCheckOut] = useState(toDateTimeLocalInput(item?.check_out_at));
+  const [lateReason, setLateReason] = useState(item?.late_reason || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setCheckIn(toDateTimeLocalInput(item?.check_in_at));
     setCheckOut(toDateTimeLocalInput(item?.check_out_at));
+    setLateReason(item?.late_reason || "");
     setError("");
   }, [item]);
+
+  const editIsLate = Boolean(checkIn) && checkIn.slice(11, 16) > "08:00";
 
   useEffect(() => {
     if (!item) return undefined;
@@ -334,6 +389,7 @@ function EditAttendanceModal({ item, onClose, onSaved }) {
         body: JSON.stringify({
           check_in_at: checkIn || null,
           check_out_at: checkOut || null,
+          late_reason: editIsLate ? lateReason.trim() : null,
         }),
       });
       onSaved();
@@ -391,6 +447,21 @@ function EditAttendanceModal({ item, onClose, onSaved }) {
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
             />
           </label>
+          {editIsLate && (
+            <label className="block text-sm text-slate-600">
+              <span className="mb-1 block text-xs font-semibold text-slate-500">Alasan Terlambat (opsional)</span>
+              <textarea
+                value={lateReason}
+                onChange={(e) => setLateReason(e.target.value)}
+                maxLength={500}
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+              <span className="mt-1 block text-[11px] text-slate-400">
+                Jam masuk lewat 08:00 → tercatat Hadir - Terlambat.
+              </span>
+            </label>
+          )}
           <div className="flex gap-2 pt-1">
             <button
               type="button"
@@ -835,7 +906,13 @@ function MobileAttendanceCard({ row, onOpenReview, onOpenIn, onOpenOut, onEdit, 
           <p className="text-slate-700">
             {row.check_out_at ? formatDateTime(row.check_out_at) : <span className="italic text-slate-400">belum</span>}
           </p>
+          <CheckOutLocationInfo row={row} />
         </div>
+      </div>
+
+      <div className="text-xs">
+        <span className="mr-2 text-[11px] font-medium text-slate-400">Kehadiran</span>
+        <KehadiranBadge label={row.kehadiran_label} reason={row.late_reason} isLate={row.is_late} />
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -933,6 +1010,7 @@ export default function AbsensiKaryawanCleanox() {
   const [fetchError, setFetchError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
+  const [kehadiranFilter, setKehadiranFilter] = useState("");
   const [photoViewer, setPhotoViewer] = useState(null);
   const [editModal, setEditModal] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
@@ -1043,9 +1121,13 @@ export default function AbsensiKaryawanCleanox() {
   );
 
   const displayedRecords = useMemo(() => {
-    if (!statusFilter) return records;
-    return records.filter((r) => r.status_label === statusFilter);
-  }, [records, statusFilter]);
+    if (!statusFilter && !kehadiranFilter) return records;
+    return records.filter(
+      (r) =>
+        (!statusFilter || r.status_label === statusFilter) &&
+        (!kehadiranFilter || r.kehadiran_label === kehadiranFilter),
+    );
+  }, [records, statusFilter, kehadiranFilter]);
 
   const resetPeriodFilters = () => {
     const resetCutoff = getDefaultCutoffSelection(new Date(), 26);
@@ -1332,10 +1414,22 @@ export default function AbsensiKaryawanCleanox() {
               <p className="mt-1 text-xs text-slate-400">
                 {loading
                   ? "Memuat..."
-                  : `${displayedRecords.length} record ditampilkan${statusFilter ? ` · filter: ${statusFilter}` : ""}`}
+                  : `${displayedRecords.length} record ditampilkan${kehadiranFilter ? ` · kehadiran: ${kehadiranFilter}` : ""}${statusFilter ? ` · filter: ${statusFilter}` : ""}`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={kehadiranFilter}
+                onChange={(e) => setKehadiranFilter(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Semua Kehadiran</option>
+                {KEHADIRAN_OPTIONS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -1348,10 +1442,13 @@ export default function AbsensiKaryawanCleanox() {
                   </option>
                 ))}
               </select>
-              {statusFilter && (
+              {(statusFilter || kehadiranFilter) && (
                 <button
                   type="button"
-                  onClick={() => setStatusFilter("")}
+                  onClick={() => {
+                    setStatusFilter("");
+                    setKehadiranFilter("");
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"
                 >
                   <HiOutlineXMark className="h-3.5 w-3.5" />
@@ -1367,6 +1464,7 @@ export default function AbsensiKaryawanCleanox() {
                       periodLabel: activePeriodLabel,
                       activePeriod,
                       statusFilter,
+                      kehadiranFilter,
                     });
                   } catch (err) {
                     console.error("Gagal mendownload excel:", err);
@@ -1418,6 +1516,9 @@ export default function AbsensiKaryawanCleanox() {
                     Durasi
                   </th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Kehadiran
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Status
                   </th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -1430,7 +1531,7 @@ export default function AbsensiKaryawanCleanox() {
 
                 {!loading && displayedRecords.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-14 text-center">
+                    <td colSpan={11} className="px-4 py-14 text-center">
                       <div className="flex flex-col items-center gap-2 text-slate-400">
                         <HiOutlinePhoto className="h-9 w-9 opacity-40" />
                         <p className="text-sm">Data absensi tidak ditemukan pada filter aktif.</p>
@@ -1467,6 +1568,7 @@ export default function AbsensiKaryawanCleanox() {
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">
                           {row.check_out_at ? formatDateTime(row.check_out_at) : <span className="text-slate-300">-</span>}
+                          <CheckOutLocationInfo row={row} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           {row.check_out_photo?.url ? (
@@ -1499,6 +1601,9 @@ export default function AbsensiKaryawanCleanox() {
                           ) : (
                             <span className="text-xs text-slate-300">-</span>
                           )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <KehadiranBadge label={row.kehadiran_label} reason={row.late_reason} isLate={row.is_late} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <StatusBadge label={row.status_label} />

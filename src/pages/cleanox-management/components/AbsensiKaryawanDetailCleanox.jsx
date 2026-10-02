@@ -491,6 +491,15 @@ function AttendanceDateRow({ record, selected, onToggle, onSaved }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-bold text-slate-800">{formatDate(record.attendance_date)}</p>
             <ReviewBadge status={record.review_status} />
+            {record.is_late ? (
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                Hadir - Terlambat
+              </span>
+            ) : record.kehadiran_label === "Hadir" ? (
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                Hadir
+              </span>
+            ) : null}
             <span className="text-[11px] font-medium text-slate-400">
               {record.reviewed_count || 0}/4 foto
             </span>
@@ -505,6 +514,25 @@ function AttendanceDateRow({ record, selected, onToggle, onSaved }) {
               Check-out: {formatTime(record.check_out_at)}
             </span>
           </div>
+          {record.is_late && (
+            <p className="mt-1 text-[11px] text-slate-500">Alasan terlambat: {record.late_reason || "-"}</p>
+          )}
+          {record.check_out_outside_type && (
+            <>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Pulang: {record.check_out_outside_label} · {record.check_out_location_name || "-"}
+              </p>
+              {record.check_out_outside_type === "layanan" && (
+                <p className="text-[11px] text-slate-500">
+                  Layanan:{" "}
+                  {(record.check_out_outside_services || [])
+                    .map((s) => `${s.transaction_no} (${s.customer_name})`)
+                    .join(", ")}
+                </p>
+              )}
+              <p className="text-[11px] text-slate-500">Catatan: {record.check_out_outside_note || "-"}</p>
+            </>
+          )}
         </div>
         {selected ? (
           <HiOutlineChevronUp className="h-5 w-5 shrink-0 text-slate-400" />

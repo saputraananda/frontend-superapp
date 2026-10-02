@@ -19,6 +19,10 @@ const C = {
   status_belum_in_text: "9F1239",
   status_foto_bg: "FFEDD5",
   status_foto_text: "9A3412",
+  kehadiran_hadir_bg: "D1FAE5",
+  kehadiran_hadir_text: "065F46",
+  kehadiran_late_bg: "FFE4E6",
+  kehadiran_late_text: "9F1239",
 };
 
 const border = () => ({
@@ -71,6 +75,20 @@ const makeStatusStyle = (statusLabel, isAlt) => {
   };
 };
 
+const makeKehadiranStyle = (label, isAlt) => {
+  const map = {
+    Hadir: { bg: C.kehadiran_hadir_bg, text: C.kehadiran_hadir_text },
+    "Hadir - Terlambat": { bg: C.kehadiran_late_bg, text: C.kehadiran_late_text },
+  };
+  const colors = map[label] || { bg: isAlt ? C.altRowBg : C.whiteBg, text: C.textDark };
+  return {
+    fill: { fgColor: { rgb: colors.bg } },
+    font: { bold: true, sz: 10, color: { rgb: colors.text }, name: "Calibri" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: border(),
+  };
+};
+
 const cell = (v, s) => ({ v, t: typeof v === "number" ? "n" : "s", s });
 const empty = (s) => ({ v: "", t: "s", s });
 
@@ -107,6 +125,18 @@ function calcDuration(checkIn, checkOut) {
   return h > 0 ? `${h}j ${m}m` : `${m}m`;
 }
 
+function formatCheckOutKeterangan(r) {
+  if (!r.check_out_outside_type) return "-";
+  const note = r.check_out_outside_note || "-";
+  if (r.check_out_outside_type === "layanan") {
+    const services = (r.check_out_outside_services || [])
+      .map((s) => `${s.transaction_no} (${s.customer_name})`)
+      .join(", ");
+    return `Layanan: ${services} | Catatan: ${note}`;
+  }
+  return `Alasan lain | Catatan: ${note}`;
+}
+
 function fileStamp(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -114,14 +144,17 @@ function fileStamp(date = new Date()) {
   return `${y}${m}${d}`;
 }
 
-export function exportAbsensiCleanoxExcel({ records, periodLabel, activePeriod, statusFilter }) {
+export function exportAbsensiCleanoxExcel({ records, periodLabel, activePeriod, statusFilter, kehadiranFilter }) {
   const periodStr = activePeriod
     ? `${fmtDate(activePeriod.startDate)} s.d. ${fmtDate(activePeriod.endDate)}`
     : "–";
-  const filterLabel = statusFilter ? `Status: ${statusFilter}` : "Semua data (tanpa filter status)";
+  const filterParts = [];
+  if (kehadiranFilter) filterParts.push(`Kehadiran: ${kehadiranFilter}`);
+  if (statusFilter) filterParts.push(`Status: ${statusFilter}`);
+  const filterLabel = filterParts.length ? filterParts.join(" · ") : "Semua data (tanpa filter status)";
   const exportedAt = `Diekspor: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}`;
 
-  const TOTAL_COLS = 9;
+  const TOTAL_COLS = 13;
   const wsData = [];
   const emptyTitle = Array.from({ length: TOTAL_COLS - 1 }, () => empty(titleStyle));
   const emptyMeta = Array.from({ length: TOTAL_COLS - 1 }, () => empty(metaStyle));
@@ -141,7 +174,11 @@ export function exportAbsensiCleanoxExcel({ records, periodLabel, activePeriod, 
     "Jabatan",
     "Absen In",
     "Absen Out",
+    "Lokasi Out",
+    "Keterangan Out",
     "Durasi",
+    "Kehadiran",
+    "Alasan Terlambat",
     "Status",
   ];
   wsData.push(headers.map((h) => cell(h, headerStyle)));
@@ -158,7 +195,11 @@ export function exportAbsensiCleanoxExcel({ records, periodLabel, activePeriod, 
       cell(r.cleanox_role || "-", cs),
       cell(fmtDateTime(r.check_in_at), csCenter),
       cell(fmtDateTime(r.check_out_at), csCenter),
+      cell(r.check_out_at ? r.check_out_location_name || "-" : "-", cs),
+      cell(formatCheckOutKeterangan(r), cs),
       cell(calcDuration(r.check_in_at, r.check_out_at), csCenter),
+      cell(r.kehadiran_label || "-", makeKehadiranStyle(r.kehadiran_label, isAlt)),
+      cell(r.is_late ? r.late_reason || "-" : "-", cs),
       cell(r.status_label || "-", makeStatusStyle(r.status_label, isAlt)),
     ]);
   });
@@ -179,7 +220,11 @@ export function exportAbsensiCleanoxExcel({ records, periodLabel, activePeriod, 
     { wch: 16 },
     { wch: 18 },
     { wch: 18 },
+    { wch: 24 },
+    { wch: 48 },
     { wch: 10 },
+    { wch: 18 },
+    { wch: 36 },
     { wch: 18 },
   ];
   ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 24 }];
