@@ -261,7 +261,7 @@ export default function Overtime() {
         </div>
 
         <div className="space-y-3">
-          <CutoffPeriodFilter cutoff={cutoff} />
+          <CutoffPeriodFilter cutoff={cutoff} showToday />
           <HrisOutletRoleFilter
             outlets={hrisFilters.outlets}
             outletId={hrisFilters.outletId}

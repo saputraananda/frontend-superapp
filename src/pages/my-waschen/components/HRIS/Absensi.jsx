@@ -46,15 +46,23 @@ import {
   MobileSkeleton,
   AbsensiMobileCard,
 } from "./hrisShared";
+import DashboardGrooming from "./DashboardGrooming";
 
-const CLEANLINESS_ROLE_ORDER = ["Frontliner", "Delivery Staff", "Washing Staff", "Ironing Staff", "Packing Staff"];
 const STATUS_FILTERS = ["Semua", "Lengkap", "Belum check-out", "Belum check-in", "Foto belum lengkap"];
 const EMPTY_FORM = { employee_id: "", outlet_id: "", work_date: "", check_in_time: "", check_out_time: "" };
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
 const LABEL_CLS = "block text-[10px] font-bold uppercase tracking-wider text-slate-400";
+const PAGE_TAB_KEY = "mw-absensi-page-tab";
+function readPageTab() {
+  try {
+    return sessionStorage.getItem(PAGE_TAB_KEY) === "dashboard" ? "dashboard" : "riwayat";
+  } catch {
+    return "riwayat";
+  }
+}
 const PAGE_TABS = [
   { id: "riwayat", label: "Riwayat Absensi" },
-  { id: "kebersihan", label: "Kebersihan" },
+  { id: "dashboard", label: "Dashboard Grooming & Kebersihan" },
 ];
 
 // Pagi: sebelum 16:00 WIB · Pulang: 16:00–24:00 WIB (ditentukan server Waschen Mobile saat upload)
@@ -158,12 +166,14 @@ export default function Absensi() {
   const [deleteRow, setDeleteRow] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
-  const [pageTab, setPageTab] = useState("riwayat");
+  const [pageTab, setPageTab] = useState(readPageTab);
+  const selectPageTab = (id) => {
+    setPageTab(id);
+    try { sessionStorage.setItem(PAGE_TAB_KEY, id); } catch { /* tab tetap di memori */ }
+  };
   const [detailRow, setDetailRow] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState("grooming");
-  const [cleanlinessRows, setCleanlinessRows] = useState([]);
-  const [cleanlinessLoading, setCleanlinessLoading] = useState(false);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -190,32 +200,12 @@ export default function Absensi() {
     }
   }, [startDate, endDate, onlyIncomplete, search, appendFilters]);
 
-  const loadCleanliness = useCallback(async (silent = false) => {
-    if (!startDate || !endDate) return;
-    if (!silent) setCleanlinessLoading(true);
-    try {
-      const q = new URLSearchParams({ startDate, endDate });
-      appendFilters(q);
-      const res = await api(`/waschen/hris/attendance/cleanliness?${q}`);
-      setCleanlinessRows(res.data || []);
-    } catch (err) {
-      if (silent) return;
-      showToast("error", err.message || "Gagal memuat foto kebersihan");
-      setCleanlinessRows([]);
-    } finally {
-      if (!silent) setCleanlinessLoading(false);
-    }
-  }, [startDate, endDate, appendFilters]);
 
   useLiveRefresh(() => {
-    if (pageTab === "kebersihan") loadCleanliness(true);
-    else load(true);
+    if (pageTab === "riwayat") load(true);
   });
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    if (pageTab === "kebersihan") loadCleanliness();
-  }, [pageTab, loadCleanliness]);
   useEffect(() => {
     api("/waschen/employees").then((r) => setEmployees(r.data || [])).catch(() => setEmployees([]));
   }, []);
@@ -238,24 +228,6 @@ export default function Absensi() {
     () => new Map(outlets.map((o) => [String(o.id), o])),
     [outlets],
   );
-
-  // Tanpa filter outlet & posisi: kelompokkan foto per posisi.
-  const cleanlinessGroups = useMemo(() => {
-    if (hrisFilters.outletId || hrisFilters.role) return [{ role: null, photos: cleanlinessRows }];
-    const map = new Map();
-    cleanlinessRows.forEach((p) => {
-      const k = p.role_code || "Lainnya";
-      if (!map.has(k)) map.set(k, []);
-      map.get(k).push(p);
-    });
-    const rank = (r) => {
-      const i = CLEANLINESS_ROLE_ORDER.indexOf(r);
-      return i === -1 ? CLEANLINESS_ROLE_ORDER.length : i;
-    };
-    return [...map.keys()]
-      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-      .map((role) => ({ role, photos: map.get(role) }));
-  }, [cleanlinessRows, hrisFilters.outletId, hrisFilters.role]);
 
   const filtered = useMemo(() => {
     let list = rows;
@@ -394,100 +366,20 @@ export default function Absensi() {
           <button
             key={t.id}
             type="button"
-            onClick={() => setPageTab(t.id)}
+            onClick={() => selectPageTab(t.id)}
             className={cn(
-              "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition",
+              "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold leading-tight text-center transition",
               pageTab === t.id ? "bg-[#5f1340] text-white" : "text-slate-500 hover:bg-slate-50",
             )}
           >
-            {t.id === "kebersihan" ? <HiOutlineSparkles className="h-3.5 w-3.5" /> : <HiOutlineTableCells className="h-3.5 w-3.5" />}
+            {t.id === "dashboard" ? <HiOutlineSparkles className="h-3.5 w-3.5 shrink-0" /> : <HiOutlineTableCells className="h-3.5 w-3.5 shrink-0" />}
             {t.label}
           </button>
         ))}
       </div>
 
-      {pageTab === "kebersihan" ? (
-        <section className={TABLE_SECTION}>
-          <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-bold text-slate-800">Foto Kebersihan</h2>
-              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Perwakilan per outlet + posisi + hari · difoto oleh siapa.</p>
-            </div>
-            <button type="button" onClick={loadCleanliness} className="shrink-0 rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
-              <HiOutlineArrowPath className={cn("h-4 w-4", cleanlinessLoading && "animate-spin")} />
-            </button>
-          </div>
-          <div className="px-4 py-3 border-b border-slate-100">
-            <CutoffPeriodFilter cutoff={cutoff} />
-            <div className="mt-3">
-              <HrisOutletRoleFilter
-                outlets={hrisFilters.outlets}
-                outletId={hrisFilters.outletId}
-                onOutletChange={hrisFilters.setOutletId}
-                role={hrisFilters.role}
-                onRoleChange={hrisFilters.setRole}
-              />
-            </div>
-          </div>
-          {cleanlinessLoading ? (
-            <MobileSkeleton count={4} />
-          ) : cleanlinessRows.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 px-4">
-              <HiOutlineSparkles className="mx-auto mb-2 h-8 w-8 opacity-40" />
-              <p className="text-sm font-semibold">Tidak ada foto kebersihan</p>
-            </div>
-          ) : (
-            <div className="p-3 sm:p-4 space-y-5">
-              {cleanlinessGroups.map((g) => (
-              <div key={g.role || "all"}>
-                {g.role && (
-                  <h3 className="mb-2 flex w-full items-center justify-between gap-2 rounded-xl bg-[#5f1340]/10 px-3 py-2 text-xs">
-                    <span className="min-w-0 truncate font-bold text-[#5f1340]">{g.role}</span>
-                    <span className="shrink-0 font-semibold text-[#5f1340]/70">{g.photos.length} foto</span>
-                  </h3>
-                )}
-            {CLEANLINESS_SESSIONS.map((session) => {
-              const photos = g.photos.filter((p) => (p.photo_session || "Pagi") === session);
-              if (!photos.length) return null;
-              return (
-            <div key={session} className="mb-3">
-              <SessionDivider session={session} count={photos.length} />
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {photos.map((p) => (
-                <button
-                  key={p.cleanliness_photo_id}
-                  type="button"
-                  onClick={() => setPhotoView({ url: p.photo_url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
-                  className="text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#5f1340]/30 transition"
-                >
-                  <div className="aspect-square bg-slate-100">
-                    {p.photo_url ? (
-                      <img src={p.photo_url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="h-full w-full grid place-items-center text-slate-300 text-xs">No photo</div>
-                    )}
-                  </div>
-                  <div className="p-2.5 space-y-0.5">
-                    <p className="text-[11px] font-bold text-slate-800 truncate">{p.uploaded_by_name || "—"}</p>
-                    <p className="flex flex-wrap items-center gap-1 pt-0.5">
-                      <span className="rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{p.role_code || "—"}</span>
-                      <span className="text-[10px] font-semibold text-slate-600">{outletById.get(String(p.outlet_id))?.name || "—"}</span>
-                    </p>
-                    <p className="text-[10px] text-slate-500">{fmtDateShort(p.work_date)}</p>
-                    <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-            </div>
-              );
-            })}
-              </div>
-              ))}
-            </div>
-          )}
-        </section>
-      ) : (
+      {pageTab === "dashboard" ? <DashboardGrooming /> : null}
+      {pageTab === "riwayat" && (
         <>
       <div className={SUMMARY_GRID}>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
@@ -524,7 +416,7 @@ export default function Absensi() {
         </div>
 
         <div className="space-y-3">
-          <CutoffPeriodFilter cutoff={cutoff} />
+          <CutoffPeriodFilter cutoff={cutoff} showToday />
           <HrisOutletRoleFilter
             outlets={hrisFilters.outlets}
             outletId={hrisFilters.outletId}

@@ -545,6 +545,22 @@ export default function Kasbon() {
                 {cutoff.isCustomDate ? "Cutoff" : "Custom"}
               </button>
             )}
+            <label className={cn(
+              "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold",
+              cutoff.todayOnly ? "border-[#5f1340] bg-[#5f1340] text-white" : "border-slate-200 bg-white text-slate-700",
+            )}
+            >
+              <input
+                type="checkbox"
+                checked={!!cutoff.todayOnly}
+                onChange={() => {
+                  if (!cutoff.todayOnly) setAllPeriods(false);
+                  cutoff.toggleToday();
+                }}
+                className={cn("h-3.5 w-3.5 rounded", cutoff.todayOnly ? "accent-white" : "accent-[#5f1340]")}
+              />
+              Hari Ini
+            </label>
             <HiOutlineChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
             <select value={hrisFilters.outletId} onChange={(e) => hrisFilters.setOutletId(e.target.value)} className="max-w-[200px] cursor-pointer truncate rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 outline-none">
               <option value="">Semua Outlet</option>
