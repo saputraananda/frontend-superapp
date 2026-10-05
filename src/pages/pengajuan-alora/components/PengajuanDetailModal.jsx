@@ -231,6 +231,93 @@ const formatRupiah = (raw) => {
 };
 const stripRupiah = (s) => String(s || "").replace(/\D/g, "");
 
+const WASCHEN_COMPANY_ID = 5;
+const allocKey = (classId, companyId, outletId) => `${classId}:${companyId}:${outletId || 0}`;
+
+// Satu baris bayar per kategori. Waschen Laundry dipecah per outlet yang dipilih.
+function scopeTargets(data) {
+    if (!data) return [];
+    const companies = data.companies?.length
+        ? data.companies
+        : (data.company_id ? [{ company_id: data.company_id, company_name: data.company_name }] : []);
+    const outlets = data.outlets?.length
+        ? data.outlets
+        : (data.outlet_id ? [{ outlet_id: data.outlet_id, outlet_name: data.outlet_name }] : []);
+    const targets = [];
+    for (const c of companies) {
+        if (Number(c.company_id) === WASCHEN_COMPANY_ID && outlets.length) {
+            for (const o of outlets) {
+                targets.push({
+                    company_id: Number(c.company_id),
+                    outlet_id: Number(o.outlet_id),
+                    label: o.outlet_name || "Outlet",
+                });
+            }
+        } else {
+            targets.push({
+                company_id: Number(c.company_id),
+                outlet_id: null,
+                label: c.company_name || "Kategori",
+            });
+        }
+    }
+    return targets;
+}
+
+function AllocationSplit({ classIds, classOptions, targets, value, onChange, totalNominal }) {
+    if (targets.length <= 1 || !classIds.length) return null;
+    const classes = classIds.map(id => {
+        const opt = classOptions.find(c => String(c.id) === String(id));
+        return { id: String(id), name: opt?.classification_name || "Klasifikasi" };
+    });
+    const sum = classes.reduce((s, c) => s + targets.reduce((s2, t) => (
+        s2 + (Number(stripRupiah(value[allocKey(c.id, t.company_id, t.outlet_id)] || "")) || 0)
+    ), 0), 0);
+    const splitTotal = Number(totalNominal || 0);
+    return (
+        <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
+            {classes.map(c => (
+                <div key={c.id}>
+                    {classes.length > 1 && (
+                        <p className="bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600">{c.name}</p>
+                    )}
+                    {targets.map(t => {
+                        const k = allocKey(c.id, t.company_id, t.outlet_id);
+                        return (
+                            <div key={k} className="flex items-center gap-2 border-t border-slate-100 bg-white px-2.5 py-1.5 first:border-t-0">
+                                <span className="min-w-0 flex-1 truncate text-xs text-slate-600">{t.label}</span>
+                                <div className="relative w-32 shrink-0">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Rp</span>
+                                    <input
+                                        className="w-full rounded-lg border border-slate-200 bg-white py-1 pl-6 pr-2 text-right text-xs tabular-nums outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                                        inputMode="numeric"
+                                        value={value[k] || ""}
+                                        onChange={e => onChange({ ...value, [k]: formatRupiah(e.target.value) })}
+                                        placeholder="0" />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-slate-100 bg-white px-2.5 py-1.5 text-[11px]">
+                <span className="text-slate-500">Total alokasi</span>
+                <span className={cn("font-semibold tabular-nums",
+                    sum > 0 && sum === splitTotal ? "text-emerald-600" : "text-slate-700")}>
+                    {formatRp(sum)}
+                </span>
+            </div>
+            {splitTotal > 0 && sum > 0 && sum !== splitTotal && (
+                <p className="border-t border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                    {splitTotal > sum
+                        ? `Kurang ${formatRp(splitTotal - sum)} dari Nominal Bayar (${formatRp(splitTotal)}).`
+                        : `Lebih ${formatRp(sum - splitTotal)} dari Nominal Bayar (${formatRp(splitTotal)}).`}
+                </p>
+            )}
+        </div>
+    );
+}
+
 const formatDate = (s) => {
     if (!s) return "—";
     const d = new Date(s);
@@ -383,6 +470,7 @@ export default function PengajuanDetailModal({
     const [payOpen, setPayOpen] = useState(false);
     const [payClassification, setPayClass] = useState([]); // array of id (string) — multi klasifikasi
     const [payClassSplits, setPayClassSplits] = useState({}); // { [id]: nominal terformat }
+    const [payAlloc, setPayAlloc] = useState({}); // { "class:company:outlet": nominal terformat }
     const [payNote, setPayNote] = useState("");
     const [payFiles, setPayFiles] = useState([]); // multi-file array
     const [payMethod, setPayMethod] = useState(""); // 'cash' | 'kredit'
@@ -443,7 +531,7 @@ export default function PengajuanDetailModal({
             setGaInvoiceFile(null);
             setClassificationList([]);
             setFinOpen(false); setFinNote("");
-            setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayNote(""); setPayFiles([]);
+            setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayNote(""); setPayFiles([]);
             setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt("");
             setCompleteOpen(false); setInvoiceFile(null);
             setEditPayOpen(false);
@@ -619,16 +707,38 @@ export default function PengajuanDetailModal({
             .filter(([, n]) => n)
     );
 
+    const payTargets = scopeTargets(data);
+    const buildAllocationPayload = () => {
+        if (payTargets.length <= 1) return [];
+        return payClassification.flatMap(cid => payTargets.map(t => ({
+            classification_id: Number(cid),
+            company_id: t.company_id,
+            outlet_id: t.outlet_id,
+            nominal: Number(stripRupiah(payAlloc[allocKey(cid, t.company_id, t.outlet_id)] || "")) || 0,
+        })));
+    };
+    const allocationMismatch = () => {
+        if (payTargets.length <= 1) return "";
+        const nom = Number(stripRupiah(payNominalBayar)) || 0;
+        if (!nom || !payClassification.length) return "";
+        const sum = buildAllocationPayload().reduce((s, r) => s + (r.nominal || 0), 0);
+        if (sum !== nom) return "Total alokasi harus sama dengan nominal bayar";
+        return "";
+    };
+
     const doPayment = async () => {
         if (!payClassification.length) return showToast("error", "Klasifikasi wajib dipilih");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
         if (payMethod === "kredit" && (!payTerminValue || !payTerminUnit)) return showToast("error", "Termin wajib diisi untuk kredit");
         if (!payFiles.length) return showToast("error", "Bukti pembayaran wajib dilampirkan");
+        const allocErr = allocationMismatch();
+        if (allocErr) return showToast("error", allocErr);
         setActing(true);
         try {
             const fd = new FormData();
             fd.append("classification_ids", JSON.stringify(payClassification));
             fd.append("classification_splits", JSON.stringify(buildSplitPayload()));
+            if (payTargets.length > 1) fd.append("allocations", JSON.stringify(buildAllocationPayload()));
             fd.append("payment_method", payMethod);
             if (payMethod === "kredit") {
                 fd.append("termin_value", payTerminValue);
@@ -665,6 +775,8 @@ export default function PengajuanDetailModal({
         if (!nomBayar) return showToast("error", "Nominal bayar wajib diisi");
         if (!payMethod) return showToast("error", "Metode pembayaran wajib dipilih");
         if (!payClassification.length) return showToast("error", "Klasifikasi wajib dipilih");
+        const allocErr = allocationMismatch();
+        if (allocErr) return showToast("error", allocErr);
 
         setActing(true);
         try {
@@ -676,6 +788,7 @@ export default function PengajuanDetailModal({
                     payment_method: payMethod,
                     classification_ids: payClassification.map(Number),
                     classification_splits: buildSplitPayload(),
+                    allocations: payTargets.length > 1 ? buildAllocationPayload() : [],
                 })
             });
             showToast("success", "Info pembayaran berhasil diperbarui");
@@ -1067,6 +1180,11 @@ export default function PengajuanDetailModal({
                                                              .filter(c => c.nominal)
                                                              .map(c => [String(c.id), formatRupiah(String(c.nominal))])
                                                      ));
+                                                     setPayAlloc(Object.fromEntries(
+                                                         (data.allocations || [])
+                                                             .filter(a => a.nominal)
+                                                             .map(a => [allocKey(a.classification_id, a.company_id, a.outlet_id), formatRupiah(String(a.nominal))])
+                                                     ));
                                                      setPayMethod(data.payment_method || "");
                                                      api("/pengajuan/classifications").then(r => setClassificationList(r.data || [])).catch(() => {});
                                                  }} className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold hover:underline">
@@ -1123,11 +1241,18 @@ export default function PengajuanDetailModal({
                                                          onAddCustom={doAddClassification}
                                                          adding={classAdding}
                                                          splits={payClassSplits}
-                                                         onSplitsChange={setPayClassSplits}
+                                                         onSplitsChange={payTargets.length > 1 ? undefined : setPayClassSplits}
+                                                         totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
+                                                     <AllocationSplit
+                                                         classIds={payClassification}
+                                                         classOptions={classificationList}
+                                                         targets={payTargets}
+                                                         value={payAlloc}
+                                                         onChange={setPayAlloc}
                                                          totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
                                                  </div>
                                                  <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
-                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayClassSplits({}); setPayMethod(""); }}
+                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayMethod(""); }}
                                                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" disabled={acting}>
                                                          Batal
                                                      </button>
@@ -1170,6 +1295,16 @@ export default function PengajuanDetailModal({
                                                          </div>
                                                      ) : (
                                                          <p className="font-semibold text-slate-700">{data.classification_name || "—"}</p>
+                                                     )}
+                                                     {(data.allocations || []).length > 1 && (
+                                                         <div className="mt-1.5 space-y-0.5">
+                                                             {data.allocations.map(a => (
+                                                                 <div key={allocKey(a.classification_id, a.company_id, a.outlet_id)} className="flex justify-between gap-2 text-[11px] text-slate-600">
+                                                                     <span className="min-w-0 truncate">{a.classification_name} · {a.outlet_name || a.company_name}</span>
+                                                                     <span className="shrink-0 tabular-nums font-semibold">{formatRp(a.nominal)}</span>
+                                                                 </div>
+                                                             ))}
+                                                         </div>
                                                      )}
                                                  </div>
                                              </div>
@@ -1587,7 +1722,14 @@ export default function PengajuanDetailModal({
                                                 onAddCustom={doAddClassification}
                                                 adding={classAdding}
                                                 splits={payClassSplits}
-                                                onSplitsChange={setPayClassSplits}
+                                                onSplitsChange={payTargets.length > 1 ? undefined : setPayClassSplits}
+                                                totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
+                                            <AllocationSplit
+                                                classIds={payClassification}
+                                                classOptions={classificationList}
+                                                targets={payTargets}
+                                                value={payAlloc}
+                                                onChange={setPayAlloc}
                                                 totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
                                         </div>
                                         {payMethod === "kredit" && (
@@ -1705,7 +1847,7 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
@@ -1875,6 +2017,7 @@ export default function PengajuanDetailModal({
                                     setPayOpen(true);
                                     setPayNB("");
                                     setPayAdminFee("");
+                                    setPayAlloc({});
                                     api("/pengajuan/classifications").then(r => {
                                         const list = r.data || [];
                                         setClassificationList(list);
