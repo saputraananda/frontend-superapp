@@ -171,11 +171,11 @@ export default function DashboardInventory() {
 
   const overview = data?.overview;
   const outlets = useMemo(() => data?.outlets || [], [data?.outlets]);
-  const catalog = data?.catalog || [];
-  const stockRows = data?.stockRows || [];
-  const lowStock = data?.lowStock || [];
-  const zeroStock = data?.zeroStock || [];
-  const movements7d = data?.movements7d || [];
+  const catalog = useMemo(() => data?.catalog || [], [data?.catalog]);
+  const stockRows = useMemo(() => data?.stockRows || [], [data?.stockRows]);
+  const lowStock = useMemo(() => data?.lowStock || [], [data?.lowStock]);
+  const zeroStock = useMemo(() => data?.zeroStock || [], [data?.zeroStock]);
+  const movements7d = useMemo(() => data?.movements7d || [], [data?.movements7d]);
   const matrix = data?.matrix || { outlets: [], items: [] };
   const recentLogs = data?.recentLogs || [];
 
