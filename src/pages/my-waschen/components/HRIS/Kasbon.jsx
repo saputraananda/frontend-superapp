@@ -730,7 +730,7 @@ export default function Kasbon() {
           <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-bold text-slate-800">Pantau Saldo Karyawan</h2>
-              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Limit, besaran pinjaman dan kasbon yang masih tertahan, serta saldo sisa. Klik baris untuk melihat riwayat.</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Limit bulan ini. Pinjaman yang tertahan adalah cicilan termin yang jatuh tempo bulan ini, bukan sisa total pinjaman.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative min-w-0 flex-1">
@@ -1061,6 +1061,7 @@ export default function Kasbon() {
                     <label className={labelCls}>Termin jatuh tempo sekarang</label>
                     <input type="number" min="1" value={opening.current_installment_no} onChange={(e) => setOpening((p) => ({ ...p, current_installment_no: e.target.value }))} className={fieldCls} />
                   </div>
+                  <p className="col-span-2 text-[11px] text-slate-400">Limit bulan ini hanya memotong cicilan per termin, bukan total saldo pinjaman.</p>
                 </div>
               )}
               <div>
