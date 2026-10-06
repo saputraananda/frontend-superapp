@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HiOutlineArrowPath, HiOutlineMagnifyingGlass, HiOutlineSparkles } from "react-icons/hi2";
+import { createPortal } from "react-dom";
+import { HiOutlineArrowPath, HiOutlineMagnifyingGlass, HiOutlineSparkles, HiOutlineTrash, HiOutlineXMark } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
@@ -35,6 +36,53 @@ function SessionDivider({ session, count }) {
   );
 }
 
+function todayIso() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function datesInRange(from, to) {
+  if (!from || !to) return [];
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
+  const out = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, "0");
+    const d = String(cur.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out.reverse();
+}
+
+function fmtDateCard(iso) {
+  if (!iso) return "—";
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function groupPhotosByRole(photos, collapseRoles) {
+  if (collapseRoles) return [{ role: null, photos }];
+  const map = new Map();
+  photos.forEach((p) => {
+    const k = p.role_code || "Lainnya";
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(p);
+  });
+  const rank = (r) => {
+    const i = CLEANLINESS_ROLE_ORDER.indexOf(r);
+    return i === -1 ? CLEANLINESS_ROLE_ORDER.length : i;
+  };
+  return [...map.keys()]
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+    .map((role) => ({ role, photos: map.get(role) }));
+}
+
 function matchFilter(emp, filter) {
   if (filter === "kosong") return emp.kosong > 0;
   if (filter === "kurang") return emp.kurang > 0;
@@ -61,6 +109,9 @@ export default function DashboardGrooming() {
 
   const [cleanlinessRows, setCleanlinessRows] = useState([]);
   const [cleanlinessLoading, setCleanlinessLoading] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState(null);
+  const [photoToDelete, setPhotoToDelete] = useState(null);
+  const [openDate, setOpenDate] = useState(null);
 
   const loadGrooming = useCallback(async (silent = false) => {
     if (!startDate || !endDate) return;
@@ -102,6 +153,22 @@ export default function DashboardGrooming() {
     }
   }, [startDate, endDate, appendFilters]);
 
+  const removeCleanlinessPhoto = async () => {
+    const photoId = photoToDelete?.cleanliness_photo_id;
+    if (!photoId) return;
+    setDeletingPhotoId(photoId);
+    setError("");
+    try {
+      await api(`/waschen/hris/attendance/cleanliness/${photoId}`, { method: "DELETE" });
+      setCleanlinessRows((rows) => rows.filter((p) => p.cleanliness_photo_id !== photoId));
+      setPhotoToDelete(null);
+    } catch (err) {
+      setError(err.message || "Gagal menghapus foto kebersihan");
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
+
   useLiveRefresh(() => {
     if (innerTab === "kebersihan") loadCleanliness(true);
     else loadGrooming(true);
@@ -126,22 +193,20 @@ export default function DashboardGrooming() {
       .map((e, i) => ({ ...e, rank: i + 1, dim: !matchFilter(e, statusFilter) }));
   }, [employees, statusFilter, search]);
 
-  const cleanlinessGroups = useMemo(() => {
-    if (hrisFilters.outletId || hrisFilters.role) return [{ role: null, photos: cleanlinessRows }];
+  const cleanlinessDates = useMemo(() => {
     const map = new Map();
     cleanlinessRows.forEach((p) => {
-      const k = p.role_code || "Lainnya";
+      const k = p.work_date || "";
+      if (!k) return;
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(p);
     });
-    const rank = (r) => {
-      const i = CLEANLINESS_ROLE_ORDER.indexOf(r);
-      return i === -1 ? CLEANLINESS_ROLE_ORDER.length : i;
-    };
-    return [...map.keys()]
-      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-      .map((role) => ({ role, photos: map.get(role) }));
-  }, [cleanlinessRows, hrisFilters.outletId, hrisFilters.role]);
+    const today = todayIso();
+    const rangeEnd = !cutoff.isCustomDate && endDate && endDate > today ? today : endDate;
+    const dates = datesInRange(startDate, rangeEnd);
+    const keys = dates.length ? dates : [...map.keys()].sort((a, b) => b.localeCompare(a));
+    return keys.map((date) => ({ date, photos: map.get(date) || [] }));
+  }, [cleanlinessRows, startDate, endDate, cutoff.isCustomDate]);
 
   const cards = [
     { id: "kosong", label: "Belum foto", people: summary.belum_foto_people, days: summary.kosong, tone: "border-rose-200 bg-rose-50/60 text-rose-800" },
@@ -176,7 +241,7 @@ export default function DashboardGrooming() {
           <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-bold text-slate-800">Foto Kebersihan</h2>
-              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Perwakilan per outlet + posisi + hari · difoto oleh siapa.</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Satu kartu per tanggal di periode filter. Klik tanggal untuk rincian per tim.</p>
             </div>
             <button type="button" onClick={() => loadCleanliness()} className="shrink-0 rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
               <HiOutlineArrowPath className={cn("h-4 w-4", cleanlinessLoading && "animate-spin")} />
@@ -198,59 +263,99 @@ export default function DashboardGrooming() {
             <div className="p-4 space-y-3">
               {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-100" />)}
             </div>
-          ) : cleanlinessRows.length === 0 ? (
+          ) : cleanlinessDates.length === 0 ? (
             <div className="py-16 text-center text-slate-400 px-4">
               <HiOutlineSparkles className="mx-auto mb-2 h-8 w-8 opacity-40" />
               <p className="text-sm font-semibold">Tidak ada foto kebersihan</p>
             </div>
           ) : (
-            <div className="p-3 sm:p-4 space-y-5">
-              {cleanlinessGroups.map((g) => (
-                <div key={g.role || "all"}>
-                  {g.role && (
-                    <h3 className="mb-2 flex w-full items-center justify-between gap-2 rounded-xl bg-[#5f1340]/10 px-3 py-2 text-xs">
-                      <span className="min-w-0 truncate font-bold text-[#5f1340]">{g.role}</span>
-                      <span className="shrink-0 font-semibold text-[#5f1340]/70">{g.photos.length} foto</span>
-                    </h3>
-                  )}
-                  {CLEANLINESS_SESSIONS.map((session) => {
-                    const photos = g.photos.filter((p) => (p.photo_session || "Pagi") === session);
-                    if (!photos.length) return null;
-                    return (
-                      <div key={session} className="mb-3">
-                        <SessionDivider session={session} count={photos.length} />
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {photos.map((p) => (
-                            <button
-                              key={p.cleanliness_photo_id}
-                              type="button"
-                              onClick={() => setPhotoView({ url: p.photo_url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
-                              className="text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#5f1340]/30 transition"
-                            >
-                              <div className="aspect-square bg-slate-100">
-                                {p.photo_url ? (
-                                  <img src={p.photo_url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
-                                ) : (
-                                  <div className="h-full w-full grid place-items-center text-slate-300 text-xs">No photo</div>
-                                )}
-                              </div>
-                              <div className="p-2.5 space-y-0.5">
-                                <p className="text-[11px] font-bold text-slate-800 truncate">{p.uploaded_by_name || "—"}</p>
-                                <p className="flex flex-wrap items-center gap-1 pt-0.5">
-                                  <span className="rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{p.role_code || "—"}</span>
-                                  <span className="text-[10px] font-semibold text-slate-600">{outletById.get(String(p.outlet_id))?.name || "—"}</span>
-                                </p>
-                                <p className="text-[10px] text-slate-500">{fmtDateShort(p.work_date)}</p>
-                                <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
+            <div className="p-3 sm:p-4 space-y-2">
+              {cleanlinessDates.map(({ date, photos }) => {
+                const open = openDate === date;
+                const dayNum = Number(String(date).slice(8, 10)) || date;
+                const groups = groupPhotosByRole(photos, Boolean(hrisFilters.outletId || hrisFilters.role));
+                return (
+                  <div key={date} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDate(open ? null : date)}
+                      className="flex w-full items-center gap-3 px-3 py-3 text-left sm:gap-4 sm:px-4"
+                    >
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#5f1340]/10 text-sm font-bold tabular-nums text-[#5f1340]">
+                        {dayNum}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-slate-800">{fmtDateCard(date)}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">{photos.length} foto</p>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
+                    </button>
+                    {open && (
+                      <div className="space-y-5 border-t border-slate-100 bg-slate-50/80 px-3 py-3 sm:px-4">
+                        {photos.length === 0 ? (
+                          <p className="py-6 text-center text-xs font-semibold text-slate-400">Tidak ada foto kebersihan</p>
+                        ) : groups.map((g) => (
+                          <div key={g.role || "all"}>
+                            {g.role && (
+                              <h3 className="mb-2 flex w-full items-center justify-between gap-2 rounded-xl bg-[#5f1340]/10 px-3 py-2 text-xs">
+                                <span className="min-w-0 truncate font-bold text-[#5f1340]">{g.role}</span>
+                                <span className="shrink-0 font-semibold text-[#5f1340]/70">{g.photos.length} foto</span>
+                              </h3>
+                            )}
+                            {CLEANLINESS_SESSIONS.map((session) => {
+                              const sessionPhotos = g.photos.filter((p) => (p.photo_session || "Pagi") === session);
+                              if (!sessionPhotos.length) return null;
+                              return (
+                                <div key={session} className="mb-3">
+                                  <SessionDivider session={session} count={sessionPhotos.length} />
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {sessionPhotos.map((p) => (
+                                      <div
+                                        key={p.cleanliness_photo_id}
+                                        className="relative text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm"
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => setPhotoView({ url: p.photo_url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
+                                          className="block w-full text-left hover:border-[#5f1340]/30"
+                                        >
+                                          <div className="aspect-square bg-slate-100">
+                                            {p.photo_url ? (
+                                              <img src={p.photo_url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
+                                            ) : (
+                                              <div className="h-full w-full grid place-items-center text-slate-300 text-xs">No photo</div>
+                                            )}
+                                          </div>
+                                          <div className="p-2.5 space-y-0.5">
+                                            <p className="text-[11px] font-bold text-slate-800 truncate">{p.uploaded_by_name || "—"}</p>
+                                            <p className="flex flex-wrap items-center gap-1 pt-0.5">
+                                              <span className="rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{p.role_code || "—"}</span>
+                                              <span className="text-[10px] font-semibold text-slate-600">{outletById.get(String(p.outlet_id))?.name || "—"}</span>
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
+                                          </div>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          title="Hapus foto"
+                                          disabled={deletingPhotoId === p.cleanliness_photo_id}
+                                          onClick={() => setPhotoToDelete(p)}
+                                          className="absolute right-2 top-2 rounded-lg bg-white/95 p-1.5 text-rose-600 shadow-sm hover:bg-rose-50 disabled:opacity-50"
+                                        >
+                                          <HiOutlineTrash className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -420,6 +525,29 @@ export default function DashboardGrooming() {
       )}
 
       <PhotoViewerModal open={Boolean(photoView)} url={photoView?.url} label={photoView?.label} onClose={() => setPhotoView(null)} />
+
+      {photoToDelete && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !deletingPhotoId && setPhotoToDelete(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
+              <h3 className="font-bold text-sm text-slate-800">Hapus foto kebersihan</h3>
+              <button type="button" onClick={() => setPhotoToDelete(null)} disabled={Boolean(deletingPhotoId)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="p-5 space-y-3 text-xs">
+              <p className="text-slate-600">
+                Hapus foto kebersihan <strong className="text-slate-800">{photoToDelete.uploaded_by_name || "ini"}</strong>
+                {photoToDelete.photo_session ? ` sesi ${photoToDelete.photo_session}` : ""}?
+              </p>
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">Foto ini akan dihapus permanen.</p>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setPhotoToDelete(null)} disabled={Boolean(deletingPhotoId)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
+                <button type="button" disabled={Boolean(deletingPhotoId)} onClick={removeCleanlinessPhoto} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{deletingPhotoId ? "Menghapus..." : "Hapus"}</button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

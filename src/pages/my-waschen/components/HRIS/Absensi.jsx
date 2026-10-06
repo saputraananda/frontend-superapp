@@ -172,6 +172,8 @@ export default function Absensi() {
     try { sessionStorage.setItem(PAGE_TAB_KEY, id); } catch { /* tab tetap di memori */ }
   };
   const [detailRow, setDetailRow] = useState(null);
+  const [deletingCleanId, setDeletingCleanId] = useState(null);
+  const [cleanPhotoToDelete, setCleanPhotoToDelete] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState("grooming");
 
@@ -221,6 +223,25 @@ export default function Absensi() {
       showToast("error", err.message || "Gagal memuat detail grooming");
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const removeCleanlinessPhoto = async () => {
+    const photoId = cleanPhotoToDelete?.id;
+    if (!photoId) return;
+    setDeletingCleanId(photoId);
+    try {
+      await api(`/waschen/hris/attendance/cleanliness/${photoId}`, { method: "DELETE" });
+      setDetailRow((row) => row && ({
+        ...row,
+        cleanliness_photos: (row.cleanliness_photos || []).filter((p) => p.id !== photoId),
+      }));
+      setCleanPhotoToDelete(null);
+      showToast("success", "Foto kebersihan dihapus");
+    } catch (err) {
+      showToast("error", err.message || "Gagal menghapus foto kebersihan");
+    } finally {
+      setDeletingCleanId(null);
     }
   };
 
@@ -755,24 +776,34 @@ export default function Absensi() {
                           <SessionDivider session={session} count={photos.length} />
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {photos.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => setPhotoView({ url: p.url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
-                              className="text-left rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#5f1340]/40 hover:shadow transition"
-                            >
-                              <div className="aspect-[4/5] bg-slate-100">
-                                {p.url ? (
-                                  <img src={p.url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
-                                ) : (
-                                  <div className="h-full w-full grid place-items-center text-slate-300">No photo</div>
-                                )}
-                              </div>
-                              <div className="p-2.5 space-y-0.5">
-                                <p className="font-bold text-slate-800 leading-snug line-clamp-2">{p.uploaded_by_name || "—"}</p>
-                                <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
-                              </div>
-                            </button>
+                            <div key={p.id} className="relative rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                              <button
+                                type="button"
+                                onClick={() => setPhotoView({ url: p.url, label: `Kebersihan · ${p.uploaded_by_name || "—"}` })}
+                                className="block w-full text-left"
+                              >
+                                <div className="aspect-[4/5] bg-slate-100">
+                                  {p.url ? (
+                                    <img src={p.url} alt="Kebersihan" className="h-full w-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="h-full w-full grid place-items-center text-slate-300">No photo</div>
+                                  )}
+                                </div>
+                                <div className="p-2.5 space-y-0.5">
+                                  <p className="font-bold text-slate-800 leading-snug line-clamp-2">{p.uploaded_by_name || "—"}</p>
+                                  <p className="text-[10px] text-slate-400">{fmtDateTime(p.taken_at)}</p>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                title="Hapus foto"
+                                disabled={deletingCleanId === p.id}
+                                onClick={() => setCleanPhotoToDelete(p)}
+                                className="absolute right-2 top-2 rounded-lg bg-white/95 p-1.5 text-rose-600 shadow-sm hover:bg-rose-50 disabled:opacity-50"
+                              >
+                                <HiOutlineTrash className="h-4 w-4" />
+                              </button>
+                            </div>
                           ))}
                         </div>
                         </div>
@@ -838,6 +869,27 @@ export default function Absensi() {
               </div>
             </div>
           </form>
+        </div>, document.body)}
+
+      {cleanPhotoToDelete && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => !deletingCleanId && setCleanPhotoToDelete(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
+              <h3 className="font-bold text-sm text-slate-800">Hapus foto kebersihan</h3>
+              <button type="button" onClick={() => setCleanPhotoToDelete(null)} disabled={Boolean(deletingCleanId)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="p-5 space-y-3 text-xs">
+              <p className="text-slate-600">
+                Hapus foto kebersihan <strong className="text-slate-800">{cleanPhotoToDelete.uploaded_by_name || "ini"}</strong>
+                {cleanPhotoToDelete.photo_session ? ` sesi ${cleanPhotoToDelete.photo_session}` : ""}?
+              </p>
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">Foto ini akan dihapus permanen.</p>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setCleanPhotoToDelete(null)} disabled={Boolean(deletingCleanId)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
+                <button type="button" disabled={Boolean(deletingCleanId)} onClick={removeCleanlinessPhoto} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{deletingCleanId ? "Menghapus..." : "Hapus"}</button>
+              </div>
+            </div>
+          </div>
         </div>, document.body)}
 
       {deleteRow && createPortal(
