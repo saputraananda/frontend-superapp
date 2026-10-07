@@ -15,6 +15,7 @@ import {
   HiOutlineBanknotes,
   HiOutlineClock,
   HiOutlineBuildingStorefront,
+  HiOutlineBellAlert,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -105,6 +106,13 @@ const MENU_GROUPS = [
         icon: HiOutlineBanknotes,
         label: "Piutang",
         description: "Receivables POS belum lunas",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/aging-reminder",
+        icon: HiOutlineBellAlert,
+        label: "Aging & Reminder Layanan",
+        description: "Reminder siklus cuci pelanggan",
         end: true,
       },
     ],
