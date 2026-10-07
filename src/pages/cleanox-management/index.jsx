@@ -15,6 +15,7 @@ import {
   HiOutlineBanknotes,
   HiOutlineClock,
   HiOutlineBuildingStorefront,
+  HiOutlineBellAlert,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -107,6 +108,13 @@ const MENU_GROUPS = [
         description: "Receivables POS belum lunas",
         end: true,
       },
+      {
+        to: "/cleanox-management-system/aging-reminder",
+        icon: HiOutlineBellAlert,
+        label: "Aging & Reminder Layanan",
+        description: "Reminder siklus cuci pelanggan",
+        end: true,
+      },
     ],
   },
   {
@@ -124,6 +132,13 @@ const MENU_GROUPS = [
         icon: HiOutlineBriefcase,
         label: "Master Service",
         description: "Kelola layanan Cleanox",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/aging-services",
+        icon: HiOutlineClock,
+        label: "Master Layanan Age",
+        description: "Atur batas hari siklus aging layanan",
         end: true,
       },
     ],
