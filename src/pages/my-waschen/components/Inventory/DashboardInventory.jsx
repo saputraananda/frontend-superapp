@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   HiOutlineArchiveBox,
+  HiOutlineArrowDownTray,
   HiOutlineArrowPath,
   HiOutlineArrowRight,
   HiOutlineBuildingStorefront,
@@ -17,6 +18,7 @@ import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
+import { exportInventoryData } from "./utils/exportInventoryData";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -107,6 +109,7 @@ export default function DashboardInventory() {
   const [searchInput, setSearchInput] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [detailKey, setDetailKey] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [detailFilter, setDetailFilter] = useState("");
   const hasLoadedRef = useRef(false);
 
@@ -168,13 +171,25 @@ export default function DashboardInventory() {
 
   const overview = data?.overview;
   const outlets = useMemo(() => data?.outlets || [], [data?.outlets]);
-  const catalog = data?.catalog || [];
-  const stockRows = data?.stockRows || [];
-  const lowStock = data?.lowStock || [];
-  const zeroStock = data?.zeroStock || [];
-  const movements7d = data?.movements7d || [];
+  const catalog = useMemo(() => data?.catalog || [], [data?.catalog]);
+  const stockRows = useMemo(() => data?.stockRows || [], [data?.stockRows]);
+  const lowStock = useMemo(() => data?.lowStock || [], [data?.lowStock]);
+  const zeroStock = useMemo(() => data?.zeroStock || [], [data?.zeroStock]);
+  const movements7d = useMemo(() => data?.movements7d || [], [data?.movements7d]);
   const matrix = data?.matrix || { outlets: [], items: [] };
   const recentLogs = data?.recentLogs || [];
+
+  const downloadExcel = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      await exportInventoryData({ outlets, catalog, stockRows });
+    } catch (err) {
+      setError(err.message || "Gagal mengunduh Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const worstOutlet = useMemo(() => {
     if (!outlets.length) return null;
@@ -227,6 +242,15 @@ export default function DashboardInventory() {
             Manajemen Inventory
             <HiOutlineArrowRight className="h-4 w-4" />
           </Link>
+          <button
+            type="button"
+            onClick={downloadExcel}
+            disabled={exporting || !data}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/25 bg-white px-3.5 py-2.5 text-xs font-semibold text-[#5f1340] hover:bg-white/90 disabled:opacity-50"
+          >
+            <HiOutlineArrowDownTray className="h-4 w-4" />
+            {exporting ? "Mengunduh..." : "Download"}
+          </button>
           <button
             type="button"
             onClick={() => load({ silent: true })}

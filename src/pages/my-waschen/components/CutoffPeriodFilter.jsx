@@ -7,6 +7,27 @@ const INPUT_HERO =
   "mt-1 block w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-xs font-semibold text-white outline-none backdrop-blur-sm [color-scheme:dark] focus:ring-2 focus:ring-white/30";
 const INPUT_COMPACT =
   "w-full min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40";
+function TodayCheck({ cutoff, hero = false }) {
+  const on = !!cutoff.todayOnly;
+  return (
+    <label className={cn(
+      "inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold",
+      hero
+        ? (on ? "border-white bg-white text-[#5f1340]" : "border-white/20 bg-white/10 text-white")
+        : (on ? "border-[#5f1340] bg-[#5f1340] text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"),
+    )}
+    >
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={() => cutoff.toggleToday()}
+        className={cn("h-4 w-4 rounded", on && !hero ? "accent-white" : "accent-[#5f1340]")}
+      />
+      Hari Ini
+    </label>
+  );
+}
+
 const LABEL_DEFAULT = "text-[10px] font-bold uppercase tracking-wider text-slate-400 block";
 const LABEL_HERO = "text-[10px] font-bold uppercase tracking-wider text-white/70 block";
 
@@ -23,6 +44,8 @@ export default function CutoffPeriodFilter({
   periodBadgePrefix = "Periode",
   /** Override opsi tahun (mis. dari DB). Fallback ke cutoff.years */
   years: yearsProp,
+  /** Centang cepat: rentang tanggal jadi hari ini. */
+  showToday = false,
 }) {
   const {
     isCustomDate,
@@ -136,11 +159,12 @@ export default function CutoffPeriodFilter({
             </>
           ))}
         </div>
+        {showToday && <TodayCheck cutoff={cutoff} />}
         {showPeriodBadge && (showAll ? (
           <p className="text-[10px] font-semibold text-slate-400 px-0.5">{allLabel}</p>
         ) : dateFrom && dateTo ? (
           <p className="text-[10px] font-semibold text-slate-400 px-0.5">
-            {periodBadgePrefix} {fmtDateShort(dateFrom)} – {fmtDateShort(dateTo)}
+            {cutoff.todayOnly ? "Hari ini" : periodBadgePrefix} {fmtDateShort(dateFrom)}{cutoff.todayOnly ? "" : ` – ${fmtDateShort(dateTo)}`}
           </p>
         ) : null)}
       </div>
@@ -213,12 +237,15 @@ export default function CutoffPeriodFilter({
           </>
         )}
 
-        {!showAll && (
-          <div className="sm:col-span-2 lg:col-span-1 flex items-end">
-            <button type="button" onClick={toggleCustom} className={toggleCls}>
-              <HiOutlineCalendarDays className={cn("h-4 w-4 shrink-0", isHero ? "text-white/70" : "text-slate-400")} />
-              <span className="truncate">{isCustomDate ? "Cutoff Bulanan" : "Custom Tanggal"}</span>
-            </button>
+        {(showToday || !showAll) && (
+          <div className="sm:col-span-2 lg:col-span-2 flex flex-wrap items-end gap-2">
+            {showToday && <TodayCheck cutoff={cutoff} hero={isHero} />}
+            {!showAll && (
+              <button type="button" onClick={toggleCustom} className={toggleCls}>
+                <HiOutlineCalendarDays className={cn("h-4 w-4 shrink-0", isHero ? "text-white/70" : "text-slate-400")} />
+                <span className="truncate">{isCustomDate ? "Cutoff Bulanan" : "Custom Tanggal"}</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -227,7 +254,7 @@ export default function CutoffPeriodFilter({
         <div className={badgeCls}>{allLabel} — tanpa filter tanggal terdaftar</div>
       ) : dateFrom && dateTo ? (
         <div className={badgeCls}>
-          {periodBadgePrefix}: {fmtDateShort(dateFrom)} – {fmtDateShort(dateTo)}
+          {cutoff.todayOnly ? "Hari ini" : periodBadgePrefix}: {fmtDateShort(dateFrom)}{cutoff.todayOnly ? "" : ` – ${fmtDateShort(dateTo)}`}
         </div>
       ) : null)}
     </div>
