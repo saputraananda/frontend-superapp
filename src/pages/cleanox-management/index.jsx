@@ -134,6 +134,13 @@ const MENU_GROUPS = [
         description: "Kelola layanan Cleanox",
         end: true,
       },
+      {
+        to: "/cleanox-management-system/aging-services",
+        icon: HiOutlineClock,
+        label: "Master Layanan Age",
+        description: "Atur batas hari siklus aging layanan",
+        end: true,
+      },
     ],
   },
 ];
