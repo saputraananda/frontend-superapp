@@ -69,6 +69,11 @@ export default function JadwalLibur() {
   const [assignReason, setAssignReason] = useState("");
   const [pickedEmployees, setPickedEmployees] = useState([]);
   const [empSearch, setEmpSearch] = useState("");
+  const [approveRow, setApproveRow] = useState(null);
+  const [backupId, setBackupId] = useState("");
+  const [backupSearch, setBackupSearch] = useState("");
+  const [assignBackupId, setAssignBackupId] = useState("");
+  const [assignBackupSearch, setAssignBackupSearch] = useState("");
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -166,16 +171,46 @@ export default function JadwalLibur() {
 
   const toggleEmployee = (id) => {
     const key = String(id);
-    setPickedEmployees((prev) =>
-      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
-    );
+    setPickedEmployees((prev) => {
+      const next = prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key];
+      if (next.length !== 1) setAssignBackupId("");
+      return next;
+    });
   };
 
-  const approve = async (id) => {
+  const hrdOffIds = useMemo(
+    () => new Set(dayRows.filter((r) => r.status === "disetujui").map((r) => String(r.employee_id))),
+    [dayRows],
+  );
+
+  const backupChoices = (excludeId, keyword) => {
+    const kw = keyword.trim().toLowerCase();
+    return employees.filter((e) => {
+      const id = String(e.employee_id);
+      if (id === String(excludeId)) return false;
+      if (hrdOffIds.has(id)) return false;
+      if (!kw) return true;
+      return e.full_name?.toLowerCase().includes(kw) || e.employee_code?.toLowerCase().includes(kw);
+    });
+  };
+
+  const openApprove = (row) => {
+    setApproveRow(row);
+    setBackupId("");
+    setBackupSearch("");
+  };
+
+  const approve = async () => {
+    if (!approveRow) return;
     setSubmitting(true);
     try {
-      await api(`/waschen/hris/day-offs/${id}/approve`, { method: "PATCH" });
+      await api(`/waschen/hris/day-offs/${approveRow.day_off_id}/approve`, {
+        method: "PATCH",
+        body: JSON.stringify({ backup_employee_id: backupId ? Number(backupId) : null }),
+      });
       showToast("success", "Jadwal libur disetujui");
+      setApproveRow(null);
+      setBackupId("");
       load();
       if (selectedDay) loadDay(selectedDay);
     } catch (err) {
@@ -240,6 +275,7 @@ export default function JadwalLibur() {
               employee_id: Number(empId),
               off_date: selectedDay,
               reason: assignReason.trim(),
+              backup_employee_id: pickedEmployees.length === 1 && assignBackupId ? Number(assignBackupId) : null,
             }),
           });
           ok += 1;
@@ -251,6 +287,8 @@ export default function JadwalLibur() {
         showToast("success", `${ok} karyawan ditetapkan libur`);
         setPickedEmployees([]);
         setAssignReason("");
+        setAssignBackupId("");
+        setAssignBackupSearch("");
         load();
       }
       loadDay(selectedDay);
@@ -389,6 +427,9 @@ export default function JadwalLibur() {
                             )}
                             <p className="font-bold text-slate-800 truncate">{fmtEmployeeName(r.employee_name)}</p>
                             {r.employee_code && <p className="text-[10px] text-slate-400">{r.employee_code}</p>}
+                            {r.status === "disetujui" && r.backup_name && (
+                              <p className="text-[11px] text-sky-700 mt-1">Backup: {fmtEmployeeName(r.backup_name)}</p>
+                            )}
                             {r.reason && <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{r.reason}</p>}
                             {r.leader_note && <p className="text-[11px] text-slate-500 mt-1">Catatan leader: {r.leader_note}</p>}
                           </div>
@@ -399,7 +440,7 @@ export default function JadwalLibur() {
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {["pengajuan", "disetujui_leader", "ditolak_leader"].includes(r.status) && (
                             <>
-                              <button type="button" disabled={submitting} onClick={() => approve(r.day_off_id)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white disabled:opacity-50">Setujui</button>
+                              <button type="button" disabled={submitting} onClick={() => openApprove(r)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white disabled:opacity-50">Setujui</button>
                               <button type="button" disabled={submitting} onClick={() => setRejectRow(r)} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[10px] font-bold text-rose-600 disabled:opacity-50">Tolak</button>
                             </>
                           )}
@@ -450,6 +491,32 @@ export default function JadwalLibur() {
                   <span className={LABEL_CLS}>Alasan</span>
                   <textarea required value={assignReason} onChange={(e) => setAssignReason(e.target.value)} rows={2} placeholder="Alasan libur..." className={INPUT_CLS} />
                 </label>
+                {pickedEmployees.length === 1 && (
+                  <div>
+                    <span className={LABEL_CLS}>Backup (opsional)</span>
+                    <input
+                      value={assignBackupSearch}
+                      onChange={(e) => setAssignBackupSearch(e.target.value)}
+                      placeholder="Cari karyawan backup..."
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#5f1340]/40"
+                    />
+                    <div className="mt-1 max-h-32 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                      {backupChoices(pickedEmployees[0], assignBackupSearch).map((e) => {
+                        const id = String(e.employee_id);
+                        return (
+                          <label key={id} className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-50", assignBackupId === id && "bg-sky-50")}>
+                            <input type="radio" name="assign-backup" checked={assignBackupId === id} onChange={() => setAssignBackupId(id)} className="text-sky-600" />
+                            <span className="font-semibold text-slate-800">{fmtEmployeeName(e.full_name)}</span>
+                            {e.employee_code && <span className="text-[10px] text-slate-400">{e.employee_code}</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {assignBackupId && (
+                      <button type="button" onClick={() => setAssignBackupId("")} className="mt-1 text-[10px] font-semibold text-slate-500">Hapus pilihan backup</button>
+                    )}
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={submitting || pickedEmployees.length === 0 || !assignReason.trim()}
@@ -478,6 +545,52 @@ export default function JadwalLibur() {
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onClick={() => setRescheduleRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
                 <button type="button" disabled={submitting} onClick={reschedule} className="rounded-xl bg-[#5f1340] px-4 py-2 font-semibold text-white disabled:opacity-50">Simpan</button>
+              </div>
+            </div>
+          </div>
+        </div>, document.body)}
+
+      {approveRow && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setApproveRow(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
+              <h3 className="font-bold text-sm">Setujui Jadwal Libur</h3>
+              <button type="button" onClick={() => setApproveRow(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="p-5 space-y-3 text-xs">
+              <p className="text-slate-600">
+                Karyawan: <strong className="text-slate-800">{fmtEmployeeName(approveRow.employee_name)}</strong>
+                {" · "}{fmtDateShort(approveRow.off_date)}
+              </p>
+              <div>
+                <span className={LABEL_CLS}>Backup (opsional, 1 orang)</span>
+                <input
+                  value={backupSearch}
+                  onChange={(e) => setBackupSearch(e.target.value)}
+                  placeholder="Cari karyawan backup..."
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#5f1340]/40"
+                />
+                <div className="mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                  {backupChoices(approveRow.employee_id, backupSearch).length === 0 ? (
+                    <p className="p-3 text-center text-slate-400">Tidak ada karyawan</p>
+                  ) : backupChoices(approveRow.employee_id, backupSearch).map((e) => {
+                    const id = String(e.employee_id);
+                    return (
+                      <label key={id} className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-50", backupId === id && "bg-sky-50")}>
+                        <input type="radio" name="approve-backup" checked={backupId === id} onChange={() => setBackupId(id)} className="text-sky-600" />
+                        <span className="font-semibold text-slate-800">{fmtEmployeeName(e.full_name)}</span>
+                        {e.employee_code && <span className="text-[10px] text-slate-400">{e.employee_code}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+                {backupId && (
+                  <button type="button" onClick={() => setBackupId("")} className="mt-1 text-[10px] font-semibold text-slate-500">Hapus pilihan backup</button>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setApproveRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
+                <button type="button" disabled={submitting} onClick={approve} className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Setujui</button>
               </div>
             </div>
           </div>
