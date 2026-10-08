@@ -220,7 +220,8 @@ export default function Profile() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((p) => ({ ...p, [name]: value }));
+    const next = name === "blood_type" ? String(value || "").toUpperCase().replace(/\s+/g, "") : value;
+    setFormData((p) => ({ ...p, [name]: next }));
     if (fieldErrors[name]) setFieldErrors((p) => ({ ...p, [name]: "" }));
   };
 
@@ -269,7 +270,7 @@ export default function Profile() {
   };
 
   const ALL_FIELDS = useMemo(() => [
-    "full_name", "email", "private_email", "gender", "birth_place", "birth_date", "phone_number",
+    "full_name", "email", "private_email", "gender", "birth_place", "birth_date", "blood_type", "phone_number",
     "address", "ktp_number", "family_card_number", "religion_id", "marital_status",
     "company_id", "department_id", "position_id", "employment_status_id", "join_date",
     "contract_end_date", "education_level_id", "school_name", "major_name", "bank_id",
@@ -652,6 +653,10 @@ export default function Profile() {
                           <Field label="Tanggal Lahir">
                             <input type="date" name="birth_date" value={formData.birth_date || ""} onChange={handleChange}
                               className={inputCls(false)} />
+                          </Field>
+                          <Field label="Golongan Darah">
+                            <input type="text" name="blood_type" value={formData.blood_type || ""} onChange={handleChange}
+                              className={`${inputCls(false)} uppercase`} placeholder="Contoh: B" maxLength={3} autoCapitalize="characters" />
                           </Field>
                           <Field label="Agama">
                             <select name="religion_id" value={formData.religion_id || ""} onChange={handleChange} className={selectCls(false)}>
