@@ -63,14 +63,50 @@ function formatDateTimeIndo(dateStr) {
   }
 }
 
-function buildWhatsAppUrl(phone, message) {
+function buildWhatsAppUrl(phone, message, forceDirectWaMe = false) {
   if (!phone) return null;
   let digits = String(phone).replace(/\D/g, "");
   if (!digits) return null;
-  if (digits.startsWith("0")) digits = "62" + digits.slice(1);
-  else if (digits.startsWith("8")) digits = "628" + digits.slice(1);
-  const encoded = encodeURIComponent(message || "");
-  return `https://wa.me/${digits}?text=${encoded}`;
+  if (digits.startsWith("620")) digits = "62" + digits.slice(3);
+  else if (digits.startsWith("0")) digits = "62" + digits.slice(1);
+  else if (digits.startsWith("8")) digits = "62" + digits;
+  const encoded = encodeURIComponent((message || "").trim());
+
+  if (forceDirectWaMe) {
+    return `https://wa.me/${digits}?text=${encoded}`;
+  }
+
+  // Jika mobile browser, gunakan wa.me agar langsung memicu app WhatsApp.
+  // Jika desktop / PC CS, gunakan web.whatsapp.com agar langsung ke chat WhatsApp Web
+  // tanpa layar perantara api.whatsapp dan mencegah bug redirect Meta yang merusak emoji.
+  const isMobile =
+    typeof navigator !== "undefined" &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    return `https://wa.me/${digits}?text=${encoded}`;
+  }
+  return `https://web.whatsapp.com/send?phone=${digits}&text=${encoded}`;
+}
+
+function getItemNoun(categoryKey, serviceName) {
+  const k = (categoryKey || "").toLowerCase();
+  const s = (serviceName || "").toLowerCase();
+
+  if (k.includes("tas") || s.includes("tas")) return "tas";
+  if (k.includes("sepatu") || s.includes("sepatu")) return "sepatu";
+  if (k.includes("kasur") || s.includes("kasur") || s.includes("bed") || s.includes("matras") || s.includes("springbed")) return "kasur";
+  if (k.includes("sofa") || s.includes("sofa") || s.includes("kursi") || k.includes("deep_clean_sofa_kursi")) return "sofa & kursi";
+  if (k.includes("bantal") || s.includes("bantal") || s.includes("guling")) return "bantal & guling";
+  if (k.includes("sajadah") || s.includes("sajadah")) return "sajadah";
+  if (k.includes("stroller") || s.includes("stroller") || s.includes("baby")) return "stroller";
+  if (k.includes("karpet") || s.includes("karpet") || s.includes("carpet")) return "karpet";
+  if (k.includes("gordyn") || s.includes("gordyn") || s.includes("vitrase")) return "gordyn & vitrase";
+  if (k.includes("headboard") || s.includes("headboard") || s.includes("dipan")) return "headboard";
+  if (k.includes("mobil") || s.includes("mobil") || s.includes("interior")) return "interior mobil";
+  if (k.includes("koper") || s.includes("koper")) return "koper";
+  if (k.includes("general") || s.includes("general cleaning")) return "ruangan";
+  return "barang";
 }
 
 export default function CustomerAgingCleanox() {
@@ -227,25 +263,29 @@ export default function CustomerAgingCleanox() {
   // Generate Default WA CRM Template
   const generateWaMessage = (item) => {
     if (!item) return "";
-    const customerName = item.customer_name || "Pelanggan Setia";
+    const rawName = (item.customer_name || "").trim();
+    // Bersihkan sebutan jika nama pelanggan sudah diawali kata sapaan
+    const cleanName = rawName.replace(/^(kakak|kak|ibu|bapak|pak)\s+/i, "").trim();
+    const displayName = cleanName ? `Kak ${cleanName}` : (rawName ? `Kak ${rawName}` : "Kakak");
     const serviceName = item.service_name || item.category_label || "layanan";
-    const tglSelesaiFormatted = formatDateIndo(item.tgl_selesai);
 
-    if (item.is_cross_selling) {
+    if (item.is_cross_selling || (item.category_key || "").toLowerCase().includes("koper")) {
       return (
-        `Halo Kak ${customerName}! 👋\n\n` +
-        `Terima kasih telah mempercayakan perawatan barang di Cleanox.\n` +
-        `Sebagai informasi, Cleanox saat ini juga menyediakan layanan pembersihan & perawatan khusus Koper, Kasur, Sofa, hingga Interior Mobil agar selalu bersih dan higienis.\n\n` +
-        `Apakah ada perlengkapan atau koper yang ingin dibersihkan untuk agenda bepergian Kakak selanjutnya? Kami siap membantu jemput & antar! ✨`
+        `Halo ${displayName}! ☺️\n\n` +
+        `Terima kasih sudah mempercayakan perawatan perlengkapan Kakak di Cleanox🤍\n\n` +
+        `Sebagai informasi, Cleanox juga menyediakan layanan perawatan berkala untuk Koper agar selalu bersih, higienis, dan siap menemani perjalanan Kakak berikutnya ✨\n\n` +
+        `Apakah ${displayName} mau Minox bantu jadwalkan penjemputan dan perawatan kopernya?🥰🙏🏻`
       );
     }
 
+    const itemNoun = getItemNoun(item.category_key, item.service_name);
+    const thresholdDays = item.threshold_days || 75;
+
     return (
-      `Halo Kak ${customerName}! 👋\n\n` +
-      `Terima kasih sebelumnya telah mempercayakan perawatan *${serviceName}* di Cleanox.\n\n` +
-      `Berdasarkan catatan pengerjaan terakhir pada *${tglSelesaiFormatted}* (sudah sekitar *${item.aging_days} hari* yang lalu).\n` +
-      `Untuk menjaga kebersihan, kenyamanan, serta higienitas secara optimal (standar siklus: *${item.threshold_days} hari*), saat ini sudah memasuki waktu yang tepat untuk perawatan berkala kembali.\n\n` +
-      `Apakah ada yang bisa kami bantu jadwalkan penjemputan / pengerjaan ulang di minggu ini Kak? Kami siap melayani! 😊🙏`
+      `Halo ${displayName}! ☺️\n\n` +
+      `Terima kasih sudah mempercayakan ${serviceName} Kakak di Cleanox🤍\n\n` +
+      `Untuk menjaga kebersihan, kenyamanan, dan kondisi ${itemNoun} tetap optimal, perawatan berkala disarankan setiap ${thresholdDays} hari. Saat ini sudah waktunya untuk melakukan perawatan kembali ✨\n\n` +
+      `Apakah ${displayName} mau Minox bantu jadwalkan penjemputan dan perawatan kembali?🥰🙏🏻`
     );
   };
 
@@ -256,10 +296,10 @@ export default function CustomerAgingCleanox() {
   };
 
   // Kirim WhatsApp dan langsung otomatis mencatat reminder ke database
-  const handleSendWa = async () => {
+  const handleSendWa = async (forceWaMe = false) => {
     if (!waTargetItem) return;
     const phone = waTargetItem.normalized_phone || waTargetItem.customer_phone;
-    const url = buildWhatsAppUrl(phone, customWaMessage);
+    const url = buildWhatsAppUrl(phone, customWaMessage, forceWaMe);
     if (url) {
       window.open(url, "_blank", "noopener,noreferrer");
     }
@@ -1228,22 +1268,32 @@ export default function CustomerAgingCleanox() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 border-t border-slate-100 bg-slate-50/75">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-100 bg-slate-50/75">
               <button
                 type="button"
-                onClick={() => setWaModalOpen(false)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 transition"
+                onClick={() => handleSendWa(true)}
+                className="text-xs font-medium text-slate-500 hover:text-emerald-700 underline underline-offset-2 transition"
+                title="Buka langsung via tautan wa.me"
               >
-                Batal
+                Buka via wa.me
               </button>
-              <button
-                type="button"
-                onClick={handleSendWa}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition"
-              >
-                <HiOutlineChatBubbleLeftRight className="h-4 w-4" />
-                <span>Buka WhatsApp & Tandai Terkirim</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setWaModalOpen(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendWa(false)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition"
+                >
+                  <HiOutlineChatBubbleLeftRight className="h-4 w-4" />
+                  <span>Buka WhatsApp & Tandai Terkirim</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>,
