@@ -4,7 +4,7 @@ import {
   HiOutlineChevronRight,
   HiOutlineCalendarDays,
 } from "react-icons/hi2";
-import { cn, fmtDateShort, fmtEmployeeName } from "../../utils/hrisUtils";
+import { cn, fmtDateShort, fmtEmployeeName, dayOffStatusLabel } from "../../utils/hrisUtils";
 import { toDateInput } from "../../utils/cutoffPeriod";
 
 const WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
@@ -47,10 +47,27 @@ function buildCutoffCells(rangeFrom, rangeTo) {
   return cells;
 }
 
+const LEGEND = [
+  { cls: "bg-amber-500", label: "Pengajuan" },
+  { cls: "bg-sky-600", label: "Disetujui leader" },
+  { cls: "bg-emerald-600", label: "Disetujui HRD" },
+  { cls: "bg-rose-500", label: "Ditolak leader / HRD" },
+];
+
 function eventTone(status) {
-  if (status === "disetujui") return "bg-violet-600 text-white shadow-sm";
-  if (status === "ditolak") return "bg-rose-500 text-white line-through opacity-80";
+  if (status === "disetujui") return "bg-emerald-600 text-white shadow-sm";
+  if (status === "disetujui_leader") return "bg-sky-600 text-white shadow-sm";
+  if (status === "ditolak_leader" || status === "ditolak") return "bg-rose-500 text-white";
   return "bg-amber-500 text-white shadow-sm";
+}
+
+function leaderLine(status) {
+  if (status === "pengajuan") return "Belum leader";
+  if (status === "disetujui_leader") return "Sudah leader";
+  if (status === "ditolak_leader") return "Ditolak leader";
+  if (status === "disetujui") return "Disetujui HRD";
+  if (status === "ditolak") return "Ditolak HRD";
+  return dayOffStatusLabel(status);
 }
 
 export default function DayOffCalendar({
@@ -122,6 +139,15 @@ export default function DayOffCalendar({
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
+        {LEGEND.map((item) => (
+          <span key={item.label} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            <span className={cn("h-2.5 w-2.5 rounded-sm", item.cls)} />
+            {item.label}
+          </span>
+        ))}
+      </div>
+
       <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-200/70">
         {WEEKDAYS.map((d) => (
           <div key={d} className="px-1 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-600 sm:text-xs">
@@ -185,10 +211,11 @@ export default function DayOffCalendar({
                   {events.slice(0, MAX_VISIBLE).map((ev) => (
                     <div
                       key={ev.day_off_id}
-                      className={cn("truncate rounded px-1 py-0.5 text-[9px] font-semibold sm:text-[10px]", eventTone(ev.status))}
-                      title={`${fmtEmployeeName(ev.employee_name)} · ${ev.status}`}
+                      className={cn("rounded px-1 py-0.5 leading-tight", eventTone(ev.status))}
+                      title={`${fmtEmployeeName(ev.employee_name)} · ${dayOffStatusLabel(ev.status)}`}
                     >
-                      {fmtEmployeeName(ev.employee_name)}
+                      <p className="truncate text-[9px] font-semibold sm:text-[10px]">{fmtEmployeeName(ev.employee_name)}</p>
+                      <p className="truncate text-[8px] font-medium opacity-90">{leaderLine(ev.status)}</p>
                     </div>
                   ))}
                   {events.length > MAX_VISIBLE && (
@@ -209,9 +236,6 @@ export default function DayOffCalendar({
       )}
 
       <div className="flex flex-wrap gap-3 border-t border-slate-200 bg-white px-4 py-3 text-[10px] sm:text-xs text-slate-600">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-violet-600" /> Disetujui</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Pengajuan</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Ditolak</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-white ring-2 ring-[#5f1340]" /> Hari ini</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-slate-100 border border-slate-300" /> Bulan sebelumnya (26–)</span>
       </div>

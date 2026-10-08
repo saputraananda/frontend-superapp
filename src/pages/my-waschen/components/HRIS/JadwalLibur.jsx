@@ -27,7 +27,7 @@ import {
   cn,
   fmtDateShort,
   dayOffStatusBadge,
-  capitalizeStatus,
+  dayOffStatusLabel,
   fmtEmployeeName,
 } from "../../utils/hrisUtils";
 import { toDateInput } from "../../utils/cutoffPeriod";
@@ -37,8 +37,10 @@ import DayOffCalendar from "./DayOffCalendar";
 const STATUS_FILTERS = [
   { key: "Semua", label: "Semua" },
   { key: "pengajuan", label: "Pengajuan" },
-  { key: "disetujui", label: "Disetujui" },
-  { key: "ditolak", label: "Ditolak" },
+  { key: "disetujui_leader", label: "Disetujui leader" },
+  { key: "disetujui", label: "Disetujui HRD" },
+  { key: "ditolak_leader", label: "Ditolak leader" },
+  { key: "ditolak", label: "Ditolak HRD" },
 ];
 
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
@@ -290,12 +292,12 @@ export default function JadwalLibur() {
           <p className="mt-1 text-xl sm:text-2xl font-bold text-slate-800">{summary.total}</p>
         </div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-amber-700"><HiOutlineClock className="h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-wider">Menunggu</p></div>
+          <div className="flex items-center gap-2 text-amber-700"><HiOutlineClock className="h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-wider">Menunggu HRD</p></div>
           <p className="mt-1 text-xl sm:text-2xl font-bold text-amber-800">{summary.pengajuan}</p>
         </div>
-        <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-violet-700"><HiOutlineSun className="h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-wider">Disetujui</p></div>
-          <p className="mt-1 text-xl sm:text-2xl font-bold text-violet-800">{summary.disetujui}</p>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-emerald-700"><HiOutlineSun className="h-4 w-4" /><p className="text-[10px] font-bold uppercase tracking-wider">Disetujui HRD</p></div>
+          <p className="mt-1 text-xl sm:text-2xl font-bold text-emerald-800">{summary.disetujui}</p>
         </div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-3 sm:p-4 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Ditolak</p>
@@ -380,16 +382,22 @@ export default function JadwalLibur() {
                       <li key={r.day_off_id} className="rounded-xl border border-slate-200 p-3 space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
+                            {r.outlet_name && (
+                              <p className="text-[10px] font-semibold text-slate-400 truncate">
+                                Outlet <span className="mx-0.5">›</span> <span className="text-slate-500">{r.outlet_name}</span>
+                              </p>
+                            )}
                             <p className="font-bold text-slate-800 truncate">{fmtEmployeeName(r.employee_name)}</p>
                             {r.employee_code && <p className="text-[10px] text-slate-400">{r.employee_code}</p>}
                             {r.reason && <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{r.reason}</p>}
+                            {r.leader_note && <p className="text-[11px] text-slate-500 mt-1">Catatan leader: {r.leader_note}</p>}
                           </div>
                           <span className={cn("shrink-0 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", dayOffStatusBadge(r.status))}>
-                            {capitalizeStatus(r.status)}
+                            {dayOffStatusLabel(r.status)}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {r.status === "pengajuan" && (
+                          {["pengajuan", "disetujui_leader", "ditolak_leader"].includes(r.status) && (
                             <>
                               <button type="button" disabled={submitting} onClick={() => approve(r.day_off_id)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white disabled:opacity-50">Setujui</button>
                               <button type="button" disabled={submitting} onClick={() => setRejectRow(r)} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[10px] font-bold text-rose-600 disabled:opacity-50">Tolak</button>
