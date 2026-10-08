@@ -587,7 +587,8 @@ export default function EmployeeDetail() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((p) => ({ ...p, [name]: value }));
+    const next = name === "blood_type" ? String(value || "").toUpperCase().replace(/\s+/g, "") : value;
+    setFormData((p) => ({ ...p, [name]: next }));
     if (fieldErrors[name]) setFieldErrors((p) => ({ ...p, [name]: "" }));
   };
 
@@ -1081,6 +1082,9 @@ export default function EmployeeDetail() {
                           </Field>
                           <Field label="Tanggal Lahir">
                             <input type="date" name="birth_date" value={formData.birth_date || ""} onChange={handleChange} className={inputCls(false)} />
+                          </Field>
+                          <Field label="Golongan Darah">
+                            <input type="text" name="blood_type" value={formData.blood_type || ""} onChange={handleChange} className={`${inputCls(false)} uppercase`} placeholder="Contoh: B" maxLength={3} autoCapitalize="characters" />
                           </Field>
                           <Field label="Agama">
                             <select name="religion_id" value={formData.religion_id || ""} onChange={handleChange} className={selectCls()}>

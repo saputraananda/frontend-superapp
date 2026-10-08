@@ -467,6 +467,9 @@ function printEmployeeProfile(emp) {
 				<td class="lbl">Tanggal Lahir</td><td class="col">:</td><td class="val">${fmt(emp.birth_date)}</td>
 			</tr>
 			<tr>
+				<td class="lbl">Golongan Darah</td><td class="col">:</td><td class="val" colspan="4">${safe(emp.blood_type)}</td>
+			</tr>
+			<tr>
 				<td class="lbl">Agama</td><td class="col">:</td><td class="val">${safe(emp.religion_name)}</td>
 				<td class="lbl">Status Pernikahan</td><td class="col">:</td><td class="val">${maritalText}</td>
 			</tr>
