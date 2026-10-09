@@ -44,6 +44,13 @@ export default function MasterService() {
   const [formCategoryId, setFormCategoryId] = useState("");
   const [formDurationValue, setFormDurationValue] = useState("1");
   const [formDurationUnit, setFormDurationUnit] = useState("hari");
+  const [formDurasiCuciMenit, setFormDurasiCuciMenit] = useState("");
+  const [formDurasiJemurMenit, setFormDurasiJemurMenit] = useState("");
+  const [formDurasiPackingMenit, setFormDurasiPackingMenit] = useState("");
+  const [formDurasiBlowerMenit, setFormDurasiBlowerMenit] = useState("");
+  const [formTotalDurasiKerjaMenit, setFormTotalDurasiKerjaMenit] = useState("");
+  const [formSlaHari, setFormSlaHari] = useState("");
+  const [formKategoriKpi, setFormKategoriKpi] = useState("");
   const [formStatus, setFormStatus] = useState("Aktif");
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,6 +86,13 @@ export default function MasterService() {
     setFormCategoryId("");
     setFormDurationValue("");
     setFormDurationUnit("hari");
+    setFormDurasiCuciMenit("");
+    setFormDurasiJemurMenit("");
+    setFormDurasiPackingMenit("");
+    setFormDurasiBlowerMenit("");
+    setFormTotalDurasiKerjaMenit("");
+    setFormSlaHari("");
+    setFormKategoriKpi("");
     setFormStatus("Aktif");
     setModalOpen(true);
   };
@@ -91,6 +105,13 @@ export default function MasterService() {
     setFormCategoryId(item.category_id ?? "");
     setFormDurationValue(item.duration_value != null ? String(item.duration_value) : "");
     setFormDurationUnit(item.duration_unit ?? "hari");
+    setFormDurasiCuciMenit(item.durasi_cuci_menit != null ? String(item.durasi_cuci_menit) : "");
+    setFormDurasiJemurMenit(item.durasi_jemur_menit != null ? String(item.durasi_jemur_menit) : "");
+    setFormDurasiPackingMenit(item.durasi_packing_menit != null ? String(item.durasi_packing_menit) : "");
+    setFormDurasiBlowerMenit(item.durasi_blower_menit != null ? String(item.durasi_blower_menit) : "");
+    setFormTotalDurasiKerjaMenit(item.total_durasi_kerja_menit != null ? String(item.total_durasi_kerja_menit) : "");
+    setFormSlaHari(item.sla_hari != null ? String(item.sla_hari) : "");
+    setFormKategoriKpi(item.kategori_kpi || "");
     setFormStatus(item.status || "Aktif");
     setModalOpen(true);
   };
@@ -121,6 +142,13 @@ export default function MasterService() {
       category_id: formCategoryId ? Number(formCategoryId) : null,
       duration_value: formDurationValue ? Number(formDurationValue) : null,
       duration_unit: formDurationValue && formDurationUnit ? formDurationUnit : null,
+      durasi_cuci_menit: formDurasiCuciMenit ? Number(formDurasiCuciMenit) : null,
+      durasi_jemur_menit: formDurasiJemurMenit ? Number(formDurasiJemurMenit) : null,
+      durasi_packing_menit: formDurasiPackingMenit ? Number(formDurasiPackingMenit) : null,
+      durasi_blower_menit: formDurasiBlowerMenit ? Number(formDurasiBlowerMenit) : null,
+      total_durasi_kerja_menit: formTotalDurasiKerjaMenit ? Number(formTotalDurasiKerjaMenit) : null,
+      sla_hari: formSlaHari ? Number(formSlaHari) : null,
+      kategori_kpi: formKategoriKpi || null,
       status: formStatus,
     };
 
@@ -276,7 +304,8 @@ export default function MasterService() {
                     <th className="px-6 py-3 text-left">Nama Layanan</th>
                     <th className="px-6 py-3 text-left">Kategori</th>
                     <th className="px-6 py-3 text-left">Satuan</th>
-                    <th className="px-6 py-3 text-left">Durasi</th>
+                    <th className="px-6 py-3 text-left">Durasi Pelanggan</th>
+                    <th className="px-6 py-3 text-left">Standar Durasi KPI</th>
                     <th className="px-6 py-3 text-left">Harga</th>
                     <th className="px-6 py-3 text-left w-24">Status</th>
                     <th className="px-6 py-3 text-center w-28">Aksi</th>
@@ -318,6 +347,30 @@ export default function MasterService() {
                           </>
                         ) : (
                           <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {item.total_durasi_kerja_menit != null ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700 font-mono w-fit">
+                              ⏱️ {item.total_durasi_kerja_menit} mnt ({Number(item.total_durasi_kerja_menit / 60).toFixed(1)}j)
+                            </span>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
+                              <span title="Durasi Cuci">C:{item.durasi_cuci_menit || 0}m</span>
+                              <span>•</span>
+                              <span title="Durasi Jemur">J:{item.durasi_jemur_menit || 0}m</span>
+                              <span>•</span>
+                              <span title="Durasi Packing">P:{item.durasi_packing_menit || 0}m</span>
+                              {item.durasi_blower_menit > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span title="Durasi Blower">B:{item.durasi_blower_menit}m</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">Belum diatur</span>
                         )}
                       </td>
                       <td className="px-6 py-4 font-bold font-mono text-[#1b3459] text-sm">
@@ -445,7 +498,7 @@ export default function MasterService() {
 
               {/* Durasi */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durasi Pengerjaan</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durasi Pengerjaan (Pelanggan)</label>
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="number"
@@ -466,6 +519,116 @@ export default function MasterService() {
                     <option value="bulan">Bulan</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Standar Durasi KPI (Menit) */}
+              <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
+                    <HiOutlineClock className="h-4 w-4 text-blue-600" />
+                    Standar Durasi KPI &amp; Tahapan Kerja (Menit)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const total = (Number(formDurasiCuciMenit) || 0) + (Number(formDurasiJemurMenit) || 0) + (Number(formDurasiPackingMenit) || 0) + (Number(formDurasiBlowerMenit) || 0);
+                      if (total > 0) setFormTotalDurasiKerjaMenit(String(total));
+                    }}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 underline font-semibold cursor-pointer"
+                  >
+                    Hitung Total
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-semibold text-slate-500">Cuci (mnt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formDurasiCuciMenit}
+                      onChange={(e) => setFormDurasiCuciMenit(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-[#1b3459]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-semibold text-slate-500">Jemur (mnt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formDurasiJemurMenit}
+                      onChange={(e) => setFormDurasiJemurMenit(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-[#1b3459]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-semibold text-slate-500">Packing (mnt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formDurasiPackingMenit}
+                      onChange={(e) => setFormDurasiPackingMenit(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-[#1b3459]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-semibold text-slate-500">Blower (mnt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formDurasiBlowerMenit}
+                      onChange={(e) => setFormDurasiBlowerMenit(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-[#1b3459]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-blue-100/60">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-bold text-slate-700">Total Kerja (mnt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formTotalDurasiKerjaMenit}
+                      onChange={(e) => setFormTotalDurasiKerjaMenit(e.target.value)}
+                      placeholder="Contoh: 45"
+                      className="w-full rounded-lg border border-blue-300 bg-white px-2.5 py-1.5 text-xs text-blue-900 font-bold outline-none focus:border-[#1b3459]"
+                    />
+                    {formTotalDurasiKerjaMenit ? (
+                      <span className="text-[10px] text-blue-700 font-semibold">
+                        = {Number(Number(formTotalDurasiKerjaMenit) / 60).toFixed(2)} jam kerja KPI
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-semibold text-slate-500">SLA (Hari)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formSlaHari}
+                      onChange={(e) => setFormSlaHari(e.target.value)}
+                      placeholder="Contoh: 3"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-[#1b3459]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] font-semibold text-slate-500">Kategori KPI</label>
+                    <input
+                      type="text"
+                      value={formKategoriKpi}
+                      onChange={(e) => setFormKategoriKpi(e.target.value)}
+                      placeholder="Contoh: reguler"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-[#1b3459]"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 italic pt-1">
+                  💡 Standar jam kerja ini otomatis masuk ke perhitungan capaian bulanan teknisi (target 208 jam/bulan).
+                </p>
               </div>
 
               {/* Status */}

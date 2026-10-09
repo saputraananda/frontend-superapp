@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     HiOutlineTrophy,
     HiOutlineCalendarDays,
@@ -44,6 +45,54 @@ function renderStageCell(value, maxVal, colors) {
             </div>
             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/40">
                 <div className={cn("h-full rounded-full", colors?.bar || "bg-slate-400")} style={{ width: `${pct}%` }} />
+            </div>
+        </div>
+    );
+}
+
+function renderKpiAchievementCell(hours = 0, target = 208, pct = 0) {
+    const formattedHours = Number(hours || 0).toFixed(1);
+    const achievementPct = pct != null ? Number(pct) : (target > 0 ? Math.round((hours / target) * 1000) / 10 : 0);
+    const isCompleted = achievementPct >= 100;
+    const isGood = achievementPct >= 75;
+    const isMedium = achievementPct >= 50;
+
+    const barColor = isCompleted
+        ? "bg-emerald-500"
+        : isGood
+            ? "bg-teal-500"
+            : isMedium
+                ? "bg-amber-500"
+                : "bg-rose-500";
+
+    const textColor = isCompleted
+        ? "text-emerald-700 font-bold"
+        : isGood
+            ? "text-teal-700 font-bold"
+            : isMedium
+                ? "text-amber-700 font-bold"
+                : "text-slate-700 font-semibold";
+
+    return (
+        <div className="flex flex-col gap-1 w-full max-w-[130px]">
+            <div className="flex items-center justify-between text-[11px]">
+                <span className={cn("font-mono", textColor)}>
+                    {formattedHours} <span className="text-[10px] text-slate-400 font-normal">/ {target}j</span>
+                </span>
+                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", 
+                    isCompleted ? "bg-emerald-100 text-emerald-800" :
+                    isGood ? "bg-teal-100 text-teal-800" :
+                    isMedium ? "bg-amber-100 text-amber-800" :
+                    "bg-slate-100 text-slate-600"
+                )}>
+                    {achievementPct}%
+                </span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                <div
+                    className={cn("h-full rounded-full transition-all duration-300", barColor)}
+                    style={{ width: `${Math.min(achievementPct, 100)}%` }}
+                />
             </div>
         </div>
     );
@@ -187,6 +236,8 @@ function LoadingBar() {
 
 function EmployeeCard({ employee, rank, onClick, maxTotal }) {
     const progressPct = maxTotal > 0 ? Math.round((employee.total / maxTotal) * 100) : 0;
+    const hours = Number(employee.total_hours || 0).toFixed(1);
+    const achievementPct = employee.achievement_pct || 0;
 
     return (
         <button
@@ -203,13 +254,33 @@ function EmployeeCard({ employee, rank, onClick, maxTotal }) {
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b3459] text-sm font-bold text-white">
                     {(employee.name || "?")[0].toUpperCase()}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-800 truncate">{capitalEachWord(employee.name)}</p>
                     <p className="text-[11px] text-slate-400">
                         {employee.total} items &middot; Rank #{employee.rank || rank}
                     </p>
                 </div>
             </div>
+
+            {/* KPI Jam Kerja Pill */}
+            <div className="mb-2.5 flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/60 px-2.5 py-1.5">
+                <span className="text-[10.5px] font-semibold text-slate-500 flex items-center gap-1">
+                    <HiOutlineClock className="h-3.5 w-3.5 text-blue-600" />
+                    Jam Kerja
+                </span>
+                <span className="text-[11px] font-black text-slate-800 font-mono">
+                    {hours} <span className="text-[9px] text-slate-400 font-normal">/ 208j</span>{" "}
+                    <span className={cn("ml-1 rounded px-1 py-0.2 text-[9.5px]",
+                        achievementPct >= 100 ? "bg-emerald-100 text-emerald-800 font-bold" :
+                        achievementPct >= 75 ? "bg-teal-100 text-teal-800 font-bold" :
+                        achievementPct >= 50 ? "bg-amber-100 text-amber-800 font-bold" :
+                        "bg-slate-200 text-slate-600 font-medium"
+                    )}>
+                        {achievementPct}%
+                    </span>
+                </span>
+            </div>
+
             <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
                     className="h-full rounded-full bg-gradient-to-r from-[#97bd3f] to-[#1b3459] transition-all duration-500"
@@ -235,6 +306,8 @@ function EmployeeCard({ employee, rank, onClick, maxTotal }) {
 
 function EmployeeLayananCard({ employee, rank, onClick, maxTotal }) {
     const progressPct = maxTotal > 0 ? Math.round((employee.total / maxTotal) * 100) : 0;
+    const hours = Number(employee.total_hours || 0).toFixed(1);
+    const achievementPct = employee.achievement_pct || 0;
     const topServices = employee.top_services || [];
 
     return (
@@ -252,13 +325,33 @@ function EmployeeLayananCard({ employee, rank, onClick, maxTotal }) {
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b3459] text-sm font-bold text-white">
                     {(employee.name || "?")[0].toUpperCase()}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-800 truncate">{capitalEachWord(employee.name)}</p>
                     <p className="text-[11px] text-slate-400">
                         {formatNumber(employee.total_layanan)} layanan &middot; {formatNumber(employee.total_nota)} nota &middot; Rank #{employee.rank || rank}
                     </p>
                 </div>
             </div>
+
+            {/* KPI Jam Kerja Pill */}
+            <div className="mb-2.5 flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/60 px-2.5 py-1.5">
+                <span className="text-[10.5px] font-semibold text-slate-500 flex items-center gap-1">
+                    <HiOutlineClock className="h-3.5 w-3.5 text-blue-600" />
+                    Jam Kerja
+                </span>
+                <span className="text-[11px] font-black text-slate-800 font-mono">
+                    {hours} <span className="text-[9px] text-slate-400 font-normal">/ 208j</span>{" "}
+                    <span className={cn("ml-1 rounded px-1 py-0.2 text-[9.5px]",
+                        achievementPct >= 100 ? "bg-emerald-100 text-emerald-800 font-bold" :
+                        achievementPct >= 75 ? "bg-teal-100 text-teal-800 font-bold" :
+                        achievementPct >= 50 ? "bg-amber-100 text-amber-800 font-bold" :
+                        "bg-slate-200 text-slate-600 font-medium"
+                    )}>
+                        {achievementPct}%
+                    </span>
+                </span>
+            </div>
+
             <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
                     className="h-full rounded-full bg-gradient-to-r from-[#97bd3f] to-[#1b3459] transition-all duration-500"
@@ -332,7 +425,11 @@ function DetailModal({ employee, dateStart, dateEnd, dataSource = "waschen", ser
                 <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
                     <div>
                         <h3 className="text-lg font-black text-slate-800">{capitalEachWord(employee.name)}</h3>
-                        <p className="text-xs font-semibold text-slate-400 mt-0.5">{formatNumber(employee.total)} items &middot; Rank #{employee.rank}</p>
+                        <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                            {formatNumber(employee.total)} items &middot;{" "}
+                            <span className="font-bold text-slate-700">{Number(employee.total_hours || 0).toFixed(1)} Jam</span> &middot;{" "}
+                            Capaian KPI: <span className={cn("font-bold", (employee.achievement_pct || 0) >= 100 ? "text-emerald-600" : (employee.achievement_pct || 0) >= 75 ? "text-teal-600" : "text-amber-600")}>{employee.achievement_pct || 0}%</span> dari 208 Jam &middot; Rank #{employee.rank}
+                        </p>
                     </div>
                     <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
                         <HiOutlineXMark className="h-5 w-5" />
@@ -406,9 +503,16 @@ function DetailModal({ employee, dateStart, dateEnd, dataSource = "waschen", ser
                                             </div>
                                             <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-wide">{it.customer_name || "-"}</p>
                                         </div>
-                                        <span className={cn("shrink-0 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider", STAGE_COLORS[it.stage]?.border || "border-slate-200", STAGE_COLORS[it.stage]?.text || "text-slate-600", STAGE_COLORS[it.stage]?.bg || "bg-slate-50")}>
-                                            {STAGES.find((s) => s.key === it.stage)?.label || it.stage}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            {it.stage_minutes != null && (
+                                                <span className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">
+                                                    ⏱️ {it.stage_minutes}m
+                                                </span>
+                                            )}
+                                            <span className={cn("shrink-0 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider", STAGE_COLORS[it.stage]?.border || "border-slate-200", STAGE_COLORS[it.stage]?.text || "text-slate-600", STAGE_COLORS[it.stage]?.bg || "bg-slate-50")}>
+                                                {STAGES.find((s) => s.key === it.stage)?.label || it.stage}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
                                         <p className="text-xs font-semibold text-slate-700 truncate max-w-[60%]">{it.item_name || "-"}</p>
@@ -483,7 +587,9 @@ function LayananDetailModal({ employee, dateStart, dateEnd, onClose }) {
                     <div>
                         <h3 className="text-lg font-black text-slate-800">{capitalEachWord(employee.name)}</h3>
                         <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                            {formatNumber(employee.total_layanan)} layanan &middot; {formatNumber(employee.total_nota)} nota &middot; Rank #{employee.rank}
+                            {formatNumber(employee.total_layanan)} layanan &middot; {formatNumber(employee.total_nota)} nota &middot;{" "}
+                            <span className="font-bold text-slate-700">{Number(employee.total_hours || 0).toFixed(1)} Jam</span> &middot;{" "}
+                            Capaian KPI: <span className={cn("font-bold", (employee.achievement_pct || 0) >= 100 ? "text-emerald-600" : (employee.achievement_pct || 0) >= 75 ? "text-teal-600" : "text-amber-600")}>{employee.achievement_pct || 0}%</span> dari 208 Jam &middot; Rank #{employee.rank}
                         </p>
                     </div>
                     <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
@@ -549,9 +655,16 @@ function LayananDetailModal({ employee, dateStart, dateEnd, onClose }) {
                                             <span className="text-xs font-black text-slate-800 font-mono bg-slate-100 px-1.5 py-0.5 rounded">{it.invoice || "-"}</span>
                                             <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-wide">{it.customer_name || "-"}</p>
                                         </div>
-                                        <span className="shrink-0 max-w-[50%] truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                                            {it.service_name}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            {it.duration_minutes != null && (
+                                                <span className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">
+                                                    ⏱️ {it.duration_minutes}m
+                                                </span>
+                                            )}
+                                            <span className="shrink-0 max-w-[200px] truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                                {it.service_name}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
                                         <p className="text-xs font-semibold text-slate-700 truncate max-w-[65%]">
@@ -621,6 +734,7 @@ function SlaItemsModal({ category, dateStart, dateEnd, outlet, onClose }) {
             if (outlet) params.set("outlet", outlet);
             const token = localStorage.getItem("cleanox_token");
             const res = await fetch(`${BASE_URL}/kpi/sla-items/export?${params.toString()}`, {
+                credentials: "include",
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             if (!res.ok) throw new Error("Gagal mengekspor data");
@@ -786,8 +900,10 @@ function SlaItemsModal({ category, dateStart, dateEnd, outlet, onClose }) {
 }
 
 export default function KpiProduksiPage() {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [dataLoading, setDataLoading] = useState(false);
+    const [exportingKpi, setExportingKpi] = useState(false);
     const [error, setError] = useState("");
 
     const [dataSource, setDataSource] = useState("waschen");
@@ -949,7 +1065,49 @@ export default function KpiProduksiPage() {
         setSlaCategory(cat);
     };
 
+    const handleExportKpiExcel = async () => {
+        try {
+            setExportingKpi(true);
+            const params = new URLSearchParams({
+                data_source: dataSource,
+                date_start: dateStart,
+                date_end: dateEnd,
+            });
+            if (dataSource === "waschen" && selectedOutlet) {
+                params.set("outlet", selectedOutlet);
+            }
+            if (dataSource === "only") {
+                params.set("service_mode", serviceMode || "home_service");
+            }
 
+            const token = localStorage.getItem("cleanox_token");
+            const res = await fetch(`${BASE_URL}/kpi/export-excel?${params.toString()}`, {
+                credentials: "include",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            if (!res.ok) {
+                const errJson = await res.json().catch(() => ({}));
+                throw new Error(errJson.message || "Gagal mengekspor Excel KPI");
+            }
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const cleanLabel = dataSource === "waschen" ? "Waschen" : serviceMode === "take_home" ? "Only_TakeHome" : "Only_HomeService";
+            a.download = `KPI_Produksi_Cleanox_${cleanLabel}_${dateStart}_${dateEnd}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Export KPI error:", err);
+            setError(err.message || "Gagal mengunduh file Excel");
+        } finally {
+            setExportingKpi(false);
+        }
+    };
 
     const isLayananMode = dataSource === "only" && serviceMode === "home_service";
 
@@ -1122,8 +1280,38 @@ export default function KpiProduksiPage() {
                                 {isCustomDate ? "Gunakan Cutoff Bulanan" : "Custom Tanggal"}
                             </button>
                         </div>
-                        <div className="mt-4 lg:mt-0 text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 shrink-0 self-end">
-                            Periode: {formatDateShort(dateStart)} - {formatDateShort(dateEnd)}
+                        <div className="mt-4 lg:mt-0 flex flex-wrap items-center gap-2.5 shrink-0 self-end">
+                            <button
+                                type="button"
+                                onClick={() => navigate("/cleanox-management-system/service")}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-200 text-blue-700 bg-blue-50/70 hover:bg-blue-100 transition text-xs font-bold shadow-sm cursor-pointer"
+                                title="Buka Master Layanan untuk mengatur jam standar pengerjaan"
+                            >
+                                <HiOutlineClock className="h-4 w-4 text-blue-600" />
+                                Kelola Jam Layanan
+                            </button>
+                            <button
+                                type="button"
+                                disabled={exportingKpi}
+                                onClick={handleExportKpiExcel}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition text-xs font-bold shadow-sm disabled:opacity-50 cursor-pointer"
+                                title="Ekspor laporan KPI ke file Excel"
+                            >
+                                {exportingKpi ? (
+                                    <>
+                                        <HiOutlineArrowPath className="h-4 w-4 animate-spin" />
+                                        Mengekspor...
+                                    </>
+                                ) : (
+                                    <>
+                                        <HiOutlineDocumentArrowDown className="h-4 w-4" />
+                                        Export to Excel
+                                    </>
+                                )}
+                            </button>
+                            <div className="text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                                Periode: {formatDateShort(dateStart)} - {formatDateShort(dateEnd)}
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1178,6 +1366,54 @@ export default function KpiProduksiPage() {
                         <div className="flex items-center justify-center py-8 text-sm text-slate-400">
                             <HiOutlineCube className="h-5 w-5 mr-2 opacity-40" />
                             Belum ada data.
+                        </div>
+                    )}
+
+                    {overall && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                                    <HiOutlineClock className="h-4 w-4 text-blue-600" />
+                                    KPI Jam Kerja Karyawan (Target Standar: 208 Jam / Bulan)
+                                </h3>
+                                <span className="text-[11px] font-semibold text-slate-400">
+                                    8 jam/hari &times; 26 hari kerja
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50/80 to-blue-50/20 p-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Total Jam Kerja Tim</p>
+                                        <span className="text-[10px] font-semibold text-blue-500 font-mono">{formatNumber(Math.round(overall.total_minutes || 0))} mnt</span>
+                                    </div>
+                                    <p className="mt-1 text-2xl font-black text-blue-900 font-mono">
+                                        {formatNumber(overall.total_hours || 0)} <span className="text-sm font-semibold text-blue-600 font-sans">Jam</span>
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Target Jam Bulanan</p>
+                                    <p className="mt-1 text-2xl font-black text-slate-800 font-mono">
+                                        208 <span className="text-sm font-semibold text-slate-500 font-sans">Jam / Orang</span>
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Rata-rata Capaian Tim</p>
+                                            <span className="text-xs font-black text-emerald-700 font-mono">{overall.avg_achievement_pct || 0}%</span>
+                                        </div>
+                                        <div className="mt-2 h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                                style={{ width: `${Math.min(overall.avg_achievement_pct || 0, 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="mt-1 text-[10px] text-slate-400">
+                                        {(overall.avg_achievement_pct || 0) >= 100 ? "🎉 Target jam kerja tercapai" : "Akumulasi jam kerja produksi"}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </section>
@@ -1522,7 +1758,9 @@ export default function KpiProduksiPage() {
                                     <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                         <th className="px-6 py-3 text-center w-16">Rank</th>
                                         <th className="px-6 py-3">Karyawan</th>
-                                        <th className="px-6 py-3 text-center w-36">Total Layanan</th>
+                                        <th className="px-6 py-3 text-center w-32">Total Layanan</th>
+                                        <th className="px-6 py-3 text-center w-28">Jam Kerja</th>
+                                        <th className="px-6 py-3 text-center w-40">Capaian KPI (208 Jam)</th>
                                         <th className="px-6 py-3 text-center">Jumlah Nota</th>
                                         <th className="px-6 py-3 text-center">Rata-rata / Nota</th>
                                         <th className="px-6 py-3">Layanan Terbanyak</th>
@@ -1568,6 +1806,14 @@ export default function KpiProduksiPage() {
                                                         </div>
                                                     </div>
                                                 </td>
+                                                <td className="px-6 py-4 text-center font-bold text-slate-800 font-mono">
+                                                    {Number(emp.total_hours || 0).toFixed(1)} <span className="text-[10px] text-slate-400 font-normal font-sans">Jam</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex justify-center">
+                                                        {renderKpiAchievementCell(emp.total_hours, emp.target_hours || 208, emp.achievement_pct)}
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4 text-center font-bold text-slate-700">
                                                     {formatNumber(emp.total_nota)}
                                                 </td>
@@ -1600,7 +1846,9 @@ export default function KpiProduksiPage() {
                                     <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                         <th className="px-6 py-3 text-center w-16">Rank</th>
                                         <th className="px-6 py-3">Karyawan</th>
-                                        <th className="px-6 py-3 text-center w-36">Total Items</th>
+                                        <th className="px-6 py-3 text-center w-32">Total Items</th>
+                                        <th className="px-6 py-3 text-center w-28">Jam Kerja</th>
+                                        <th className="px-6 py-3 text-center w-40">Capaian KPI (208 Jam)</th>
                                         <th className="px-6 py-3">Pickup</th>
                                         <th className="px-6 py-3">Cuci &amp; Jemur</th>
                                         <th className="px-6 py-3">Packing</th>
@@ -1645,6 +1893,14 @@ export default function KpiProduksiPage() {
                                                         <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
                                                             <div className="h-full bg-slate-500" style={{ width: `${totalPct}%` }} />
                                                         </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-bold text-slate-800 font-mono">
+                                                    {Number(emp.total_hours || 0).toFixed(1)} <span className="text-[10px] text-slate-400 font-normal font-sans">Jam</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex justify-center">
+                                                        {renderKpiAchievementCell(emp.total_hours, emp.target_hours || 208, emp.achievement_pct)}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
