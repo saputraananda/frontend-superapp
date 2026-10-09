@@ -130,8 +130,8 @@ const MENU_GROUPS = [
       {
         to: "/cleanox-management-system/service",
         icon: HiOutlineBriefcase,
-        label: "Master Service",
-        description: "Kelola layanan Cleanox",
+        label: "Master Layanan",
+        description: "Kelola layanan & standar jam KPI",
         end: true,
       },
       {

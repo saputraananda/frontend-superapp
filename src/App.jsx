@@ -661,6 +661,8 @@ export default function App() {
           <Route path="/cleanox-management-system/master-area" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />
           <Route path="/cleanox-management-system/master-area/:employeeId" element={<Navigate to="/cleanox-management-system/report-area-kebersihan" replace />} />
           <Route path="/cleanox-management-system/service" element={<MasterService />} />
+          <Route path="/cleanox-management-system/layanan" element={<Navigate to="/cleanox-management-system/service" replace />} />
+          <Route path="/cleanox-management-system/master-layanan" element={<Navigate to="/cleanox-management-system/service" replace />} />
           <Route path="/cleanox-management-system/category" element={<MasterCategory />} />
           <Route path="/cleanox-management-system/target" element={<TargetCleanox />} />
           <Route path="/cleanox-management-system/kpi" element={<KpiProduksiCleanox />} />
