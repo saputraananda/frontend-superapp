@@ -58,9 +58,20 @@ export function kasbonStatusBadge(status) {
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
+export function dayOffStatusLabel(status) {
+  if (status === "pengajuan") return "Menunggu leader";
+  if (status === "disetujui_leader") return "Disetujui leader";
+  if (status === "ditolak_leader") return "Ditolak leader";
+  if (status === "disetujui") return "Disetujui HRD";
+  if (status === "ditolak") return "Ditolak HRD";
+  if (status === "dibatalkan") return "Dibatalkan";
+  return capitalizeStatus(status);
+}
+
 export function dayOffStatusBadge(status) {
-  if (status === "disetujui") return "border-violet-200 bg-violet-50 text-violet-700";
-  if (status === "ditolak") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (status === "disetujui") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "disetujui_leader") return "border-sky-200 bg-sky-50 text-sky-800";
+  if (status === "ditolak" || status === "ditolak_leader") return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
