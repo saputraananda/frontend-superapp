@@ -1,7 +1,7 @@
 import React, { useReducer, useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Card } from "../components/ui";
-import { fmtIDR } from "../utils/utils";
+import { fmtIDR, todayWIB } from "../utils/utils";
 import { api } from "../../../lib/api";
 import { exportPiutangExcel } from "../utils/exportPiutangExcel";
 import { OUTLETS } from "../utils/constants";
@@ -25,7 +25,7 @@ function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
   } else if (filterType === "year" && year) {
     const yearStart = `${parseInt(year) - 1}-12-26`;
     const yearEnd = `${year}-12-25`;
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayWIB();
     p.set("startDate", yearStart);
     p.set("endDate", today < yearEnd ? today : yearEnd);
   } else if (filterType === "range" && startDate && endDate) {
@@ -171,6 +171,7 @@ export default function PiutangSection({ filters }) {
               <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.3)" />
               <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                domain={[0, "auto"]}
                 tickFormatter={v => `${(v / 1000000).toFixed(1)}jt`} width={38} />
               <Tooltip formatter={v => [`Rp ${fmtIDR(v)}`, "Piutang"]} />
               <Bar dataKey="jumlah" fill="#A855F7" radius={[6, 6, 0, 0]} />
