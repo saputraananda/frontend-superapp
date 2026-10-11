@@ -446,8 +446,10 @@ export default function Customer() {
     return () => { cancel = true; };
   }, [tierList?.tierId, tierList?.page, search, filterOutletId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
 
+  const memberPage = memberList?.page;
+  const memberTick = memberList?.tick;
   useEffect(() => {
-    if (!memberList) return undefined;
+    if (memberPage == null) return undefined;
     let cancel = false;
     const query = new URLSearchParams();
     if (search) query.set("search", search);
@@ -458,18 +460,18 @@ export default function Customer() {
     if (!allPeriods && cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
     query.set("sortBy", "name");
     query.set("sortDir", "asc");
-    query.set("page", String(memberList.page));
+    query.set("page", String(memberPage));
     query.set("limit", "50");
     api(`/waschen/customers?${query}`)
       .then((res) => {
         if (cancel) return;
-        setMemberList((t) => (t && t.page === memberList.page && t.tick === memberList.tick
+        setMemberList((t) => (t && t.page === memberPage && t.tick === memberTick
           ? { ...t, loading: false, rows: res.data || [], total: Number(res.meta?.total) || 0 }
           : t));
       })
       .catch(() => { if (!cancel) setMemberList((t) => (t ? { ...t, loading: false } : t)); });
     return () => { cancel = true; };
-  }, [memberList?.page, memberList?.tick, search, filterOutletId, filterPackageId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+  }, [memberPage, memberTick, search, filterOutletId, filterPackageId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
 
   const stats = meta;
 
