@@ -11,6 +11,7 @@ import {
   HiOutlineAdjustmentsHorizontal,
   HiOutlineTableCells,
   HiOutlineEye,
+  HiOutlineTrash,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -62,7 +63,7 @@ const FLAG_LABEL = {
 
 const fmtTime = (t) => (t ? String(t).slice(0, 5) : "—");
 
-function OvertimeMobileCard({ row, submitting, onApprove, onReject, onDetail }) {
+function OvertimeMobileCard({ row, submitting, onApprove, onReject, onDelete, onDetail }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -91,6 +92,9 @@ function OvertimeMobileCard({ row, submitting, onApprove, onReject, onDetail }) 
             <button type="button" disabled={submitting} onClick={() => onReject(row)} className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">
               Tolak
             </button>
+            <button type="button" disabled={submitting} onClick={() => onDelete(row)} className="rounded-lg border border-rose-200 px-2.5 py-1.5 text-[10px] font-bold text-rose-600 disabled:opacity-50">
+              Hapus
+            </button>
           </>
         )}
       </div>
@@ -112,6 +116,7 @@ export default function Overtime() {
   const [loading, setLoading] = useState(true);
   const [rejectRow, setRejectRow] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [deleteRow, setDeleteRow] = useState(null);
   const [approveRow, setApproveRow] = useState(null);
   const [approveNote, setApproveNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -200,6 +205,21 @@ export default function Overtime() {
       showToast("success", "Lembur ditolak");
       setRejectRow(null);
       setRejectNote("");
+      load();
+    } catch (err) {
+      showToast("error", err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const doDelete = async () => {
+    if (!deleteRow) return;
+    setSubmitting(true);
+    try {
+      await api(`/waschen/hris/overtime/${deleteRow.id}`, { method: "DELETE" });
+      showToast("success", "Pengajuan lembur dihapus");
+      setDeleteRow(null);
       load();
     } catch (err) {
       showToast("error", err.message);
@@ -319,6 +339,7 @@ export default function Overtime() {
                   submitting={submitting}
                   onApprove={(id) => setApproveRow(sorted.find((x) => x.id === id) || r)}
                   onReject={setRejectRow}
+                  onDelete={setDeleteRow}
                   onDetail={openDetail}
                 />
               ))}
@@ -363,6 +384,9 @@ export default function Overtime() {
                               </button>
                               <button type="button" disabled={submitting} title="Tolak" onClick={() => setRejectRow(r)} className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50">
                                 <HiOutlineXMark className="h-4 w-4" />
+                              </button>
+                              <button type="button" disabled={submitting} title="Hapus" onClick={() => setDeleteRow(r)} className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50">
+                                <HiOutlineTrash className="h-4 w-4" />
                               </button>
                             </>
                           ) : null}
@@ -504,6 +528,26 @@ export default function Overtime() {
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onClick={() => setRejectRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
                 <button type="button" disabled={submitting} onClick={doReject} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Tolak</button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body)}
+
+      {deleteRow && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setDeleteRow(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
+              <h3 className="font-bold text-sm">Hapus Pengajuan Lembur</h3>
+              <button type="button" onClick={() => setDeleteRow(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="p-5 space-y-3 text-xs">
+              <p className="text-slate-600">Karyawan: <strong className="text-slate-800">{fmtEmployeeName(deleteRow.employee_name)}</strong></p>
+              <p className="text-slate-500">{fmtDateShort(deleteRow.overtime_date)} · {fmtTime(deleteRow.start_time)}–{fmtTime(deleteRow.end_time)}</p>
+              <p className="text-slate-600">Pengajuan ini akan dihapus dari daftar. Tindakan ini tidak bisa dibatalkan.</p>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setDeleteRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
+                <button type="button" disabled={submitting} onClick={doDelete} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Hapus</button>
               </div>
             </div>
           </div>
