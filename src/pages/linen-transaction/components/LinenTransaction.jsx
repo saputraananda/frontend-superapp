@@ -12,6 +12,7 @@ import {
 import { api, BASE_URL } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
 import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
+import { exportSewaLinen } from "../utils/exportSewaLinen";
 import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
 import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
@@ -2084,6 +2085,29 @@ export default function LinenTransaction() {
     }
   };
 
+  const handleExportRekapSewa = async () => {
+    setDownloadDropdownOpen(false);
+    setExportingRekap(true);
+    try {
+      const q = new URLSearchParams();
+      if (activePeriod.startDate) q.append("startDate", activePeriod.startDate);
+      if (activePeriod.endDate) q.append("endDate", activePeriod.endDate);
+      if (hospitalFilter) q.append("hospital_id", hospitalFilter);
+
+      const res = await api(`/ikm/linen-transactions/rekap/sewa?${q.toString()}`);
+      if (res.success) {
+        await exportSewaLinen(res, activePeriod.startDate, activePeriod.endDate);
+        showToast("success", "File rekap sewa linen berhasil diunduh");
+      } else {
+        throw new Error(res.message || "Gagal mengambil data rekap sewa");
+      }
+    } catch (err) {
+      showToast("error", err.message || "Gagal mengunduh Rekap Sewa Linen");
+    } finally {
+      setExportingRekap(false);
+    }
+  };
+
   const handleExportRekapKg = async () => {
     setDownloadDropdownOpen(false);
     if (!hospitalFilter) {
@@ -2260,6 +2284,13 @@ export default function LinenTransaction() {
                     >
                       <HiOutlineDocumentText className="h-4 w-4 text-blue-500" />
                       Rekap Cuci Linen Sewa
+                    </button>
+                    <button
+                      onClick={handleExportRekapSewa}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition font-semibold"
+                    >
+                      <HiOutlineDocumentText className="h-4 w-4 text-teal-600" />
+                      Rekap Sewa Linen
                     </button>
                     <button
                       onClick={() => handleExportRekap("MILIK_RS")}
