@@ -79,6 +79,7 @@ import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
 import LinenTransactionLayout from "./pages/linen-transaction";
 import LinenTransaction from "./pages/linen-transaction/components/LinenTransaction";
 import LinenTransactionKomersil from "./pages/linen-transaction/components/LinenTransactionKomersil";
+import BastLinenSewa from "./pages/linen-transaction/components/BastLinenSewa";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -492,6 +493,7 @@ export default function App() {
         >
           <Route path="/serah-terima-linen" element={<LinenTransaction />} />
           <Route path="/serah-terima-linen/komersil" element={<LinenTransactionKomersil />} />
+          <Route path="/serah-terima-linen/bast" element={<BastLinenSewa />} />
         </Route>
 
         {/* Redirect path lama → menu baru */}
