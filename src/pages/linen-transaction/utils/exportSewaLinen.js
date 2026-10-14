@@ -65,6 +65,14 @@ function formatPeriodTitle(startDate, endDate) {
   return `${startMonth.toUpperCase()} ${start.getFullYear()} - ${endMonth.toUpperCase()} ${end.getFullYear()}`;
 }
 
+export function segmentBillFormula({ openingRef, hargaRef, kirimRefs = [], tarikRefs = [], days }) {
+  const added = [openingRef, ...kirimRefs].join("+");
+  const stock = kirimRefs.length === 0 && tarikRefs.length === 0
+    ? openingRef
+    : `(${added}${tarikRefs.length ? `-${tarikRefs.join("-")}` : ""})`;
+  return `${stock}*${hargaRef}*7.5%*${days}`;
+}
+
 function segmentLabel(from, to) {
   const a = parseLocalDate(from);
   const b = parseLocalDate(to);
@@ -172,6 +180,10 @@ function assertSewaBill() {
   if (pulled.opening !== 30 || pulled.segments[0].qty !== 30 || pulled.segments[1].qty !== 25) {
     throw new Error(`pull ${pulled.opening}`);
   }
+  const plain = segmentBillFormula({ openingRef: "B7", hargaRef: "Q7", days: 31 });
+  if (plain !== "B7*Q7*7.5%*31") throw new Error(plain);
+  const moved = segmentBillFormula({ openingRef: "B7", hargaRef: "Q7", kirimRefs: ["C7"], tarikRefs: ["E7"], days: 12 });
+  if (moved !== "(B7+C7-E7)*Q7*7.5%*12") throw new Error(moved);
 }
 
 const entry = globalThis.process?.argv?.[1] || "";
@@ -356,12 +368,24 @@ export async function exportSewaLinen(rekapData, startDate, endDate) {
         if (column.key.startsWith("kirim:")) return bill.nets.get(column.key.slice(6))?.pengiriman || 0;
         if (column.key.startsWith("tarik:")) return bill.nets.get(column.key.slice(6))?.penarikan || 0;
         if (column.key.startsWith("pakai:")) return usageMap.get(`${column.key.slice(6)}-${linen.hospital_linen_id}`) || 0;
-        if (column.key.startsWith("seg:")) return bill.segments.find((segment) => segment.from === column.key.slice(4))?.amount || 0;
         return null;
       });
       const row = ws.addRow(values);
       row.height = 18;
       const ri = row.number;
+      const openingRef = `${colIndexToLabel(indexOf("opening"))}${ri}`;
+      const hargaRef = `${colIndexToLabel(indexOf("harga"))}${ri}`;
+      bill.segments.forEach((segment) => {
+        row.getCell(indexOf(`seg:${segment.from}`)).value = {
+          formula: segmentBillFormula({
+            openingRef,
+            hargaRef,
+            kirimRefs: kirimDates.filter((date) => date <= segment.from).map((date) => `${colIndexToLabel(indexOf(`kirim:${date}`))}${ri}`),
+            tarikRefs: tarikDates.filter((date) => date <= segment.from).map((date) => `${colIndexToLabel(indexOf(`tarik:${date}`))}${ri}`),
+            days: segment.days,
+          }),
+        };
+      });
       row.getCell(indexOf("total")).value = { formula: `SUM(${colIndexToLabel(firstUse)}${ri}:${colIndexToLabel(lastUse)}${ri})` };
       row.getCell(indexOf("aktual")).value = { formula: `${colIndexToLabel(indexOf("total"))}${ri}*${colIndexToLabel(indexOf("harga"))}${ri}` };
       row.getCell(indexOf("minimal")).value = { formula: `SUM(${colIndexToLabel(firstSeg)}${ri}:${colIndexToLabel(lastSeg)}${ri})` };
