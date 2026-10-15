@@ -35,6 +35,7 @@ import AnnualLeaveAlora from "./pages/master-karyawan/components/AnnualLeaveAlor
 import PayslipAlora from "./pages/master-karyawan/components/PayslipAlora";
 import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
 import PengumumanAlora from "./pages/master-karyawan/components/PengumumanAlora";
+import HariLiburAlora from "./pages/master-karyawan/components/HariLiburAlora";
 import EmployeeDetail from "./pages/master-karyawan/[id]";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoadingScreen from "./components/LoadingScreen";
@@ -365,6 +366,7 @@ export default function App() {
           <Route path="/master-karyawan/lembur-ro-legacy" element={<LemburRoAlora />} />
           <Route path="/master-karyawan/lembur-ro" element={<LemburRoAlora />} />
           <Route path="/master-karyawan/pengumuman" element={<PengumumanAlora />} />
+          <Route path="/master-karyawan/hari-libur" element={<HariLiburAlora />} />
           <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
           <Route path="/master-karyawan/annual-leave" element={<AnnualLeaveAlora />} />
           <Route path="/master-karyawan/slip-gaji" element={<PayslipAlora />} />

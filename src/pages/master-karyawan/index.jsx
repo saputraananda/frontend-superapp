@@ -12,6 +12,7 @@ import {
     HiOutlineSpeakerWave,
     HiOutlineClock,
     HiOutlineBanknotes,
+    HiOutlineSun,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -59,6 +60,13 @@ const MENU_ITEMS = [
         icon: HiOutlineSpeakerWave,
         label: "Pengumuman",
         description: "Kelola pengumuman Alora Mobile",
+        end: false,
+    },
+    {
+        to: "/master-karyawan/hari-libur",
+        icon: HiOutlineSun,
+        label: "Hari Libur",
+        description: "Kelola kalender hari libur",
         end: false,
     },
     {
