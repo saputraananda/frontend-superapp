@@ -114,6 +114,16 @@ function WorkBadge({ pct }) {
   );
 }
 
+/** Penanda nota outlet event (Event B2B), berisi nama event. */
+function EventBadge({ row }) {
+  if (!row.isEvent) return null;
+  return (
+    <span className="mt-1 inline-flex rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-700">
+      {row.outletName || "Event"}
+    </span>
+  );
+}
+
 function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDelete }) {
   return (
     <div
@@ -134,6 +144,7 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
               Delivery
             </span>
           ) : null}
+          <EventBadge row={row} />
         </div>
         <WorkBadge pct={row.workStatus} />
       </div>
@@ -188,8 +199,22 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
   );
 }
 
-export default function HistoryTransaction({ outlets = [], workStatuses = [], onChanged }) {
+/**
+ * eventOnly: dipakai menu Event B2B — hanya nota outlet event, dropdown outlet = daftar event,
+ * dan tombol kembali di detail nota mengarah ke `detailFrom`.
+ */
+export default function HistoryTransaction({
+  outlets = [],
+  workStatuses = [],
+  onChanged,
+  eventOnly = false,
+  title = "Riwayat Transaksi",
+  allOutletsLabel = "Semua Outlet",
+  detailFrom = null,
+}) {
   const navigate = useNavigate();
+  const openDetail = (id) =>
+    navigate(`/my-waschen/transactions/${id}`, detailFrom ? { state: { from: detailFrom } } : undefined);
   const cutoff = useCutoffPeriod();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,6 +244,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
     if (!silent) setError("");
     try {
       const qs = new URLSearchParams({ listType: "active" });
+      if (eventOnly) qs.set("eventOnly", "1");
       if (search.trim()) qs.set("search", search.trim());
       if (outletId) qs.set("outletId", outletId);
       if (cutoff.dateFrom) qs.set("dateFrom", cutoff.dateFrom);
@@ -233,7 +259,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
+  }, [eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
 
   useEffect(() => {
     load();
@@ -367,7 +393,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
       <div className="p-3 sm:p-5 border-b border-slate-100 space-y-3">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">Riwayat Transaksi</h2>
+            <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">{title}</h2>
             <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
           </div>
         </div>
@@ -382,7 +408,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
             />
           </div>
           <select value={outletId} onChange={(e) => setOutletId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]">
-            <option value="">Semua Outlet</option>
+            <option value="">{allOutletsLabel}</option>
             {outlets.map((o) => (
               <option key={o.id} value={o.id}>{o.full_name || o.name}</option>
             ))}
@@ -450,7 +476,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
               filtered.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={() => navigate(`/my-waschen/transactions/${row.id}`)}
+                  onClick={() => openDetail(row.id)}
                   className="hover:bg-[#5f1340]/[0.03] cursor-pointer transition-colors"
                 >
                   <td className="px-4 py-3">
@@ -463,6 +489,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
                         Delivery
                       </span>
                     ) : null}
+                    <EventBadge row={row} />
                   </td>
                   <td className="px-4 py-3 font-semibold text-slate-800">{row.customerName || "—"}</td>
                   <td className="px-4 py-3">
@@ -526,7 +553,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
               key={row.id}
               row={row}
               printingId={printingId}
-              onOpen={() => navigate(`/my-waschen/transactions/${row.id}`)}
+              onOpen={() => openDetail(row.id)}
               onPay={openPay}
               onPrint={openThermalPrint}
               onDelete={(r) => { setDeleteModal(r); setDeleteReason(""); }}

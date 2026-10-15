@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   HiOutlineArrowLeft,
@@ -601,6 +601,8 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
 export default function DetailTransaction() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // Dibuka dari menu lain (mis. Event B2B) -> kembali ke halaman asal
+  const backTo = useLocation().state?.from || "/my-waschen/transactions";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -675,7 +677,7 @@ export default function DetailTransaction() {
     <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 max-w-[100rem] mx-auto">
       <button
         type="button"
-        onClick={() => navigate("/my-waschen/transactions")}
+        onClick={() => navigate(backTo)}
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#5f1340] transition-colors"
       >
         <HiOutlineArrowLeft className="h-4 w-4" />
