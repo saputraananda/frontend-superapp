@@ -209,10 +209,10 @@ export default function PendapatanCleanox() {
 	const achievement = totalTarget > 0 ? ((totalCapaian / totalTarget) * 100).toFixed(1) : "0.0";
 
 	const lunasPeriodLabel = meta.dateStart
-		? `${meta.dateStart} – ${meta.asOfDate || meta.dateEnd}`
+		? `${meta.dateStart} – ${meta.dateEnd || meta.asOfDate}`
 		: "";
 	const lunasPeriodLabelId = meta.dateStart
-		? `${formatDate(meta.dateStart)} – ${formatDate(meta.asOfDate || meta.dateEnd)}`
+		? `${formatDate(meta.dateStart)} – ${formatDate(meta.dateEnd || meta.asOfDate)}`
 		: "";
 
 	return (
@@ -528,7 +528,7 @@ export default function PendapatanCleanox() {
 										periodLabel: lunasPeriodLabel,
 										activePeriod: {
 											startDate: meta.dateStart,
-											endDate: meta.asOfDate || meta.dateEnd,
+											endDate: meta.dateEnd || meta.asOfDate,
 										},
 										title: "Pendapatan Cleanox — Transaksi Lunas",
 										filePrefix: "Pendapatan_Cleanox_Lunas",

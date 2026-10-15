@@ -18,6 +18,7 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportAbsensiCleanoxExcel } from "../utils/exportAbsensiCleanoxExcel";
+import { AddLiburModal } from "./LiburKaryawanCleanox";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -65,6 +66,7 @@ function toneClass(tone) {
   if (tone === "emerald") return "bg-emerald-50 border-emerald-100 text-emerald-700";
   if (tone === "amber") return "bg-amber-50 border-amber-100 text-amber-700";
   if (tone === "rose") return "bg-rose-50 border-rose-100 text-rose-700";
+  if (tone === "slate") return "bg-slate-100 border-slate-200 text-slate-700";
   return "bg-blue-50 border-blue-100 text-blue-700";
 }
 
@@ -152,6 +154,9 @@ function StatusBadge({ label }) {
   const map = {
     Lengkap: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: HiOutlineCheckCircle },
     Libur: { cls: "bg-slate-100 text-slate-700 border-slate-300", Icon: HiOutlineCalendarDays },
+    Cuti: { cls: "bg-emerald-50 text-emerald-700 border-emerald-300", Icon: HiOutlineCalendarDays },
+    Izin: { cls: "bg-blue-50 text-blue-700 border-blue-300", Icon: HiOutlineCalendarDays },
+    Sakit: { cls: "bg-rose-50 text-rose-700 border-rose-300", Icon: HiOutlineCalendarDays },
     "Belum check-out": { cls: "bg-amber-50 text-amber-700 border-amber-200", Icon: HiOutlineClock },
     "Belum check-in": { cls: "bg-rose-50 text-rose-700 border-rose-200", Icon: HiOutlineExclamationTriangle },
     "Foto belum lengkap": { cls: "bg-orange-50 text-orange-700 border-orange-200", Icon: HiOutlinePhoto },
@@ -885,6 +890,27 @@ function SkeletonRow() {
 
 function MobileAttendanceCard({ row, onOpenReview, onOpenIn, onOpenOut, onEdit, onDelete, deleting }) {
   const duration = calcDuration(row.check_in_at, row.check_out_at);
+
+  if (row.is_off_day) {
+    return (
+      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-bold text-slate-800">{capitalEachWord(row.full_name)}</p>
+            <p className="mt-0.5 text-xs text-slate-400">{row.employee_code || "-"}</p>
+            <p className="text-xs text-slate-400">{formatDate(row.attendance_date)}</p>
+          </div>
+          <StatusBadge label={row.status_label} />
+        </div>
+        {row.off_note && (
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            Catatan: {row.off_note}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
@@ -1017,6 +1043,7 @@ export default function AbsensiKaryawanCleanox() {
   const [deleteError, setDeleteError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [addModal, setAddModal] = useState(false);
+  const [addLiburModal, setAddLiburModal] = useState(false);
   const [employeeOptions, setEmployeeOptions] = useState([]);
 
   const yearOptions = useMemo(() => {
@@ -1305,7 +1332,7 @@ export default function AbsensiKaryawanCleanox() {
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
           <StatCard
             title="Total Record"
             value={summary?.totalRecords ?? 0}
@@ -1334,6 +1361,13 @@ export default function AbsensiKaryawanCleanox() {
             tone="amber"
             Icon={HiOutlineClock}
           />
+          <StatCard
+            title="Libur & Cuti"
+            value={summary?.offDayCount ?? 0}
+            subtitle="Total hari libur, cuti, atau izin"
+            tone="slate"
+            Icon={HiOutlineCalendarDays}
+          />
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -1348,30 +1382,33 @@ export default function AbsensiKaryawanCleanox() {
             <table className="min-w-[900px] w-full table-fixed text-sm">
               <thead className="border-b border-slate-100 bg-slate-50">
                 <tr>
-                  <th className="w-[25%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="w-[23%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Karyawan
                   </th>
-                  <th className="w-[15%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="w-[13%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
                     NIK
                   </th>
-                  <th className="w-[25%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="w-[22%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Jabatan
                   </th>
-                  <th className="w-[12%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="w-[11%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Total Record
                   </th>
-                  <th className="w-[11%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Lengkap
                   </th>
-                  <th className="w-[12%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="w-[11%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Belum Lengkap
+                  </th>
+                  <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Libur / Cuti
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {employeeSummary.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400">
                       {loading
                         ? "Memuat ringkasan..."
                         : "Belum ada data ringkasan karyawan untuk periode/filter ini."}
@@ -1395,6 +1432,9 @@ export default function AbsensiKaryawanCleanox() {
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-rose-700">
                         {row.incomplete_count}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-slate-600">
+                        {row.off_day_count || 0}
                       </td>
                     </tr>
                   ))
@@ -1478,6 +1518,14 @@ export default function AbsensiKaryawanCleanox() {
               </button>
               <button
                 type="button"
+                onClick={() => setAddLiburModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                <HiOutlineCalendarDays className="h-3.5 w-3.5" />
+                Plot Libur
+              </button>
+              <button
+                type="button"
                 onClick={() => setAddModal(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
               >
@@ -1553,7 +1601,7 @@ export default function AbsensiKaryawanCleanox() {
                           <div className="text-[11px] text-slate-400">{row.employee_code || "-"}</div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">
-                          {formatDateTime(row.check_in_at)}
+                          {row.check_in_at ? formatDateTime(row.check_in_at) : <span className="text-slate-300">-</span>}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           {row.check_in_photo?.url ? (
@@ -1582,16 +1630,20 @@ export default function AbsensiKaryawanCleanox() {
                           )}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            {(row.photos || []).map((photo) => (
-                              <PhotoThumb
-                                key={photo.photo_type}
-                                path={photo.url}
-                                label={photo.label}
-                                onOpen={() => openGroomingPhoto(row, photo)}
-                              />
-                            ))}
-                          </div>
+                          {(row.photos || []).length > 0 ? (
+                            <div className="flex items-center gap-1.5">
+                              {(row.photos || []).map((photo) => (
+                                <PhotoThumb
+                                  key={photo.photo_type}
+                                  path={photo.url}
+                                  label={photo.label}
+                                  onOpen={() => openGroomingPhoto(row, photo)}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-300">-</span>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           {duration ? (
@@ -1607,6 +1659,11 @@ export default function AbsensiKaryawanCleanox() {
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <StatusBadge label={row.status_label} />
+                          {row.is_off_day && row.off_note && (
+                            <p className="mt-0.5 max-w-[140px] truncate text-[10px] text-slate-400" title={row.off_note}>
+                              {row.off_note}
+                            </p>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           {row.is_off_day ? (
@@ -1685,6 +1742,16 @@ export default function AbsensiKaryawanCleanox() {
           onClose={() => setAddModal(false)}
           onSaved={() => {
             setAddModal(false);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+      {addLiburModal && (
+        <AddLiburModal
+          employeeOptions={employeeOptions}
+          onClose={() => setAddLiburModal(false)}
+          onSaved={() => {
+            setAddLiburModal(false);
             setRefreshKey((k) => k + 1);
           }}
         />

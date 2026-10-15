@@ -65,6 +65,10 @@ const makeStatusStyle = (statusLabel, isAlt) => {
     "Belum check-in": { bg: C.status_belum_in_bg, text: C.status_belum_in_text },
     "Foto belum lengkap": { bg: C.status_foto_bg, text: C.status_foto_text },
     "Belum foto grooming": { bg: C.status_foto_bg, text: C.status_foto_text },
+    Libur: { bg: "F1F5F9", text: "334155" },
+    Cuti: { bg: "D1FAE5", text: "065F46" },
+    Izin: { bg: "DBEAFE", text: "1E40AF" },
+    Sakit: { bg: "FFE4E6", text: "9F1239" },
   };
   const colors = map[statusLabel] || { bg: isAlt ? C.altRowBg : C.whiteBg, text: C.textDark };
   return {
@@ -199,7 +203,7 @@ export function exportAbsensiCleanoxExcel({ records, periodLabel, activePeriod, 
       cell(formatCheckOutKeterangan(r), cs),
       cell(calcDuration(r.check_in_at, r.check_out_at), csCenter),
       cell(r.kehadiran_label || "-", makeKehadiranStyle(r.kehadiran_label, isAlt)),
-      cell(r.is_late ? r.late_reason || "-" : "-", cs),
+      cell(r.is_late ? r.late_reason || "-" : r.is_off_day ? r.off_note || "-" : "-", cs),
       cell(r.status_label || "-", makeStatusStyle(r.status_label, isAlt)),
     ]);
   });

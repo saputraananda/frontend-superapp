@@ -84,7 +84,7 @@ function generatePages(current, total) {
 	return [1, "...", current - 1, current, current + 1, "...", total];
 }
 
-function AddLiburModal({ employeeOptions, onClose, onSaved }) {
+export function AddLiburModal({ employeeOptions, onClose, onSaved }) {
 	const todayVal = toDateInput(new Date());
 	const [employeeId, setEmployeeId] = useState("");
 	const [startDate, setStartDate] = useState(todayVal);
