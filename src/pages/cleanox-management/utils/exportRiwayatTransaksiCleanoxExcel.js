@@ -46,6 +46,14 @@ const makeCellStyle = (isAlt, align = "left") => ({
 	border: border(),
 });
 
+const makeCurrencyStyle = (isAlt) => ({
+	fill: { fgColor: { rgb: isAlt ? C.altRowBg : C.whiteBg } },
+	font: { sz: 10, color: { rgb: C.textDark }, name: "Calibri" },
+	alignment: { horizontal: "right", vertical: "center" },
+	numFmt: "#,##0",
+	border: border(),
+});
+
 const cell = (v, s) => ({ v, t: typeof v === "number" ? "n" : "s", s });
 const empty = (s) => ({ v: "", t: "s", s });
 
@@ -111,7 +119,7 @@ function isNonTunaiReconKategori(kategori) {
 	return true;
 }
 
-function buildRekonsiliasiAggregates(list, dateField) {
+function buildRekonsiliasiAggregates(list, dateField, activePeriod) {
 	const map = new Map();
 	for (const r of list || []) {
 		const dateKey = toDateKey(r?.[dateField]);
@@ -123,15 +131,42 @@ function buildRekonsiliasiAggregates(list, dateField) {
 		if (isTunaiKategori(kategori)) bucket.tunai += amount;
 		else if (isNonTunaiReconKategori(kategori)) bucket.nonTunai += amount;
 	}
-	return Array.from(map.entries())
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([dateKey, { tunai, nonTunai }]) => ({
+
+	let dateKeys = [];
+	if (activePeriod?.startDate && activePeriod?.endDate) {
+		const cur = new Date(`${activePeriod.startDate}T12:00:00`);
+		const end = new Date(`${activePeriod.endDate}T12:00:00`);
+		if (!Number.isNaN(cur.getTime()) && !Number.isNaN(end.getTime()) && cur <= end) {
+			while (cur <= end) {
+				const y = cur.getFullYear();
+				const m = String(cur.getMonth() + 1).padStart(2, "0");
+				const d = String(cur.getDate()).padStart(2, "0");
+				dateKeys.push(`${y}-${m}-${d}`);
+				cur.setDate(cur.getDate() + 1);
+			}
+		}
+	}
+
+	if (dateKeys.length > 0) {
+		const set = new Set(dateKeys);
+		for (const k of map.keys()) {
+			if (!set.has(k)) dateKeys.push(k);
+		}
+		dateKeys.sort((a, b) => a.localeCompare(b));
+	} else {
+		dateKeys = Array.from(map.keys()).sort((a, b) => a.localeCompare(b));
+	}
+
+	return dateKeys.map((dateKey) => {
+		const bucket = map.get(dateKey) || { tunai: 0, nonTunai: 0 };
+		return {
 			dateKey,
 			dateLabel: fmtDateSlash(dateKey),
-			tunai,
-			nonTunai,
+			tunai: bucket.tunai,
+			nonTunai: bucket.nonTunai,
 			gap: 0,
-		}));
+		};
+	});
 }
 
 /**
@@ -188,7 +223,7 @@ export function exportRiwayatTransaksiCleanoxExcel({
 	wsData.push(headerRow);
 
 	const aggregates = includeRekonsiliasi
-		? buildRekonsiliasiAggregates(list, dateField)
+		? buildRekonsiliasiAggregates(list, dateField, activePeriod)
 		: [];
 	const rowCount = includeRekonsiliasi
 		? Math.max(list.length, aggregates.length)
@@ -198,7 +233,7 @@ export function exportRiwayatTransaksiCleanoxExcel({
 		const isAlt = i % 2 === 1;
 		const cs = makeCellStyle(isAlt);
 		const csCenter = makeCellStyle(isAlt, "center");
-		const csRight = makeCellStyle(isAlt, "right");
+		const csCurrency = makeCurrencyStyle(isAlt);
 		const blank = empty(cs);
 
 		let row;
@@ -215,7 +250,7 @@ export function exportRiwayatTransaksiCleanoxExcel({
 				cell(r.transaction_no || "-", cs),
 				cell(r.customer_name || "-", cs),
 				cell(r.kategori || "-", csCenter),
-				cell(amount, csRight),
+				cell(amount, csCurrency),
 			];
 		} else {
 			row = Array.from({ length: leftCols }, () => blank);
@@ -227,9 +262,9 @@ export function exportRiwayatTransaksiCleanoxExcel({
 				const a = aggregates[i];
 				row.push(
 					cell(a.dateLabel, csCenter),
-					cell(a.tunai, csRight),
-					cell(a.nonTunai, csRight),
-					cell(a.gap, csRight),
+					cell(a.tunai, csCurrency),
+					cell(a.nonTunai, csCurrency),
+					cell(a.gap, csCurrency),
 				);
 			} else {
 				row.push(blank, blank, blank, blank);
@@ -271,7 +306,7 @@ export function exportRiwayatTransaksiCleanoxExcel({
 	const end = activePeriod?.endDate || "end";
 	const safeSheet = String(sheetName || "Riwayat").slice(0, 31);
 	XLSXStyle.utils.book_append_sheet(wb, ws, safeSheet);
-	const buffer = XLSXStyle.write(wb, { bookType: "xlsx", type: "array" });
+	const buffer = XLSXStyle.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
 	saveAs(
 		new Blob([buffer], { type: "application/octet-stream" }),
 		`${filePrefix}_${start}_${end}.xlsx`,
