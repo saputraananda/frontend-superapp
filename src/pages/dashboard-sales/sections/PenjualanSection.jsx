@@ -19,9 +19,15 @@ function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
   } else if (filterType === "year" && year) {
     const yearStart = `${parseInt(year) - 1}-12-26`; // misal 2025-12-26
     const yearEnd = `${year}-12-25`;               // misal 2026-12-25
-    const today = todayWIB();
+    const yesterday = new Date(`${todayWIB()}T12:00:00`);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = [
+      yesterday.getFullYear(),
+      String(yesterday.getMonth() + 1).padStart(2, "0"),
+      String(yesterday.getDate()).padStart(2, "0"),
+    ].join("-");
     p.set("startDate", yearStart);
-    p.set("endDate", today < yearEnd ? today : yearEnd);
+    p.set("endDate", yesterdayISO < yearEnd ? yesterdayISO : yearEnd);
   } else if (filterType === "range" && startDate && endDate) {
     p.set("startDate", startDate);
     p.set("endDate", endDate);
