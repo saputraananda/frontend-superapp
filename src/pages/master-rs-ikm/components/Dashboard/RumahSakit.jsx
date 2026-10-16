@@ -132,6 +132,7 @@ const EMPTY_FORM = {
 	allow_express: false,
 	price_per_kg: "",
 	express_price_per_kg: "",
+	kg_agreement: "",
 	rooms: [],
 };
 
@@ -225,6 +226,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			allow_express: Boolean(Number(initial.allow_express)),
 			price_per_kg: toPriceInput(initial.price_per_kg),
 			express_price_per_kg: toPriceInput(initial.express_price_per_kg),
+			kg_agreement: initial.kg_agreement != null && initial.kg_agreement !== "" ? String(Number(initial.kg_agreement)) : "",
 		};
 	});
 	const [newRoom, setNewRoom] = useState("");
@@ -452,6 +454,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			...form,
 			price_per_kg: parsePriceInput(form.price_per_kg),
 			express_price_per_kg: parsePriceInput(form.express_price_per_kg),
+			kg_agreement: form.kg_agreement === "" ? null : Number(form.kg_agreement),
 		});
 	};
 
@@ -585,6 +588,22 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 								/>
 								<p className="mt-1 text-[11px] text-slate-500">
 									Isi hanya jika tarif express RS ini bukan 2x harga reguler. Kosongkan = otomatis 2x.
+								</p>
+							</div>
+
+							<div>
+								<label className={labelCls}>Kg Perjanjian (Minimum per Serah Terima)</label>
+								<input
+									type="number"
+									min="0"
+									step="0.01"
+									className={inputCls}
+									value={form.kg_agreement}
+									onChange={set("kg_agreement")}
+									placeholder="Kosongkan jika tidak ada perjanjian"
+								/>
+								<p className="mt-1 text-[11px] text-slate-500">
+									Kg yang ditagihkan = kg aktual + kg perjanjian. Berlaku untuk semua transaksi RS ini, termasuk transaksi lama.
 								</p>
 							</div>
 
@@ -1314,6 +1333,16 @@ export default function RumahSakitPage() {
 													: detailModal.price_per_kg != null && detailModal.price_per_kg !== ""
 														? `Rp ${(Number(detailModal.price_per_kg) * 2).toLocaleString("id-ID")} (2x otomatis)`
 														: "—"}
+											</div>
+										</div>
+									)}
+									{Number(detailModal.billing_by_kg) === 1 && (
+										<div>
+											<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Kg Perjanjian</label>
+											<div className="text-xs font-semibold text-slate-700">
+												{detailModal.kg_agreement != null && detailModal.kg_agreement !== ""
+													? `${Number(detailModal.kg_agreement).toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`
+													: "Tidak ada"}
 											</div>
 										</div>
 									)}

@@ -737,6 +737,17 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const selectedHospitalBillingByKg = Number(hospitals.find(h => Number(h.id) === Number(hospitalId))?.billing_by_kg) === 1;
   const selectedHospitalAllowExpress = Number(hospitals.find(h => Number(h.id) === Number(hospitalId))?.allow_express) === 1;
   const showKgFields = selectedHospitalBillingByKg || totalKgValet !== "" || totalKgAdmin !== "";
+  const selectedKgAgreementRaw = hospitals.find(h => Number(h.id) === Number(hospitalId))?.kg_agreement;
+  const selectedKgAgreement =
+    selectedKgAgreementRaw != null && selectedKgAgreementRaw !== "" ? Number(selectedKgAgreementRaw) : null;
+  // Kg ditagihkan = kg aktual + kg perjanjian; kg aktual = kg valet, kecuali kg admin lebih besar.
+  // Kosong selama kg aktual belum diisi.
+  const actualKgs = [totalKgValet, totalKgAdmin]
+    .filter((v) => v !== "")
+    .map(Number)
+    .filter(Number.isFinite);
+  const kgTotal = actualKgs.length ? Math.max(...actualKgs) + (selectedKgAgreement ?? 0) : null;
+  const fmtKgLabel = (n) => `${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`;
   const showExpressField = selectedHospitalAllowExpress || isExpress;
 
   const handleSubmit = async (e) => {
@@ -1147,6 +1158,22 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                         Selisih kg: {(Number(totalKgAdmin) - Number(totalKgValet)).toLocaleString("id-ID", { maximumFractionDigits: 2 })}
                         {" "}(Admin − Valet)
                       </p>
+                    )}
+                    {selectedHospitalBillingByKg && (
+                      <div className="grid grid-cols-2 gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kg Perjanjian</p>
+                          <p className="text-sm font-semibold text-slate-700">
+                            {selectedKgAgreement != null ? fmtKgLabel(selectedKgAgreement) : "Tidak ada"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Kg Ditagihkan</p>
+                          <p className="text-sm font-bold text-amber-900">
+                            {kgTotal != null ? fmtKgLabel(kgTotal) : "—"}
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
