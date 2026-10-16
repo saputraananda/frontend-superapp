@@ -66,6 +66,7 @@ export default function JadwalLibur() {
   const [newDate, setNewDate] = useState("");
   const [rejectRow, setRejectRow] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [deleteRow, setDeleteRow] = useState(null);
   const [assignReason, setAssignReason] = useState("");
   const [pickedEmployees, setPickedEmployees] = useState([]);
   const [empSearch, setEmpSearch] = useState("");
@@ -231,6 +232,22 @@ export default function JadwalLibur() {
       showToast("success", "Permintaan libur ditolak");
       setRejectRow(null);
       setRejectNote("");
+      load();
+      if (selectedDay) loadDay(selectedDay);
+    } catch (err) {
+      showToast("error", err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const removeDayOff = async () => {
+    if (!deleteRow) return;
+    setSubmitting(true);
+    try {
+      await api(`/waschen/hris/day-offs/${deleteRow.day_off_id}`, { method: "DELETE" });
+      showToast("success", "Pengajuan libur dihapus");
+      setDeleteRow(null);
       load();
       if (selectedDay) loadDay(selectedDay);
     } catch (err) {
@@ -449,6 +466,7 @@ export default function JadwalLibur() {
                               <HiOutlineArrowPathRoundedSquare className="h-3.5 w-3.5" /> Pindah
                             </button>
                           )}
+                          <button type="button" disabled={submitting} onClick={() => setDeleteRow(r)} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[10px] font-bold text-rose-600 disabled:opacity-50">Hapus</button>
                         </div>
                       </li>
                     ))}
@@ -591,6 +609,26 @@ export default function JadwalLibur() {
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onClick={() => setApproveRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
                 <button type="button" disabled={submitting} onClick={approve} className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Setujui</button>
+              </div>
+            </div>
+          </div>
+        </div>, document.body)}
+
+      {deleteRow && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setDeleteRow(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
+              <h3 className="font-bold text-sm">Hapus Pengajuan Libur</h3>
+              <button type="button" onClick={() => setDeleteRow(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="p-5 space-y-3 text-xs">
+              <p className="text-slate-600">
+                Hapus jadwal <strong className="text-slate-800">{fmtEmployeeName(deleteRow.employee_name)}</strong> pada {fmtDateShort(deleteRow.off_date)}?
+                Data ini hilang dari kalender, dan tanggalnya bisa dipakai lagi.
+              </p>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setDeleteRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
+                <button type="button" disabled={submitting} onClick={removeDayOff} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Hapus</button>
               </div>
             </div>
           </div>
