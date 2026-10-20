@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, assetUrl } from "../../../lib/api";
 import {
     HiOutlineUsers,
@@ -94,24 +94,41 @@ const selectCls = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-
 
 export default function DataKaryawan() {
     const navigate = useNavigate();
-    
+    // Filter disimpan di URL agar tetap ada saat kembali dari halaman detail
+    const [searchParams, setSearchParams] = useSearchParams();
+
     const [employees, setEmployees] = useState([]);
     const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState(() => Number(searchParams.get("page")) || 1);
     const [loadingTable, setLoadingTable] = useState(true);
     const [companies, setCompanies] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [filterCompany, setFilterCompany] = useState("");
-    const [filterDept, setFilterDept] = useState("");
-    const [filterStatus, setFilterStatus] = useState("");
-    const [search, setSearch] = useState("");
-    const [searchInput, setSearchInput] = useState("");
-    const [limit, setLimit] = useState(10); // set to 10 as default instead of 0 (Semua) for better initial load speed
+    const [filterCompany, setFilterCompany] = useState(() => searchParams.get("company") || "");
+    const [filterDept, setFilterDept] = useState(() => searchParams.get("dept") || "");
+    const [filterStatus, setFilterStatus] = useState(() => searchParams.get("status") || "");
+    const [search, setSearch] = useState(() => searchParams.get("q") || "");
+    const [searchInput, setSearchInput] = useState(() => searchParams.get("q") || "");
+    const [limit, setLimit] = useState(() => {
+        const l = searchParams.get("limit");
+        return l !== null && LIMIT_OPTIONS.includes(Number(l)) ? Number(l) : 10;
+    }); // set to 10 as default instead of 0 (Semua) for better initial load speed
 
     useEffect(() => {
+        if (searchInput === search) return;
         const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
         return () => clearTimeout(t);
-    }, [searchInput]);
+    }, [searchInput, search]);
+
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (filterCompany) params.set("company", filterCompany);
+        if (filterDept) params.set("dept", filterDept);
+        if (filterStatus) params.set("status", filterStatus);
+        if (search) params.set("q", search);
+        if (page !== 1) params.set("page", page);
+        if (limit !== 10) params.set("limit", limit);
+        setSearchParams(params, { replace: true });
+    }, [filterCompany, filterDept, filterStatus, search, page, limit, setSearchParams]);
 
     useEffect(() => {
         api("/employees/master-data").then((res) => {
