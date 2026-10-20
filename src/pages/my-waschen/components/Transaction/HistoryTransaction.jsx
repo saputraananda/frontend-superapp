@@ -8,8 +8,9 @@ import {
   HiOutlineCheckCircle,
   HiOutlinePrinter,
   HiOutlineXMark,
+  HiOutlinePaperClip,
 } from "react-icons/hi2";
-import { api } from "../../../../lib/api";
+import { api, apiUpload } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
@@ -153,6 +154,12 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
           <span className="text-slate-400 shrink-0">Pelanggan</span>
           <span className="font-semibold text-slate-800 truncate text-right">{row.customerName || "—"}</span>
         </div>
+        {row.customerAddress ? (
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-slate-400 shrink-0">Alamat</span>
+            <span className="text-slate-600 text-right line-clamp-2 break-words" title={row.customerAddress}>{row.customerAddress}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-400 shrink-0">WhatsApp</span>
           {row.customerPhone ? (
@@ -225,6 +232,7 @@ export default function HistoryTransaction({
   const [workTab, setWorkTab] = useState("Semua");
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleteReason, setDeleteReason] = useState("");
+  const [deleteFile, setDeleteFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentModal, setPaymentModal] = useState(null);
   const [payAmount, setPayAmount] = useState("");
@@ -305,15 +313,23 @@ export default function HistoryTransaction({
       showToast("error", "Alasan pengajuan hapus wajib diisi");
       return;
     }
+    if (!deleteFile) {
+      showToast("error", "Lampiran foto/dokumen wajib disertakan");
+      return;
+    }
     setSubmitting(true);
     try {
-      await api(`/waschen/transactions/${deleteModal.id}/request-delete`, {
+      const body = new FormData();
+      body.append("reason", deleteReason.trim());
+      body.append("attachment", deleteFile);
+      await apiUpload(`/waschen/transactions/${deleteModal.id}/request-delete`, {
         method: "PATCH",
-        body: JSON.stringify({ reason: deleteReason.trim() }),
+        body,
       });
       showToast("success", `Pengajuan hapus ${deleteModal.orderNo} dikirim`);
       setDeleteModal(null);
       setDeleteReason("");
+      setDeleteFile(null);
       await load();
       onChanged?.();
     } catch (err) {
@@ -491,7 +507,14 @@ export default function HistoryTransaction({
                     ) : null}
                     <EventBadge row={row} />
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{row.customerName || "—"}</td>
+                  <td className="px-4 py-3 min-w-[10rem] max-w-[16rem]">
+                    <p className="font-semibold text-slate-800 break-words">{row.customerName || "—"}</p>
+                    {row.customerAddress ? (
+                      <p className="mt-0.5 text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={row.customerAddress}>
+                        {row.customerAddress}
+                      </p>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3">
                     {row.customerPhone ? (
                       <a
@@ -523,7 +546,7 @@ export default function HistoryTransaction({
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setDeleteModal(row); setDeleteReason(""); }}
+                        onClick={() => { setDeleteModal(row); setDeleteReason(""); setDeleteFile(null); }}
                         className="rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-700 hover:bg-rose-600 hover:text-white"
                         title="Ajukan hapus"
                       >
@@ -556,7 +579,7 @@ export default function HistoryTransaction({
               onOpen={() => openDetail(row.id)}
               onPay={openPay}
               onPrint={openThermalPrint}
-              onDelete={(r) => { setDeleteModal(r); setDeleteReason(""); }}
+              onDelete={(r) => { setDeleteModal(r); setDeleteReason(""); setDeleteFile(null); }}
             />
           ))
         )}
@@ -588,10 +611,43 @@ export default function HistoryTransaction({
                 placeholder="Alasan pengajuan hapus..."
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-rose-500"
               />
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold text-slate-600">
+                  Lampiran foto / dokumen PDF <span className="text-rose-600">*</span>
+                </p>
+                {deleteFile ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-700">
+                      <HiOutlinePaperClip className="h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="truncate">{deleteFile.name}</span>
+                    </span>
+                    <button type="button" onClick={() => setDeleteFile(null)} className="shrink-0 text-[11px] font-semibold text-rose-600">Hapus</button>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 px-3 py-4 text-center hover:border-rose-300">
+                    <HiOutlinePaperClip className="mb-1 h-5 w-5 text-slate-400" />
+                    <span className="text-[11px] font-semibold text-slate-500">Pilih foto (JPG/PNG/WEBP) atau PDF, maks 5 MB</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        e.target.value = "";
+                        if (f && f.size > 5 * 1024 * 1024) {
+                          showToast("error", "Ukuran lampiran maksimal 5 MB");
+                          return;
+                        }
+                        setDeleteFile(f);
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
               <button type="button" onClick={() => setDeleteModal(null)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Batal</button>
-              <button type="button" disabled={submitting} onClick={submitDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+              <button type="button" disabled={submitting || !deleteReason.trim() || !deleteFile} onClick={submitDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
                 {submitting ? "Mengirim..." : "Kirim Request"}
               </button>
             </div>

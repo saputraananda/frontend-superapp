@@ -277,6 +277,11 @@ export default function EventCustomer() {
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.customer_code || "—"}</td>
                   <td className="px-4 py-3.5">
                     <p className="font-semibold text-slate-800">{item.name || "—"}</p>
+                    {(item.full_address || item.address) && (
+                      <p className="mt-0.5 max-w-[16rem] text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={item.full_address || item.address}>
+                        {item.full_address || item.address}
+                      </p>
+                    )}
                     {item.city && <p className="text-[10px] text-slate-400 mt-0.5">{item.city}</p>}
                   </td>
                   <td className="px-4 py-3.5"><span className="inline-flex items-center gap-1 text-slate-600"><HiOutlinePhone className="h-3 w-3" />{item.phone || "—"}</span></td>

@@ -6,6 +6,7 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineTrash,
   HiOutlineArrowPath,
+  HiOutlinePaperClip,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -217,9 +218,38 @@ export default function RequestDeleteTransaction({ employees = [], onChanged }) 
                       <p className="font-bold font-mono text-[#5f1340]">{r.orderNo}</p>
                       <p className="text-[10px] text-slate-400">{fmtDate(r.deleteRequestedAt)}</p>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">{r.customerName || "—"}</td>
+                    <td className="px-4 py-3 min-w-[10rem] max-w-[16rem]">
+                      <p className="font-semibold text-slate-800 break-words">{r.customerName || "—"}</p>
+                      {r.customerAddress ? (
+                        <p className="mt-0.5 text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={r.customerAddress}>
+                          {r.customerAddress}
+                        </p>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{r.branch || r.outletName || "—"}</td>
-                    <td className="px-4 py-3 max-w-[16rem] truncate text-slate-600" title={r.deleteReason}>{r.deleteReason || "—"}</td>
+                    <td className="px-4 py-3 max-w-[16rem] text-slate-600">
+                      <p className="truncate" title={r.deleteReason}>{r.deleteReason || "—"}</p>
+                      {r.deleteAttachmentUrl ? (
+                        <a
+                          href={r.deleteAttachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1.5 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-1 pr-2.5 hover:border-rose-300"
+                          title="Lihat lampiran pengajuan"
+                        >
+                          {/\.pdf($|\?)/i.test(r.deleteAttachmentUrl) ? (
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-rose-50 text-rose-600">
+                              <HiOutlinePaperClip className="h-4 w-4" />
+                            </span>
+                          ) : (
+                            <img src={r.deleteAttachmentUrl} alt="Lampiran" loading="lazy" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+                          )}
+                          <span className="text-[10px] font-semibold text-rose-700">Lihat Lampiran</span>
+                        </a>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-slate-400">Tanpa lampiran</p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-bold">{fmtIDR(r.grandTotal)}</td>
                     <td className="px-4 py-3 text-center">
                       {isApproved(r.deleteApprovalStatus) ? (

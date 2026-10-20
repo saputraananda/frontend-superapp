@@ -215,7 +215,14 @@ export default function RequestRefundTransaction({ employees = [], onChanged }) 
                       <p className="font-bold font-mono text-[#5f1340]">{r.orderNo}</p>
                       <p className="text-[10px] text-slate-400">{fmtDate(r.refundRequestedAt)}</p>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">{r.customerName || "—"}</td>
+                    <td className="px-4 py-3 min-w-[10rem] max-w-[16rem]">
+                      <p className="font-semibold text-slate-800 break-words">{r.customerName || "—"}</p>
+                      {r.customerAddress ? (
+                        <p className="mt-0.5 text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={r.customerAddress}>
+                          {r.customerAddress}
+                        </p>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{r.branch || r.outletName || "—"}</td>
                     <td className="px-4 py-3 max-w-[14rem] truncate text-slate-600" title={r.refundReason}>{r.refundReason || "—"}</td>
                     <td className="px-4 py-3 text-right font-semibold">{fmtIDR(r.grandTotal)}</td>

@@ -470,6 +470,11 @@ export default function Overtime() {
                                 <td className="px-3 py-2">
                                   <p className="font-semibold text-slate-800">{w.order_no || w.barcode || `#${w.transaction_id}`}</p>
                                   <p className="text-[10px] text-slate-400">{w.customer_name}</p>
+                                  {w.customer_address ? (
+                                    <p className="text-[10px] leading-snug text-slate-400 line-clamp-2 break-words max-w-[14rem]" title={w.customer_address}>
+                                      {w.customer_address}
+                                    </p>
+                                  ) : null}
                                 </td>
                                 <td className="px-3 py-2 text-slate-700">{w.service_name}</td>
                                 <td className="px-3 py-2 capitalize text-slate-600">{w.stage}</td>

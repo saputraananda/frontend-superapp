@@ -17,6 +17,7 @@ import {
   HiOutlineSparkles,
   HiOutlinePhone,
   HiOutlineAdjustmentsHorizontal,
+  HiOutlinePaperClip,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -165,6 +166,51 @@ function filled(v) {
   return v != null && String(v).trim() !== "";
 }
 
+function MembershipPayments({ customerId }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    setRows(null);
+    api(`/waschen/customers/${customerId}/membership-payments`)
+      .then((res) => { if (alive) setRows(res.data || []); })
+      .catch(() => { if (alive) setRows([]); });
+    return () => { alive = false; };
+  }, [customerId]);
+
+  if (rows === null) return <p className="mt-3 text-[11px] text-slate-400">Memuat bukti pembayaran…</p>;
+  if (!rows.length) return null;
+  return (
+    <div className="mt-3 border-t border-slate-200 pt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Bukti pembayaran top-up</p>
+      <ul className="mt-2 space-y-2">
+        {rows.map((r) => {
+          const url = r.payment_proof_url;
+          const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url || "");
+          return (
+            <li key={r.id} className="flex items-center gap-3">
+              {url ? (
+                <a href={url} target="_blank" rel="noopener noreferrer" title="Lihat bukti pembayaran" className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white hover:border-[#5f1340]/40">
+                  {isImage
+                    ? <img src={url} alt="Bukti pembayaran" loading="lazy" className="h-full w-full object-cover" />
+                    : <HiOutlinePaperClip className="h-4 w-4 text-slate-400" />}
+                </a>
+              ) : (
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 text-[9px] text-slate-400">Tanpa bukti</span>
+              )}
+              <div className="min-w-0 text-[11px]">
+                <p className="font-semibold text-slate-800">
+                  {r.package_name || "Top-up membership"} · {formatRupiah(r.amount)}
+                </p>
+                <p className="text-slate-500">{fmtDateShort(r.created_at)} · {r.payment_method || "—"}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function CustomerReport({ item, onClose, onEdit }) {
   const facts = [
     ["Telepon", item.phone],
@@ -234,6 +280,7 @@ function CustomerReport({ item, onClose, onEdit }) {
                 <HiOutlinePhone className="h-3.5 w-3.5" />{item.phone}
               </a>
             )}
+            <MembershipPayments customerId={item.id} />
           </div>
         )}
         {facts.length > 0 && (
@@ -631,6 +678,11 @@ export default function Customer() {
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.customer_code || "—"}</td>
                   <td className="px-4 py-3.5">
                     <p className="font-semibold text-slate-800">{item.name || "—"}</p>
+                    {(item.full_address || item.address) && (
+                      <p className="mt-0.5 max-w-[16rem] text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={item.full_address || item.address}>
+                        {item.full_address || item.address}
+                      </p>
+                    )}
                     {item.city && <p className="text-[10px] text-slate-400 mt-0.5">{item.city}</p>}
                   </td>
                   <td className="px-4 py-3.5"><span className="inline-flex items-center gap-1 text-slate-600"><HiOutlinePhone className="h-3 w-3" />{item.phone || "—"}</span></td>
