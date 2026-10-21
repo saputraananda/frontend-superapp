@@ -348,7 +348,12 @@ function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
 
       {kgItems.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold text-slate-500">Jenis pakaian (Tim Cuci)</p>
+          <p className="text-[11px] font-semibold text-slate-500">
+            Jenis pakaian
+            {kgItems[0]?.source_label
+              ? ` — dirinci ${kgItems[0].source_label}${kgItems[0].source_employee_name ? ` (${fmtEmployeeName(kgItems[0].source_employee_name)})` : ""}`
+              : ""}
+          </p>
           {bagNos.filter((no) => kgItems.some((k) => Number(k.bag_no) === no)).map((no) => {
             const rows = kgItems.filter((k) => Number(k.bag_no) === no);
             return (
