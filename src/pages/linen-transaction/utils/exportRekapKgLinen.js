@@ -1,16 +1,10 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
+// kg_total dari backend = kg aktual (valet, atau admin jika lebih besar) + kg perjanjian RS
 function pickKg(row) {
-  if (row.total_kg_admin != null && row.total_kg_admin !== "") {
-    const n = Number(row.total_kg_admin);
-    if (Number.isFinite(n)) return n;
-  }
-  if (row.total_kg_valet != null && row.total_kg_valet !== "") {
-    const n = Number(row.total_kg_valet);
-    if (Number.isFinite(n)) return n;
-  }
-  return 0;
+  const n = Number(row.kg_total);
+  return row.kg_total != null && Number.isFinite(n) ? n : 0;
 }
 
 function resolveMonthContext(startDate, endDate) {
@@ -35,8 +29,6 @@ const thinBorder = {
   bottom: { style: "thin", color: { argb: BORDER_COLOR } },
   right: { style: "thin", color: { argb: BORDER_COLOR } },
 };
-
-const MIN_KG_PER_DAY = 35;
 
 function applyCyanHeader(cell) {
   cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CYAN } };
@@ -68,6 +60,8 @@ function toPrice(v) {
 /**
  * Build a daily KG matrix sheet (same layout for all 3 sheets).
  * rows: [{ no, label, dayValues, unitPrice }]
+ * kgAgreement: kg perjanjian per serah terima (null = tidak ada)
+ * agreementDays: kg perjanjian per hari (sudah termasuk di rows, hanya informasi)
  */
 function buildMatrixSheet(workbook, {
   sheetName,
@@ -76,6 +70,8 @@ function buildMatrixSheet(workbook, {
   monthLabel,
   daysInMonth,
   rows,
+  kgAgreement,
+  agreementDays,
 }) {
   const dayStartCol = 3; // C
   const dayEndCol = dayStartCol + daysInMonth - 1;
@@ -83,7 +79,6 @@ function buildMatrixSheet(workbook, {
   const hargaCol = totalCol + 1;
   const jumlahCol = hargaCol + 1;
   const lastCol = jumlahCol;
-  const minimalKg = MIN_KG_PER_DAY * daysInMonth;
 
   const ws = workbook.addWorksheet(sheetName, {
     views: [{ showGridLines: true, state: "frozen", ySplit: 6 }],
@@ -257,41 +252,41 @@ function buildMatrixSheet(workbook, {
   applyCellBorderCenter(ws.getCell(avgRowNum, hargaCol));
   applyCellBorderCenter(ws.getCell(avgRowNum, jumlahCol));
 
-  // Minimal pengambilan
-  const minRowNum = ws.addRow([]).number;
-  ws.mergeCells(minRowNum, 1, minRowNum, 2);
-  ws.getCell(minRowNum, 1).value =
-    `Minimal pengambilan linen kotor rata-rata perhari ${MIN_KG_PER_DAY} kg x ${daysInMonth} hari`;
-  applyCellBorderCenter(ws.getCell(minRowNum, 1), {
-    font: { size: 8, color: { argb: TEXT } },
-    horizontal: "left",
-    wrapText: true,
-  });
-  applyCellBorderCenter(ws.getCell(minRowNum, 2));
-  for (let c = dayStartCol; c <= dayEndCol; c++) {
-    applyCellBorderCenter(ws.getCell(minRowNum, c));
+  // Kg perjanjian (informasi; sudah termasuk di total di atas)
+  if (kgAgreement != null) {
+    const agrRowNum = ws.addRow([]).number;
+    const txCount = kgAgreement > 0
+      ? Math.round(agreementDays.reduce((a, b) => a + (b || 0), 0) / kgAgreement)
+      : 0;
+    ws.mergeCells(agrRowNum, 1, agrRowNum, 2);
+    ws.getCell(agrRowNum, 1).value =
+      `Kg perjanjian ${kgAgreement.toLocaleString("id-ID", { maximumFractionDigits: 2 })} kg x ${txCount} serah terima (sudah termasuk di total)`;
+    applyCellBorderCenter(ws.getCell(agrRowNum, 1), {
+      font: { size: 8, color: { argb: TEXT } },
+      horizontal: "left",
+      wrapText: true,
+    });
+    applyCellBorderCenter(ws.getCell(agrRowNum, 2));
+    agreementDays.forEach((v, idx) => {
+      const cell = ws.getCell(agrRowNum, dayStartCol + idx);
+      if (v) {
+        cell.value = Number(Number(v).toFixed(2));
+        cell.numFmt = "0.00";
+      }
+      applyCellBorderCenter(cell);
+    });
+    {
+      const startLetter = ws.getColumn(dayStartCol).letter;
+      const endLetter = ws.getColumn(dayEndCol).letter;
+      const cell = ws.getCell(agrRowNum, totalCol);
+      cell.value = { formula: `SUM(${startLetter}${agrRowNum}:${endLetter}${agrRowNum})` };
+      cell.numFmt = "0.00";
+      applyCellBorderCenter(cell);
+    }
+    applyCellBorderCenter(ws.getCell(agrRowNum, hargaCol));
+    applyCellBorderCenter(ws.getCell(agrRowNum, jumlahCol));
+    ws.getRow(agrRowNum).height = 28;
   }
-  {
-    const cell = ws.getCell(minRowNum, totalCol);
-    cell.value = Number(minimalKg.toFixed(2));
-    cell.numFmt = "0.00";
-    applyCellBorderCenter(cell);
-  }
-  {
-    const cell = ws.getCell(minRowNum, hargaCol);
-    cell.value = null;
-    cell.numFmt = "#,##0";
-    applyCellBorderCenter(cell);
-  }
-  {
-    const totalLetter = ws.getColumn(totalCol).letter;
-    const hargaLetter = ws.getColumn(hargaCol).letter;
-    const cell = ws.getCell(minRowNum, jumlahCol);
-    cell.value = { formula: `${totalLetter}${minRowNum}*${hargaLetter}${minRowNum}` };
-    cell.numFmt = "#,##0";
-    applyCellBorderCenter(cell, { fill: YELLOW });
-  }
-  ws.getRow(minRowNum).height = 28;
 
   // Footer tanda tangan
   ws.addRow([]);
@@ -339,7 +334,13 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
   const hospitalName = hospital.hospital_name || "-";
   const { year, month, daysInMonth, monthLabel } = resolveMonthContext(startDate, endDate);
 
-  const byDay = Array.from({ length: daysInMonth + 1 }, () => ({ regular: 0, express: 0 }));
+  const kgAgreement = toPrice(hospital.kg_agreement);
+  const byDay = Array.from({ length: daysInMonth + 1 }, () => ({
+    regular: 0,
+    express: 0,
+    agreementRegular: 0,
+    agreementExpress: 0,
+  }));
 
   details.forEach((row) => {
     const raw = row.tx_date || row.pickup_date;
@@ -350,15 +351,27 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     const day = d.getDate();
     const kg = pickKg(row);
     if (!kg) return;
-    if (Number(row.is_express) === 1) byDay[day].express += kg;
-    else byDay[day].regular += kg;
+    const agreement = kgAgreement ?? 0;
+    if (Number(row.is_express) === 1) {
+      byDay[day].express += kg;
+      byDay[day].agreementExpress += agreement;
+    } else {
+      byDay[day].regular += kg;
+      byDay[day].agreementRegular += agreement;
+    }
   });
 
   const regularDays = [];
   const expressDays = [];
+  const agreementRegularDays = [];
+  const agreementExpressDays = [];
+  const agreementAllDays = [];
   for (let day = 1; day <= daysInMonth; day++) {
     regularDays.push(byDay[day].regular || null);
     expressDays.push(byDay[day].express || null);
+    agreementRegularDays.push(byDay[day].agreementRegular);
+    agreementExpressDays.push(byDay[day].agreementExpress);
+    agreementAllDays.push(byDay[day].agreementRegular + byDay[day].agreementExpress);
   }
 
   const regularPrice = toPrice(hospital.price_per_kg);
@@ -374,7 +387,7 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
   workbook.creator = "AloraSuperApp";
   workbook.created = new Date();
 
-  const common = { hospitalName, monthLabel, daysInMonth };
+  const common = { hospitalName, monthLabel, daysInMonth, kgAgreement };
 
   // Sheet 1 — Rangkuman (keduanya)
   buildMatrixSheet(workbook, {
@@ -385,6 +398,7 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
       { no: 1, label: "Linen Non Express", dayValues: regularDays, unitPrice: regularPrice },
       { no: 2, label: "Linen Express", dayValues: expressDays, unitPrice: expressPrice },
     ],
+    agreementDays: agreementAllDays,
   });
 
   // Sheet 2 — Non Express saja
@@ -395,6 +409,7 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     rows: [
       { no: 1, label: "Linen Non Express", dayValues: regularDays, unitPrice: regularPrice },
     ],
+    agreementDays: agreementRegularDays,
   });
 
   // Sheet 3 — Express saja
@@ -405,6 +420,7 @@ export async function exportRekapKgLinen(payload, startDate, endDate) {
     rows: [
       { no: 1, label: "Linen Express", dayValues: expressDays, unitPrice: expressPrice },
     ],
+    agreementDays: agreementExpressDays,
   });
 
   const buffer = await workbook.xlsx.writeBuffer();

@@ -327,7 +327,14 @@ export default function DailyReport() {
                       {s.verifiedTransactions.map((v) => (
                         <tr key={v.id}>
                           <td className="py-2 px-3 font-mono text-[#5f1340]">{v.orderNo}</td>
-                          <td className="py-2 px-3">{v.customerName || "—"}</td>
+                          <td className="py-2 px-3 max-w-[16rem]">
+                            <p className="break-words">{v.customerName || "—"}</p>
+                            {v.customerAddress ? (
+                              <p className="mt-0.5 text-[10px] font-medium leading-snug text-slate-500 line-clamp-2 break-words" title={v.customerAddress}>
+                                {v.customerAddress}
+                              </p>
+                            ) : null}
+                          </td>
                           <td className="py-2 px-3">{v.paymentMethod || "—"}</td>
                           <td className="py-2 px-3 text-right">{fmtIDR(v.grandTotal)}</td>
                         </tr>

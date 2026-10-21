@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineShoppingBag,
@@ -85,6 +85,251 @@ function SkeletonRow() {
         </td>
       ))}
     </tr>
+  );
+}
+
+function SearchableBomSelect({
+  value,
+  onChange,
+  items = [],
+  placeholder = "Pilih item...",
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const listRef = useRef(null);
+
+  const selectedItem = useMemo(() => {
+    return items.find((it) => String(it.id) === String(value));
+  }, [items, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      setHighlightedIndex(0);
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setSearch("");
+    }
+  }, [open]);
+
+  const filteredItems = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return items;
+    return items.filter((it) => {
+      const name = String(it.name || "").toLowerCase();
+      const code = String(it.code || "").toLowerCase();
+      const unit = String(it.unit || it.unit_symbol || "").toLowerCase();
+      return name.includes(q) || code.includes(q) || unit.includes(q);
+    });
+  }, [items, search]);
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [search]);
+
+  useEffect(() => {
+    if (open && listRef.current) {
+      const activeEl = listRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedIndex, open]);
+
+  const handleSelect = (itemId) => {
+    onChange(itemId ? String(itemId) : "");
+    setOpen(false);
+    setSearch("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev < filteredItems.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredItems[highlightedIndex]) {
+        handleSelect(filteredItems[highlightedIndex].id);
+      }
+    }
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn("relative w-full", open ? "z-50" : "z-10")}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={cn(
+          "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs text-left outline-none transition-all flex items-center justify-between gap-2 bg-white cursor-pointer select-none",
+          open
+            ? "border-[#5f1340] ring-2 ring-[#5f1340]/15 shadow-xs"
+            : "border-slate-200 hover:border-slate-300",
+          !selectedItem && "text-slate-400"
+        )}
+      >
+        <span className="truncate font-medium text-slate-700">
+          {selectedItem ? (
+            <span className="font-semibold text-slate-800">
+              {selectedItem.name}{" "}
+              <span className="text-slate-400 font-normal">
+                ({selectedItem.unit || selectedItem.unit_symbol || "—"})
+              </span>
+            </span>
+          ) : (
+            <span className="text-slate-400">{placeholder}</span>
+          )}
+        </span>
+        <HiOutlineChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200",
+            open && "rotate-180 text-[#5f1340]"
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 w-full min-w-[270px] max-w-[380px] rounded-xl border border-slate-200 bg-white shadow-xl z-50 overflow-hidden flex flex-col">
+          {/* Search Bar */}
+          <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+            <div className="relative">
+              <HiOutlineMagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Cari item atau kode..."
+                className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-7 py-1.5 text-xs font-medium text-slate-800 outline-none focus:border-[#5f1340] focus:ring-1 focus:ring-[#5f1340]/20"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                >
+                  <HiOutlineXMark className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {search && (
+              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1 px-1">
+                <span>Ditemukan: {filteredItems.length} item</span>
+                <span className="italic">Tekan Enter untuk memilih</span>
+              </div>
+            )}
+          </div>
+
+          {/* Items List */}
+          <div ref={listRef} className="max-h-52 overflow-y-auto p-1 divide-y divide-slate-50">
+            {value && (
+              <button
+                type="button"
+                onClick={() => handleSelect("")}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer font-medium mb-1"
+              >
+                <HiOutlineXMark className="h-3.5 w-3.5 shrink-0" />
+                <span>Kosongkan pilihan (hapus item)</span>
+              </button>
+            )}
+
+            {filteredItems.length === 0 ? (
+              <div className="py-6 px-3 text-center">
+                <p className="text-xs font-semibold text-slate-500">
+                  Item &quot;{search}&quot; tidak ditemukan
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Coba kata kunci nama atau kode item lainnya
+                </p>
+              </div>
+            ) : (
+              filteredItems.map((it, idx) => {
+                const isSelected = String(it.id) === String(value);
+                const isHighlighted = idx === highlightedIndex;
+                const unitStr = it.unit || it.unit_symbol || "—";
+                return (
+                  <button
+                    key={it.id}
+                    data-index={idx}
+                    type="button"
+                    onClick={() => handleSelect(it.id)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    className={cn(
+                      "w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer",
+                      isSelected
+                        ? "bg-[#5f1340]/10 text-[#5f1340] font-bold"
+                        : isHighlighted
+                        ? "bg-slate-100 text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-[#5f1340]"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="truncate">{it.name}</span>
+                        {it.code && (
+                          <span className="text-[9px] font-mono px-1 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200">
+                            {it.code}
+                          </span>
+                        )}
+                      </div>
+                      {it.description && (
+                        <p className="text-[10px] text-slate-400 truncate font-normal mt-0.5">
+                          {it.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded-md font-semibold",
+                          isSelected
+                            ? "bg-[#5f1340]/20 text-[#5f1340]"
+                            : "bg-slate-100 text-slate-500"
+                        )}
+                      >
+                        {unitStr}
+                      </span>
+                      {isSelected && (
+                        <HiOutlineCheckCircle className="h-4 w-4 text-[#5f1340]" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -282,6 +527,12 @@ export default function Services() {
     }
     if (!formData.name.trim()) {
       setFormError("Nama Layanan wajib diisi");
+      return;
+    }
+
+    const emptyBomIndex = bomLines.findIndex((row) => !row.item_id);
+    if (emptyBomIndex !== -1) {
+      setFormError(`Item inventory pada baris ke-${emptyBomIndex + 1} belum dipilih`);
       return;
     }
 
@@ -785,23 +1036,17 @@ export default function Services() {
                       return (
                         <div
                           key={`bom-${idx}`}
-                          className="grid grid-cols-12 gap-2 items-start rounded-xl border border-slate-200 bg-white p-2.5"
+                          className="grid grid-cols-12 gap-2 items-start rounded-xl border border-slate-200 bg-white p-2.5 relative"
+                          style={{ zIndex: bomLines.length - idx }}
                         >
                           <div className="col-span-12 sm:col-span-6">
                             <label className="text-[10px] font-bold uppercase text-slate-400">Item</label>
-                            <select
+                            <SearchableBomSelect
                               value={row.item_id}
-                              onChange={(e) => updateBomLine(idx, "item_id", e.target.value)}
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-[#5f1340]"
-                              required
-                            >
-                              <option value="">Pilih item...</option>
-                              {inventoryCatalog.map((it) => (
-                                <option key={it.id} value={it.id}>
-                                  {it.name} ({it.unit || it.unit_symbol || "—"})
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(val) => updateBomLine(idx, "item_id", val)}
+                              items={inventoryCatalog}
+                              placeholder="Pilih item..."
+                            />
                           </div>
                           <div className="col-span-5 sm:col-span-2">
                             <label className="text-[10px] font-bold uppercase text-slate-400">

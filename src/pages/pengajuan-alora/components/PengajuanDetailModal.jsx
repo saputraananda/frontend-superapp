@@ -500,8 +500,13 @@ export default function PengajuanDetailModal({
     const [classCustom, setClassCustom] = useState("");
     const [classAdding, setClassAdding] = useState(false);
 
-    // Lampiran (Finance)
+    // Lampiran (Finance / GA)
     const [attBusy, setAttBusy] = useState(false);
+
+    // Edit detail barang (GA)
+    const [itemEditOpen, setItemEditOpen] = useState(false);
+    const [itemForm, setItemForm] = useState({});
+    const [satuanOptions, setSatuanOptions] = useState([]);
 
     const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3000); };
 
@@ -538,6 +543,7 @@ export default function PengajuanDetailModal({
             setHeaderEditOpen(false); setHdrEmployeeId(""); setHdrCompanyIds([]); setHdrOutletIds([]);
             setEmployeeOptions([]); setCompanyOptions([]); setOutletOptions([]); setHdrEmpSearch("");
             setClassCustom(""); setAttBusy(false);
+            setItemEditOpen(false); setItemForm({}); setSatuanOptions([]);
         }
     }, [open, load]);
 
@@ -565,7 +571,12 @@ export default function PengajuanDetailModal({
     );
     const canApproveGA = !readOnly && !isReimburse && myIsGA && [2, 3].includes(status);
     const canRejectGA = !readOnly && !isReimburse && myIsGA && [2, 3].includes(status);
-    const canEditVendorGA = !readOnly && !isReimburse && myIsGA && status === 4 && !data?.vendor_mode;
+    const canEditVendorGA = !readOnly && !isReimburse && myIsGA && status === 4;
+    // GA boleh edit detail pengajuan selama belum diproses Finance (status < 5)
+    const canEditGA = !readOnly && !isReimburse && myIsGA && status < 5;
+    const canEditHeader = (myIsFinance && !readOnly) || canEditGA;
+    const canDeleteAtt = (myIsFinance && !readOnly) || canEditGA;
+    const canAddAtt = (myIsFinance && !readOnly) || (!readOnly && !isReimburse && myIsGA && status !== 9);
     const canApproveFinance = !readOnly && myIsFinance && myJobLevel === 3
         && (isReimburse ? status === 2 : status === 4);
     const canRejectFinance = !readOnly && myIsFinance && myJobLevel === 3
@@ -643,9 +654,17 @@ export default function PengajuanDetailModal({
                 return j;
             });
 
-            showToast("success", "Disetujui GA — PO siap");
             onChanged?.();
-            setTimeout(onClose, 600);
+            if (status === 4) {
+                // Edit hasil review (status tetap PR Ready) — tetap di modal
+                showToast("success", "Hasil review GA diperbarui");
+                setGaOpen(false);
+                setGaInvoiceFile(null);
+                load();
+            } else {
+                showToast("success", "Disetujui GA — PO siap");
+                setTimeout(onClose, 600);
+            }
         } catch (err) {
             showToast("error", err.message);
         } finally { setActing(false); }
@@ -841,6 +860,72 @@ export default function PengajuanDetailModal({
         } finally { setActing(false); }
     };
 
+    // ── GA: edit detail barang ──────────────────────────────────────────────
+    const openItemEdit = () => {
+        setItemEditOpen(true);
+        setItemForm({
+            nama_barang: data.nama_barang || "",
+            deskripsi: data.deskripsi || "",
+            merk: data.merk || "",
+            qty: data.qty != null ? String(Number(data.qty)) : "",
+            satuan_id: data.satuan_id ? String(data.satuan_id) : "",
+            estimasi_harga: data.estimasi_harga != null ? formatRupiah(data.estimasi_harga) : "",
+            alasan_pembelian: data.alasan_pembelian || "",
+        });
+        api("/pengajuan/satuan").then(r => setSatuanOptions(r.data || [])).catch(() => {});
+    };
+    const setItemField = (k, v) => setItemForm(f => ({ ...f, [k]: v }));
+
+    const doUpdateItem = async () => {
+        if (!itemForm.nama_barang?.trim()) return showToast("error", "Nama barang wajib diisi");
+        if (!(Number(itemForm.qty) > 0)) return showToast("error", "Jumlah harus lebih dari 0");
+        if (!itemForm.alasan_pembelian?.trim()) return showToast("error", "Alasan pembelian wajib diisi");
+        setActing(true);
+        try {
+            await api(`/pengajuan/${prId}/item-info`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    nama_barang: itemForm.nama_barang.trim(),
+                    deskripsi: itemForm.deskripsi.trim(),
+                    merk: itemForm.merk.trim(),
+                    qty: itemForm.qty,
+                    satuan_id: itemForm.satuan_id || null,
+                    estimasi_harga: stripRupiah(itemForm.estimasi_harga) || null,
+                    alasan_pembelian: itemForm.alasan_pembelian.trim(),
+                }),
+            });
+            showToast("success", "Detail barang diperbarui");
+            setItemEditOpen(false);
+            onChanged?.();
+            load();
+        } catch (err) {
+            showToast("error", err.message);
+        } finally { setActing(false); }
+    };
+
+    // ── GA: buka panel review (approve baru, atau edit hasil review di status 4) ──
+    const openGaPanel = () => {
+        setGaOpen(true);
+        const isEdit = status === 4;
+        const q = (isEdit && data.ga_qty) || data.qty;
+        setGaQty(q ? String(Number(q)) : "");
+        setGaMerk((isEdit && data.ga_merk) || data.merk || "");
+        setGaNote(isEdit ? (data.ga_note || "") : "");
+        setGaInvoiceFile(null);
+        setGaVendorMode(""); setGaVendor(""); setGaVendorId(""); setGaLinkUrl(""); setGaLinkTitle("");
+        if (isEdit && data.vendor_mode !== "link" && data.vendor) {
+            setGaVendorMode("vendor");
+            setGaVendor(data.vendor);
+            setGaVendorId(data.vendor_id ? String(data.vendor_id) : "");
+        } else if (data.link_url || data.link_title) {
+            // Pre-fill link dari data pengajuan / hasil review sebelumnya
+            setGaVendorMode("link");
+            setGaLinkUrl(data.link_url || "");
+            setGaLinkTitle(data.link_title || "");
+        }
+        api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => { });
+    };
+
     // ── Finance: tambah klasifikasi custom ──────────────────────────────────
     const doAddClassification = async () => {
         const name = classCustom.trim();
@@ -986,7 +1071,7 @@ export default function PengajuanDetailModal({
 
                             {/* identitas */}
                             <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 text-sm">
-                                {myIsFinance && !readOnly && (
+                                {canEditHeader && (
                                     <div className="flex justify-end mb-2">
                                         {!headerEditOpen ? (
                                             <button onClick={openHeaderEdit}
@@ -1105,6 +1190,98 @@ export default function PengajuanDetailModal({
 
                             {/* barang */}
                             <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 space-y-3 text-sm">
+                                {canEditGA && (
+                                    <div className="flex justify-end -mb-1">
+                                        {!itemEditOpen ? (
+                                            <button onClick={openItemEdit}
+                                                className="text-xs text-violet-600 hover:text-violet-700 font-semibold hover:underline">
+                                                Edit Barang
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => setItemEditOpen(false)}
+                                                className="text-xs text-slate-500 hover:text-slate-700 font-semibold hover:underline">
+                                                Batal
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                {itemEditOpen ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="sm:col-span-3">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Nama Barang <span className="text-rose-500">*</span></label>
+                                            <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                value={itemForm.nama_barang} maxLength={255}
+                                                onChange={e => setItemField("nama_barang", e.target.value)}
+                                                placeholder="Contoh: Vacuum Cleaner Hyla" />
+                                        </div>
+                                        <div className="sm:col-span-3">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Deskripsi</label>
+                                            <textarea rows={2} className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-200 resize-none"
+                                                value={itemForm.deskripsi}
+                                                onChange={e => setItemField("deskripsi", e.target.value)}
+                                                placeholder="Spesifikasi, ukuran, warna, atau detail lain (opsional)..." />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Merk</label>
+                                            <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                value={itemForm.merk}
+                                                onChange={e => setItemField("merk", e.target.value)}
+                                                placeholder="Contoh: Hyla (opsional)" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Jumlah <span className="text-rose-500">*</span></label>
+                                            <input type="number" min={0.01} step="0.01"
+                                                className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                value={itemForm.qty}
+                                                onChange={e => setItemField("qty", e.target.value)}
+                                                placeholder="Contoh: 1" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Satuan</label>
+                                            <select className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-200"
+                                                value={itemForm.satuan_id}
+                                                onChange={e => setItemField("satuan_id", e.target.value)}>
+                                                <option value="">— Pilih —</option>
+                                                {/* satuan lama tetap tampil walau list belum termuat */}
+                                                {itemForm.satuan_id && !satuanOptions.some(s => String(s.satuan_id) === itemForm.satuan_id) && (
+                                                    <option value={itemForm.satuan_id}>{data.satuan_name || "Satuan saat ini"}</option>
+                                                )}
+                                                {satuanOptions.map(s => (
+                                                    <option key={s.satuan_id} value={s.satuan_id}>{s.satuan_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="sm:col-span-3">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Estimasi Harga Satuan</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span>
+                                                <input inputMode="numeric"
+                                                    className="w-full rounded-lg border border-violet-200 bg-white pl-9 pr-3 py-1.5 text-sm tabular-nums outline-none focus:ring-2 focus:ring-violet-200"
+                                                    value={itemForm.estimasi_harga} placeholder="0"
+                                                    onChange={e => setItemField("estimasi_harga", formatRupiah(e.target.value))} />
+                                            </div>
+                                            {Number(stripRupiah(itemForm.estimasi_harga)) > 0 && Number(itemForm.qty) > 1 && (
+                                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                                    Total estimasi: {formatRp(Number(stripRupiah(itemForm.estimasi_harga)) * Number(itemForm.qty))}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="sm:col-span-3">
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Alasan Pembelian <span className="text-rose-500">*</span></label>
+                                            <textarea rows={2} className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-200 resize-none"
+                                                value={itemForm.alasan_pembelian}
+                                                onChange={e => setItemField("alasan_pembelian", e.target.value)}
+                                                placeholder="Kenapa barang ini dibutuhkan? Contoh: pertambahan alat, pengganti yang rusak..." />
+                                        </div>
+                                        <div className="sm:col-span-3 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                                            <button onClick={doUpdateItem}
+                                                disabled={acting || !itemForm.nama_barang?.trim() || !(Number(itemForm.qty) > 0) || !itemForm.alasan_pembelian?.trim()}
+                                                className="rounded-lg bg-violet-600 px-3 py-1 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition">
+                                                {acting ? "Menyimpan..." : "Simpan"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (<>
                                 <div>
                                     <p className="text-[11px] text-slate-400 uppercase">Nama Barang</p>
                                     <p className="font-semibold text-slate-800">{toTitleCase(data.nama_barang)}</p>
@@ -1149,6 +1326,7 @@ export default function PengajuanDetailModal({
                                     <p className="text-[11px] text-slate-400 uppercase">Alasan Pembelian</p>
                                     <p className="text-slate-600">{data.alasan_pembelian}</p>
                                 </div>
+                                </>)}
                                 {/* Link referensi dari karyawan (tampil sebelum GA approve) */}
                                 {status < 4 && (data.link_url || data.link_title) && (
                                     <div className="border-t border-slate-100 pt-3">
@@ -1332,9 +1510,12 @@ export default function PengajuanDetailModal({
                             )}
 
                             {/* attachments — klik untuk preview */}
-                            {(attachments.length > 0 || (myIsFinance && !readOnly)) && (
+                            {(attachments.length > 0 || canAddAtt) && (
                                 <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4">
                                     <p className="text-[11px] text-slate-400 uppercase mb-2">Lampiran ({attachments.length})</p>
+                                    {attachments.length === 0 && (
+                                        <p className="text-xs text-slate-400 italic">Belum ada lampiran.</p>
+                                    )}
                                     <div className="grid grid-cols-2 gap-2">
                                         {attachments.map(a => {
                                             const ext = getExt(a.original_name || a.file_path);
@@ -1385,7 +1566,7 @@ export default function PengajuanDetailModal({
                                                                 className="rounded p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
                                                                 <HiOutlineArrowDownTray className="h-3.5 w-3.5" />
                                                             </a>
-                                                            {myIsFinance && !readOnly && (
+                                                            {canDeleteAtt && (
                                                                 <button onClick={() => doDeleteAttachment(a)} disabled={attBusy}
                                                                     title="Hapus lampiran"
                                                                     className="rounded p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition disabled:opacity-40">
@@ -1399,9 +1580,11 @@ export default function PengajuanDetailModal({
                                         })}
                                     </div>
 
-                                    {myIsFinance && !readOnly && (
+                                    {canAddAtt && (
                                         <div className="mt-3 border-t border-slate-100 pt-3">
-                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Tambah / Ganti Lampiran</label>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                                                {attachments.length ? "Tambah / Ganti Lampiran" : "Tambah Lampiran"}
+                                            </label>
                                             <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" disabled={attBusy}
                                                 className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-2 file:rounded file:border-0 file:bg-cyan-100 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-cyan-700 disabled:opacity-50"
                                                 onChange={e => {
@@ -1434,7 +1617,15 @@ export default function PengajuanDetailModal({
                             {/* GA info — tampil jika sudah status 4 */}
                             {status >= 4 && status !== 9 && (
                                 <div className="bg-violet-50 rounded-xl border border-violet-200 p-4 space-y-3 text-sm">
-                                    <p className="text-[11px] font-bold text-violet-600 uppercase tracking-widest">Hasil Review GA / PO</p>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[11px] font-bold text-violet-600 uppercase tracking-widest">Hasil Review GA / PO</p>
+                                        {canEditVendorGA && !gaOpen && (
+                                            <button onClick={openGaPanel}
+                                                className="text-xs text-violet-600 hover:text-violet-700 font-semibold hover:underline">
+                                                Edit
+                                            </button>
+                                        )}
+                                    </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         {data.vendor_mode === "vendor" && data.vendor && (
                                             <div className="col-span-2">
@@ -1501,7 +1692,7 @@ export default function PengajuanDetailModal({
                             {/* GA review panel */}
                             {gaOpen && (
                                 <div className="rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40 p-4 space-y-3">
-                                    <p className="text-sm font-bold text-violet-700">Review & Approve GA</p>
+                                    <p className="text-sm font-bold text-violet-700">{status === 4 ? "Edit Hasil Review GA" : "Review & Approve GA"}</p>
                                     <p className="text-[11px] text-slate-500">Qty dan Merk sudah terisi dari pengajuan. Ubah jika diperlukan.</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {/* Vendor Mode */}
@@ -1575,12 +1766,14 @@ export default function PengajuanDetailModal({
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Qty Disetujui</label>
                                             <input type="number" min={1} step="0.01"
                                                 className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
-                                                value={gaQty} onChange={e => setGaQty(e.target.value)} />
+                                                value={gaQty} onChange={e => setGaQty(e.target.value)}
+                                                placeholder="Jumlah yang disetujui" />
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Merk Dikonfirmasi</label>
                                             <input className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-200"
-                                                value={gaMerk} onChange={e => setGaMerk(e.target.value)} />
+                                                value={gaMerk} onChange={e => setGaMerk(e.target.value)}
+                                                placeholder="Merk final (opsional)" />
                                         </div>
                                         <div className="sm:col-span-2">
                                             <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan</label>
@@ -1634,7 +1827,7 @@ export default function PengajuanDetailModal({
                                         </button>
                                         <button onClick={doApproveGA} disabled={acting || !gaVendorMode || (gaVendorMode === "vendor" && !gaVendor.trim()) || (gaVendorMode === "link" && (!gaLinkUrl.trim() || !gaLinkTitle.trim()))}
                                             className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition">
-                                            {acting ? "Memproses..." : "Approve & Terbitkan PO"}
+                                            {acting ? "Memproses..." : status === 4 ? "Simpan Hasil Review" : "Approve & Terbitkan PO"}
                                         </button>
                                     </div>
                                 </div>
@@ -2039,36 +2232,13 @@ export default function PengajuanDetailModal({
                                 </button>
                             )}
                             {canEditVendorGA && (
-                                <button onClick={() => {
-                                    setGaOpen(true);
-                                    setGaQty(data.qty ? String(Number(data.qty)) : "");
-                                    setGaMerk(data.merk || "");
-                                    if (data.link_url || data.link_title) {
-                                        setGaVendorMode("link");
-                                        setGaLinkUrl(data.link_url || "");
-                                        setGaLinkTitle(data.link_title || "");
-                                    }
-                                    api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => { });
-                                }}
+                                <button onClick={openGaPanel}
                                     className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
-                                    Lengkapi Info Vendor
+                                    {data.vendor_mode ? "Edit Hasil Review GA" : "Lengkapi Info Vendor"}
                                 </button>
                             )}
                             {canApproveGA && (
-                                <button onClick={() => {
-                                    setGaOpen(true);
-                                    // Pre-fill qty dan merk dari data pengajuan
-                                    setGaQty(data.qty ? String(Number(data.qty)) : "");
-                                    setGaMerk(data.merk || "");
-                                    // Pre-fill link dari data pengajuan (jika karyawan sudah isi)
-                                    if (data.link_url || data.link_title) {
-                                        setGaVendorMode("link");
-                                        setGaLinkUrl(data.link_url || "");
-                                        setGaLinkTitle(data.link_title || "");
-                                    }
-                                    // Load vendor list
-                                    api("/pengajuan/vendors").then(r => setVendorList(r.data || [])).catch(() => { });
-                                }}
+                                <button onClick={openGaPanel}
                                     className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 transition">
                                     Review & Approve GA
                                 </button>

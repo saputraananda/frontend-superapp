@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { HiOutlineChevronDown, HiOutlineMagnifyingGlass, HiOutlineXMark } from "react-icons/hi2";
 
 function cn(...c) {
@@ -36,6 +37,7 @@ export default function EmployeeSearchSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [menuPos, setMenuPos] = useState(null);
   const wrapRef = useRef(null);
   const inputRef = useRef(null);
   const styles = ACCENT[accent] || ACCENT.orange;
@@ -52,7 +54,19 @@ export default function EmployeeSearchSelect({
   }, []);
 
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus();
+    if (!open || !wrapRef.current) return;
+    const place = () => {
+      const rect = wrapRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    };
+    place();
+    if (inputRef.current) inputRef.current.focus();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
   }, [open]);
 
   const selected = useMemo(
@@ -149,8 +163,12 @@ export default function EmployeeSearchSelect({
         />
       )}
 
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 flex max-h-64 w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
+      {open && menuPos && createPortal(
+        <div
+          style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+          className="fixed z-[10050] flex max-h-64 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <div className="overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-center text-xs text-slate-400">Tidak ditemukan</p>
@@ -173,7 +191,8 @@ export default function EmployeeSearchSelect({
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

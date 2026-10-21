@@ -8,8 +8,9 @@ import {
   HiOutlineCheckCircle,
   HiOutlinePrinter,
   HiOutlineXMark,
+  HiOutlinePaperClip,
 } from "react-icons/hi2";
-import { api } from "../../../../lib/api";
+import { api, apiUpload } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
@@ -114,6 +115,16 @@ function WorkBadge({ pct }) {
   );
 }
 
+/** Penanda nota outlet event (Event B2B), berisi nama event. */
+function EventBadge({ row }) {
+  if (!row.isEvent) return null;
+  return (
+    <span className="mt-1 inline-flex rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-700">
+      {row.outletName || "Event"}
+    </span>
+  );
+}
+
 function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDelete }) {
   return (
     <div
@@ -134,6 +145,7 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
               Delivery
             </span>
           ) : null}
+          <EventBadge row={row} />
         </div>
         <WorkBadge pct={row.workStatus} />
       </div>
@@ -142,6 +154,12 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
           <span className="text-slate-400 shrink-0">Pelanggan</span>
           <span className="font-semibold text-slate-800 truncate text-right">{row.customerName || "—"}</span>
         </div>
+        {row.customerAddress ? (
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-slate-400 shrink-0">Alamat</span>
+            <span className="text-slate-600 text-right line-clamp-2 break-words" title={row.customerAddress}>{row.customerAddress}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-400 shrink-0">WhatsApp</span>
           {row.customerPhone ? (
@@ -188,8 +206,22 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
   );
 }
 
-export default function HistoryTransaction({ outlets = [], workStatuses = [], onChanged }) {
+/**
+ * eventOnly: dipakai menu Event B2B — hanya nota outlet event, dropdown outlet = daftar event,
+ * dan tombol kembali di detail nota mengarah ke `detailFrom`.
+ */
+export default function HistoryTransaction({
+  outlets = [],
+  workStatuses = [],
+  onChanged,
+  eventOnly = false,
+  title = "Riwayat Transaksi",
+  allOutletsLabel = "Semua Outlet",
+  detailFrom = null,
+}) {
   const navigate = useNavigate();
+  const openDetail = (id) =>
+    navigate(`/my-waschen/transactions/${id}`, detailFrom ? { state: { from: detailFrom } } : undefined);
   const cutoff = useCutoffPeriod();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +232,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
   const [workTab, setWorkTab] = useState("Semua");
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleteReason, setDeleteReason] = useState("");
+  const [deleteFile, setDeleteFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentModal, setPaymentModal] = useState(null);
   const [payAmount, setPayAmount] = useState("");
@@ -219,6 +252,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
     if (!silent) setError("");
     try {
       const qs = new URLSearchParams({ listType: "active" });
+      if (eventOnly) qs.set("eventOnly", "1");
       if (search.trim()) qs.set("search", search.trim());
       if (outletId) qs.set("outletId", outletId);
       if (cutoff.dateFrom) qs.set("dateFrom", cutoff.dateFrom);
@@ -233,7 +267,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
+  }, [eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
 
   useEffect(() => {
     load();
@@ -279,15 +313,23 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
       showToast("error", "Alasan pengajuan hapus wajib diisi");
       return;
     }
+    if (!deleteFile) {
+      showToast("error", "Lampiran foto/dokumen wajib disertakan");
+      return;
+    }
     setSubmitting(true);
     try {
-      await api(`/waschen/transactions/${deleteModal.id}/request-delete`, {
+      const body = new FormData();
+      body.append("reason", deleteReason.trim());
+      body.append("attachment", deleteFile);
+      await apiUpload(`/waschen/transactions/${deleteModal.id}/request-delete`, {
         method: "PATCH",
-        body: JSON.stringify({ reason: deleteReason.trim() }),
+        body,
       });
       showToast("success", `Pengajuan hapus ${deleteModal.orderNo} dikirim`);
       setDeleteModal(null);
       setDeleteReason("");
+      setDeleteFile(null);
       await load();
       onChanged?.();
     } catch (err) {
@@ -367,7 +409,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
       <div className="p-3 sm:p-5 border-b border-slate-100 space-y-3">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">Riwayat Transaksi</h2>
+            <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">{title}</h2>
             <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
           </div>
         </div>
@@ -382,7 +424,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
             />
           </div>
           <select value={outletId} onChange={(e) => setOutletId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]">
-            <option value="">Semua Outlet</option>
+            <option value="">{allOutletsLabel}</option>
             {outlets.map((o) => (
               <option key={o.id} value={o.id}>{o.full_name || o.name}</option>
             ))}
@@ -450,7 +492,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
               filtered.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={() => navigate(`/my-waschen/transactions/${row.id}`)}
+                  onClick={() => openDetail(row.id)}
                   className="hover:bg-[#5f1340]/[0.03] cursor-pointer transition-colors"
                 >
                   <td className="px-4 py-3">
@@ -463,8 +505,16 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
                         Delivery
                       </span>
                     ) : null}
+                    <EventBadge row={row} />
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{row.customerName || "—"}</td>
+                  <td className="px-4 py-3 min-w-[10rem] max-w-[16rem]">
+                    <p className="font-semibold text-slate-800 break-words">{row.customerName || "—"}</p>
+                    {row.customerAddress ? (
+                      <p className="mt-0.5 text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={row.customerAddress}>
+                        {row.customerAddress}
+                      </p>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3">
                     {row.customerPhone ? (
                       <a
@@ -496,7 +546,7 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setDeleteModal(row); setDeleteReason(""); }}
+                        onClick={() => { setDeleteModal(row); setDeleteReason(""); setDeleteFile(null); }}
                         className="rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-700 hover:bg-rose-600 hover:text-white"
                         title="Ajukan hapus"
                       >
@@ -526,10 +576,10 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
               key={row.id}
               row={row}
               printingId={printingId}
-              onOpen={() => navigate(`/my-waschen/transactions/${row.id}`)}
+              onOpen={() => openDetail(row.id)}
               onPay={openPay}
               onPrint={openThermalPrint}
-              onDelete={(r) => { setDeleteModal(r); setDeleteReason(""); }}
+              onDelete={(r) => { setDeleteModal(r); setDeleteReason(""); setDeleteFile(null); }}
             />
           ))
         )}
@@ -561,10 +611,43 @@ export default function HistoryTransaction({ outlets = [], workStatuses = [], on
                 placeholder="Alasan pengajuan hapus..."
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-rose-500"
               />
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold text-slate-600">
+                  Lampiran foto / dokumen PDF <span className="text-rose-600">*</span>
+                </p>
+                {deleteFile ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-700">
+                      <HiOutlinePaperClip className="h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="truncate">{deleteFile.name}</span>
+                    </span>
+                    <button type="button" onClick={() => setDeleteFile(null)} className="shrink-0 text-[11px] font-semibold text-rose-600">Hapus</button>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 px-3 py-4 text-center hover:border-rose-300">
+                    <HiOutlinePaperClip className="mb-1 h-5 w-5 text-slate-400" />
+                    <span className="text-[11px] font-semibold text-slate-500">Pilih foto (JPG/PNG/WEBP) atau PDF, maks 5 MB</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        e.target.value = "";
+                        if (f && f.size > 5 * 1024 * 1024) {
+                          showToast("error", "Ukuran lampiran maksimal 5 MB");
+                          return;
+                        }
+                        setDeleteFile(f);
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
               <button type="button" onClick={() => setDeleteModal(null)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Batal</button>
-              <button type="button" disabled={submitting} onClick={submitDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+              <button type="button" disabled={submitting || !deleteReason.trim() || !deleteFile} onClick={submitDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
                 {submitting ? "Mengirim..." : "Kirim Request"}
               </button>
             </div>

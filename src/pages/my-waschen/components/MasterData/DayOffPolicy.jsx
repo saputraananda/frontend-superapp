@@ -19,12 +19,73 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** "20" | "18-22" | "1,3,5" | "1-3,10" → [1..31] urut unik, [] kalau tidak valid. */
+function parseOpenDays(spec) {
+  const days = new Set();
+  for (const part of String(spec ?? "").replace(/\s+/g, "").split(",").filter(Boolean)) {
+    const m = part.match(/^(\d{1,2})(?:-(\d{1,2}))?$/);
+    if (!m) return [];
+    const from = Number(m[1]);
+    const to = m[2] ? Number(m[2]) : from;
+    if (from < 1 || to > 31 || from > to) return [];
+    for (let d = from; d <= to; d += 1) days.add(d);
+  }
+  return [...days].sort((a, b) => a - b);
+}
+
+function toSpec(days) {
+  const sorted = [...new Set(days)].sort((a, b) => a - b);
+  const chunks = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j += 1;
+    chunks.push(j > i ? `${sorted[i]}-${sorted[j]}` : String(sorted[i]));
+    i = j;
+  }
+  return chunks.join(",");
+}
+
+function formatOpenDays(spec) {
+  const days = parseOpenDays(spec ?? 20);
+  return days.length ? toSpec(days).replace(/-/g, "–").replace(/,/g, ", ") : "-";
+}
+
+function openDaysForm(spec) {
+  const days = parseOpenDays(spec ?? 20);
+  const isRange = days.length > 1 && days[days.length - 1] - days[0] === days.length - 1;
+  return {
+    open_mode: days.length <= 1 ? "single" : isRange ? "range" : "custom",
+    open_single: days[0] ?? 20,
+    open_from: days[0] ?? 18,
+    open_to: days[days.length - 1] ?? 22,
+    open_custom: days,
+  };
+}
+
+function specFromForm(form) {
+  if (form.open_mode === "range") {
+    const from = Number(form.open_from);
+    const to = Number(form.open_to);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > 31 || from >= to) return null;
+    return `${from}-${to}`;
+  }
+  if (form.open_mode === "custom") return form.open_custom.length ? toSpec(form.open_custom) : null;
+  const day = Number(form.open_single);
+  return Number.isInteger(day) && day >= 1 && day <= 31 ? String(day) : null;
+}
+
+const OPEN_MODES = [
+  { key: "single", label: "1 Tanggal" },
+  { key: "range", label: "Range" },
+  { key: "custom", label: "Custom" },
+];
+
 const EMPTY = {
   policy_id: null,
   outlet_id: "",
   role_id: "",
   max_days_per_month: 4,
-  request_open_day: 20,
+  ...openDaysForm("20"),
   min_notice_days: 1,
   allow_past_date_request: 0,
   is_active: 1,
@@ -82,7 +143,7 @@ export default function DayOffPolicy() {
     return {
       total: rows.length,
       active: active.length,
-      openDay: active[0]?.request_open_day ?? rows[0]?.request_open_day ?? 20,
+      openDay: formatOpenDays(active[0]?.request_open_day ?? rows[0]?.request_open_day),
     };
   }, [rows]);
 
@@ -97,7 +158,7 @@ export default function DayOffPolicy() {
       ...row,
       outlet_id: row.outlet_id ?? "",
       role_id: row.role_id ?? "",
-      request_open_day: row.request_open_day ?? 20,
+      ...openDaysForm(row.request_open_day),
       allow_past_date_request: Number(row.allow_past_date_request),
       is_active: Number(row.is_active),
     });
@@ -107,9 +168,15 @@ export default function DayOffPolicy() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const openDay = Number(form.request_open_day);
-    if (!Number.isInteger(openDay) || openDay < 1 || openDay > 31) {
-      setFormError("Tanggal pengajuan harus antara 1 dan 31.");
+    const openDays = specFromForm(form);
+    if (!openDays) {
+      setFormError(
+        form.open_mode === "range"
+          ? "Range tanggal pengajuan harus 1 sampai 31, dan tanggal awal lebih kecil dari tanggal akhir."
+          : form.open_mode === "custom"
+            ? "Pilih minimal satu tanggal pengajuan."
+            : "Tanggal pengajuan harus antara 1 dan 31.",
+      );
       return;
     }
     setSubmitting(true);
@@ -120,7 +187,7 @@ export default function DayOffPolicy() {
         outlet_id: form.outlet_id || null,
         role_id: form.role_id || null,
         max_days_per_month: Number(form.max_days_per_month),
-        request_open_day: openDay,
+        request_open_day: openDays,
         min_notice_days: Number(form.min_notice_days),
       };
       if (form.policy_id) {
@@ -230,7 +297,7 @@ export default function DayOffPolicy() {
                   <td className="px-4 py-3.5 font-semibold text-slate-800">{r.outlet_id ?? "Global"}</td>
                   <td className="px-4 py-3.5 text-slate-600">{r.role_id ?? "Semua"}</td>
                   <td className="px-4 py-3.5 text-center font-bold text-slate-800">{r.max_days_per_month}</td>
-                  <td className="px-4 py-3.5 text-center font-bold text-[#5f1340]">{r.request_open_day ?? 20}</td>
+                  <td className="px-4 py-3.5 text-center font-bold text-[#5f1340]">{formatOpenDays(r.request_open_day)}</td>
                   <td className="px-4 py-3.5 text-center">{r.min_notice_days}</td>
                   <td className="px-4 py-3.5 text-center">{Number(r.allow_past_date_request) ? "Ya" : "Tidak"}</td>
                   <td className="px-4 py-3.5 text-center"><StatusBadge isActive={r.is_active} /></td>
@@ -273,9 +340,56 @@ export default function DayOffPolicy() {
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Tanggal pengajuan</label>
-                <input type="number" min={1} max={31} required value={form.request_open_day} onChange={(e) => setForm({ ...form, request_open_day: e.target.value })} className={INPUT} />
+                <div className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+                  {OPEN_MODES.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setForm({ ...form, open_mode: m.key })}
+                      className={cn(
+                        "rounded-lg py-1.5 text-[11px] font-semibold transition",
+                        form.open_mode === m.key ? "bg-white text-[#5f1340] shadow-sm" : "text-slate-500 hover:text-slate-700",
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {form.open_mode === "single" && (
+                  <input type="number" min={1} max={31} required value={form.open_single} onChange={(e) => setForm({ ...form, open_single: e.target.value })} className={INPUT} />
+                )}
+                {form.open_mode === "range" && (
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={1} max={31} required value={form.open_from} onChange={(e) => setForm({ ...form, open_from: e.target.value })} className={INPUT} aria-label="Dari tanggal" />
+                    <span className="text-slate-400">s/d</span>
+                    <input type="number" min={1} max={31} required value={form.open_to} onChange={(e) => setForm({ ...form, open_to: e.target.value })} className={INPUT} aria-label="Sampai tanggal" />
+                  </div>
+                )}
+                {form.open_mode === "custom" && (
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+                      const on = form.open_custom.includes(d);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setForm({
+                            ...form,
+                            open_custom: on ? form.open_custom.filter((x) => x !== d) : [...form.open_custom, d].sort((a, b) => a - b),
+                          })}
+                          className={cn(
+                            "rounded-lg border py-1.5 text-[11px] font-semibold tabular-nums transition",
+                            on ? "border-[#5f1340] bg-[#5f1340] text-white" : "border-slate-200 text-slate-600 hover:border-[#5f1340]/40",
+                          )}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <p className="mt-1 text-[11px] leading-snug text-slate-400">
-                  Default tanggal 20. Geser maju atau mundur kalau jendela pengajuan berubah. Karyawan memilih tanggal libur periode 26 sampai 25.
+                  Pengajuan dibuka di tanggal terpilih: {formatOpenDays(specFromForm(form))}. Karyawan memilih tanggal libur periode 26 sampai 25.
                 </p>
               </div>
               <div>
@@ -320,7 +434,7 @@ export default function DayOffPolicy() {
               <h3 className="font-bold text-slate-800 text-sm">Hapus rules libur?</h3>
             </div>
             <p className="text-xs text-slate-600">
-              Rules tanggal pengajuan <strong>{deleteTarget.request_open_day ?? 20}</strong> dengan kuota {deleteTarget.max_days_per_month} hari akan dihapus.
+              Rules tanggal pengajuan <strong>{formatOpenDays(deleteTarget.request_open_day)}</strong> dengan kuota {deleteTarget.max_days_per_month} hari akan dihapus.
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Batal</button>

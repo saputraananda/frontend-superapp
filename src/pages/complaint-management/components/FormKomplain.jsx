@@ -586,6 +586,7 @@ export default function FormKomplain() {
                   ref={fileInputRef}
                   type="file"
                   multiple
+                  accept="image/jpeg,image/png,image/gif,image/webp,.heic,.heif,application/pdf"
                   className="hidden"
                   onChange={(e) => {
                     const newFiles = Array.from(e.target.files);

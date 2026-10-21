@@ -1,3 +1,6 @@
+export const todayWIB = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+
 export const cn = (...a) => a.filter(Boolean).join(" ");
 
 export const fmtIDR = (n) =>

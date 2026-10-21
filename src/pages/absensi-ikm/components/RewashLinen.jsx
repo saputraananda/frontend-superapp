@@ -7,9 +7,10 @@ import {
   HiOutlineExclamationTriangle, HiOutlineClipboardDocumentList,
   HiOutlineArrowsUpDown, HiOutlineChevronUp, HiOutlineChevronDown,
   HiOutlineMagnifyingGlass, HiOutlineCheckCircle, HiOutlineClock,
-  HiOutlineEye, HiOutlineRectangleGroup,
+  HiOutlineEye, HiOutlineRectangleGroup, HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
+import { exportRewashExcel } from "../utils/exportRewashExcel";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -57,8 +58,6 @@ function toDateInput(date) {
   return `${year}-${month}-${day}`;
 }
 
-const CUTOFF_START_DAY = 26;
-
 const PERIOD_MONTHS = [
   { value: 1, label: "Januari" }, { value: 2, label: "Februari" },
   { value: 3, label: "Maret" }, { value: 4, label: "April" },
@@ -68,22 +67,18 @@ const PERIOD_MONTHS = [
   { value: 11, label: "November" }, { value: 12, label: "Desember" },
 ];
 
-function getDefaultCutoffSelection(now = new Date()) {
-  const startDay = CUTOFF_START_DAY;
-  const endDay = startDay - 1;
-  let cutoffMonth = now.getMonth() + 1;
-  let cutoffYear = now.getFullYear();
-  if (now.getDate() > endDay) {
-    cutoffMonth += 1;
-    if (cutoffMonth > 12) { cutoffMonth = 1; cutoffYear += 1; }
-  }
-  const start = new Date(cutoffYear, cutoffMonth - 2, startDay);
-  const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
+// Rewash: periode cutoff = 1 bulan kalender penuh (tgl 1 s.d. akhir bulan)
+function getCutoffRange(month, year) {
   return {
-    cutoffMonth, cutoffYear,
-    startDate: toDateInput(start),
-    endDate: toDateInput(end),
+    startDate: toDateInput(new Date(year, month - 1, 1)),
+    endDate: toDateInput(new Date(year, month, 0)),
   };
+}
+
+function getDefaultCutoffSelection(now = new Date()) {
+  const cutoffMonth = now.getMonth() + 1;
+  const cutoffYear = now.getFullYear();
+  return { cutoffMonth, cutoffYear, ...getCutoffRange(cutoffMonth, cutoffYear) };
 }
 
 function generatePages(current, total) {
@@ -960,6 +955,7 @@ export default function RewashLinen() {
   const [editRecord, setEditRecord] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -974,11 +970,7 @@ export default function RewashLinen() {
   const activePeriod = useMemo(() => {
     if (periodMode === "today") return { startDate: todayStr, endDate: todayStr };
     if (periodMode === "custom") return { startDate: customStartDate || todayStr, endDate: customEndDate || customStartDate || todayStr };
-    const startDay = CUTOFF_START_DAY;
-    const endDay = startDay - 1;
-    const start = new Date(cutoffYear, cutoffMonth - 2, startDay);
-    const end = new Date(cutoffYear, cutoffMonth - 1, endDay);
-    return { startDate: toDateInput(start), endDate: toDateInput(end) };
+    return getCutoffRange(cutoffMonth, cutoffYear);
   }, [periodMode, todayStr, customStartDate, customEndDate, cutoffMonth, cutoffYear]);
 
   // Load Data function
@@ -1074,6 +1066,51 @@ export default function RewashLinen() {
       showToast(err.message, "error");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const base = new URLSearchParams({ limit: "100" });
+      if (activePeriod.startDate) base.set("startDate", activePeriod.startDate);
+      if (activePeriod.endDate) base.set("endDate", activePeriod.endDate);
+      if (filterRS) base.set("hospital_id", filterRS);
+      if (search) base.set("search", search);
+      if (sort.col) {
+        base.set("sortCol", sort.col);
+        base.set("sortDir", sort.dir);
+      }
+
+      const all = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const qs = new URLSearchParams(base);
+        qs.set("page", String(page));
+        const res = await api(`/ikm/rewash-linen?${qs}`);
+        all.push(...(res.data || []));
+        totalPages = res.pagination?.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      const modeLabel = { cutoff: "Periode Cutoff", today: "Hari Ini", custom: "Custom Tanggal" }[periodMode] || periodMode;
+      const parts = [`Mode: ${modeLabel}`];
+      parts.push(filterRS
+        ? `RS: ${hospitals.find((h) => String(h.id) === String(filterRS))?.hospital_name || filterRS}`
+        : "RS: Semua RS");
+      if (search) parts.push(`Pencarian: "${search}"`);
+
+      exportRewashExcel({
+        rows: all,
+        startDate: activePeriod.startDate,
+        endDate: activePeriod.endDate,
+        filterLabel: parts.join("  |  "),
+      });
+    } catch (e) {
+      showToast(e.message || "Gagal mengekspor Excel", "error");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1246,9 +1283,22 @@ export default function RewashLinen() {
                 <HiOutlineClipboardDocumentList className="h-5 w-5 text-blue-500" />
                 <h2 className="text-base font-bold text-slate-800">Daftar Data Rewash Linen</h2>
               </div>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
-                {pagination.total.toLocaleString("id-ID")} data
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs font-semibold text-slate-500">
+                  {pagination.total.toLocaleString("id-ID")} data
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
+                >
+                  {exporting
+                    ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-700" />
+                    : <HiOutlineArrowDownTray className="h-3.5 w-3.5" />}
+                  {exporting ? "Memproses..." : "Export Excel"}
+                </button>
+              </div>
             </div>
 
             {/* Desktop table */}

@@ -1245,6 +1245,7 @@ export default function DaftarKomplain() {
                 ref={progressFileRef}
                 type="file"
                 multiple
+                accept="image/jpeg,image/png,image/gif,image/webp,.heic,.heif,application/pdf"
                 className="hidden"
                 onChange={(e) => setProgressFiles(Array.from(e.target.files))}
               />

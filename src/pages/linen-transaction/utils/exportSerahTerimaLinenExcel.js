@@ -239,22 +239,44 @@ export async function exportSerahTerimaLinenExcel(transactionData) {
     color: { argb: isExpress ? "FFB45309" : "FF0F172A" },
   };
 
+  const isBillingKg = Number(header.billing_by_kg) === 1;
   const kgRow2 = ws.addRow([
     "Perhitungan Admin IKM",
     fmtKg(header.total_kg_admin),
     "",
     "",
-    "",
-    "",
+    isBillingKg ? "Kg Perjanjian" : "",
+    isBillingKg ? fmtKg(header.kg_agreement) : "",
     "",
   ]);
   ws.mergeCells(`B${kgRow2.number}:D${kgRow2.number}`);
+  ws.mergeCells(`F${kgRow2.number}:G${kgRow2.number}`);
   kgRow2.height = 20;
   styleMetaLabel(kgRow2.getCell(1));
   styleMetaValue(kgRow2.getCell(2));
+  if (isBillingKg) {
+    styleMetaLabel(kgRow2.getCell(5));
+    styleMetaValue(kgRow2.getCell(6));
+
+    // Kg ditagihkan = kg aktual (valet, atau admin jika lebih besar) + kg perjanjian
+    const kgTotalRow = ws.addRow([
+      "Total Kg Ditagihkan",
+      fmtKg(header.kg_total),
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
+    ws.mergeCells(`B${kgTotalRow.number}:D${kgTotalRow.number}`);
+    kgTotalRow.height = 20;
+    styleMetaLabel(kgTotalRow.getCell(1));
+    styleMetaValue(kgTotalRow.getCell(2));
+    kgTotalRow.getCell(2).font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
+  }
 
   // ── Tarif per kg (express punya harga khusus, bukan kelipatan tarif reguler) ─
-  if (Number(header.billing_by_kg) === 1) {
+  if (isBillingKg) {
     const regularPrice = toNumber(header.price_per_kg);
     // Express default 2x harga reguler, kecuali RS punya tarif khusus
     const customExpressPrice = toNumber(header.express_price_per_kg);
@@ -265,7 +287,7 @@ export async function exportSerahTerimaLinenExcel(transactionData) {
           ? regularPrice * 2
           : null;
     const unitPrice = isExpress ? expressPrice : regularPrice;
-    const billedKg = toNumber(header.total_kg_admin) ?? toNumber(header.total_kg_valet);
+    const billedKg = toNumber(header.kg_total);
 
     const priceRow = ws.addRow([
       isExpress ? "Tarif Express per Kg" : "Tarif Reguler per Kg",

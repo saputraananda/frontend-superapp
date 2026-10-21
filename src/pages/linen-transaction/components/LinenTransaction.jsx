@@ -12,6 +12,7 @@ import {
 import { api, BASE_URL } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
 import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
+import { exportSewaLinen } from "../utils/exportSewaLinen";
 import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
 import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
@@ -377,6 +378,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [showAllLinens, setShowAllLinens] = useState(false);
   const [linenSearch, setLinenSearch] = useState("");
+  const [linenKind, setLinenKind] = useState("SEWA");
   const [masterLinens, setMasterLinens] = useState([]);
 
   // Signature States for Verification Indicators
@@ -420,6 +422,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     setSelectedRoomId("");
     setShowAllLinens(false);
     setLinenSearch("");
+    setLinenKind("SEWA");
     setRooms([]);
     setMasterLinens([]);
     if (mode === "create") {
@@ -718,12 +721,15 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 
   // Pencarian hanya menyaring tampilan; qty tersimpan di `details`, tidak ikut hilang.
   const visibleDetails = useMemo(() => {
+    const owned = filteredDetails.filter((d) =>
+      linenKind === "SEWA" ? d.ownership_type === "SEWA" : d.ownership_type !== "SEWA"
+    );
     const q = linenSearch.trim().toLowerCase();
-    if (!q) return filteredDetails;
-    return filteredDetails.filter(d =>
+    if (!q) return owned;
+    return owned.filter(d =>
       String(d.linen_display_name || "").toLowerCase().includes(q)
     );
-  }, [filteredDetails, linenSearch]);
+  }, [filteredDetails, linenSearch, linenKind]);
 
   if (!open) return null;
 
@@ -731,6 +737,17 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const selectedHospitalBillingByKg = Number(hospitals.find(h => Number(h.id) === Number(hospitalId))?.billing_by_kg) === 1;
   const selectedHospitalAllowExpress = Number(hospitals.find(h => Number(h.id) === Number(hospitalId))?.allow_express) === 1;
   const showKgFields = selectedHospitalBillingByKg || totalKgValet !== "" || totalKgAdmin !== "";
+  const selectedKgAgreementRaw = hospitals.find(h => Number(h.id) === Number(hospitalId))?.kg_agreement;
+  const selectedKgAgreement =
+    selectedKgAgreementRaw != null && selectedKgAgreementRaw !== "" ? Number(selectedKgAgreementRaw) : null;
+  // Kg ditagihkan = kg aktual + kg perjanjian; kg aktual = kg valet, kecuali kg admin lebih besar.
+  // Kosong selama kg aktual belum diisi.
+  const actualKgs = [totalKgValet, totalKgAdmin]
+    .filter((v) => v !== "")
+    .map(Number)
+    .filter(Number.isFinite);
+  const kgTotal = actualKgs.length ? Math.max(...actualKgs) + (selectedKgAgreement ?? 0) : null;
+  const fmtKgLabel = (n) => `${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`;
   const showExpressField = selectedHospitalAllowExpress || isExpress;
 
   const handleSubmit = async (e) => {
@@ -1142,6 +1159,22 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                         {" "}(Admin − Valet)
                       </p>
                     )}
+                    {selectedHospitalBillingByKg && (
+                      <div className="grid grid-cols-2 gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kg Perjanjian</p>
+                          <p className="text-sm font-semibold text-slate-700">
+                            {selectedKgAgreement != null ? fmtKgLabel(selectedKgAgreement) : "Tidak ada"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Kg Ditagihkan</p>
+                          <p className="text-sm font-bold text-amber-900">
+                            {kgTotal != null ? fmtKgLabel(kgTotal) : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1158,14 +1191,14 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                       <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                         <HiOutlineDocumentText className="h-3.5 w-3.5" />
                       </div>
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Item Detail Linen</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                        {linenKind === "SEWA" ? "Item Detail Cuci Linen Sewa" : "Item Detail Cuci Linen RS"}
+                      </span>
                       {details.length > 0 && (
                         <span className="rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5">
                           {linenSearch.trim()
-                            ? `${visibleDetails.length} dari ${filteredDetails.length}`
-                            : selectedRoomId
-                              ? `${filteredDetails.length} dari ${details.length}`
-                              : `${details.length}`} item
+                            ? `${visibleDetails.length} dari ${filteredDetails.filter((d) => linenKind === "SEWA" ? d.ownership_type === "SEWA" : d.ownership_type !== "SEWA").length}`
+                            : visibleDetails.length} item
                         </span>
                       )}
                     </div>
@@ -1189,6 +1222,31 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                         {/* Filter Ruangan Dropdown */}
                         <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
                           <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-slate-500">Filter:</span>
+                              <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setLinenKind("SEWA")}
+                                  className={cn(
+                                    "rounded-md px-2.5 py-1 text-xs font-semibold transition",
+                                    linenKind === "SEWA" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                                  )}
+                                >
+                                  Sewa
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setLinenKind("CUCI")}
+                                  className={cn(
+                                    "rounded-md px-2.5 py-1 text-xs font-semibold transition",
+                                    linenKind === "CUCI" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                                  )}
+                                >
+                                  Cuci
+                                </button>
+                              </div>
+                            </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-slate-500">Filter Ruangan:</span>
                               <select
@@ -1258,9 +1316,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                           )}
                         </div>
 
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-100">
+                        <div className="max-h-[75vh] overflow-auto">
+                          <table className="w-full border-separate border-spacing-0 text-left text-sm">
+                            <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50 shadow-[0_1px_0_#e2e8f0] [&_th]:sticky [&_th]:top-0 [&_th]:bg-slate-50">
                               <tr>
                                 <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
                                 <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen</th>
@@ -2054,6 +2112,29 @@ export default function LinenTransaction() {
     }
   };
 
+  const handleExportRekapSewa = async () => {
+    setDownloadDropdownOpen(false);
+    setExportingRekap(true);
+    try {
+      const q = new URLSearchParams();
+      if (activePeriod.startDate) q.append("startDate", activePeriod.startDate);
+      if (activePeriod.endDate) q.append("endDate", activePeriod.endDate);
+      if (hospitalFilter) q.append("hospital_id", hospitalFilter);
+
+      const res = await api(`/ikm/linen-transactions/rekap/sewa?${q.toString()}`);
+      if (res.success) {
+        await exportSewaLinen(res, activePeriod.startDate, activePeriod.endDate);
+        showToast("success", "File rekap sewa linen berhasil diunduh");
+      } else {
+        throw new Error(res.message || "Gagal mengambil data rekap sewa");
+      }
+    } catch (err) {
+      showToast("error", err.message || "Gagal mengunduh Rekap Sewa Linen");
+    } finally {
+      setExportingRekap(false);
+    }
+  };
+
   const handleExportRekapKg = async () => {
     setDownloadDropdownOpen(false);
     if (!hospitalFilter) {
@@ -2230,6 +2311,13 @@ export default function LinenTransaction() {
                     >
                       <HiOutlineDocumentText className="h-4 w-4 text-blue-500" />
                       Rekap Cuci Linen Sewa
+                    </button>
+                    <button
+                      onClick={handleExportRekapSewa}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition font-semibold"
+                    >
+                      <HiOutlineDocumentText className="h-4 w-4 text-teal-600" />
+                      Rekap Sewa Linen
                     </button>
                     <button
                       onClick={() => handleExportRekap("MILIK_RS")}

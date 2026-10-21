@@ -17,6 +17,7 @@ import {
   HiOutlineSparkles,
   HiOutlinePhone,
   HiOutlineAdjustmentsHorizontal,
+  HiOutlinePaperClip,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -24,7 +25,6 @@ import PageHero from "../PageHero";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 import { fmtDateShort, FILTER_SECTION, TABLE_SECTION } from "../../utils/hrisUtils";
-import { FilterScroll, FilterPill } from "../HRIS/hrisShared";
 
 const PAGE_SIZE = 50;
 
@@ -58,6 +58,62 @@ function StatusBadge({ isActive }) {
     <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", Number(isActive) === 1 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-500")}>
       {Number(isActive) === 1 ? "Aktif" : "Nonaktif"}
     </span>
+  );
+}
+
+function MembershipBadge({ tier, expired, end, noTip = false }) {
+  const [tip, setTip] = useState(null);
+  useEffect(() => {
+    if (!tip) return undefined;
+    const close = () => setTip(null);
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [tip]);
+  if (!tier) return <span className="text-slate-300">—</span>;
+  const key = String(tier).toUpperCase();
+  const isExpired = Number(expired) === 1;
+  const colors = {
+    GOLD: "bg-amber-50 text-amber-800 border-amber-200",
+    DIAMOND: "bg-sky-50 text-sky-800 border-sky-200",
+  };
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (noTip || !isExpired) return;
+          if (tip) { setTip(null); return; }
+          const r = e.currentTarget.getBoundingClientRect();
+          setTip({ top: r.bottom + 6, left: r.left });
+        }}
+        className={cn(
+          "rounded-md border px-2 py-0.5 text-[10px] font-bold",
+          isExpired ? "border-rose-600 bg-rose-600 text-white" : (colors[key] || "border-slate-200 bg-slate-100 text-slate-700"),
+          !noTip && isExpired && "cursor-pointer",
+        )}
+      >
+        {key}
+      </button>
+      {tip && createPortal(
+        <span
+          style={{ top: tip.top, left: tip.left }}
+          className="fixed z-[80] whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg"
+        >
+          Membership sudah berakhir{end ? ` ${fmtDateShort(end)}` : ""}
+        </span>,
+        document.body,
+      )}
+    </>
   );
 }
 
@@ -110,6 +166,51 @@ function filled(v) {
   return v != null && String(v).trim() !== "";
 }
 
+function MembershipPayments({ customerId }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    setRows(null);
+    api(`/waschen/customers/${customerId}/membership-payments`)
+      .then((res) => { if (alive) setRows(res.data || []); })
+      .catch(() => { if (alive) setRows([]); });
+    return () => { alive = false; };
+  }, [customerId]);
+
+  if (rows === null) return <p className="mt-3 text-[11px] text-slate-400">Memuat bukti pembayaran…</p>;
+  if (!rows.length) return null;
+  return (
+    <div className="mt-3 border-t border-slate-200 pt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Bukti pembayaran top-up</p>
+      <ul className="mt-2 space-y-2">
+        {rows.map((r) => {
+          const url = r.payment_proof_url;
+          const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url || "");
+          return (
+            <li key={r.id} className="flex items-center gap-3">
+              {url ? (
+                <a href={url} target="_blank" rel="noopener noreferrer" title="Lihat bukti pembayaran" className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white hover:border-[#5f1340]/40">
+                  {isImage
+                    ? <img src={url} alt="Bukti pembayaran" loading="lazy" className="h-full w-full object-cover" />
+                    : <HiOutlinePaperClip className="h-4 w-4 text-slate-400" />}
+                </a>
+              ) : (
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 text-[9px] text-slate-400">Tanpa bukti</span>
+              )}
+              <div className="min-w-0 text-[11px]">
+                <p className="font-semibold text-slate-800">
+                  {r.package_name || "Top-up membership"} · {formatRupiah(r.amount)}
+                </p>
+                <p className="text-slate-500">{fmtDateShort(r.created_at)} · {r.payment_method || "—"}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function CustomerReport({ item, onClose, onEdit }) {
   const facts = [
     ["Telepon", item.phone],
@@ -158,6 +259,30 @@ function CustomerReport({ item, onClose, onEdit }) {
         <p className="mt-3 text-xs leading-5 text-slate-500">
           {item.total_orders ?? 0} order. Terdaftar {fmtDateShort(item.created_at)}. Transaksi terakhir {fmtDateShort(item.last_transaction_at)}.
         </p>
+        {item.membership_tier && (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Membership</p>
+            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
+              {item.membership_name || item.membership_tier}
+              <MembershipBadge tier={item.membership_tier} expired={item.membership_expired} end={item.membership_end} noTip />
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              {fmtDateShort(item.membership_start)} – {fmtDateShort(item.membership_end)}
+              {" · "}Sisa saldo {formatRupiah(item.deposit_balance)}
+            </p>
+            {Number(item.membership_expired) === 1 && (
+              <p className="mt-1 text-[11px] font-medium text-rose-600">
+                Membership sudah berakhir {fmtDateShort(item.membership_end)}
+              </p>
+            )}
+            {waHref(item.phone) && (
+              <a href={waHref(item.phone)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                <HiOutlinePhone className="h-3.5 w-3.5" />{item.phone}
+              </a>
+            )}
+            <MembershipPayments customerId={item.id} />
+          </div>
+        )}
         {facts.length > 0 && (
           <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8">
             {facts.map(([label, val]) => (
@@ -208,16 +333,17 @@ export default function Customer() {
   const [allPeriods, setAllPeriods] = useState(true);
   const [dbYears, setDbYears] = useState([]);
   const [data, setData] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, active: 0, vip: 0, gold: 0, reguler: 0, oneTime: 0 });
+  const [meta, setMeta] = useState({ total: 0, members: 0, vip: 0, gold: 0, reguler: 0, oneTime: 0 });
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [tiers, setTiers] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [sources, setSources] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterActive, setFilterActive] = useState("");
   const [filterTierId, setFilterTierId] = useState("");
+  const [filterPackageId, setFilterPackageId] = useState("");
   const [filterOutletId, setFilterOutletId] = useState("");
   const [sortBy, setSortBy] = useState("id");
   const [sortDir, setSortDir] = useState("desc");
@@ -228,6 +354,7 @@ export default function Customer() {
   const [formError, setFormError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [tierList, setTierList] = useState(null);
+  const [memberList, setMemberList] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -235,14 +362,16 @@ export default function Customer() {
 
   const loadLookups = async () => {
     try {
-      const [tierRes, sourceRes, outletRes] = await Promise.all([
+      const [tierRes, sourceRes, outletRes, packageRes] = await Promise.all([
         api("/waschen/customer-tiers?isActive=1"),
         api("/waschen/customer-sources?isActive=1"),
         api("/waschen/outlets"),
+        api("/waschen/membership-packages?isActive=1"),
       ]);
       setTiers(tierRes.data || []);
       setSources(sourceRes.data || []);
       setOutlets(outletRes.data || []);
+      setPackages(packageRes.data || []);
     } catch { /* optional */ }
   };
 
@@ -251,8 +380,8 @@ export default function Customer() {
     try {
       const query = new URLSearchParams();
       if (search) query.set("search", search);
-      if (filterActive) query.set("isActive", filterActive);
       if (filterTierId) query.set("spendingTierId", filterTierId);
+      if (filterPackageId) query.set("membershipPackageId", filterPackageId);
       if (filterOutletId) query.set("preferredOutletId", filterOutletId);
       if (sortBy) query.set("sortBy", sortBy);
       if (sortDir) query.set("sortDir", sortDir);
@@ -275,11 +404,11 @@ export default function Customer() {
     const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [searchInput]);
-  useEffect(() => { setPage(1); }, [filterActive, filterTierId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+  useEffect(() => { setPage(1); }, [filterTierId, filterPackageId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, filterActive, filterTierId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+  }, [page, search, filterTierId, filterPackageId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
   useLiveRefresh(() => loadData(true));
   const totalPages = Math.max(1, Math.ceil((Number(meta.total) || 0) / PAGE_SIZE));
 
@@ -345,7 +474,6 @@ export default function Customer() {
     let cancel = false;
     const query = new URLSearchParams();
     if (search) query.set("search", search);
-    if (filterActive) query.set("isActive", filterActive);
     if (filterOutletId) query.set("preferredOutletId", filterOutletId);
     if (!allPeriods && cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
     if (!allPeriods && cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
@@ -363,7 +491,34 @@ export default function Customer() {
       })
       .catch(() => { if (!cancel) setTierList((t) => (t ? { ...t, loading: false } : t)); });
     return () => { cancel = true; };
-  }, [tierList?.tierId, tierList?.page, search, filterActive, filterOutletId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+  }, [tierList?.tierId, tierList?.page, search, filterOutletId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+
+  const memberPage = memberList?.page;
+  const memberTick = memberList?.tick;
+  useEffect(() => {
+    if (memberPage == null) return undefined;
+    let cancel = false;
+    const query = new URLSearchParams();
+    if (search) query.set("search", search);
+    if (filterOutletId) query.set("preferredOutletId", filterOutletId);
+    if (filterPackageId) query.set("membershipPackageId", filterPackageId);
+    else query.set("hasMembership", "1");
+    if (!allPeriods && cutoff.dateFrom) query.set("dateFrom", cutoff.dateFrom);
+    if (!allPeriods && cutoff.dateTo) query.set("dateTo", cutoff.dateTo);
+    query.set("sortBy", "name");
+    query.set("sortDir", "asc");
+    query.set("page", String(memberPage));
+    query.set("limit", "50");
+    api(`/waschen/customers?${query}`)
+      .then((res) => {
+        if (cancel) return;
+        setMemberList((t) => (t && t.page === memberPage && t.tick === memberTick
+          ? { ...t, loading: false, rows: res.data || [], total: Number(res.meta?.total) || 0 }
+          : t));
+      })
+      .catch(() => { if (!cancel) setMemberList((t) => (t ? { ...t, loading: false } : t)); });
+    return () => { cancel = true; };
+  }, [memberPage, memberTick, search, filterOutletId, filterPackageId, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
 
   const stats = meta;
 
@@ -401,7 +556,7 @@ export default function Customer() {
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
           { l: "Total Customer", v: stats.total },
-          { l: "Aktif", v: stats.active, c: "text-emerald-600" },
+          { l: "Member Waschen", v: stats.members, c: "text-amber-700", member: true },
           { l: "Tier VIP", v: stats.vip, c: "text-purple-600", code: "VIP" },
           { l: "Gold", v: stats.gold, c: "text-amber-700", code: "GOLD" },
           { l: "Reguler", v: stats.reguler, c: "text-slate-700", code: "REGULER" },
@@ -410,9 +565,16 @@ export default function Customer() {
           const card = (
             <>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.l}</p>
-              <p className={cn("text-2xl font-bold mt-0.5", s.c || "text-slate-800")}>{s.v}</p>
+              <p className={cn("text-2xl font-bold mt-0.5", s.c || "text-slate-800")}>{s.v ?? 0}</p>
             </>
           );
+          if (s.member) {
+            return (
+              <button key={s.l} type="button" onClick={() => setMemberList({ page: 1, tick: Date.now(), rows: [], total: 0, loading: true })} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-[#5f1340]/30">
+                {card}
+              </button>
+            );
+          }
           return s.code ? (
             <button key={s.l} type="button" onClick={() => openTierList(s)} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-[#5f1340]/30">
               {card}
@@ -424,14 +586,19 @@ export default function Customer() {
       </div>
 
       <section className={FILTER_SECTION}>
-        <div className="mb-3 sm:mb-4 flex items-center gap-2">
-          <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-            <HiOutlineAdjustmentsHorizontal className="h-4 w-4" />
+        <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+              <HiOutlineAdjustmentsHorizontal className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Periode & Data</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500">Filter tanggal berdasarkan tanggal terdaftar. Default: tampilkan semua.</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Periode & Data</h2>
-            <p className="text-[11px] sm:text-xs text-slate-500">Filter tanggal berdasarkan tanggal terdaftar. Default: tampilkan semua.</p>
-          </div>
+          <button type="button" aria-label="Muat ulang" onClick={() => loadData()} className="shrink-0 rounded-xl border border-slate-200 p-2.5 text-slate-500 hover:bg-slate-50">
+            <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
+          </button>
         </div>
 
         <div className="space-y-3">
@@ -444,31 +611,35 @@ export default function Customer() {
             periodBadgePrefix="Terdaftar"
             years={dbYears.length ? dbYears : undefined}
           />
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Cari kode, nama, telepon..." className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]/40" />
-            </div>
-            <select aria-label="Filter outlet" value={filterOutletId} onChange={(e) => setFilterOutletId(e.target.value)} className="sm:w-60 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40">
-              <option value="">Semua Outlet</option>
-              {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
-            <FilterScroll className="flex-1">
-              <FilterPill active={!filterTierId} onClick={() => setFilterTierId("")}>Semua Tier</FilterPill>
-              {tiers.map((t) => (
-                <FilterPill key={t.id} active={String(filterTierId) === String(t.id)} onClick={() => setFilterTierId(String(t.id))}>{t.name}</FilterPill>
-              ))}
-            </FilterScroll>
-            <FilterScroll className="shrink-0">
-              {[["", "Semua Status"], ["1", "Aktif"], ["0", "Nonaktif"]].map(([v, l]) => (
-                <FilterPill key={l} active={filterActive === v} onClick={() => setFilterActive(v)}>{l}</FilterPill>
-              ))}
-            </FilterScroll>
-            <button type="button" aria-label="Muat ulang" onClick={() => loadData()} className="shrink-0 self-end sm:self-auto rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
-              <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
-            </button>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="block min-w-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Cari
+              <div className="relative mt-1">
+                <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Kode, nama, telepon..." className="block w-full min-w-0 rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10" />
+              </div>
+            </label>
+            <label className="block min-w-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Outlet
+              <select aria-label="Filter outlet" value={filterOutletId} onChange={(e) => setFilterOutletId(e.target.value)} className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10">
+                <option value="">Semua Outlet</option>
+                {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </label>
+            <label className="block min-w-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Tier
+              <select aria-label="Filter tier" value={filterTierId} onChange={(e) => setFilterTierId(e.target.value)} className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10">
+                <option value="">Semua Tier</option>
+                {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </label>
+            <label className="block min-w-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Member
+              <select aria-label="Filter member" value={filterPackageId} onChange={(e) => setFilterPackageId(e.target.value)} className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10">
+                <option value="">Semua Member</option>
+                {packages.map((p) => <option key={p.id} value={p.id}>{p.name || p.tier}</option>)}
+              </select>
+            </label>
           </div>
         </div>
       </section>
@@ -484,6 +655,7 @@ export default function Customer() {
                 <SortTh col="phone" label="Telepon" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3">Outlet</th>
                 <th className="px-4 py-3">Tier</th>
+                <th className="px-4 py-3">Membership</th>
                 <th className="px-4 py-3">Sumber</th>
                 <SortTh col="deposit_balance" label="Deposit" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="total_spent" label="Total" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
@@ -497,20 +669,26 @@ export default function Customer() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}><td colSpan={15} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
+                <tr key={i}><td colSpan={16} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>
               )) : data.length === 0 ? (
-                <tr><td colSpan={15} className="px-4 py-12 text-center text-slate-400">Tidak ada data customer</td></tr>
+                <tr><td colSpan={16} className="px-4 py-12 text-center text-slate-400">Tidak ada data customer</td></tr>
               ) : data.map((item, idx) => (
                 <tr key={item.id} onClick={() => openView(item)} className="cursor-pointer hover:bg-slate-50/80">
                   <td className="px-4 py-3.5 text-center text-slate-400">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.customer_code || "—"}</td>
                   <td className="px-4 py-3.5">
                     <p className="font-semibold text-slate-800">{item.name || "—"}</p>
+                    {(item.full_address || item.address) && (
+                      <p className="mt-0.5 max-w-[16rem] text-[10px] leading-snug text-slate-500 line-clamp-2 break-words" title={item.full_address || item.address}>
+                        {item.full_address || item.address}
+                      </p>
+                    )}
                     {item.city && <p className="text-[10px] text-slate-400 mt-0.5">{item.city}</p>}
                   </td>
                   <td className="px-4 py-3.5"><span className="inline-flex items-center gap-1 text-slate-600"><HiOutlinePhone className="h-3 w-3" />{item.phone || "—"}</span></td>
                   <td className="px-4 py-3.5 text-slate-600">{item.preferred_outlet_name || item.home_branch || "—"}</td>
                   <td className="px-4 py-3.5"><TierBadge name={item.spending_tier_name} code={item.spending_tier_code} /></td>
+                  <td className="px-4 py-3.5"><MembershipBadge tier={item.membership_tier} expired={item.membership_expired} end={item.membership_end} /></td>
                   <td className="px-4 py-3.5 text-slate-600">{item.customer_source_label || item.customer_source_name || "—"}</td>
                   <td className="px-4 py-3.5 font-semibold text-emerald-700">{formatRupiah(item.deposit_balance)}</td>
                   <td className="px-4 py-3.5 whitespace-nowrap text-slate-700">{formatRupiah(item.total_spent)}</td>
@@ -657,6 +835,51 @@ export default function Customer() {
                 <div className="flex gap-1">
                   <button type="button" disabled={tierList.page <= 1 || tierList.loading} onClick={() => setTierList((t) => (t ? { ...t, page: t.page - 1, loading: true } : t))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40">Sebelumnya</button>
                   <button type="button" disabled={tierList.page >= Math.ceil(tierList.total / 50) || tierList.loading} onClick={() => setTierList((t) => (t ? { ...t, page: t.page + 1, loading: true } : t))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40">Berikutnya</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>, document.body)}
+
+      {memberList && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <div>
+                <h3 className="text-sm font-bold">Member Waschen</h3>
+                <p className="text-[11px] text-slate-400">{memberList.total} member · aktif dan kadaluarsa</p>
+              </div>
+              <button type="button" aria-label="Tutup" onClick={() => setMemberList(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {memberList.loading ? (
+                <p className="px-5 py-8 text-center text-xs text-slate-400">Memuat...</p>
+              ) : memberList.rows.length === 0 ? (
+                <p className="px-5 py-8 text-center text-xs text-slate-400">Tidak ada member</p>
+              ) : memberList.rows.map((c) => {
+                const href = waHref(c.phone);
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">{c.name || "—"}</p>
+                      <p className="truncate text-[11px] text-slate-400">{c.preferred_outlet_name || c.home_branch || "—"} · Sisa {formatRupiah(c.deposit_balance)}</p>
+                    </div>
+                    <MembershipBadge tier={c.membership_tier} expired={c.membership_expired} end={c.membership_end} />
+                    {href ? (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 font-mono text-[11px] text-emerald-700 hover:underline">{c.phone}</a>
+                    ) : (
+                      <span className="shrink-0 text-[11px] text-slate-300">—</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {memberList.total > 50 && (
+              <div className="flex items-center justify-between border-t px-5 py-3">
+                <p className="text-[11px] text-slate-400">Hal {memberList.page}/{Math.max(1, Math.ceil(memberList.total / 50))}</p>
+                <div className="flex gap-1">
+                  <button type="button" disabled={memberList.page <= 1 || memberList.loading} onClick={() => setMemberList((t) => (t ? { ...t, page: t.page - 1, loading: true } : t))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40">Sebelumnya</button>
+                  <button type="button" disabled={memberList.page >= Math.ceil(memberList.total / 50) || memberList.loading} onClick={() => setMemberList((t) => (t ? { ...t, page: t.page + 1, loading: true } : t))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40">Berikutnya</button>
                 </div>
               </div>
             )}

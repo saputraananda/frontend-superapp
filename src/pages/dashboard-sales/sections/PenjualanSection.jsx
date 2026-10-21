@@ -3,7 +3,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";
 import { Card } from "../components/ui";
-import { fmtIDR } from "../utils/utils";
+import { fmtIDR, todayWIB } from "../utils/utils";
 import { api } from "../../../lib/api";
 
 function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
@@ -19,9 +19,15 @@ function buildParams({ outlets, filterType, month, year, startDate, endDate }) {
   } else if (filterType === "year" && year) {
     const yearStart = `${parseInt(year) - 1}-12-26`; // misal 2025-12-26
     const yearEnd = `${year}-12-25`;               // misal 2026-12-25
-    const today = new Date().toISOString().split("T")[0];
+    const yesterday = new Date(`${todayWIB()}T12:00:00`);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = [
+      yesterday.getFullYear(),
+      String(yesterday.getMonth() + 1).padStart(2, "0"),
+      String(yesterday.getDate()).padStart(2, "0"),
+    ].join("-");
     p.set("startDate", yearStart);
-    p.set("endDate", today < yearEnd ? today : yearEnd);
+    p.set("endDate", yesterdayISO < yearEnd ? yesterdayISO : yearEnd);
   } else if (filterType === "range" && startDate && endDate) {
     p.set("startDate", startDate);
     p.set("endDate", endDate);
@@ -176,6 +182,7 @@ export default function PenjualanSection({ filters }) {
                 tickFormatter={isYearFilter ? undefined : (v) => String(parseInt(v?.split("-")[2] || v))}
                 label={{ value: isYearFilter ? "Bulan" : "Tanggal", position: "insideBottom", offset: -2, fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={45}
+                domain={[0, "auto"]}
                 tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
               <Tooltip
                 formatter={(v) => [`Rp ${fmtIDR(v)}`, "Pendapatan"]}

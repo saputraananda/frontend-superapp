@@ -578,6 +578,14 @@ export default function EmployeeCleanoxDetail() {
     }
   }, [formData, initialData]);
 
+  const employeeCodeHint = useMemo(() => {
+    const rows = masterData.latestEmployeeCodes || [];
+    const companyId = formData.company_id ? Number(formData.company_id) : null;
+    const list = companyId ? rows.filter((r) => Number(r.company_id) === companyId) : rows;
+    const codes = list.map((r) => r.employee_code).filter(Boolean);
+    return codes.length ? `Terakhir ${codes.join(", ")}` : "";
+  }, [masterData.latestEmployeeCodes, formData.company_id]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     const next = name === "blood_type" ? String(value || "").toUpperCase().replace(/\s+/g, "") : value;
@@ -589,10 +597,7 @@ export default function EmployeeCleanoxDetail() {
     e.preventDefault();
     if (!formData.full_name?.trim()) {
       setFieldErrors({ full_name: "Nama wajib diisi." });
-      return;
-    }
-    if (!formData.employee_code?.trim()) {
-      setFieldErrors({ employee_code: "Nomor Induk Karyawan wajib diisi." });
+      setActiveTab("personal");
       return;
     }
     setSaving(true);
@@ -1255,7 +1260,7 @@ export default function EmployeeCleanoxDetail() {
                     <>
                       <Panel title="Informasi Jabatan">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-                          <Field label="Nomor Induk Karyawan" required error={fieldErrors.employee_code}>
+                          <Field label="Nomor Induk Karyawan" hint={employeeCodeHint} error={fieldErrors.employee_code}>
                             <input
                               type="text"
                               name="employee_code"
@@ -1263,6 +1268,7 @@ export default function EmployeeCleanoxDetail() {
                               onChange={handleChange}
                               className={inputCls(fieldErrors.employee_code)}
                               placeholder="Contoh: WAI-2024-001"
+                              title={employeeCodeHint || undefined}
                             />
                           </Field>
                           <Field label="Perusahaan">

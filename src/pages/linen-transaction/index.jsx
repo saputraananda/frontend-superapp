@@ -5,6 +5,7 @@ import {
   HiOutlineBars3,
   HiOutlineBuildingOffice2,
   HiOutlineBriefcase,
+  HiOutlineClipboardDocumentList,
   HiOutlineXMark,
 } from "react-icons/hi2";
 
@@ -40,6 +41,12 @@ const MENU_ITEMS = [
     icon: HiOutlineBriefcase,
     label: "Serah Terima Komersil",
     description: "Penerimaan & pengiriman linen komersil",
+  },
+  {
+    to: "/serah-terima-linen/bast",
+    icon: HiOutlineClipboardDocumentList,
+    label: "BAST Linen Sewa",
+    description: "Pengiriman & penarikan stok linen sewa",
   },
 ];
 

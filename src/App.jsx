@@ -80,6 +80,7 @@ import AbsensiManajemen from "./pages/absensi-ikm/components/AbsensiManajemen";
 import LinenTransactionLayout from "./pages/linen-transaction";
 import LinenTransaction from "./pages/linen-transaction/components/LinenTransaction";
 import LinenTransactionKomersil from "./pages/linen-transaction/components/LinenTransactionKomersil";
+import BastLinenSewa from "./pages/linen-transaction/components/BastLinenSewa";
 import KaryawanIKM from "./pages/karyawan-ikm";
 import KaryawanIKMDetail from "./pages/karyawan-ikm/[id]";
 import OperationalAlora from "./pages/operational-alora";
@@ -161,6 +162,9 @@ import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
+import EventDashboardWaschen from "./pages/my-waschen/components/EventB2B/EventDashboard";
+import EventCustomerWaschen from "./pages/my-waschen/components/EventB2B/EventCustomer";
+import EventTransactionWaschen from "./pages/my-waschen/components/EventB2B/EventTransaction";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -494,6 +498,7 @@ export default function App() {
         >
           <Route path="/serah-terima-linen" element={<LinenTransaction />} />
           <Route path="/serah-terima-linen/komersil" element={<LinenTransactionKomersil />} />
+          <Route path="/serah-terima-linen/bast" element={<BastLinenSewa />} />
         </Route>
 
         {/* Redirect path lama → menu baru */}
@@ -712,6 +717,9 @@ export default function App() {
           <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
           <Route path="/my-waschen/transactions" element={<HistoryTransactionPage />} />
           <Route path="/my-waschen/transactions/:id" element={<DetailTransactionPage />} />
+          <Route path="/my-waschen/event" element={<EventDashboardWaschen />} />
+          <Route path="/my-waschen/event/customers" element={<EventCustomerWaschen />} />
+          <Route path="/my-waschen/event/transactions" element={<EventTransactionWaschen />} />
           <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />

@@ -1013,9 +1013,9 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 
                   {showItemDetails && (
                     hospitalId ? (
-                      <div className="overflow-x-auto animate-fade-in flex flex-col">
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-slate-50 border-b border-slate-100">
+                      <div className="max-h-[75vh] overflow-auto animate-fade-in flex flex-col">
+                        <table className="w-full border-separate border-spacing-0 text-left text-sm">
+                          <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50 shadow-[0_1px_0_#e2e8f0] [&_th]:sticky [&_th]:top-0 [&_th]:bg-slate-50">
                             <tr>
                               <th className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 w-10">No</th>
                               <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nama Linen Komersil</th>
