@@ -40,12 +40,14 @@ import {
     HiOutlineSparkles as SparklesIcon,
     HiOutlineLockClosed as LockClosedIcon,
     HiOutlineEye as EyeIcon,
+    HiOutlineArrowDownTray as ArrowDownTrayIcon,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import { formatEmployeeName } from "../../utils/FormatName";
+import { exportEmployeeWaschenToExcel } from "./utils/exportEmployeeWaschen";
 
 function cn(...classes) {
     return classes.filter(Boolean).join(" ");
@@ -1010,6 +1012,29 @@ export default function EmployeeWaschen() {
         setModalError("");
     };
 
+    const [exporting, setExporting] = useState(false);
+    const [exportProgress, setExportProgress] = useState("");
+
+    const handleExportExcel = async () => {
+        if (exporting) return;
+        setError("");
+        setExporting(true);
+        setExportProgress("Menyiapkan...");
+        try {
+            const result = await exportEmployeeWaschenToExcel({
+                onProgress: ({ message }) => setExportProgress(message),
+            });
+            setSuccess(`Berhasil mengunduh ${result.total} karyawan`);
+            setTimeout(() => setSuccess(""), 3000);
+        } catch (err) {
+            setError(err?.message || "Gagal mengunduh data karyawan");
+            setTimeout(() => setError(""), 4000);
+        } finally {
+            setExporting(false);
+            setExportProgress("");
+        }
+    };
+
     const hasActiveFilters = Boolean(search) || Boolean(filterRole) || Boolean(filterOutletId) || filterIsLeader !== "";
 
     return (
@@ -1106,6 +1131,15 @@ export default function EmployeeWaschen() {
                             >
                                 <ArrowPathIcon className="h-3.5 w-3.5" />
                                 Refresh
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleExportExcel}
+                                disabled={exporting}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-60"
+                            >
+                                <ArrowDownTrayIcon className={cn("h-3.5 w-3.5", exporting && "animate-pulse")} />
+                                {exporting ? exportProgress || "Mengekspor..." : "Export Excel"}
                             </button>
                             {hasActiveFilters && (
                                 <button

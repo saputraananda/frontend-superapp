@@ -673,16 +673,6 @@ export default function EmployeeDetail({ variant = "ikm" }) {
 
   const isResigned = !!formData.exit_date;
 
-  // ── Helper: resolve document URL the same way as master-karyawan ──
-  const resolveDocUrl = (pathKey, nameKey) => {
-    const baseUrl = employee?.documents_base_url;
-    const filePath = employee?.[pathKey];
-    const fileName = employee?.[nameKey];
-    if (baseUrl) return fileName ? `${baseUrl.replace(/\/$/, "")}/${fileName}` : null;
-    if (filePath) return isWaschen ? assetOn(ALORA_ASSET_HOST, filePath) : assetUrl(filePath);
-    return null;
-  };
-
   const resolveAvatarUrl = () => {
     const base = employee?.avatars_base_url;
     const fileName = employee?.profile_name;
