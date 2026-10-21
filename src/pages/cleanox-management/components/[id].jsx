@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, assetUrl } from "../../../lib/api";
+import { api, apiUpload, assetUrl } from "../../../lib/api";
 import LoadingScreen from "../../../components/LoadingScreen";
 import AlertSuccess from "../../../components/AlertSuccess";
 import JSZip from "jszip";
@@ -19,6 +19,7 @@ import {
   HiOutlineCheckCircle,
   HiOutlineExclamationCircle,
   HiOutlineArrowDownTray,
+  HiOutlineArrowUpTray,
   HiOutlineBars3,
   HiOutlineArchiveBoxArrowDown,
   HiOutlineMagnifyingGlassPlus,
@@ -120,7 +121,10 @@ function DocPreviewModal({ url, fileName, label, onClose }) {
 }
 
 // ── PhotoCard ──
-function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPreview }) {
+function PhotoCard({
+  label, filePath, fileName, baseUrl, avatarBaseUrl, onPreview,
+  onUpload, onDelete, isUploading, isDeleting,
+}) {
   let url;
   const effectiveBase = avatarBaseUrl || baseUrl;
   if (effectiveBase) {
@@ -218,25 +222,90 @@ function PhotoCard({ label, filePath, fileName, baseUrl, avatarBaseUrl, onPrevie
       )}
 
       {/* Action buttons */}
-      {url && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onPreview({ url, fileName, label })}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
-          >
-            <HiOutlineMagnifyingGlassPlus className="w-3.5 h-3.5" />
-            Buka
-          </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#97bd3f]/25 bg-[#97bd3f]/10 px-3 py-2 text-xs font-medium text-[#1b3459] hover:bg-[#97bd3f]/20 transition"
-          >
-            <HiOutlineArrowDownTray className="w-3.5 h-3.5" />
-            Download
-          </button>
+      {url ? (
+        <div className="flex flex-col gap-2 mt-auto">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => onPreview({ url, fileName, label })}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+            >
+              <HiOutlineMagnifyingGlassPlus className="w-3.5 h-3.5" />
+              Buka
+            </button>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#97bd3f]/25 bg-[#97bd3f]/10 px-2.5 py-1.5 text-xs font-medium text-[#1b3459] hover:bg-[#97bd3f]/20 transition"
+            >
+              <HiOutlineArrowDownTray className="w-3.5 h-3.5" />
+              Download
+            </button>
+          </div>
+          <div className="flex gap-2">
+            {onUpload && (
+              <button
+                type="button"
+                onClick={onUpload}
+                disabled={isUploading || isDeleting}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#1b3459]/20 bg-[#1b3459]/5 px-2.5 py-1.5 text-xs font-medium text-[#1b3459] hover:bg-[#1b3459]/10 disabled:opacity-50 transition"
+              >
+                {isUploading ? (
+                  <>
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#1b3459] border-t-transparent" />
+                    Mengupload...
+                  </>
+                ) : (
+                  <>
+                    <HiOutlineArrowUpTray className="w-3.5 h-3.5" />
+                    Ganti
+                  </>
+                )}
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={isDeleting || isUploading}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
+                    Hapus...
+                  </>
+                ) : (
+                  <>
+                    <HiOutlineXMark className="w-3.5 h-3.5" />
+                    Hapus
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+      ) : (
+        onUpload && (
+          <button
+            type="button"
+            onClick={onUpload}
+            disabled={isUploading || isDeleting}
+            className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-[#97bd3f]/30 bg-[#97bd3f]/15 px-3 py-2 text-xs font-semibold text-[#1b3459] hover:bg-[#97bd3f]/25 disabled:opacity-50 transition mt-auto"
+          >
+            {isUploading ? (
+              <>
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#1b3459] border-t-transparent mr-1" />
+                Mengupload...
+              </>
+            ) : (
+              <>
+                <HiOutlineArrowUpTray className="w-3.5 h-3.5" />
+                Upload Dokumen
+              </>
+            )}
+          </button>
+        )
       )}
     </div>
   );
@@ -335,6 +404,97 @@ export default function EmployeeCleanoxDetail() {
 
   const [previewDoc, setPreviewDoc] = useState(null);
   const [zipping, setZipping] = useState(false);
+
+  const [uploadTargetKey, setUploadTargetKey] = useState(null);
+  const [uploadingKey, setUploadingKey] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingKey, setDeletingKey] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleUploadDoc = (key) => {
+    setUploadTargetKey(key);
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 100);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTargetKey) return;
+
+    const selectedKey = uploadTargetKey;
+    setUploadTargetKey(null);
+    e.target.value = "";
+
+    const doc = EMPLOYEE_DOCS.find((d) => d.key === selectedKey);
+    if (!doc) return;
+
+    setUploadingKey(selectedKey);
+    setError("");
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+
+      const res = await apiUpload(`/hr/employees/${id}/document/${selectedKey}`, {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      setEmployee((p) => ({
+        ...p,
+        [doc.pathKey]: res.path,
+        [doc.nameKey]: res.name,
+      }));
+      setFormData((p) => ({
+        ...p,
+        [doc.pathKey]: res.path,
+        [doc.nameKey]: res.name,
+      }));
+      setInitialData((p) => ({
+        ...p,
+        [doc.pathKey]: res.path,
+        [doc.nameKey]: res.name,
+      }));
+      setSuccess(`${doc.label} berhasil diupload.`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const confirmDeleteDoc = async () => {
+    if (!deleteTarget) return;
+    const { key, pathKey, nameKey, label } = deleteTarget;
+    setDeletingKey(key);
+    setError("");
+    try {
+      await api(`/hr/employees/${id}/document/${key}`, { method: "DELETE" });
+      setEmployee((p) => ({
+        ...p,
+        [pathKey]: null,
+        [nameKey]: null,
+      }));
+      setFormData((p) => ({
+        ...p,
+        [pathKey]: null,
+        [nameKey]: null,
+      }));
+      setInitialData((p) => ({
+        ...p,
+        [pathKey]: null,
+        [nameKey]: null,
+      }));
+      setDeleteTarget(null);
+      setSuccess(`${label} berhasil dihapus.`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeletingKey(null);
+    }
+  };
 
   const handleDownloadZip = async () => {
     if (zipping) return;
@@ -511,6 +671,49 @@ export default function EmployeeCleanoxDetail() {
           label={previewDoc.label}
           onClose={() => setPreviewDoc(null)}
         />
+      )}
+
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileChange}
+        accept={uploadTargetKey === "profile" ? "image/*" : "image/*,.pdf"}
+      />
+
+      {/* Delete Doc Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !deletingKey && setDeleteTarget(null)}
+          />
+          <div className="relative z-50 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
+            <h3 className="text-base font-bold text-slate-800 mb-2">Hapus Dokumen?</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Apakah Anda yakin ingin menghapus dokumen <strong className="text-slate-700">{deleteTarget.label}</strong>?
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingKey !== null}
+                className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteDoc}
+                disabled={deletingKey !== null}
+                className="flex-1 rounded-lg bg-rose-600 text-white px-4 py-2 text-sm font-semibold hover:bg-rose-700 transition flex items-center justify-center gap-1.5"
+              >
+                {deletingKey !== null ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Resign Modal */}
@@ -1356,6 +1559,10 @@ export default function EmployeeCleanoxDetail() {
                             baseUrl={employee?.documents_base_url}
                             avatarBaseUrl={key === "profile" ? employee?.avatars_base_url : undefined}
                             onPreview={setPreviewDoc}
+                            onUpload={() => handleUploadDoc(key)}
+                            onDelete={() => setDeleteTarget({ key, pathKey, nameKey, label })}
+                            isUploading={uploadingKey === key}
+                            isDeleting={deletingKey === key}
                           />
                         ))}
                       </div>

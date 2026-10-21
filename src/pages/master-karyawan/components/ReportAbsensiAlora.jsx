@@ -13,11 +13,17 @@ import {
 	HiOutlineExclamationTriangle,
 	HiOutlineMagnifyingGlass,
 	HiOutlineMapPin,
+	HiOutlinePencilSquare,
 	HiOutlinePhoto,
+	HiOutlinePlus,
+	HiOutlineTrash,
 	HiOutlineXMark,
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportReportAbsensiAloraExcel } from "../utils/exportReportAbsensiAloraExcel";
+import AddManualAttendanceAloraModal from "./AddManualAttendanceAloraModal";
+import EditManualAttendanceAloraModal from "./EditManualAttendanceAloraModal";
+import DeleteManualAttendanceAloraModal from "./DeleteManualAttendanceAloraModal";
 
 function cn(...classes) {
 	return classes.filter(Boolean).join(" ");
@@ -434,6 +440,34 @@ export default function ReportAbsensiAlora() {
 	const [finalStatusFilter, setFinalStatusFilter] = useState("");
 	const [sort, setSort] = useState({ col: "check_in_time", dir: "desc" });
 	const [exporting, setExporting] = useState(false);
+	const [addModalOpen, setAddModalOpen] = useState(false);
+	const [editModalItem, setEditModalItem] = useState(null);
+	const [deleteModalItem, setDeleteModalItem] = useState(null);
+
+	const currentUser = useMemo(() => {
+		try {
+			return JSON.parse(localStorage.getItem("user") || "null");
+		} catch {
+			return null;
+		}
+	}, []);
+
+	const isHrd = useMemo(() => {
+		if (!currentUser) return false;
+		const role = String(currentUser.role || "").toLowerCase();
+		if (["admin", "superadmin"].includes(role)) return true;
+		const emp = currentUser.employee;
+		if (!emp) return false;
+		const posId = Number(emp.position_id);
+		const deptId = Number(emp.department_id);
+		const deptName = String(emp.department_name || "").toLowerCase();
+		return (
+			[1, 8, 17, 18, 19].includes(posId) ||
+			deptId === 1 ||
+			deptName.includes("hr") ||
+			deptName.includes("human resource")
+		);
+	}, [currentUser]);
 
 	const yearOptions = useMemo(() => {
 		const base = new Date().getFullYear();
@@ -1089,6 +1123,16 @@ export default function ReportAbsensiAlora() {
 								<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
 								{exporting ? "Mengunduh..." : "Download Excel"}
 							</button>
+							{isHrd && (
+								<button
+									type="button"
+									onClick={() => setAddModalOpen(true)}
+									className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+								>
+									<HiOutlinePlus className="h-3.5 w-3.5" />
+									Tambah Absensi
+								</button>
+							)}
 						</div>
 					</div>
 
@@ -1112,14 +1156,19 @@ export default function ReportAbsensiAlora() {
 									<SortTh col="final_status" label="Final Status" sort={sort} onSort={handleSort} />
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Approval</th>
 									<th className="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">Terlambat</th>
+									{isHrd && (
+										<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+											Aksi
+										</th>
+									)}
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
-								{loading && Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={16} />)}
+								{loading && Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={isHrd ? 17 : 16} />)}
 
 								{!loading && displayedRecords.length === 0 && (
 									<tr>
-										<td colSpan={16} className="px-4 py-14 text-center">
+										<td colSpan={isHrd ? 17 : 16} className="px-4 py-14 text-center">
 											<div className="flex flex-col items-center gap-2 text-slate-400">
 												<HiOutlineDocumentCheck className="h-9 w-9 opacity-40" />
 												<p className="text-sm">Data absensi tidak ditemukan pada filter aktif.</p>
@@ -1221,6 +1270,30 @@ export default function ReportAbsensiAlora() {
 												<td className="px-4 py-3">
 													<LateCell row={row} />
 												</td>
+												{isHrd && (
+													<td className="whitespace-nowrap px-4 py-3">
+														<div className="flex items-center gap-1.5">
+															<button
+																type="button"
+																onClick={() => setEditModalItem(row)}
+																className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+																title="Edit jam absensi"
+															>
+																<HiOutlinePencilSquare className="h-3.5 w-3.5" />
+																Edit
+															</button>
+															<button
+																type="button"
+																onClick={() => setDeleteModalItem(row)}
+																className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+																title="Hapus record absensi"
+															>
+																<HiOutlineTrash className="h-3.5 w-3.5" />
+																Delete
+															</button>
+														</div>
+													</td>
+												)}
 											</tr>
 										);
 									})}
@@ -1328,6 +1401,27 @@ export default function ReportAbsensiAlora() {
 												/>
 											) : null}
 										</div>
+
+										{isHrd && (
+											<div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5">
+												<button
+													type="button"
+													onClick={() => setEditModalItem(row)}
+													className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+												>
+													<HiOutlinePencilSquare className="h-3.5 w-3.5" />
+													Edit
+												</button>
+												<button
+													type="button"
+													onClick={() => setDeleteModalItem(row)}
+													className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition"
+												>
+													<HiOutlineTrash className="h-3.5 w-3.5" />
+													Delete
+												</button>
+											</div>
+										)}
 									</article>
 								);
 							})}
@@ -1338,6 +1432,38 @@ export default function ReportAbsensiAlora() {
 			</div>
 
 			<PhotoViewerModal item={photoViewer} onClose={() => setPhotoViewer(null)} />
+
+			{addModalOpen && (
+				<AddManualAttendanceAloraModal
+					onClose={() => setAddModalOpen(false)}
+					onSaved={() => {
+						setAddModalOpen(false);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
+
+			{editModalItem && (
+				<EditManualAttendanceAloraModal
+					item={editModalItem}
+					onClose={() => setEditModalItem(null)}
+					onSaved={() => {
+						setEditModalItem(null);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
+
+			{deleteModalItem && (
+				<DeleteManualAttendanceAloraModal
+					item={deleteModalItem}
+					onClose={() => setDeleteModalItem(null)}
+					onSaved={() => {
+						setDeleteModalItem(null);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
 		</main>
 	);
 }
