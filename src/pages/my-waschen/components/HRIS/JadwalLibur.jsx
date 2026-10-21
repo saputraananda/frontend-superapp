@@ -11,6 +11,9 @@ import {
   HiOutlineClock,
   HiOutlineAdjustmentsHorizontal,
   HiOutlineArrowPathRoundedSquare,
+  HiOutlineXCircle,
+  HiOutlineUserGroup,
+  HiOutlineChevronRight,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -41,6 +44,40 @@ const STATUS_FILTERS = [
   { key: "disetujui", label: "Disetujui HRD" },
   { key: "ditolak_leader", label: "Ditolak leader" },
   { key: "ditolak", label: "Ditolak HRD" },
+];
+
+// Ringkasan per karyawan di atas kalender: status libur dikelompokkan jadi 3 kartu
+const EMP_SUMMARY = [
+  {
+    key: "pengajuan",
+    label: "Pengajuan",
+    hint: "Menunggu persetujuan HRD",
+    statuses: ["pengajuan", "disetujui_leader"],
+    icon: HiOutlineClock,
+    card: "border-amber-200 bg-amber-50/50 hover:border-amber-300",
+    text: "text-amber-700",
+    value: "text-amber-800",
+  },
+  {
+    key: "diizinkan",
+    label: "Diizinkan",
+    hint: "Disetujui HRD",
+    statuses: ["disetujui"],
+    icon: HiOutlineCheckCircle,
+    card: "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300",
+    text: "text-emerald-700",
+    value: "text-emerald-800",
+  },
+  {
+    key: "ditolak",
+    label: "Ditolak",
+    hint: "Ditolak leader / HRD",
+    statuses: ["ditolak_leader", "ditolak"],
+    icon: HiOutlineXCircle,
+    card: "border-rose-200 bg-rose-50/50 hover:border-rose-300",
+    text: "text-rose-600",
+    value: "text-rose-800",
+  },
 ];
 
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
@@ -75,6 +112,8 @@ export default function JadwalLibur() {
   const [backupSearch, setBackupSearch] = useState("");
   const [assignBackupId, setAssignBackupId] = useState("");
   const [assignBackupSearch, setAssignBackupSearch] = useState("");
+  const [summaryKey, setSummaryKey] = useState(null);
+  const [dayOutlet, setDayOutlet] = useState("Semua");
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -153,8 +192,62 @@ export default function JadwalLibur() {
     });
   }, [employees, takenEmployeeIds, empSearch]);
 
+  // Kelompokkan baris periode per kartu ringkasan -> per karyawan (nama, outlet, daftar tanggal)
+  const empSummary = useMemo(() => {
+    const out = {};
+    EMP_SUMMARY.forEach((s) => {
+      const map = new Map();
+      rows.filter((r) => s.statuses.includes(r.status)).forEach((r) => {
+        const id = String(r.employee_id);
+        if (!map.has(id)) {
+          map.set(id, { id, name: r.employee_name, code: r.employee_code, outlet: r.outlet_name, days: [] });
+        }
+        map.get(id).days.push({ id: r.day_off_id, date: r.off_date, status: r.status });
+      });
+      const list = [...map.values()]
+        .map((e) => ({ ...e, days: e.days.sort((a, b) => String(a.date).localeCompare(String(b.date))) }))
+        .sort((a, b) =>
+          String(a.outlet || "").localeCompare(String(b.outlet || "")) ||
+          String(a.name || "").localeCompare(String(b.name || "")),
+        );
+      out[s.key] = { employees: list, days: list.reduce((n, e) => n + e.days.length, 0) };
+    });
+    return out;
+  }, [rows]);
+
+  const activeSummary = EMP_SUMMARY.find((s) => s.key === summaryKey);
+
+  // Modal tanggal: urut per outlet lalu nama, plus pilihan filter outlet (dengan jumlah)
+  const NO_OUTLET = "Tanpa outlet";
+  const sortedDayRows = useMemo(
+    () => [...dayRows].sort((a, b) =>
+      // Tanpa outlet ditaruh paling bawah
+      (!a.outlet_name - !b.outlet_name) ||
+      String(a.outlet_name || "").localeCompare(String(b.outlet_name || "")) ||
+      String(fmtEmployeeName(a.employee_name) || "").localeCompare(String(fmtEmployeeName(b.employee_name) || "")),
+    ),
+    [dayRows],
+  );
+  const dayOutlets = useMemo(() => {
+    const counts = new Map();
+    sortedDayRows.forEach((r) => {
+      const name = r.outlet_name || NO_OUTLET;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [sortedDayRows]);
+  const visibleDayRows = dayOutlet === "Semua"
+    ? sortedDayRows
+    : sortedDayRows.filter((r) => (r.outlet_name || NO_OUTLET) === dayOutlet);
+
+  // Outlet terpilih hilang (mis. setelah hapus) -> kembali ke Semua
+  useEffect(() => {
+    if (dayOutlet !== "Semua" && !dayOutlets.some((o) => o.name === dayOutlet)) setDayOutlet("Semua");
+  }, [dayOutlets, dayOutlet]);
+
   const openDay = (dateStr) => {
     setSelectedDay(dateStr);
+    setDayOutlet("Semua");
     setDayRows([]);
     setPickedEmployees([]);
     setAssignReason("");
@@ -397,6 +490,34 @@ export default function JadwalLibur() {
         </div>
       </section>
 
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {EMP_SUMMARY.map((s) => {
+          const Icon = s.icon;
+          const data = empSummary[s.key];
+          return (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSummaryKey(s.key)}
+              className={cn("group rounded-2xl border p-3 sm:p-4 shadow-sm text-left transition hover:shadow-md", s.card)}
+            >
+              <div className={cn("flex items-center justify-between gap-2", s.text)}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider truncate">{s.label}</p>
+                </div>
+                <HiOutlineChevronRight className="h-4 w-4 shrink-0 opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+              </div>
+              <p className={cn("mt-1 text-xl sm:text-2xl font-bold", s.value)}>
+                {data.employees.length}
+                <span className="ml-1.5 text-xs font-semibold opacity-70">karyawan</span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{data.days} hari · {s.hint}</p>
+            </button>
+          );
+        })}
+      </section>
+
       <section className={TABLE_SECTION}>
         <DayOffCalendar
           rows={rows}
@@ -411,6 +532,66 @@ export default function JadwalLibur() {
           loading={loading}
         />
       </section>
+
+      {activeSummary && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4 backdrop-blur-sm" onClick={() => setSummaryKey(null)}>
+          <div
+            className="flex max-h-[92vh] w-full sm:max-w-lg flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50 shrink-0">
+              <div className="min-w-0">
+                <h3 className={cn("font-bold text-sm", activeSummary.value)}>
+                  Libur {activeSummary.label} · {empSummary[activeSummary.key].employees.length} karyawan
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">{cutoff.periodLabel || `${fmtDateShort(startDate)} – ${fmtDateShort(endDate)}`}</p>
+              </div>
+              <button type="button" onClick={() => setSummaryKey(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 text-xs">
+              {empSummary[activeSummary.key].employees.length === 0 ? (
+                <div className="py-10 text-center text-slate-400">
+                  <HiOutlineUserGroup className="mx-auto h-8 w-8 mb-2 text-slate-300" />
+                  Tidak ada karyawan pada periode & filter ini
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {empSummary[activeSummary.key].employees.map((e) => (
+                    <li key={e.id} className="rounded-xl border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 break-words">{fmtEmployeeName(e.name)}</p>
+                          <p className="text-[10px] text-slate-400">
+                            {e.code ? `${e.code} · ` : ""}
+                            <span className="font-semibold text-slate-500">{e.outlet || "Outlet belum diatur"}</span>
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{e.days.length} hari</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {e.days.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => { setSummaryKey(null); openDay(d.date); }}
+                            title={`${dayOffStatusLabel(d.status)} — klik untuk kelola tanggal ini`}
+                            className={cn("inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-bold hover:opacity-80", dayOffStatusBadge(d.status))}
+                          >
+                            {fmtDateShort(d.date)}
+                            {activeSummary.statuses.length > 1 && (
+                              <span className="ml-1 font-medium opacity-75">· {dayOffStatusLabel(d.status)}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>, document.body)}
 
       {selectedDay && createPortal(
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4 backdrop-blur-sm" onClick={closeDay}>
@@ -428,13 +609,33 @@ export default function JadwalLibur() {
 
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
               <div>
-                <p className={LABEL_CLS}>Karyawan libur ({dayRows.length})</p>
+                <p className={LABEL_CLS}>
+                  Karyawan libur ({dayOutlet === "Semua" ? dayRows.length : `${visibleDayRows.length} dari ${dayRows.length}`})
+                </p>
+                {dayOutlets.length > 1 && (
+                  <select
+                    value={dayOutlet}
+                    onChange={(e) => setDayOutlet(e.target.value)}
+                    aria-label="Filter outlet"
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40"
+                  >
+                    <option value="Semua">Semua Outlet ({dayRows.length})</option>
+                    {dayOutlets.map((o) => (
+                      <option key={o.name} value={o.name}>{o.name} ({o.count})</option>
+                    ))}
+                  </select>
+                )}
                 {dayRows.length === 0 ? (
                   <p className="mt-2 text-slate-400 text-center py-4 rounded-xl border border-dashed border-slate-200">Belum ada karyawan libur</p>
                 ) : (
                   <ul className="mt-2 space-y-2">
-                    {dayRows.map((r) => (
-                      <li key={r.day_off_id} className="rounded-xl border border-slate-200 p-3 space-y-2">
+                    {visibleDayRows.map((r, i) => (
+                      <li key={r.day_off_id} className="space-y-2">
+                      {dayOutlet === "Semua" && dayOutlets.length > 1 &&
+                        (i === 0 || (r.outlet_name || NO_OUTLET) !== (visibleDayRows[i - 1].outlet_name || NO_OUTLET)) && (
+                        <p className={cn(LABEL_CLS, "pt-1 text-[#5f1340]")}>{r.outlet_name || NO_OUTLET}</p>
+                      )}
+                      <div className="rounded-xl border border-slate-200 p-3 space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             {r.outlet_name && (
@@ -468,6 +669,7 @@ export default function JadwalLibur() {
                           )}
                           <button type="button" disabled={submitting} onClick={() => setDeleteRow(r)} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[10px] font-bold text-rose-600 disabled:opacity-50">Hapus</button>
                         </div>
+                      </div>
                       </li>
                     ))}
                   </ul>
