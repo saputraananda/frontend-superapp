@@ -607,7 +607,8 @@ export default function App() {
           }
         >
           <Route path="/document-alora/dashboard" element={<DashboardDocument />} />
-          <Route path="/document-alora" element={<MasterDocument />} />
+          <Route path="/document-alora/master" element={<MasterDocument />} />
+          <Route path="/document-alora" element={<Navigate to="/document-alora/dashboard" replace />} />
           <Route path="/document-alora/transactions" element={<TransDocument />} />
         </Route>
 

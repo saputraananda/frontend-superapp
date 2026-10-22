@@ -20,7 +20,7 @@ const MENU_ITEMS = [
     description: "Ringkasan & prioritas tindakan",
   },
   {
-    to: "/document-alora",
+    to: "/document-alora/master",
     icon: HiOutlineDocumentText,
     label: "Master Dokumen",
     description: "Daftar dokumen perusahaan",
