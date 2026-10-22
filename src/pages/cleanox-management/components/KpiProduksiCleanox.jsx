@@ -50,6 +50,27 @@ function renderStageCell(value, maxVal, colors) {
     );
 }
 
+function renderKpiPercentageBadge(pct = 0, hours = 0, target = 208) {
+    const achievementPct = pct != null ? Number(pct) : (target > 0 ? Math.round((hours / target) * 1000) / 10 : 0);
+    const isCompleted = achievementPct >= 100;
+    const isGood = achievementPct >= 75;
+    const isMedium = achievementPct >= 50;
+
+    const badgeColor = isCompleted
+        ? "bg-emerald-100 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30"
+        : isGood
+            ? "bg-teal-100 text-teal-800 border-teal-300 ring-1 ring-teal-400/30"
+            : isMedium
+                ? "bg-amber-100 text-amber-800 border-amber-300 ring-1 ring-amber-400/30"
+                : "bg-rose-100 text-rose-800 border-rose-200 ring-1 ring-rose-300/30";
+
+    return (
+        <span className={cn("inline-flex items-center justify-center font-bold font-mono text-xs px-2.5 py-1 rounded-lg border shadow-xs transition-all", badgeColor)}>
+            {achievementPct}%
+        </span>
+    );
+}
+
 function renderKpiAchievementCell(hours = 0, target = 208, pct = 0) {
     const formattedHours = Number(hours || 0).toFixed(1);
     const achievementPct = pct != null ? Number(pct) : (target > 0 ? Math.round((hours / target) * 1000) / 10 : 0);
@@ -74,18 +95,10 @@ function renderKpiAchievementCell(hours = 0, target = 208, pct = 0) {
                 : "text-slate-700 font-semibold";
 
     return (
-        <div className="flex flex-col gap-1 w-full max-w-[130px]">
+        <div className="flex flex-col gap-1 w-full max-w-[120px]">
             <div className="flex items-center justify-between text-[11px]">
                 <span className={cn("font-mono", textColor)}>
                     {formattedHours} <span className="text-[10px] text-slate-400 font-normal">/ {target}j</span>
-                </span>
-                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", 
-                    isCompleted ? "bg-emerald-100 text-emerald-800" :
-                    isGood ? "bg-teal-100 text-teal-800" :
-                    isMedium ? "bg-amber-100 text-amber-800" :
-                    "bg-slate-100 text-slate-600"
-                )}>
-                    {achievementPct}%
                 </span>
             </div>
             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
@@ -1770,8 +1783,8 @@ export default function KpiProduksiPage() {
                                         <th className="px-6 py-3 text-center w-16">Rank</th>
                                         <th className="px-6 py-3">Karyawan</th>
                                         <th className="px-6 py-3 text-center w-32">Total Layanan</th>
-                                        <th className="px-6 py-3 text-center w-28">Jam Kerja</th>
-                                        <th className="px-6 py-3 text-center w-40">Capaian KPI (208 Jam)</th>
+                                        <th className="px-6 py-3 text-center w-28">Capaian KPI</th>
+                                        <th className="px-6 py-3 text-center w-40">Jam Kerja (208 Jam)</th>
                                         <th className="px-6 py-3 text-center">Jumlah Nota</th>
                                         <th className="px-6 py-3 text-center">Rata-rata / Nota</th>
                                         <th className="px-6 py-3">Layanan Terbanyak</th>
@@ -1817,8 +1830,8 @@ export default function KpiProduksiPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-bold text-slate-800 font-mono">
-                                                    {Number(emp.total_hours || 0).toFixed(1)} <span className="text-[10px] text-slate-400 font-normal font-sans">Jam</span>
+                                                <td className="px-6 py-4 text-center">
+                                                    {renderKpiPercentageBadge(emp.achievement_pct, emp.total_hours, emp.target_hours || 208)}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
@@ -1858,8 +1871,8 @@ export default function KpiProduksiPage() {
                                         <th className="px-6 py-3 text-center w-16">Rank</th>
                                         <th className="px-6 py-3">Karyawan</th>
                                         <th className="px-6 py-3 text-center w-32">Total Items</th>
-                                        <th className="px-6 py-3 text-center w-28">Jam Kerja</th>
-                                        <th className="px-6 py-3 text-center w-40">Capaian KPI (208 Jam)</th>
+                                        <th className="px-6 py-3 text-center w-28">Capaian KPI</th>
+                                        <th className="px-6 py-3 text-center w-40">Jam Kerja (208 Jam)</th>
                                         <th className="px-6 py-3">Pickup</th>
                                         <th className="px-6 py-3">Cuci &amp; Jemur</th>
                                         <th className="px-6 py-3">Packing</th>
@@ -1906,8 +1919,8 @@ export default function KpiProduksiPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-bold text-slate-800 font-mono">
-                                                    {Number(emp.total_hours || 0).toFixed(1)} <span className="text-[10px] text-slate-400 font-normal font-sans">Jam</span>
+                                                <td className="px-6 py-4 text-center">
+                                                    {renderKpiPercentageBadge(emp.achievement_pct, emp.total_hours, emp.target_hours || 208)}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
