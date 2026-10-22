@@ -34,7 +34,7 @@ import {
   fmtEmployeeName,
 } from "../../utils/hrisUtils";
 import { toDateInput } from "../../utils/cutoffPeriod";
-import { FilterScroll, FilterPill } from "./hrisShared";
+import { FilterScroll, FilterPill, ExportExcelButton } from "./hrisShared";
 import DayOffCalendar from "./DayOffCalendar";
 
 const STATUS_FILTERS = [
@@ -358,6 +358,33 @@ export default function JadwalLibur() {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const [{ exportDayOffWaschenExcel }, { outletFilterName }] = await Promise.all([
+        import("./utils/exportDayOffWaschen"),
+        import("./utils/excelShared"),
+      ]);
+      exportDayOffWaschenExcel({
+        rows,
+        startDate,
+        endDate,
+        periodLabel: cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
+        filters: {
+          outlet: outletFilterName(hrisFilters.outlets, hrisFilters.outletId),
+          role: hrisFilters.role,
+          status: statusFilter,
+          search: search.trim(),
+        },
+      });
+    } catch (err) {
+      showToast("error", err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const reschedule = async () => {
     if (!rescheduleRow || !newDate) return;
     setSubmitting(true);
@@ -491,9 +518,12 @@ export default function JadwalLibur() {
                 <FilterPill key={f.key} active={statusFilter === f.key} onClick={() => setStatusFilter(f.key)}>{f.label}</FilterPill>
               ))}
             </FilterScroll>
-            <button type="button" onClick={load} className="shrink-0 self-end sm:self-auto rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
-              <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+              <ExportExcelButton onClick={handleExport} loading={exporting} disabled={loading || rows.length === 0} />
+              <button type="button" onClick={load} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+                <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
+              </button>
+            </div>
           </div>
         </div>
       </section>

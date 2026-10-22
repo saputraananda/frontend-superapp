@@ -17,6 +17,7 @@ import {
   HiOutlineChartBar,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -353,6 +354,37 @@ export default function Absensi() {
     tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Dimuat saat dibutuhkan agar library Excel tidak ikut bundle awal halaman
+      const { exportAbsensiWaschenExcel } = await import("./utils/exportAbsensiWaschen");
+      const outlet = outletById.get(String(hrisFilters.outletId));
+      exportAbsensiWaschenExcel({
+        records: filtered,
+        startDate,
+        endDate,
+        periodLabel: cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
+        filters: {
+          outlet: outlet ? outlet.name : "",
+          role: hrisFilters.role,
+          status: statusFilter,
+          onlyIncomplete,
+          search: search.trim(),
+        },
+        outletName: (id) => {
+          const o = outletById.get(String(id));
+          return o ? (o.outlet_code ? `${o.outlet_code} · ${o.name}` : o.name) : "";
+        },
+      });
+    } catch (err) {
+      showToast("error", err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const mapsLink = (lat, lng) => {
     if (lat == null || lng == null) return null;
     return `https://www.google.com/maps?q=${lat},${lng}`;
@@ -571,6 +603,15 @@ export default function Absensi() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {!loading && <span className="text-xs font-semibold text-slate-500">{filtered.length} record</span>}
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={loading || exporting || filtered.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+            >
+              <HiOutlineArrowDownTray className="h-3.5 w-3.5" />
+              {exporting ? "Mengekspor..." : "Export Excel"}
+            </button>
             <button type="button" onClick={openCreate} className="inline-flex items-center gap-1.5 rounded-xl border border-[#5f1340]/20 bg-[#5f1340]/5 px-3 py-1.5 text-xs font-semibold text-[#5f1340] hover:bg-[#5f1340]/10">
               <HiOutlinePlus className="h-3.5 w-3.5" />
               Tambah

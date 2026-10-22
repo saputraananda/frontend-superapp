@@ -8,7 +8,7 @@ import useHrisOutletRoleFilters from "../../hooks/useHrisOutletRoleFilters";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import HrisOutletRoleFilter from "../HrisOutletRoleFilter";
 import { FILTER_SECTION, TABLE_SECTION, cn, fmtDateShort, fmtDateTime, fmtEmployeeName } from "../../utils/hrisUtils";
-import { FilterPill, FilterScroll, PhotoViewerModal } from "./hrisShared";
+import { ExportExcelButton, FilterPill, FilterScroll, PhotoViewerModal } from "./hrisShared";
 
 const INNER_TABS = [
   { id: "grooming", label: "Grooming" },
@@ -169,6 +169,47 @@ export default function DashboardGrooming() {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+  // Satu file berisi grooming + kebersihan, jadi ambil keduanya dengan filter yang sama
+  const handleExport = async () => {
+    if (!startDate || !endDate) return;
+    setExporting(true);
+    setError("");
+    try {
+      const q = new URLSearchParams({ startDate, endDate });
+      appendFilters(q);
+      const [groomingRes, cleanRes, mod, shared] = await Promise.all([
+        api(`/waschen/hris/attendance/grooming-dashboard?${q}`),
+        api(`/waschen/hris/attendance/cleanliness?${q}`),
+        import("./utils/exportGrooming&Cleaning"),
+        import("./utils/excelShared"),
+      ]);
+      const kw = search.trim().toLowerCase();
+      const emps = (groomingRes.employees || [])
+        .filter((e) => !kw || `${e.employee_name} ${e.employee_code || ""}`.toLowerCase().includes(kw))
+        .filter((e) => matchFilter(e, statusFilter));
+      mod.exportGroomingCleaningWaschenExcel({
+        employees: emps,
+        summary: kw || statusFilter !== "semua" ? null : groomingRes.summary,
+        cleanlinessRows: cleanRes.data || [],
+        startDate,
+        endDate,
+        periodLabel: cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
+        filters: {
+          outlet: shared.outletFilterName(outlets, hrisFilters.outletId),
+          role: hrisFilters.role,
+          status: STATUS_FILTERS.find((f) => f.id === statusFilter)?.label,
+          search: search.trim(),
+        },
+        outletName: shared.makeOutletNamer(outlets),
+      });
+    } catch (err) {
+      setError(err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useLiveRefresh(() => {
     if (innerTab === "kebersihan") loadCleanliness(true);
     else loadGrooming(true);
@@ -216,20 +257,29 @@ export default function DashboardGrooming() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm w-full sm:w-auto sm:inline-flex">
-        {INNER_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setInnerTab(t.id)}
-            className={cn(
-              "flex-1 sm:flex-none rounded-xl px-4 py-2 text-xs font-bold transition",
-              innerTab === t.id ? "bg-[#5f1340] text-white" : "text-slate-500 hover:bg-slate-50",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm w-full sm:w-auto sm:inline-flex">
+          {INNER_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setInnerTab(t.id)}
+              className={cn(
+                "flex-1 sm:flex-none rounded-xl px-4 py-2 text-xs font-bold transition",
+                innerTab === t.id ? "bg-[#5f1340] text-white" : "text-slate-500 hover:bg-slate-50",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <ExportExcelButton
+          onClick={handleExport}
+          loading={exporting}
+          disabled={loading && cleanlinessLoading}
+          label="Export Grooming & Kebersihan"
+          className="self-end py-2 sm:self-auto"
+        />
       </div>
 
       {error && (
