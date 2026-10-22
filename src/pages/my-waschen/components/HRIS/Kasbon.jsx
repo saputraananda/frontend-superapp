@@ -40,6 +40,7 @@ import {
   KasbonTypeBadge,
   MobileSkeleton,
   KasbonMobileCard,
+  ExportExcelButton,
 } from "./hrisShared";
 
 const STATUS_FILTERS = [
@@ -257,6 +258,37 @@ export default function Kasbon() {
     }),
     [rows, applySort],
   );
+
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async (kind) => {
+    setExporting(true);
+    try {
+      const [mod, { outletFilterName }] = await Promise.all([
+        import("./utils/exportKasbonWaschen"),
+        import("./utils/excelShared"),
+      ]);
+      const outlet = outletFilterName(hrisFilters.outlets, hrisFilters.outletId);
+      if (kind === "saldo") {
+        mod.exportKasbonSaldoWaschenExcel({
+          rows: visibleMonitor,
+          filters: { outlet, role: hrisFilters.role, search: monitorSearch.trim() },
+        });
+      } else {
+        mod.exportKasbonWaschenExcel({
+          rows: sorted,
+          startDate,
+          endDate,
+          allPeriods,
+          periodLabel: cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
+          filters: { outlet, role: hrisFilters.role, status: statusFilter, type: typeFilter, search: search.trim() },
+        });
+      }
+    } catch (err) {
+      showToast("error", err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openMonitor = async (employeeId) => {
     setMonitorDetail({ loading: true, employee_id: employeeId });
@@ -623,6 +655,7 @@ export default function Kasbon() {
           <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
             <button type="button" onClick={() => { setOpening(emptyOpening()); setEmpQuery(""); setOpeningOpen(true); }} className="inline-flex items-center rounded-xl bg-[#5f1340] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4d0f34] transition">Saldo Awal</button>
             {!loading && <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">{sorted.length} data</span>}
+            <ExportExcelButton onClick={() => handleExport("daftar")} loading={exporting} disabled={loading || sorted.length === 0} className="py-2" />
           </div>
         </div>
 
@@ -728,9 +761,12 @@ export default function Kasbon() {
       {tab === "pantau" && (
         <section className={TABLE_SECTION}>
           <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
-            <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-bold text-slate-800">Pantau Saldo Karyawan</h2>
-              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Limit bulan ini. Pinjaman yang tertahan adalah cicilan termin yang jatuh tempo bulan ini, bukan sisa total pinjaman.</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-base font-bold text-slate-800">Pantau Saldo Karyawan</h2>
+                <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Limit bulan ini. Pinjaman yang tertahan adalah cicilan termin yang jatuh tempo bulan ini, bukan sisa total pinjaman.</p>
+              </div>
+              <ExportExcelButton onClick={() => handleExport("saldo")} loading={exporting} disabled={monitorLoading || visibleMonitor.length === 0} className="self-start py-2" />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative min-w-0 flex-1">

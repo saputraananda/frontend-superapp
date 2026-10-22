@@ -27,6 +27,23 @@ import {
   fmtEmployeeName,
 } from "../../utils/hrisUtils";
 
+export function ExportExcelButton({ onClick, loading = false, disabled = false, label = "Export Excel", className = "" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40",
+        className,
+      )}
+    >
+      <HiOutlineArrowDownTray className={cn("h-3.5 w-3.5", loading && "animate-pulse")} />
+      {loading ? "Mengekspor..." : label}
+    </button>
+  );
+}
+
 export function FilterScroll({ children, className = "" }) {
   return (
     <div className={cn("-mx-1 overflow-x-auto pb-1 scrollbar-thin", className)}>

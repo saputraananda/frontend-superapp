@@ -142,10 +142,6 @@ function complianceTone(p) {
   return { text: "text-rose-700", bar: "bg-rose-500", chip: "border-rose-200 bg-rose-50 text-rose-700" };
 }
 
-function csvCell(v) {
-  const s = v == null ? "" : String(v);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 /* ───────────────────────── small UI ───────────────────────── */
 
@@ -559,20 +555,36 @@ export default function DashboardHRWaschen() {
     [scoped, focusDate],
   );
 
-  const exportCsv = () => {
-    const header = ["Nama", "Kode", "Posisi", "Outlet", "Hadir", "Tepat Waktu", "Terlambat", "Kepatuhan (%)", "Total Telat (menit)", "Rata-rata Telat (menit)", "Telat Terlama (menit)", "Rata-rata Jam Masuk", "Belum Check-out", "Terakhir Telat"];
-    const lines = visibleEmployees.map((e) => [
-      fmtEmployeeName(e.employee_name), e.employee_code || "", e.role_code || "", e.outletLabel,
-      e.hadir, e.tepat, e.telat, e.kepatuhan, e.lateSum, Math.round(e.avgLate), e.maxLate,
-      fmtClock(e.avgIn), e.noOut, e.lastLate || "",
-    ].map(csvCell).join(","));
-    const csv = String.fromCharCode(0xfeff) + [header.join(","), ...lines].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `kepatuhan-absensi-waschen_${focusDate || `${startDate}_${endDate}`}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const [exporting, setExporting] = useState(false);
+  // Export mengikuti semua filter dashboard: periode/tanggal fokus, outlet, posisi, karyawan, dan pill rekap
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const { exportAbsensiWaschenExcel } = await import("./utils/exportAbsensiWaschen");
+      const visibleIds = new Set(visibleEmployees.map((e) => String(e.employee_id)));
+      const outlet = outletById.get(String(hrisFilters.outletId));
+      const pill = EMP_FILTERS.find((f) => f.id === empFilter);
+      exportAbsensiWaschenExcel({
+        records: scoped.filter((r) => visibleIds.has(String(r.employee_id))),
+        startDate: focusDate || startDate,
+        endDate: focusDate || endDate,
+        periodLabel: focusDate || cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
+        filters: {
+          outlet: outlet ? outlet.name : "",
+          role: hrisFilters.role,
+          status: empFilter !== "semua" ? pill?.label : "",
+          employees: selectedEmpIds.map((id) => employeeOptions.find((o) => o.id === id)?.name || `#${id}`),
+        },
+        outletName: (id) => {
+          const o = outletById.get(String(id));
+          return o ? (o.outlet_code ? `${o.outlet_code} · ${o.name}` : o.name) : "";
+        },
+      });
+    } catch (err) {
+      setError(err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const limitHit = rows.length >= FETCH_LIMIT;
@@ -954,11 +966,11 @@ export default function DashboardHRWaschen() {
           right={(
             <button
               type="button"
-              onClick={exportCsv}
-              disabled={!visibleEmployees.length}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#5f1340]/20 bg-[#5f1340]/5 px-3 py-1.5 text-xs font-semibold text-[#5f1340] hover:bg-[#5f1340]/10 disabled:opacity-40"
+              onClick={exportExcel}
+              disabled={!visibleEmployees.length || exporting}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
             >
-              <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> Export CSV
+              <HiOutlineArrowDownTray className="h-3.5 w-3.5" /> {exporting ? "Mengekspor..." : "Export Excel"}
             </button>
           )}
         />

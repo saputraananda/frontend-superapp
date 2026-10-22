@@ -38,6 +38,7 @@ import {
   FilterScroll,
   FilterPill,
   MobileSkeleton,
+  ExportExcelButton,
 } from "./hrisShared";
 
 /**
@@ -162,6 +163,33 @@ export default function Overtime() {
     }),
     [rows, applySort],
   );
+
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const [{ exportOvertimeWaschenExcel }, { outletFilterName }] = await Promise.all([
+        import("./utils/exportOvertimeWaschen"),
+        import("./utils/excelShared"),
+      ]);
+      exportOvertimeWaschenExcel({
+        rows: sorted,
+        startDate,
+        endDate,
+        periodLabel: cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
+        filters: {
+          outlet: outletFilterName(hrisFilters.outlets, hrisFilters.outletId),
+          role: hrisFilters.role,
+          status: statusFilter,
+          search: search.trim(),
+        },
+      });
+    } catch (err) {
+      showToast("error", err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openDetail = async (row) => {
     setDetailLoading(true);
@@ -317,9 +345,10 @@ export default function Overtime() {
               <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">Multi-slot per hari · ACC leader/admin · detail pengerjaan KPI.</p>
             </div>
           </div>
-          {!loading && (
-            <span className="shrink-0 text-xs font-semibold text-slate-500">{sorted.length} record</span>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {!loading && <span className="text-xs font-semibold text-slate-500">{sorted.length} record</span>}
+            <ExportExcelButton onClick={handleExport} loading={exporting} disabled={loading || sorted.length === 0} />
+          </div>
         </div>
 
         {loading ? (
