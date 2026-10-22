@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineMagnifyingGlass,
@@ -14,6 +14,9 @@ import {
   HiOutlineXMark,
   HiOutlineEye,
   HiOutlineSparkles,
+  HiOutlineChartBar,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -47,23 +50,89 @@ import {
   AbsensiMobileCard,
 } from "./hrisShared";
 import DashboardGrooming from "./DashboardGrooming";
+import DashboardHRWaschen from "./DashboardHRWaschen";
 
 const STATUS_FILTERS = ["Semua", "Lengkap", "Belum check-out", "Belum check-in", "Foto belum lengkap"];
 const EMPTY_FORM = { employee_id: "", outlet_id: "", work_date: "", check_in_time: "", check_out_time: "" };
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
 const LABEL_CLS = "block text-[10px] font-bold uppercase tracking-wider text-slate-400";
 const PAGE_TAB_KEY = "mw-absensi-page-tab";
+const PAGE_TABS = [
+  { id: "kehadiran", label: "Dashboard Kehadiran" },
+  { id: "riwayat", label: "Riwayat Absensi" },
+  { id: "dashboard", label: "Dashboard Grooming & Kebersihan" },
+];
 function readPageTab() {
   try {
-    return sessionStorage.getItem(PAGE_TAB_KEY) === "dashboard" ? "dashboard" : "riwayat";
+    const saved = sessionStorage.getItem(PAGE_TAB_KEY);
+    return PAGE_TABS.some((t) => t.id === saved) ? saved : "riwayat";
   } catch {
     return "riwayat";
   }
 }
-const PAGE_TABS = [
-  { id: "riwayat", label: "Riwayat Absensi" },
-  { id: "dashboard", label: "Dashboard Grooming & Kebersihan" },
-];
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+// Nomor halaman yang ditampilkan: 1 … 4 5 [6] 7 8 … 20
+function pageNumbers(page, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const out = [1];
+  const from = Math.max(2, page - 1);
+  const to = Math.min(total - 1, page + 1);
+  if (from > 2) out.push("…");
+  for (let i = from; i <= to; i += 1) out.push(i);
+  if (to < total - 1) out.push("…");
+  out.push(total);
+  return out;
+}
+
+function Pagination({ page, totalPages, pageSize, total, onPage, onPageSize }) {
+  if (!total) return null;
+  const first = (page - 1) * pageSize + 1;
+  const last = Math.min(page * pageSize, total);
+  const btn = "inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed";
+  return (
+    <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+        <span>
+          <span className="font-semibold text-slate-700">{first}–{last}</span> dari {total} record
+        </span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSize(Number(e.target.value))}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 outline-none focus:border-[#5f1340]/40"
+          aria-label="Jumlah per halaman"
+        >
+          {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n} / hal</option>)}
+        </select>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1 self-end sm:self-auto">
+          <button type="button" aria-label="Halaman sebelumnya" disabled={page <= 1} onClick={() => onPage(page - 1)} className={cn(btn, "border-slate-200 bg-white text-slate-500 hover:bg-slate-50")}>
+            <HiOutlineChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          {pageNumbers(page, totalPages).map((n, i) => (
+            n === "…" ? (
+              <span key={`gap-${i}`} className="px-1 text-xs text-slate-400">…</span>
+            ) : (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onPage(n)}
+                className={cn(btn, n === page ? "border-[#5f1340] bg-[#5f1340] text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}
+              >
+                {n}
+              </button>
+            )
+          ))}
+          <button type="button" aria-label="Halaman berikutnya" disabled={page >= totalPages} onClick={() => onPage(page + 1)} className={cn(btn, "border-slate-200 bg-white text-slate-500 hover:bg-slate-50")}>
+            <HiOutlineChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Pagi: sebelum 16:00 WIB · Pulang: 16:00–24:00 WIB (ditentukan server Waschen Mobile saat upload)
 const CLEANLINESS_SESSIONS = ["Pagi", "Pulang"];
@@ -262,6 +331,28 @@ export default function Absensi() {
     });
   }, [rows, statusFilter, applySort]);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+  const tableRef = useRef(null);
+
+  // Kembali ke halaman 1 setiap filter / urutan berubah
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, search, onlyIncomplete, startDate, endDate, hrisFilters.outletId, hrisFilters.role, sort.col, sort.dir, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // Jaga halaman tetap valid saat data menyusut (mis. setelah hapus / live refresh)
+  const currentPage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filtered, currentPage, pageSize],
+  );
+
+  const goToPage = (p) => {
+    setPage(p);
+    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const mapsLink = (lat, lng) => {
     if (lat == null || lng == null) return null;
     return `https://www.google.com/maps?q=${lat},${lng}`;
@@ -393,12 +484,13 @@ export default function Absensi() {
               pageTab === t.id ? "bg-[#5f1340] text-white" : "text-slate-500 hover:bg-slate-50",
             )}
           >
-            {t.id === "dashboard" ? <HiOutlineSparkles className="h-3.5 w-3.5 shrink-0" /> : <HiOutlineTableCells className="h-3.5 w-3.5 shrink-0" />}
+            {t.id === "dashboard" ? <HiOutlineSparkles className="h-3.5 w-3.5 shrink-0" /> : t.id === "kehadiran" ? <HiOutlineChartBar className="h-3.5 w-3.5 shrink-0" /> : <HiOutlineTableCells className="h-3.5 w-3.5 shrink-0" />}
             {t.label}
           </button>
         ))}
       </div>
 
+      {pageTab === "kehadiran" ? <DashboardHRWaschen /> : null}
       {pageTab === "dashboard" ? <DashboardGrooming /> : null}
       {pageTab === "riwayat" && (
         <>
@@ -466,7 +558,7 @@ export default function Absensi() {
         </div>
       </section>
 
-      <section className={TABLE_SECTION}>
+      <section ref={tableRef} className={cn(TABLE_SECTION, "scroll-mt-4")}>
         <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#5f1340]/10 text-[#5f1340]">
@@ -496,7 +588,7 @@ export default function Absensi() {
         ) : (
           <>
             <div className="md:hidden p-3 sm:p-4 space-y-3">
-              {filtered.map((r) => (
+              {paged.map((r) => (
                 <AbsensiMobileCard
                   key={r.attendance_id}
                   row={r}
@@ -528,10 +620,12 @@ export default function Absensi() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filtered.map((r) => (
+                  {paged.map((r) => (
                     <tr key={r.attendance_id} className="hover:bg-slate-50/80">
                       <td className="px-4 py-3.5 font-mono text-slate-600 whitespace-nowrap">{fmtDateShort(r.work_date)}</td>
-                      <td className="px-4 py-3.5 font-mono text-slate-600 whitespace-nowrap">{outletById.get(String(r.outlet_id))?.outlet_code || "—"}</td>
+                      <td className="px-4 py-3.5 font-mono text-slate-600 whitespace-nowrap">{outletById.get(String(r.outlet_id))?.outlet_code || (
+                        r.absen_location_code ? <span title={r.absen_location_name || undefined} className="text-sky-700">{r.absen_location_code}</span> : "—"
+                      )}</td>
                       <td className="px-4 py-3.5">
                         <p className="font-semibold text-slate-800">{fmtEmployeeName(r.employee_name)}</p>
                         {r.employee_code && <p className="text-[10px] text-slate-400">{r.employee_code}</p>}
@@ -591,6 +685,14 @@ export default function Absensi() {
                 </tbody>
               </table>
             </div>
+            <Pagination
+              page={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              total={filtered.length}
+              onPage={goToPage}
+              onPageSize={setPageSize}
+            />
           </>
         )}
       </section>

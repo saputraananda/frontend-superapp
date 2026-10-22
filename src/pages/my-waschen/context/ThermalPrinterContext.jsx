@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { buildEscPosDualNota, buildEscPosNota } from "../utils/escpos.js";
 import {
   connectThermalPrinter,
@@ -16,6 +16,7 @@ export function ThermalPrinterProvider({ children }) {
   const [connected, setConnected] = useState(() => isPrinterConnected());
   const [connecting, setConnecting] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const printingRef = useRef(false);
   const [portInfo, setPortInfo] = useState(() => getConnectedPortInfo());
   const [lastError, setLastError] = useState("");
 
@@ -50,8 +51,9 @@ export function ThermalPrinterProvider({ children }) {
   const printNota = useCallback(async (receipt, settings, variant = "customer") => {
     if (!receipt) throw new Error("Data nota preview tidak tersedia");
     if (!isPrinterConnected()) throw new Error("Printer belum terhubung");
-    if (printing) throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
+    if (printingRef.current) throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
 
+    printingRef.current = true;
     setPrinting(true);
     setLastError("");
     try {
@@ -62,6 +64,7 @@ export function ThermalPrinterProvider({ children }) {
       setLastError(msg);
       throw new Error(msg);
     } finally {
+      printingRef.current = false;
       setPrinting(false);
     }
   }, []);
@@ -69,8 +72,9 @@ export function ThermalPrinterProvider({ children }) {
   const printDualNota = useCallback(async (receipt, customerSettings, internalSettings) => {
     if (!receipt) throw new Error("Data nota tidak tersedia");
     if (!isPrinterConnected()) throw new Error("Printer belum terhubung");
-    if (printing) throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
+    if (printingRef.current) throw new Error("Printer sedang mencetak. Tunggu selesai dulu.");
 
+    printingRef.current = true;
     setPrinting(true);
     setLastError("");
     try {
@@ -81,6 +85,7 @@ export function ThermalPrinterProvider({ children }) {
       setLastError(msg);
       throw new Error(msg);
     } finally {
+      printingRef.current = false;
       setPrinting(false);
     }
   }, []);
@@ -106,6 +111,7 @@ export function ThermalPrinterProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useThermalPrinter() {
   const ctx = useContext(ThermalPrinterContext);
   if (!ctx) {

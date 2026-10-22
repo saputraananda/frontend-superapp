@@ -294,15 +294,23 @@ export default function JadwalLibur() {
     setBackupSearch("");
   };
 
-  const approve = async () => {
+  const openEditBackup = (row) => {
+    setApproveRow({ ...row, editBackup: true });
+    setBackupId(row.backup_employee_id ? String(row.backup_employee_id) : "");
+    setBackupSearch("");
+  };
+
+  const approve = async (clearBackup = false) => {
     if (!approveRow) return;
+    const editBackup = approveRow.editBackup;
+    const pickedId = clearBackup ? "" : backupId;
     setSubmitting(true);
     try {
-      await api(`/waschen/hris/day-offs/${approveRow.day_off_id}/approve`, {
+      await api(`/waschen/hris/day-offs/${approveRow.day_off_id}/${editBackup ? "backup" : "approve"}`, {
         method: "PATCH",
-        body: JSON.stringify({ backup_employee_id: backupId ? Number(backupId) : null }),
+        body: JSON.stringify({ backup_employee_id: pickedId ? Number(pickedId) : null }),
       });
-      showToast("success", "Jadwal libur disetujui");
+      showToast("success", !editBackup ? "Jadwal libur disetujui" : pickedId ? "Backup diperbarui" : "Backup dihapus");
       setApproveRow(null);
       setBackupId("");
       load();
@@ -667,6 +675,11 @@ export default function JadwalLibur() {
                               <HiOutlineArrowPathRoundedSquare className="h-3.5 w-3.5" /> Pindah
                             </button>
                           )}
+                          {r.status === "disetujui" && (
+                            <button type="button" disabled={submitting} onClick={() => openEditBackup(r)} className="inline-flex items-center gap-1 rounded-lg border border-sky-200 px-2.5 py-1 text-[10px] font-bold text-sky-700 disabled:opacity-50">
+                              <HiOutlineUserGroup className="h-3.5 w-3.5" /> {r.backup_employee_id ? "Ubah Backup" : "Atur Backup"}
+                            </button>
+                          )}
                           <button type="button" disabled={submitting} onClick={() => setDeleteRow(r)} className="rounded-lg border border-rose-200 px-2.5 py-1 text-[10px] font-bold text-rose-600 disabled:opacity-50">Hapus</button>
                         </div>
                       </div>
@@ -774,7 +787,7 @@ export default function JadwalLibur() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setApproveRow(null)}>
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
-              <h3 className="font-bold text-sm">Setujui Jadwal Libur</h3>
+              <h3 className="font-bold text-sm">{approveRow.editBackup ? "Ubah Backup" : "Setujui Jadwal Libur"}</h3>
               <button type="button" onClick={() => setApproveRow(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
             </div>
             <div className="p-5 space-y-3 text-xs">
@@ -809,8 +822,11 @@ export default function JadwalLibur() {
                 )}
               </div>
               <div className="flex justify-end gap-2 pt-2 border-t">
+                {approveRow.editBackup && approveRow.backup_employee_id && (
+                  <button type="button" disabled={submitting} onClick={() => approve(true)} className="mr-auto rounded-xl border border-rose-200 px-4 py-2 font-semibold text-rose-600 disabled:opacity-50">Hapus Backup</button>
+                )}
                 <button type="button" onClick={() => setApproveRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
-                <button type="button" disabled={submitting} onClick={approve} className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Setujui</button>
+                <button type="button" disabled={submitting} onClick={() => approve()} className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{approveRow.editBackup ? "Simpan" : "Setujui"}</button>
               </div>
             </div>
           </div>
