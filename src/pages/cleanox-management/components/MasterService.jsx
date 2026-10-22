@@ -49,6 +49,7 @@ export default function MasterService() {
   const [formDurasiPackingMenit, setFormDurasiPackingMenit] = useState("");
   const [formDurasiBlowerMenit, setFormDurasiBlowerMenit] = useState("");
   const [formTotalDurasiKerjaMenit, setFormTotalDurasiKerjaMenit] = useState("");
+  const [formDelayTimeMenit, setFormDelayTimeMenit] = useState("15");
   const [formSlaHari, setFormSlaHari] = useState("");
   const [formKategoriKpi, setFormKategoriKpi] = useState("");
   const [formStatus, setFormStatus] = useState("Aktif");
@@ -91,6 +92,7 @@ export default function MasterService() {
     setFormDurasiPackingMenit("");
     setFormDurasiBlowerMenit("");
     setFormTotalDurasiKerjaMenit("");
+    setFormDelayTimeMenit("15");
     setFormSlaHari("");
     setFormKategoriKpi("");
     setFormStatus("Aktif");
@@ -110,6 +112,7 @@ export default function MasterService() {
     setFormDurasiPackingMenit(item.durasi_packing_menit != null ? String(item.durasi_packing_menit) : "");
     setFormDurasiBlowerMenit(item.durasi_blower_menit != null ? String(item.durasi_blower_menit) : "");
     setFormTotalDurasiKerjaMenit(item.total_durasi_kerja_menit != null ? String(item.total_durasi_kerja_menit) : "");
+    setFormDelayTimeMenit(item.delay_time_menit != null ? String(item.delay_time_menit) : "15");
     setFormSlaHari(item.sla_hari != null ? String(item.sla_hari) : "");
     setFormKategoriKpi(item.kategori_kpi || "");
     setFormStatus(item.status || "Aktif");
@@ -147,6 +150,7 @@ export default function MasterService() {
       durasi_packing_menit: formDurasiPackingMenit ? Number(formDurasiPackingMenit) : null,
       durasi_blower_menit: formDurasiBlowerMenit ? Number(formDurasiBlowerMenit) : null,
       total_durasi_kerja_menit: formTotalDurasiKerjaMenit ? Number(formTotalDurasiKerjaMenit) : null,
+      delay_time_menit: formDelayTimeMenit !== "" ? Number(formDelayTimeMenit) : 15,
       sla_hari: formSlaHari ? Number(formSlaHari) : null,
       kategori_kpi: formKategoriKpi || null,
       status: formStatus,
@@ -354,6 +358,9 @@ export default function MasterService() {
                           <div className="flex flex-col gap-1">
                             <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700 font-mono w-fit">
                               ⏱️ {item.total_durasi_kerja_menit} mnt ({Number(item.total_durasi_kerja_menit / 60).toFixed(1)}j)
+                              <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1 rounded ml-1 border border-amber-200" title="Fixed Delay Time">
+                                +{item.delay_time_menit ?? 15}m delay
+                              </span>
                             </span>
                             <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
                               <span title="Durasi Cuci">C:{item.durasi_cuci_menit || 0}m</span>
@@ -587,7 +594,7 @@ export default function MasterService() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-blue-100/60">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1 border-t border-blue-100/60">
                   <div className="flex flex-col gap-1">
                     <label className="text-[9.5px] font-bold text-slate-700">Total Kerja (mnt)</label>
                     <input
@@ -600,9 +607,26 @@ export default function MasterService() {
                     />
                     {formTotalDurasiKerjaMenit ? (
                       <span className="text-[10px] text-blue-700 font-semibold">
-                        = {Number(Number(formTotalDurasiKerjaMenit) / 60).toFixed(2)} jam kerja KPI
+                        = {Number(Number(formTotalDurasiKerjaMenit) / 60).toFixed(2)} jam kerja
                       </span>
                     ) : null}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9.5px] font-bold text-amber-800">Delay Time (mnt)</label>
+                      <span className="text-[8px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-bold">Fix</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formDelayTimeMenit}
+                      onChange={(e) => setFormDelayTimeMenit(e.target.value)}
+                      placeholder="15"
+                      className="w-full rounded-lg border border-amber-300 bg-amber-50/40 px-2.5 py-1.5 text-xs text-amber-900 font-bold outline-none focus:border-amber-600"
+                    />
+                    <span className="text-[9px] text-amber-700 italic">
+                      +15 mnt semua layanan
+                    </span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[9.5px] font-semibold text-slate-500">SLA (Hari)</label>
@@ -626,9 +650,14 @@ export default function MasterService() {
                     />
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 italic pt-1">
-                  💡 Standar jam kerja ini otomatis masuk ke perhitungan capaian bulanan teknisi (target 208 jam/bulan).
-                </p>
+                <div className="space-y-0.5 pt-1 border-t border-blue-100/40 text-[9.5px] text-slate-500">
+                  <p className="flex items-center gap-1 font-medium text-slate-700">
+                    💡 <span className="font-semibold">Formula Menit/Item:</span> Standar ({formTotalDurasiKerjaMenit || 0}m) + Delay ({formDelayTimeMenit || 15}m) + Waktu Jalan (+40m default utk Home Service, 0 utk Waschen).
+                  </p>
+                  <p className="italic text-slate-400">
+                    Standar jam kerja ini otomatis masuk ke perhitungan capaian bulanan teknisi (target 208 jam/bulan). Waktu jalan per nota dapat disesuaikan oleh admin saat order.
+                  </p>
+                </div>
               </div>
 
               {/* Status */}

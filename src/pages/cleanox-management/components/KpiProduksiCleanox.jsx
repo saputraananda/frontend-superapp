@@ -658,7 +658,7 @@ function LayananDetailModal({ employee, dateStart, dateEnd, onClose }) {
                                         <div className="flex items-center gap-1.5">
                                             {it.duration_minutes != null && (
                                                 <span className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">
-                                                    ⏱️ {it.duration_minutes}m
+                                                    ⏱️ {it.duration_minutes}m ({Number((it.duration_minutes || 0) / 60).toFixed(2)}j)
                                                 </span>
                                             )}
                                             <span className="shrink-0 max-w-[200px] truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
@@ -666,6 +666,17 @@ function LayananDetailModal({ employee, dateStart, dateEnd, onClose }) {
                                             </span>
                                         </div>
                                     </div>
+                                    {(it.standard_minutes != null || it.delay_minutes != null || it.waktu_jalan_minutes != null) && (
+                                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
+                                            <span className="text-slate-600 font-medium">Standar: <b className="text-slate-800">{it.standard_minutes ?? 0}m</b></span>
+                                            <span className="text-slate-300">•</span>
+                                            <span className="text-amber-700 font-medium">Delay: <b>+{it.delay_minutes ?? 15}m</b></span>
+                                            <span className="text-slate-300">•</span>
+                                            <span className="text-blue-700 font-medium">Waktu Jalan: <b>+{it.waktu_jalan_minutes ?? 0}m</b></span>
+                                            <span className="text-slate-300">=</span>
+                                            <span className="text-emerald-700 font-bold">Total: {it.duration_minutes}m</span>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
                                         <p className="text-xs font-semibold text-slate-700 truncate max-w-[65%]">
                                             Tim: {(it.team || []).map(capitalEachWord).join(", ") || "-"}
