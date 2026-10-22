@@ -378,10 +378,6 @@ export default function CleanoxManagement() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-[#1b3459] px-3 py-1.5 text-xs font-semibold text-[#97bd3f]">
-            <div className="h-2 w-2 rounded-full bg-[#97bd3f] animate-pulse" />
-            Cleanox System
-          </div>
         </header>
 
         {/* Mobile topbar */}

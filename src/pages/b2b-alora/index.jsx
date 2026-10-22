@@ -249,10 +249,6 @@ export default function B2BAlora() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700">
-            <div className="h-2 w-2 rounded-full bg-sky-600" />
-            B2B Alora
-          </div>
         </header>
 
         {/* Mobile topbar */}

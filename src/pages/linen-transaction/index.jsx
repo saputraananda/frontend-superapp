@@ -264,16 +264,6 @@ export default function LinenTransactionLayout() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div
-            className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold text-white"
-            style={{
-              borderColor: `${THEME.secondary}88`,
-              backgroundColor: THEME.secondary,
-            }}
-          >
-            <div className="h-2 w-2 rounded-full bg-white" />
-            Serah Terima Linen
-          </div>
         </header>
 
         <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">

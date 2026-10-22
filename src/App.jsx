@@ -97,6 +97,7 @@ import PengajuanBarang from "./pages/pengajuan-alora/pages/PengajuanBarang";
 import FormPengajuan from "./pages/pengajuan-alora/pages/FormPengajuan";
 import MasterClassification from "./pages/pengajuan-alora/pages/MasterClassification";
 import DocumentAlora from "./pages/document-alora";
+import DashboardDocument from "./pages/document-alora/components/DashboardDocument";
 import MasterDocument from "./pages/document-alora/components/MasterDocument";
 import TransDocument from "./pages/document-alora/components/TransDocument";
 import CsAtNps from "./pages/csat-nps";
@@ -605,6 +606,7 @@ export default function App() {
             </ProtectedRoute>
           }
         >
+          <Route path="/document-alora/dashboard" element={<DashboardDocument />} />
           <Route path="/document-alora" element={<MasterDocument />} />
           <Route path="/document-alora/transactions" element={<TransDocument />} />
         </Route>

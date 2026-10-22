@@ -17,6 +17,26 @@ import {
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
+// Kunci scroll halaman selama modal terbuka: body + container scroll layout ([data-scroll-lock-root] di index.jsx).
+let scrollLockCount = 0;
+let scrollLockSaved = [];
+function useScrollLock(active) {
+  useEffect(() => {
+    if (!active) return;
+    if (scrollLockCount++ === 0) {
+      const els = [document.body, ...document.querySelectorAll("[data-scroll-lock-root]")];
+      scrollLockSaved = els.map(el => [el, el.style.overflow]);
+      els.forEach(el => { el.style.overflow = "hidden"; });
+    }
+    return () => {
+      if (--scrollLockCount === 0) {
+        scrollLockSaved.forEach(([el, overflow]) => { el.style.overflow = overflow; });
+        scrollLockSaved = [];
+      }
+    };
+  }, [active]);
+}
+
 const STATUS_CONFIG = {
   borrowed: { label: "Dipinjam", cls: "bg-blue-50 text-blue-700 border-blue-200" },
   returned: { label: "Dikembalikan", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -77,6 +97,7 @@ function BorrowModal({ open, onClose, onSaved, lookups }) {
     }
   }, [open]);
 
+  useScrollLock(open);
   if (!open) return null;
 
   const handleSubmit = async (e) => {
@@ -100,7 +121,7 @@ function BorrowModal({ open, onClose, onSaved, lookups }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200">
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white rounded-t-2xl">
           <h2 className="text-lg font-bold text-slate-800">Pinjam Dokumen</h2>
@@ -187,6 +208,7 @@ function ReturnModal({ open, onClose, onSaved, transactionId }) {
   const [form, setForm] = useState({ condition_on_return: "good", notes: "" });
   const [saving, setSaving] = useState(false);
 
+  useScrollLock(open);
   if (!open) return null;
 
   const handleSubmit = async (e) => {
@@ -207,7 +229,7 @@ function ReturnModal({ open, onClose, onSaved, transactionId }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6">
         <h2 className="text-lg font-bold text-slate-800 mb-4">Kembalikan Dokumen</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
