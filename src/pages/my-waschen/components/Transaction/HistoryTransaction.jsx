@@ -69,9 +69,12 @@ function PaymentBadge({ status, method, onClick }) {
   const ps = status || "Outstanding";
   if (ps === "Lunas") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+      <span
+        title={method ? `Lunas (${method})` : "Lunas"}
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700"
+      >
         <HiOutlineCheckCircle className="h-3 w-3" />
-        Lunas{method ? ` (${method})` : ""}
+        Lunas
       </span>
     );
   }
@@ -235,7 +238,7 @@ export default function HistoryTransaction({
   const [deleteFile, setDeleteFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentModal, setPaymentModal] = useState(null);
-  const [payAmount, setPayAmount] = useState("");
+
   const [payMethod, setPayMethod] = useState("Tunai");
   const [payMethods, setPayMethods] = useState([]);
   const [toast, setToast] = useState(null);
@@ -343,7 +346,7 @@ export default function HistoryTransaction({
     e?.stopPropagation();
     if (row.paymentStatus === "Lunas") return;
     setPaymentModal(row);
-    setPayAmount(String(Math.max(0, (row.grandTotal || 0) - (row.paidAmount || 0))));
+
     setPayMethod(row.paymentMethod && row.paymentMethod !== "-" ? row.paymentMethod : "Tunai");
   };
 
@@ -362,20 +365,19 @@ export default function HistoryTransaction({
 
   const submitPay = async () => {
     if (!paymentModal) return;
-    const amount = Number(String(payAmount).replace(/[^\d.]/g, "")) || 0;
+    // Nominal pelunasan dikunci = sisa tagihan (Phase 13)
+    const amount = Math.max(0, (paymentModal.grandTotal || 0) - (paymentModal.paidAmount || 0));
     if (amount <= 0) {
-      showToast("error", "Nominal bayar wajib diisi");
+      showToast("error", "Nota ini sudah lunas");
       return;
     }
     setSubmitting(true);
     try {
-      const remaining = Math.max(0, (paymentModal.grandTotal || 0) - (paymentModal.paidAmount || 0));
       await api(`/waschen/transactions/${paymentModal.id}/payment`, {
         method: "PATCH",
         body: JSON.stringify({
           additionalAmount: amount,
           paymentMethod: payMethod,
-          overpaymentAction: amount > remaining ? "refund" : "change",
           cashierEmployeeId: (() => {
             try {
               const u = JSON.parse(localStorage.getItem("user") || "null");
@@ -689,12 +691,11 @@ export default function HistoryTransaction({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Nominal Bayar</label>
-                <input
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(e.target.value.replace(/[^\d]/g, ""))}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 font-bold outline-none focus:border-[#5f1340]"
-                />
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Nominal Pelunasan</label>
+                <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-bold text-slate-800">
+                  {fmtIDR(Math.max(0, paymentModal.grandTotal - paymentModal.paidAmount))}
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">Terkunci sesuai sisa tagihan. Kelebihan bayar diajukan frontliner lewat aksi Refund di POS.</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">

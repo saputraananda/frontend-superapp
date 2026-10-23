@@ -22,16 +22,14 @@ const TABS = [
 ];
 
 async function fetchMeta() {
-  const [sumRes, outletRes, empRes, wsRes] = await Promise.all([
+  const [sumRes, outletRes, wsRes] = await Promise.all([
     api("/waschen/transactions/summary"),
     api("/waschen/outlets"),
-    api("/waschen/employees"),
     api("/waschen/work-statuses?isFilterTab=1&isActive=1"),
   ]);
   return {
     summary: sumRes.data || null,
     outlets: outletRes.data || [],
-    employees: empRes.data || [],
     workStatuses: wsRes.data || [],
   };
 }
@@ -40,14 +38,12 @@ export default function History() {
   const [tab, setTab] = useState("history");
   const [summary, setSummary] = useState(null);
   const [outlets, setOutlets] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [workStatuses, setWorkStatuses] = useState([]);
   const [metaReady, setMetaReady] = useState(false);
 
   const applyMeta = useCallback((meta) => {
     setSummary(meta.summary);
     setOutlets(meta.outlets);
-    setEmployees(meta.employees);
     setWorkStatuses(meta.workStatuses);
   }, []);
 
@@ -128,16 +124,10 @@ export default function History() {
         />
       )}
       {tab === "refund" && (
-        <RequestRefundTransaction
-          employees={employees}
-          onChanged={loadMeta}
-        />
+        <RequestRefundTransaction onChanged={loadMeta} />
       )}
       {tab === "delete" && (
-        <RequestDeleteTransaction
-          employees={employees}
-          onChanged={loadMeta}
-        />
+        <RequestDeleteTransaction onChanged={loadMeta} />
       )}
     </div>
   );

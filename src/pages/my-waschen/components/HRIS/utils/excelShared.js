@@ -210,10 +210,14 @@ export function saveWorkbook(sheets, filename) {
 }
 
 // Nama outlet untuk keterangan filter di file export
+// outletId bisa satu id atau beberapa ("1,2") dari filter multi-pilih
 export function outletFilterName(outlets = [], outletId) {
   if (!outletId) return "";
-  const o = outlets.find((x) => String(x.id) === String(outletId));
-  return o ? o.name : "";
+  return String(outletId)
+    .split(",")
+    .map((id) => outlets.find((x) => String(x.id) === id.trim())?.name)
+    .filter(Boolean)
+    .join(", ");
 }
 
 // outlet_id → "KODE · Nama" untuk isi kolom outlet

@@ -10,7 +10,6 @@ import {
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
-import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -35,13 +34,12 @@ function isApproved(status) {
   return status === 1 || status === "1";
 }
 
-export default function RequestDeleteTransaction({ employees = [], onChanged }) {
+export default function RequestDeleteTransaction({ onChanged }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Semua");
   const [approvingId, setApprovingId] = useState(null);
-  const [employeeId, setEmployeeId] = useState("");
   const [toast, setToast] = useState(null);
 
   const showToast = (type, message) => {
@@ -87,16 +85,13 @@ export default function RequestDeleteTransaction({ employees = [], onChanged }) 
     });
   }, [rows, search, filter]);
 
+  // Approver = karyawan yang sedang login (diambil backend dari session)
   const approve = async (row) => {
-    if (!employeeId) {
-      showToast("error", "Pilih karyawan (mst_employee) yang menyetujui");
-      return;
-    }
     setApprovingId(row.id);
     try {
       await api(`/waschen/transactions/${row.id}/approve-delete`, {
         method: "PATCH",
-        body: JSON.stringify({ employeeId: Number(employeeId) }),
+        body: JSON.stringify({}),
       });
       showToast("success", `Hapus nota ${row.orderNo} disetujui`);
       await load();
@@ -156,18 +151,6 @@ export default function RequestDeleteTransaction({ employees = [], onChanged }) 
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-rose-500"
-            >
-              <option value="">Karyawan approve...</option>
-              {employees.map((e) => (
-                <option key={e.employee_id} value={e.employee_id}>
-                  {e.employee_code} — {fmtEmployeeName(e.full_name)}
-                </option>
-              ))}
-            </select>
             {["Semua", "Pending", "Approved"].map((f) => (
               <button
                 key={f}
