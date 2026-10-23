@@ -7,6 +7,7 @@ import {
   HiOutlineXMark,
   HiOutlineDocumentDuplicate,
   HiOutlineArrowPath,
+  HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -69,6 +70,7 @@ export default function DailyReport() {
   const [editRow, setEditRow] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_EDIT);
   const [saving, setSaving] = useState(false);
+  const [onlyPendingDeposit, setOnlyPendingDeposit] = useState(false);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -116,6 +118,19 @@ export default function DailyReport() {
     const o = outlets.find((x) => String(x.id) === String(outletId));
     return o?.full_name || o?.name || `Outlet #${outletId}`;
   }, [outletId, outlets]);
+
+  const pendingDepositCount = useMemo(
+    () => shifts.filter((s) => s.deposit?.status === "pending").length,
+    [shifts]
+  );
+  const lateDepositCount = useMemo(
+    () => shifts.filter((s) => s.deposit?.isLate).length,
+    [shifts]
+  );
+  const visibleShifts = useMemo(
+    () => (onlyPendingDeposit ? shifts.filter((s) => s.deposit?.status === "pending") : shifts),
+    [shifts, onlyPendingDeposit]
+  );
 
   const openEdit = (shift) => {
     setEditRow(shift);
@@ -227,18 +242,40 @@ export default function DailyReport() {
         <span>{cutoff.rangeLabelShort || cutoff.periodLabel}</span>
         <span>·</span>
         <span>{shifts.length} shift</span>
+        {pendingDepositCount > 0 && (
+          <>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setOnlyPendingDeposit((v) => !v)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-black transition",
+                onlyPendingDeposit
+                  ? "border-amber-500 bg-amber-500 text-white"
+                  : lateDepositCount > 0
+                    ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                    : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+              )}
+              title="Tampilkan hanya shift yang belum upload bukti setoran tunai"
+            >
+              <HiOutlineBanknotes className="h-3.5 w-3.5" />
+              {pendingDepositCount} belum setoran
+              {lateDepositCount > 0 && ` (${lateDepositCount} terlambat)`}
+            </button>
+          </>
+        )}
       </div>
 
       {loading ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 text-sm font-bold">
           Memuat laporan shift...
         </div>
-      ) : shifts.length === 0 ? (
+      ) : visibleShifts.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 text-sm font-bold">
-          Tidak ada data shift untuk filter ini
+          {onlyPendingDeposit ? "Semua setoran tunai pada filter ini sudah diupload" : "Tidak ada data shift untuk filter ini"}
         </div>
       ) : (
-        shifts.map((s) => (
+        visibleShifts.map((s) => (
           <div key={s.id} className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 min-w-0">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between border-b border-slate-100 pb-4">
               <div className="min-w-0 flex-1">
@@ -307,6 +344,8 @@ export default function DailyReport() {
                 <strong>Catatan closing:</strong> {s.closingNotes}
               </div>
             )}
+
+            {s.deposit && <DepositSection deposit={s.deposit} />}
 
             {s.verifiedTransactions?.length > 0 && (
               <div>
@@ -415,6 +454,56 @@ export default function DailyReport() {
           {toast.message}
         </div>,
         document.body
+      )}
+    </div>
+  );
+}
+
+/** Setoran tunai closing Final: sudah/belum upload, siapa & jam, serta penanda terlambat. */
+function DepositSection({ deposit }) {
+  const uploaded = deposit.status === "uploaded";
+  return (
+    <div
+      className={cn(
+        "p-3 rounded-xl border text-[11px] space-y-1.5",
+        !uploaded && deposit.isLate ? "bg-rose-50 border-rose-200" : uploaded ? "bg-emerald-50/50 border-emerald-200" : "bg-amber-50 border-amber-200"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+          <HiOutlineBanknotes className="h-3.5 w-3.5" /> Setoran Tunai
+        </span>
+        <span
+          className={cn(
+            "rounded-lg px-2 py-0.5 text-[10px] font-black",
+            uploaded ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
+          )}
+        >
+          {uploaded ? "Sudah diupload" : "Belum diupload"}
+        </span>
+        {deposit.isLate && (
+          <span className="rounded-lg bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700">
+            Terlambat {deposit.lateDays} hari
+          </span>
+        )}
+      </div>
+      {uploaded && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-700">
+          <span>
+            Oleh <strong>{fmtEmployeeName(deposit.uploadedByName)}</strong> · {fmtDateTime(deposit.uploadedAt)}
+          </span>
+          {deposit.proofUrl && (
+            <a
+              href={deposit.proofUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-black text-[#5f1340] underline"
+            >
+              Lihat Bukti
+            </a>
+          )}
+          {deposit.notes && <span className="text-slate-600">Catatan: {deposit.notes}</span>}
+        </div>
       )}
     </div>
   );
