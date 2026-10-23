@@ -161,6 +161,7 @@ import PerizinanWaschen from "./pages/my-waschen/components/HRIS/Perizinan";
 import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
 import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
+import PayrollWaschen from "./pages/my-waschen/components/HRIS/Payroll";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
 import EventDashboardWaschen from "./pages/my-waschen/components/EventB2B/EventDashboard";
@@ -700,6 +701,7 @@ export default function App() {
           <Route path="/my-waschen/hris/kasbon" element={<KasbonWaschen />} />
           <Route path="/my-waschen/hris/overtime" element={<OvertimeWaschen />} />
           <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
+          <Route path="/my-waschen/hris/payroll" element={<PayrollWaschen />} />
           <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
           <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />

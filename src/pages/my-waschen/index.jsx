@@ -33,6 +33,7 @@ import {
   HiOutlineClock,
   HiOutlineClipboardDocumentCheck,
   HiOutlineSun,
+  HiOutlineCalculator,
   HiOutlineFlag,
   HiOutlinePresentationChartBar,
 } from "react-icons/hi2";
@@ -103,6 +104,12 @@ const MENU_SECTIONS = [
         icon: HiOutlineSun,
         label: "Jadwal Libur",
         description: "Penetapan & approval libur karyawan",
+      },
+      {
+        to: "/my-waschen/hris/payroll",
+        icon: HiOutlineCalculator,
+        label: "Payroll",
+        description: "Rekap data penggajian per karyawan",
       },
     ],
   },
