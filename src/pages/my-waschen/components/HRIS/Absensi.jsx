@@ -217,7 +217,7 @@ function AttendanceFormFields({ form, setForm, employees, outlets, isEdit = fals
 export default function Absensi() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters, outlets } = hrisFilters;
   const { sort, toggle: toggleSort, apply: applySort } = useSort({ col: "check_in_time", dir: "desc" });
 
@@ -360,7 +360,7 @@ export default function Absensi() {
     try {
       // Dimuat saat dibutuhkan agar library Excel tidak ikut bundle awal halaman
       const { exportAbsensiWaschenExcel } = await import("./utils/exportAbsensiWaschen");
-      const outlet = outletById.get(String(hrisFilters.outletId));
+      const outlet = { name: hrisFilters.outletIds.map((id) => outletById.get(String(id))?.name).filter(Boolean).join(", ") };
       exportAbsensiWaschenExcel({
         records: filtered,
         startDate,
@@ -563,11 +563,12 @@ export default function Absensi() {
         <div className="space-y-3">
           <CutoffPeriodFilter cutoff={cutoff} showToday />
           <HrisOutletRoleFilter
+            multiple
             outlets={hrisFilters.outlets}
-            outletId={hrisFilters.outletId}
-            onOutletChange={hrisFilters.setOutletId}
-            role={hrisFilters.role}
-            onRoleChange={hrisFilters.setRole}
+            outletIds={hrisFilters.outletIds}
+            onOutletIdsChange={hrisFilters.setOutletIds}
+            roles={hrisFilters.roles}
+            onRolesChange={hrisFilters.setRoles}
           />
           <div className="relative w-full">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

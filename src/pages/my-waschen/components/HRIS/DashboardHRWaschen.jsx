@@ -260,7 +260,7 @@ function SimpleTooltip({ active, payload, label }) {
 export default function DashboardHRWaschen() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters, outlets } = hrisFilters;
 
   const [rows, setRows] = useState([]);
@@ -562,7 +562,7 @@ export default function DashboardHRWaschen() {
     try {
       const { exportAbsensiWaschenExcel } = await import("./utils/exportAbsensiWaschen");
       const visibleIds = new Set(visibleEmployees.map((e) => String(e.employee_id)));
-      const outlet = outletById.get(String(hrisFilters.outletId));
+      const outlet = { name: hrisFilters.outletIds.map((id) => outletById.get(String(id))?.name).filter(Boolean).join(", ") };
       const pill = EMP_FILTERS.find((f) => f.id === empFilter);
       exportAbsensiWaschenExcel({
         records: scoped.filter((r) => visibleIds.has(String(r.employee_id))),
@@ -611,11 +611,12 @@ export default function DashboardHRWaschen() {
         <div className="space-y-3">
           <CutoffPeriodFilter cutoff={cutoff} showToday />
           <HrisOutletRoleFilter
+            multiple
             outlets={hrisFilters.outlets}
-            outletId={hrisFilters.outletId}
-            onOutletChange={hrisFilters.setOutletId}
-            role={hrisFilters.role}
-            onRoleChange={hrisFilters.setRole}
+            outletIds={hrisFilters.outletIds}
+            onOutletIdsChange={hrisFilters.setOutletIds}
+            roles={hrisFilters.roles}
+            onRolesChange={hrisFilters.setRoles}
           />
           <EmployeeMultiSelect
             options={employeeOptions}
@@ -910,7 +911,7 @@ export default function DashboardHRWaschen() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 p-3 sm:p-4">
             {groups.map((g) => {
               const t = complianceTone(g.kepatuhan);
-              const active = groupBy === "outlet" ? hrisFilters.outletId === g.key : hrisFilters.role === g.key;
+              const active = groupBy === "outlet" ? hrisFilters.outletIds.includes(g.key) : hrisFilters.roles.includes(g.key);
               // Filter outlet hanya mengenal mst_outlet; lokasi absen & id tak dikenal tidak bisa difilter
               const isLocation = groupBy === "outlet" && absenLocationById.has(g.key);
               const unknown = groupBy === "outlet" ? !outletById.has(g.key) && !isLocation : g.key === "Tanpa posisi";
@@ -924,8 +925,9 @@ export default function DashboardHRWaschen() {
                     ? "Lokasi backup (non-outlet) dari Waschen Mobile"
                     : unknown ? "Tidak terdaftar di master, tidak bisa dipakai sebagai filter" : undefined}
                   onClick={() => {
-                    if (groupBy === "outlet") hrisFilters.setOutletId(active ? "" : g.key);
-                    else hrisFilters.setRole(active ? "" : g.key);
+                    const toggle = (list) => (active ? list.filter((x) => x !== g.key) : [...list, g.key]);
+                    if (groupBy === "outlet") hrisFilters.setOutletIds(toggle);
+                    else hrisFilters.setRoles(toggle);
                   }}
                   className={cn(
                     "rounded-xl px-3 py-2 text-left transition",

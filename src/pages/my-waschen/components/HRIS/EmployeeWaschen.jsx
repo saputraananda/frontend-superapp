@@ -236,6 +236,71 @@ function FloatingDropdown({
     );
 }
 
+/** Filter multi pilih (checkbox). selected = array string; kosong = semua. */
+function MultiFilter({ id, openId, setOpenId, label, options, selected, onChange }) {
+    const count = selected.length;
+    const toggle = (value) =>
+        onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+    const text = count === 0
+        ? label
+        : count === 1
+            ? options.find((o) => o.value === selected[0])?.label || label
+            : `${count} dipilih`;
+
+    return (
+        <FloatingDropdown
+            open={openId === id}
+            onOpen={() => setOpenId(id)}
+            onClose={() => setOpenId(null)}
+            width={208}
+            maxHeight={280}
+            panelClassName="p-1"
+            triggerClassName={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border py-2 pl-3 pr-2.5 text-xs font-semibold transition cursor-pointer",
+                count
+                    ? "border-[#5f1340] bg-pink-50 text-[#5f1340] ring-1 ring-[#5f1340]/20"
+                    : "border-[#e0e0e0] bg-[#f8f8f8] text-slate-600 hover:border-slate-300",
+            )}
+            trigger={
+                <>
+                    <span className="max-w-[160px] truncate">{text}</span>
+                    {count > 1 && (
+                        <span className="rounded-full bg-[#5f1340] px-1.5 text-[10px] font-bold text-white">{count}</span>
+                    )}
+                    <ChevronDownIcon className="h-3 w-3 text-slate-400" />
+                </>
+            }
+        >
+            {count > 0 && (
+                <button
+                    type="button"
+                    onClick={() => onChange([])}
+                    className="mb-1 w-full rounded-md px-2 py-1.5 text-left text-[11px] font-bold text-rose-600 hover:bg-rose-50"
+                >
+                    Hapus pilihan
+                </button>
+            )}
+            {options.map((o) => {
+                const checked = selected.includes(o.value);
+                return (
+                    <label
+                        key={o.value}
+                        className={cn(MENU_ITEM_CLS, "cursor-pointer", menuItemActive(checked))}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggle(o.value)}
+                            className="h-3.5 w-3.5 accent-[#5f1340]"
+                        />
+                        {o.label}
+                    </label>
+                );
+            })}
+        </FloatingDropdown>
+    );
+}
+
 const MENU_ITEM_CLS = "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-semibold transition-colors";
 const menuItemActive = (active) =>
     active ? "bg-pink-50 text-[#5f1340]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
@@ -815,9 +880,10 @@ export default function EmployeeWaschen() {
     const [sortBy, setSortBy] = useState("full_name");
     const [sortDir, setSortDir] = useState("asc");
     const [refreshKey, setRefreshKey] = useState(0);
-    const [filterRole, setFilterRole] = useState("");
-    const [filterOutletId, setFilterOutletId] = useState("");
-    const [filterIsLeader, setFilterIsLeader] = useState("");
+    const [filterRole, setFilterRole] = useState([]);
+    const [filterOutletId, setFilterOutletId] = useState([]);
+    const [filterIsLeader, setFilterIsLeader] = useState([]);
+    const [filterOpenId, setFilterOpenId] = useState(null);
 
     // Modal Add Karyawan State
     const [showAddModal, setShowAddModal] = useState(false);
@@ -887,9 +953,9 @@ export default function EmployeeWaschen() {
             qs.set("sortBy", sortBy);
             qs.set("sortDir", sortDir);
             if (search) qs.set("search", search);
-            if (filterRole) qs.set("role", filterRole);
-            if (filterOutletId) qs.set("outletId", filterOutletId);
-            if (filterIsLeader !== "") qs.set("isLeader", filterIsLeader);
+            if (filterRole.length) qs.set("role", filterRole.join(","));
+            if (filterOutletId.length) qs.set("outletId", filterOutletId.join(","));
+            if (filterIsLeader.length) qs.set("isLeader", filterIsLeader.join(","));
 
             const response = await api(`/waschen/employees?${qs.toString()}`);
             setRows(response.data || []);
@@ -939,9 +1005,9 @@ export default function EmployeeWaschen() {
         setSearch("");
         setSortBy("full_name");
         setSortDir("asc");
-        setFilterRole("");
-        setFilterOutletId("");
-        setFilterIsLeader("");
+        setFilterRole([]);
+        setFilterOutletId([]);
+        setFilterIsLeader([]);
     };
 
     const handleAddSubmit = async () => {
@@ -1035,7 +1101,7 @@ export default function EmployeeWaschen() {
         }
     };
 
-    const hasActiveFilters = Boolean(search) || Boolean(filterRole) || Boolean(filterOutletId) || filterIsLeader !== "";
+    const hasActiveFilters = Boolean(search) || filterRole.length > 0 || filterOutletId.length > 0 || filterIsLeader.length > 0;
 
     return (
         <main className="min-h-screen bg-[#f8f8f8] py-6 sm:py-10">
@@ -1174,63 +1240,45 @@ export default function EmployeeWaschen() {
                             )}
                         </div>
 
-                        {/* Filter dropdowns */}
+                        {/* Filter dropdowns (multi pilih) */}
                         <div className="flex flex-wrap gap-2">
-                            {/* Filter Bagian / Unit */}
-                            <div className="relative">
-                                <select
-                                    value={filterRole}
-                                    onChange={(e) => setFilterRole(e.target.value)}
-                                    className={`appearance-none rounded-lg border py-2 pl-3 pr-7 text-xs font-semibold outline-none transition cursor-pointer ${
-                                        filterRole
-                                            ? "border-[#5f1340] bg-pink-50 text-[#5f1340] ring-1 ring-[#5f1340]/20"
-                                            : "border-[#e0e0e0] bg-[#f8f8f8] text-slate-600 hover:border-slate-300"
-                                    }`}
-                                >
-                                    <option value="">Semua Posisi</option>
-                                    {Object.entries(ROLE_META).map(([key, meta]) => (
-                                        <option key={key} value={key}>{meta.label}</option>
-                                    ))}
-                                </select>
-                                <ChevronDownIcon className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
-                            </div>
-
-                            {/* Filter Cabang */}
-                            <div className="relative">
-                                <select
-                                    value={filterOutletId}
-                                    onChange={(e) => setFilterOutletId(e.target.value)}
-                                    className={`appearance-none rounded-lg border py-2 pl-3 pr-7 text-xs font-semibold outline-none transition cursor-pointer ${
-                                        filterOutletId
-                                            ? "border-[#5f1340] bg-pink-50 text-[#5f1340] ring-1 ring-[#5f1340]/20"
-                                            : "border-[#e0e0e0] bg-[#f8f8f8] text-slate-600 hover:border-slate-300"
-                                    }`}
-                                >
-                                    <option value="">Semua Cabang</option>
-                                    {outlets.map((o) => (
-                                        <option key={o.id} value={String(o.id)}>{o.name}</option>
-                                    ))}
-                                </select>
-                                <ChevronDownIcon className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
-                            </div>
-
-                            {/* Filter Jabatan */}
-                            <div className="relative">
-                                <select
-                                    value={filterIsLeader}
-                                    onChange={(e) => setFilterIsLeader(e.target.value)}
-                                    className={`appearance-none rounded-lg border py-2 pl-3 pr-7 text-xs font-semibold outline-none transition cursor-pointer ${
-                                        filterIsLeader !== ""
-                                            ? "border-[#5f1340] bg-pink-50 text-[#5f1340] ring-1 ring-[#5f1340]/20"
-                                            : "border-[#e0e0e0] bg-[#f8f8f8] text-slate-600 hover:border-slate-300"
-                                    }`}
-                                >
-                                    <option value="">Semua Jabatan</option>
-                                    <option value="1">Leader</option>
-                                    <option value="0">Staff</option>
-                                </select>
-                                <ChevronDownIcon className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
-                            </div>
+                            <MultiFilter
+                                id="role"
+                                openId={filterOpenId}
+                                setOpenId={setFilterOpenId}
+                                label="Semua Posisi"
+                                selected={filterRole}
+                                onChange={setFilterRole}
+                                options={[
+                                    ...Object.entries(ROLE_META).map(([key, meta]) => ({ value: key, label: meta.label })),
+                                    { value: "none", label: "Belum Ditentukan" },
+                                ]}
+                            />
+                            <MultiFilter
+                                id="outlet"
+                                openId={filterOpenId}
+                                setOpenId={setFilterOpenId}
+                                label="Semua Cabang"
+                                selected={filterOutletId}
+                                onChange={setFilterOutletId}
+                                options={[
+                                    ...outlets.map((o) => ({ value: String(o.id), label: o.name })),
+                                    { value: "none", label: "Tidak Ada Cabang" },
+                                ]}
+                            />
+                            <MultiFilter
+                                id="leader"
+                                openId={filterOpenId}
+                                setOpenId={setFilterOpenId}
+                                label="Semua Jabatan"
+                                selected={filterIsLeader}
+                                onChange={setFilterIsLeader}
+                                options={[
+                                    { value: "1", label: "Leader" },
+                                    { value: "0", label: "Staff" },
+                                    { value: "none", label: "Belum Ditentukan" },
+                                ]}
+                            />
                         </div>
                     </div>
                 </section>

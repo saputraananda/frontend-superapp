@@ -13,7 +13,7 @@ const fieldCls = (active) =>
   );
 
 /** Dropdown checkbox: kosong = semua. */
-function MultiSelect({ options, value, onChange, allLabel, unitLabel }) {
+export function MultiSelect({ options, value, onChange, allLabel, unitLabel, className, buttonClassName }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -35,8 +35,8 @@ function MultiSelect({ options, value, onChange, allLabel, unitLabel }) {
       : `${value.length} ${unitLabel} dipilih`;
 
   return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen((o) => !o)} className={cn(fieldCls(value.length > 0), "text-left truncate")}>
+    <div ref={ref} className={cn("relative", className)}>
+      <button type="button" onClick={() => setOpen((o) => !o)} className={buttonClassName ? cn(buttonClassName, "text-left truncate") : cn(fieldCls(value.length > 0), "text-left truncate")}>
         {summary}
       </button>
       <HiOutlineChevronDown

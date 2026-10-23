@@ -93,7 +93,7 @@ function matchFilter(emp, filter) {
 export default function DashboardGrooming() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters, outlets } = hrisFilters;
 
   const [innerTab, setInnerTab] = useState("grooming");
@@ -301,11 +301,12 @@ export default function DashboardGrooming() {
             <CutoffPeriodFilter cutoff={cutoff} showToday />
             <div className="mt-3">
               <HrisOutletRoleFilter
+                multiple
                 outlets={hrisFilters.outlets}
-                outletId={hrisFilters.outletId}
-                onOutletChange={hrisFilters.setOutletId}
-                role={hrisFilters.role}
-                onRoleChange={hrisFilters.setRole}
+                outletIds={hrisFilters.outletIds}
+                onOutletIdsChange={hrisFilters.setOutletIds}
+                roles={hrisFilters.roles}
+                onRolesChange={hrisFilters.setRoles}
               />
             </div>
           </div>
@@ -435,11 +436,12 @@ export default function DashboardGrooming() {
             <CutoffPeriodFilter cutoff={cutoff} showToday />
             <div className="mt-3">
               <HrisOutletRoleFilter
+                multiple
                 outlets={hrisFilters.outlets}
-                outletId={hrisFilters.outletId}
-                onOutletChange={hrisFilters.setOutletId}
-                role={hrisFilters.role}
-                onRoleChange={hrisFilters.setRole}
+                outletIds={hrisFilters.outletIds}
+                onOutletIdsChange={hrisFilters.setOutletIds}
+                roles={hrisFilters.roles}
+                onRolesChange={hrisFilters.setRoles}
               />
             </div>
             <p className="mt-2 text-[11px] text-slate-500">

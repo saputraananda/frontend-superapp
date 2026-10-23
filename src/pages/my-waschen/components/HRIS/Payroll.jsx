@@ -635,7 +635,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
 export default function Payroll() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters } = hrisFilters;
   const { sort, toggle: toggleSort, apply: applySort } = useSort({ col: "employee_name", dir: "asc" });
 
@@ -811,11 +811,12 @@ export default function Payroll() {
         <div className="space-y-3">
           <CutoffPeriodFilter cutoff={cutoff} />
           <HrisOutletRoleFilter
+            multiple
             outlets={hrisFilters.outlets}
-            outletId={hrisFilters.outletId}
-            onOutletChange={hrisFilters.setOutletId}
-            role={hrisFilters.role}
-            onRoleChange={hrisFilters.setRole}
+            outletIds={hrisFilters.outletIds}
+            onOutletIdsChange={hrisFilters.setOutletIds}
+            roles={hrisFilters.roles}
+            onRolesChange={hrisFilters.setRoles}
           />
           <div className="flex items-center gap-2">
             <div className="relative flex-1">

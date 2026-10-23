@@ -18,6 +18,7 @@ import { api, apiUpload } from "../../../../lib/api";
 import PageHero from "../PageHero";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
 import useHrisOutletRoleFilters from "../../hooks/useHrisOutletRoleFilters";
+import { MultiSelect } from "../HrisOutletRoleFilter";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import {
   PAGE_WRAP,
@@ -116,7 +117,7 @@ const TYPE_FILTERS = [
 export default function Kasbon() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters } = hrisFilters;
   const { sort, toggle: toggleSort, apply: applySort } = useSort({ col: "submission_date", dir: "desc" });
 
@@ -594,17 +595,9 @@ export default function Kasbon() {
               Hari Ini
             </label>
             <HiOutlineChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
-            <select value={hrisFilters.outletId} onChange={(e) => hrisFilters.setOutletId(e.target.value)} className="max-w-[200px] cursor-pointer truncate rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 outline-none">
-              <option value="">Semua Outlet</option>
-              {hrisFilters.outlets.map((o) => (
-                <option key={o.id} value={String(o.id)}>{o.outlet_code ? `${o.outlet_code} — ` : ""}{o.name}</option>
-              ))}
-            </select>
+            <MultiSelect className="min-w-[150px] max-w-[220px]" buttonClassName="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 outline-none w-full pr-8 " options={hrisFilters.outlets.map((o) => ({ value: String(o.id), label: `${o.outlet_code ? `${o.outlet_code} — ` : ""}${o.name}` }))} value={hrisFilters.outletIds} onChange={hrisFilters.setOutletIds} allLabel="Semua Outlet" unitLabel="outlet" />
             <HiOutlineChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
-            <select value={hrisFilters.role} onChange={(e) => hrisFilters.setRole(e.target.value)} className="cursor-pointer rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 outline-none">
-              <option value="">Semua Posisi</option>
-              {WASCHEN_ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
+            <MultiSelect className="min-w-[150px]" buttonClassName="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 outline-none w-full pr-8" options={WASCHEN_ROLE_OPTIONS} value={hrisFilters.roles} onChange={hrisFilters.setRoles} allLabel="Semua Posisi" unitLabel="posisi" />
           </nav>
           <div className="relative w-full">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -773,16 +766,8 @@ export default function Kasbon() {
                 <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input value={monitorSearch} onChange={(e) => setMonitorSearch(e.target.value)} placeholder="Cari karyawan..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-400" />
               </div>
-              <select value={hrisFilters.outletId} onChange={(e) => hrisFilters.setOutletId(e.target.value)} className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800 outline-none">
-                <option value="">Semua Outlet</option>
-                {hrisFilters.outlets.map((o) => (
-                  <option key={o.id} value={String(o.id)}>{o.outlet_code ? `${o.outlet_code} — ` : ""}{o.name}</option>
-                ))}
-              </select>
-              <select value={hrisFilters.role} onChange={(e) => hrisFilters.setRole(e.target.value)} className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800 outline-none">
-                <option value="">Semua Posisi</option>
-                {WASCHEN_ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
+              <MultiSelect className="min-w-[170px]" buttonClassName="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800 outline-none w-full pr-8 " options={hrisFilters.outlets.map((o) => ({ value: String(o.id), label: `${o.outlet_code ? `${o.outlet_code} — ` : ""}${o.name}` }))} value={hrisFilters.outletIds} onChange={hrisFilters.setOutletIds} allLabel="Semua Outlet" unitLabel="outlet" />
+              <MultiSelect className="min-w-[170px]" buttonClassName="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800 outline-none w-full pr-8" options={WASCHEN_ROLE_OPTIONS} value={hrisFilters.roles} onChange={hrisFilters.setRoles} allLabel="Semua Posisi" unitLabel="posisi" />
             </div>
           </div>
           {monitorLoading ? (
