@@ -2,18 +2,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineClipboardDocumentList,
-  HiOutlineBuildingStorefront,
   HiOutlinePencilSquare,
   HiOutlineXMark,
   HiOutlineDocumentDuplicate,
   HiOutlineArrowPath,
   HiOutlineBanknotes,
+  HiOutlineMagnifyingGlass,
+  HiOutlineAdjustmentsHorizontal,
+  HiOutlineChevronDown,
+  HiOutlineCheck,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
-import CutoffPeriodFilter from "../CutoffPeriodFilter";
-import useCutoffPeriod from "../../hooks/useCutoffPeriod";
+import { MultiSelect } from "../HrisOutletRoleFilter";
+import { FilterScroll, FilterPill } from "../HRIS/hrisShared";
+import { FILTER_SECTION } from "../../utils/hrisUtils";
+
+
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 
 function cn(...classes) {
@@ -39,6 +45,80 @@ function fmtDateTime(v) {
   });
 }
 
+function ShiftTransactions({ shift }) {
+  const [open, setOpen] = useState(false);
+  const txns = shift.transactions;
+  const done = txns.filter((t) => t.isVerified).length;
+  const all = done === txns.length;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex justify-between items-center gap-2 px-4 py-3 mb-2 rounded-xl border border-[#5f1340]/20 bg-[#5f1340]/5 hover:bg-[#5f1340]/10"
+      >
+        <span className="flex flex-wrap items-center gap-2 text-xs font-black text-[#5f1340]">
+          Nota dibayar di shift ini
+          <span className="px-2 py-0.5 rounded-full bg-[#5f1340] text-white text-[10px]">{txns.length} nota</span>
+          <span className={cn("px-2 py-0.5 rounded-full text-[10px]", all ? "bg-emerald-600 text-white" : "bg-amber-100 text-amber-800")}>
+            {done}/{txns.length} diceklis
+          </span>
+        </span>
+        <HiOutlineChevronDown className={cn("h-4 w-4 text-[#5f1340] transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="overflow-auto max-h-80 border border-slate-200 rounded-xl">
+          <table className="w-full min-w-[560px] text-xs">
+            <thead className="sticky top-0">
+              <tr className="bg-slate-50 text-[10px] uppercase text-slate-400 font-extrabold">
+                <th className="py-2 px-3 text-left">Jam</th>
+                <th className="py-2 px-3 text-left">No Nota</th>
+                <th className="py-2 px-3 text-left">Customer</th>
+                <th className="py-2 px-3 text-left">Bayar</th>
+                <th className="py-2 px-3 text-right">Nominal</th>
+                <th className="py-2 px-3 text-center">Cek</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold">
+              {txns.map((v) => (
+                <tr key={v.id} className={v.isVerified ? "bg-emerald-50/40" : ""}>
+                  <td className="py-2 px-3">
+                    {v.lastPaidAt ? new Date(v.lastPaidAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                  </td>
+                  <td className="py-2 px-3 font-mono text-[#5f1340]">{v.orderNo}</td>
+                  <td className="py-2 px-3 max-w-[16rem]">
+                    <p className="break-words">{v.customerName || "—"}</p>
+                    {v.customerAddress ? (
+                      <p className="mt-0.5 text-[10px] font-medium leading-snug text-slate-500 line-clamp-2 break-words" title={v.customerAddress}>
+                        {v.customerAddress}
+                      </p>
+                    ) : null}
+                  </td>
+                  <td className="py-2 px-3">{v.paymentStatus === "DP" ? "DP " : ""}{v.paymentMethod || "—"}</td>
+                  <td className="py-2 px-3 text-right">{fmtIDR(v.paidHere)}</td>
+                  <td className="py-2 px-3 text-center">
+                    {v.isVerified ? <HiOutlineCheck className="h-4 w-4 text-emerald-600 inline" title={fmtDateTime(v.verifiedAt)} /> : <span className="text-slate-300">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+const FILTER_LABEL = "block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1";
+const SHIFT_FILTERS = [["all", "Semua Shift"], ["1", "Pagi"], ["2", "Siang"]];
+
+function wibToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+}
+
+function fmtTime(v) {
+  return v ? new Date(v).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "—";
+}
+
 function shiftLabel(sn) {
   return Number(sn) === 2 ? "Siang" : "Pagi";
 }
@@ -60,9 +140,15 @@ function toInput(v) {
 }
 
 export default function DailyReport() {
-  const cutoff = useCutoffPeriod();
+  const [date, setDate] = useState(wibToday);
+  const [outletIds, setOutletIds] = useState([]);
+  const [employeeIds, setEmployeeIds] = useState([]);
+  const [search, setSearch] = useState("");
+  const [shiftFilter, setShiftFilter] = useState("all");
+  const [onlyPendingDeposit, setOnlyPendingDeposit] = useState(false);
+  const [openOutlet, setOpenOutlet] = useState(null);
   const [outlets, setOutlets] = useState([]);
-  const [outletId, setOutletId] = useState("");
+
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -70,7 +156,7 @@ export default function DailyReport() {
   const [editRow, setEditRow] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_EDIT);
   const [saving, setSaving] = useState(false);
-  const [onlyPendingDeposit, setOnlyPendingDeposit] = useState(false);
+
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -90,9 +176,9 @@ export default function DailyReport() {
     if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams();
-      if (cutoff.dateFrom) q.set("dateFrom", cutoff.dateFrom);
-      if (cutoff.dateTo) q.set("dateTo", cutoff.dateTo);
-      if (outletId) q.set("outletId", outletId);
+      q.set("dateFrom", date);
+      q.set("dateTo", date);
+      if (outletIds.length) q.set("outletId", outletIds.join(","));
       const res = await api(`/waschen/daily-report?${q}`);
       setShifts(res.data || []);
     } catch (err) {
@@ -102,7 +188,7 @@ export default function DailyReport() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [cutoff.dateFrom, cutoff.dateTo, outletId]);
+  }, [date, outletIds]);
 
   useEffect(() => {
     loadOutlets();
@@ -113,25 +199,53 @@ export default function DailyReport() {
   }, [load]);
   useLiveRefresh(() => load(true));
 
-  const outletName = useMemo(() => {
-    if (!outletId) return "Semua Outlet";
-    const o = outlets.find((x) => String(x.id) === String(outletId));
-    return o?.full_name || o?.name || `Outlet #${outletId}`;
-  }, [outletId, outlets]);
+  const pendingDepositCount = useMemo(() => shifts.filter((s) => s.deposit?.status === "pending").length, [shifts]);
+  const lateDepositCount = useMemo(() => shifts.filter((s) => s.deposit?.isLate).length, [shifts]);
+  const employeeOptions = useMemo(() => {
+    const m = new Map();
+    shifts.forEach((s) => {
+      [[s.cashierEmployeeId, s.openerName], [s.closedByEmployeeId, s.closedByName]].forEach(([id, name]) => {
+        if (id && !m.has(String(id))) m.set(String(id), fmtEmployeeName(name) || `Karyawan #${id}`);
+      });
+    });
+    return [...m].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [shifts]);
 
-  const pendingDepositCount = useMemo(
-    () => shifts.filter((s) => s.deposit?.status === "pending").length,
-    [shifts]
-  );
-  const lateDepositCount = useMemo(
-    () => shifts.filter((s) => s.deposit?.isLate).length,
-    [shifts]
-  );
-  const visibleShifts = useMemo(
-    () => (onlyPendingDeposit ? shifts.filter((s) => s.deposit?.status === "pending") : shifts),
-    [shifts, onlyPendingDeposit]
+  const outletOptions = useMemo(
+    () => outlets.map((o) => ({ value: String(o.id), label: o.full_name || o.name })),
+    [outlets]
   );
 
+  const visibleShifts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return shifts.filter((s) => {
+      if (onlyPendingDeposit && s.deposit?.status !== "pending") return false;
+      if (shiftFilter !== "all" && String(s.shiftNumber) !== shiftFilter) return false;
+      if (employeeIds.length && !employeeIds.some((id) => [s.cashierEmployeeId, s.closedByEmployeeId].map(String).includes(id))) return false;
+      if (!q) return true;
+      const hay = [s.outletFullName, s.outletName, s.openerName, s.closedByName,
+        ...(s.transactions || []).flatMap((t) => [t.orderNo, t.customerName])].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [shifts, onlyPendingDeposit, shiftFilter, employeeIds, search]);
+
+  const groups = useMemo(() => {
+    const m = new Map();
+    outlets.forEach((o) => {
+      if (!outletIds.length || outletIds.includes(String(o.id))) m.set(String(o.id), { id: o.id, name: o.full_name || o.name, shifts: [] });
+    });
+    visibleShifts.forEach((s) => {
+      const k = String(s.outletId);
+      if (!m.has(k)) m.set(k, { id: s.outletId, name: s.outletFullName || s.outletName || `Outlet #${k}`, shifts: [] });
+      m.get(k).shifts.push(s);
+    });
+    return [...m.values()]
+      .map((g) => ({
+        ...g,
+        income: g.shifts.reduce((a, s) => a + (s.transactions || []).reduce((b, t) => b + (t.paidHere || 0), 0), 0),
+      }))
+      .sort((a, b) => b.shifts.length - a.shifts.length || String(a.name).localeCompare(String(b.name)));
+  }, [outlets, visibleShifts, outletIds]);
   const openEdit = (shift) => {
     setEditRow(shift);
     setEditForm({
@@ -207,76 +321,114 @@ export default function DailyReport() {
             </div>
           </div>
         </div>
-
-        <div className="space-y-3 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.5fr)_auto] gap-2 w-full">
-            <select
-              value={outletId}
-              onChange={(e) => setOutletId(e.target.value)}
-              className="w-full min-w-0 px-3 py-2.5 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:ring-2 focus:ring-white/30"
-            >
-              <option value="" className="text-slate-800">Semua Outlet</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id} className="text-slate-800">
-                  {o.full_name || o.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={load}
-              className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white text-[#5f1340] text-xs font-black hover:bg-pink-50 transition"
-            >
-              <HiOutlineArrowPath className={cn("h-4 w-4 shrink-0", loading && "animate-spin")} />
-              Refresh
-            </button>
-          </div>
-          <CutoffPeriodFilter cutoff={cutoff} variant="hero" />
-        </div>
       </PageHero>
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-semibold px-1">
-        <HiOutlineBuildingStorefront className="h-4 w-4 shrink-0" />
-        <span className="break-words">{outletName}</span>
-        <span className="hidden sm:inline">·</span>
-        <span>{cutoff.rangeLabelShort || cutoff.periodLabel}</span>
-        <span>·</span>
-        <span>{shifts.length} shift</span>
-        {pendingDepositCount > 0 && (
-          <>
-            <span>·</span>
-            <button
-              type="button"
-              onClick={() => setOnlyPendingDeposit((v) => !v)}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-black transition",
-                onlyPendingDeposit
-                  ? "border-amber-500 bg-amber-500 text-white"
-                  : lateDepositCount > 0
-                    ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                    : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+      <section className={FILTER_SECTION}>
+        <div className="mb-3 sm:mb-4 flex items-center gap-2">
+          <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <HiOutlineAdjustmentsHorizontal className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Tanggal & Data</h2>
+            <p className="text-[11px] sm:text-xs text-slate-500">Filter diterapkan otomatis saat pilihan diubah.</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div>
+              <label className={FILTER_LABEL}>Tanggal</label>
+              <input
+                type="date"
+                value={date}
+                max={wibToday()}
+                onChange={(e) => e.target.value && setDate(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold text-slate-600 outline-none focus:border-[#5f1340]/40"
+              />
+            </div>
+            <div>
+              <label className={FILTER_LABEL}>Outlet</label>
+              <MultiSelect
+                options={outletOptions}
+                value={outletIds}
+                onChange={setOutletIds}
+                allLabel="Semua Outlet"
+                unitLabel="outlet"
+              />
+            </div>
+            <div>
+              <label className={FILTER_LABEL}>Karyawan</label>
+              <MultiSelect
+                options={employeeOptions}
+                value={employeeIds}
+                onChange={setEmployeeIds}
+                allLabel="Semua Karyawan"
+                unitLabel="karyawan"
+              />
+            </div>
+          </div>
+          <div className="relative w-full">
+            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari outlet, karyawan, no nota, customer..."
+              className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]/40"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+            <FilterScroll className="flex-1">
+              {SHIFT_FILTERS.map(([k, label]) => (
+                <FilterPill key={k} active={shiftFilter === k} onClick={() => setShiftFilter(k)}>{label}</FilterPill>
+              ))}
+              {pendingDepositCount > 0 && (
+                <FilterPill active={onlyPendingDeposit} onClick={() => setOnlyPendingDeposit((v) => !v)}>
+                  {pendingDepositCount} belum setoran{lateDepositCount > 0 ? ` (${lateDepositCount} terlambat)` : ""}
+                </FilterPill>
               )}
-              title="Tampilkan hanya shift yang belum upload bukti setoran tunai"
-            >
-              <HiOutlineBanknotes className="h-3.5 w-3.5" />
-              {pendingDepositCount} belum setoran
-              {lateDepositCount > 0 && ` (${lateDepositCount} terlambat)`}
+            </FilterScroll>
+            <button type="button" onClick={() => load()} className="shrink-0 self-end sm:self-auto rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+              <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
             </button>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      </section>
 
       {loading ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 text-sm font-bold">
           Memuat laporan shift...
         </div>
-      ) : visibleShifts.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 text-sm font-bold">
-          {onlyPendingDeposit ? "Semua setoran tunai pada filter ini sudah diupload" : "Tidak ada data shift untuk filter ini"}
-        </div>
       ) : (
-        visibleShifts.map((s) => (
-          <div key={s.id} className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 min-w-0">
+        <div className="space-y-3">
+          {groups.map((g, idx) => {
+            const open = openOutlet === String(g.id);
+            const has = g.shifts.length > 0;
+            return (
+              <div key={g.id} className="min-w-0">
+                <button
+                  type="button"
+                  disabled={!has}
+                  onClick={() => setOpenOutlet(open ? null : String(g.id))}
+                  className={cn(
+                    "w-full flex items-center justify-between gap-2 px-4 py-3 rounded-2xl border text-left transition",
+                    has ? "bg-white border-[#5f1340]/20 hover:bg-[#5f1340]/5" : "bg-slate-50 border-slate-200 opacity-70 cursor-default"
+                  )}
+                >
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs font-black min-w-0">
+                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 text-[11px]">{idx + 1}</span>
+                    <span className="px-2.5 py-1 rounded-full bg-[#5f1340] text-white">{g.name}</span>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">{fmtIDR(g.income)}</span>
+                    {has ? g.shifts.map((s) => (
+                      <span key={s.id} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold">
+                        {shiftLabel(s.shiftNumber)}: {fmtEmployeeName(s.openerName)} · {fmtTime(s.openedAt)}
+                        {s.status === "Closed" ? " (tutup)" : ""}
+                      </span>
+                    )) : <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-bold">Belum open shift</span>}
+                  </span>
+                  {has && <HiOutlineChevronDown className={cn("h-4 w-4 shrink-0 text-[#5f1340] transition-transform", open && "rotate-180")} />}
+                </button>
+                {open && (
+                  <div className="space-y-4 mt-3">
+                    {g.shifts.map((s) => (          <div key={s.id} className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 min-w-0">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between border-b border-slate-100 pb-4">
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm sm:text-base font-black text-[#5f1340] leading-snug break-words">
@@ -347,42 +499,7 @@ export default function DailyReport() {
 
             {s.deposit && <DepositSection deposit={s.deposit} />}
 
-            {s.verifiedTransactions?.length > 0 && (
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
-                  Nota terverifikasi ({s.verifiedTransactions.length})
-                </p>
-                <div className="overflow-x-auto -mx-1 px-1 border border-slate-200 rounded-xl">
-                  <table className="w-full min-w-[520px] text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 text-[10px] uppercase text-slate-400 font-extrabold">
-                        <th className="py-2 px-3 text-left">No Nota</th>
-                        <th className="py-2 px-3 text-left">Customer</th>
-                        <th className="py-2 px-3 text-left">Bayar</th>
-                        <th className="py-2 px-3 text-right">Nominal</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-semibold">
-                      {s.verifiedTransactions.map((v) => (
-                        <tr key={v.id}>
-                          <td className="py-2 px-3 font-mono text-[#5f1340]">{v.orderNo}</td>
-                          <td className="py-2 px-3 max-w-[16rem]">
-                            <p className="break-words">{v.customerName || "—"}</p>
-                            {v.customerAddress ? (
-                              <p className="mt-0.5 text-[10px] font-medium leading-snug text-slate-500 line-clamp-2 break-words" title={v.customerAddress}>
-                                {v.customerAddress}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="py-2 px-3">{v.paymentMethod || "—"}</td>
-                          <td className="py-2 px-3 text-right">{fmtIDR(v.grandTotal)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            {s.transactions?.length > 0 && <ShiftTransactions shift={s} />}
 
             {s.reportText && (
               <pre className="text-[11px] font-mono bg-slate-50 border border-slate-200 rounded-2xl p-4 whitespace-pre-wrap text-slate-700 max-h-64 overflow-y-auto">
@@ -390,7 +507,13 @@ export default function DailyReport() {
               </pre>
             )}
           </div>
-        ))
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {editRow && createPortal(
