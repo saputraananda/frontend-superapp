@@ -60,6 +60,7 @@ import ColumbiaBSD from "./pages/master-rs-ikm/components/MasterLinen/ColumbiaBS
 import RSAtmaJayaJKT from "./pages/master-rs-ikm/components/MasterLinen/RSAtmaJayaJKT";
 import StockOpnamePage from "./pages/master-rs-ikm/components/MasterLinen/StockOpnamePage";
 import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen";
+import KomplainRsPage from "./pages/master-rs-ikm/components/Dashboard/KomplainRs";
 import MasterSize from "./pages/master-rs-ikm/components/MasterData/MasterSize";
 import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor";
 import MasterMaterial from "./pages/master-rs-ikm/components/MasterData/MasterMaterial";
@@ -417,6 +418,7 @@ export default function App() {
         >
           <Route path="/rumah-sakit-ikm" element={<RumahSakitPage />} />
           <Route path="/linen-ikm" element={<DataLinenPage />} />
+          <Route path="/komplain-rs-ikm" element={<KomplainRsPage />} />
           <Route path="/eka-bsd-linen" element={<EkaBSD />} />
           <Route path="/eka-bsd-stock-opname" element={<StockOpnamePage key="eka-bsd-opname" hospitalId={2} hospitalName="Eka Hospital BSD (Bumi Serpong Damai)" />} />
           <Route path="/eka-mth-linen" element={<EkaMTH />} />

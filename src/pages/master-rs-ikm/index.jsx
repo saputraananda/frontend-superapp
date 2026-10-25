@@ -13,6 +13,7 @@ import {
 	HiOutlineFolder,
 	HiOutlineTruck,
 	HiOutlineXMark,
+	HiOutlineChatBubbleLeftEllipsis,
 } from "react-icons/hi2";
 
 function cn(...c) {
@@ -35,6 +36,12 @@ const MENU_SECTIONS = [
 				icon: HiOutlineTableCells,
 				label: "Data Linen",
 				description: "Manajemen data linen",
+			},
+			{
+				to: "/komplain-rs-ikm",
+				icon: HiOutlineChatBubbleLeftEllipsis,
+				label: "Komplain RS",
+				description: "Pantau komplain unit & RS",
 			},
 		],
 	},
