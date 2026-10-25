@@ -366,11 +366,11 @@ function DetailModal({ detail, onClose, onChanged }) {
 						<li key={l.id} className="relative">
 							<span className="absolute -left-[22px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500" />
 							<p className="text-xs font-bold text-slate-800">
-								{ACTION[l.action] || l.action}{l.actor_role === "admin" && (l.action === "APPROVED" || l.action === "REJECTED") ? " (Admin mewakili Tim Linen RS)" : ""}
+								{ACTION[l.action] || l.action}{["admin", "ikm"].includes(l.actor_role) && (l.action === "APPROVED" || l.action === "REJECTED") ? ` (${l.actor_role === "ikm" ? "Tim IKM" : "Admin"} mewakili Tim Linen RS)` : ""}
 								{l.to_status && l.action !== "NOTE" && <span className="ml-1 font-semibold text-slate-400">→ {STATUS[l.to_status]?.label || l.to_status}</span>}
 							</p>
 							{l.note && <p className="mt-0.5 whitespace-pre-wrap rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">{l.note}</p>}
-							<p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400"><HiOutlineClock className="h-3 w-3" /> {l.actor_name} ({l.actor_role === "admin" ? "Admin" : l.actor_role === "rs" ? "Tim Linen RS" : "Unit"}) · {fmtDateTime(l.created_at)}</p>
+							<p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400"><HiOutlineClock className="h-3 w-3" /> {l.actor_name} ({l.actor_role === "admin" ? "Admin" : l.actor_role === "ikm" ? "Tim IKM" : l.actor_role === "rs" ? "Tim Linen RS" : "Unit"}) · {fmtDateTime(l.created_at)}</p>
 						</li>
 					))}
 				</ol>
