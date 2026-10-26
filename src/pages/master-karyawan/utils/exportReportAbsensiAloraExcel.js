@@ -104,6 +104,11 @@ function calcDuration(checkIn, checkOut) {
 }
 
 function lateLabel(row) {
+	if (row.is_late_waived) {
+		const hours = row.late_compensation_hours || (row.late_minutes ? Math.round((Number(row.late_minutes) / 60) * 100) / 100 : 0);
+		const typeLabel = row.late_compensation_type === "replace_off" ? "RO" : "Lembur";
+		return `Ditutup (${hours}j ${typeLabel})`;
+	}
 	if (row.late_category === "planned") return "Terlambat Terencana";
 	if (row.late_category === "unexpected") return "Tidak Terencana";
 	const hasLate =

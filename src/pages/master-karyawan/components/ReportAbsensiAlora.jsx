@@ -24,6 +24,7 @@ import { exportReportAbsensiAloraExcel } from "../utils/exportReportAbsensiAlora
 import AddManualAttendanceAloraModal from "./AddManualAttendanceAloraModal";
 import EditManualAttendanceAloraModal from "./EditManualAttendanceAloraModal";
 import DeleteManualAttendanceAloraModal from "./DeleteManualAttendanceAloraModal";
+import CompensateLateAttendanceModal from "./CompensateLateAttendanceModal";
 
 function cn(...classes) {
 	return classes.filter(Boolean).join(" ");
@@ -126,6 +127,29 @@ function formatLateCell(row) {
 
 function LateCell({ row }) {
 	const late = formatLateCell(row);
+	if (row?.is_late_waived) {
+		const hours = row.late_compensation_hours != null ? Number(row.late_compensation_hours) : (row.late_minutes ? Math.round((Number(row.late_minutes) / 60) * 100) / 100 : 0);
+		const typeLabel = row.late_compensation_type === "replace_off" ? "RO" : "Lembur";
+		return (
+			<div className="max-w-xs space-y-1">
+				<p className="text-xs font-semibold text-slate-700">{late.category}</p>
+				<span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+					<HiOutlineCheckCircle className="h-3 w-3 shrink-0" />
+					Jam Telat Ditutup ({hours}j {typeLabel})
+				</span>
+				{late.duration && (
+					<p className="text-[11px] text-slate-400">
+						Durasi Asli: {late.duration} ({row.late_minutes}m)
+					</p>
+				)}
+				{late.reason && (
+					<p className="line-clamp-1 text-[10px] text-slate-400" title={late.reason}>
+						{late.reason}
+					</p>
+				)}
+			</div>
+		);
+	}
 	if (late.category === "-") {
 		return <span className="text-xs text-slate-300">-</span>;
 	}
@@ -443,6 +467,7 @@ export default function ReportAbsensiAlora() {
 	const [addModalOpen, setAddModalOpen] = useState(false);
 	const [editModalItem, setEditModalItem] = useState(null);
 	const [deleteModalItem, setDeleteModalItem] = useState(null);
+	const [compensateModalItem, setCompensateModalItem] = useState(null);
 
 	const currentUser = useMemo(() => {
 		try {
@@ -1273,6 +1298,17 @@ export default function ReportAbsensiAlora() {
 												{isHrd && (
 													<td className="whitespace-nowrap px-4 py-3">
 														<div className="flex items-center gap-1.5">
+															{row.late_minutes != null && Number(row.late_minutes) > 0 && !row.is_late_waived && (
+																<button
+																	type="button"
+																	onClick={() => setCompensateModalItem(row)}
+																	className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 hover:border-amber-300"
+																	title="Tutup keterlambatan dengan saldo RO / Lembur"
+																>
+																	<HiOutlineClock className="h-3.5 w-3.5" />
+																	Tutup Telat
+																</button>
+															)}
 															<button
 																type="button"
 																onClick={() => setEditModalItem(row)}
@@ -1368,6 +1404,22 @@ export default function ReportAbsensiAlora() {
 												<p className="font-semibold text-slate-400">Terlambat</p>
 												{(() => {
 													const late = formatLateCell(row);
+													if (row?.is_late_waived) {
+														const hours = row.late_compensation_hours != null ? Number(row.late_compensation_hours) : (row.late_minutes ? Math.round((Number(row.late_minutes) / 60) * 100) / 100 : 0);
+														const typeLabel = row.late_compensation_type === "replace_off" ? "RO" : "Lembur";
+														return (
+															<div className="space-y-0.5">
+																<p className="font-semibold text-slate-700">{late.category}</p>
+																<span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+																	<HiOutlineCheckCircle className="h-3 w-3 shrink-0" />
+																	Jam Telat Ditutup ({hours}j {typeLabel})
+																</span>
+																{late.duration && (
+																	<p className="text-[11px] text-slate-400">Durasi Asli: {late.duration}</p>
+																)}
+															</div>
+														);
+													}
 													if (late.category === "-") return <p>-</p>;
 													return (
 														<div className="space-y-0.5">
@@ -1404,6 +1456,16 @@ export default function ReportAbsensiAlora() {
 
 										{isHrd && (
 											<div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5">
+												{row.late_minutes != null && Number(row.late_minutes) > 0 && !row.is_late_waived && (
+													<button
+														type="button"
+														onClick={() => setCompensateModalItem(row)}
+														className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition"
+													>
+														<HiOutlineClock className="h-3.5 w-3.5" />
+														Tutup Telat
+													</button>
+												)}
 												<button
 													type="button"
 													onClick={() => setEditModalItem(row)}
@@ -1460,6 +1522,17 @@ export default function ReportAbsensiAlora() {
 					onClose={() => setDeleteModalItem(null)}
 					onSaved={() => {
 						setDeleteModalItem(null);
+						fetchAbsensi({ silent: true });
+					}}
+				/>
+			)}
+
+			{compensateModalItem && (
+				<CompensateLateAttendanceModal
+					item={compensateModalItem}
+					onClose={() => setCompensateModalItem(null)}
+					onSaved={() => {
+						setCompensateModalItem(null);
 						fetchAbsensi({ silent: true });
 					}}
 				/>
