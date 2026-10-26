@@ -235,10 +235,6 @@ export default function ComplaintManagement() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-fuchsia-200 bg-fuchsia-100 px-3 py-1.5 text-xs font-semibold text-fuchsia-800">
-            <div className="h-2 w-2 rounded-full bg-fuchsia-600" />
-            Complaint Management System
-          </div>
         </header>
 
         {/* Mobile topbar */}

@@ -113,7 +113,7 @@ export function leaveTypeBadge(type) {
 
 export function attendanceStatusBadge(label) {
   if (label === "Lengkap") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (label === "Belum check-out") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (label === "Belum Out") return "border-amber-200 bg-amber-50 text-amber-800";
   if (label === "Foto belum lengkap") return "border-violet-200 bg-violet-50 text-violet-700";
   return "border-rose-200 bg-rose-50 text-rose-700";
 }

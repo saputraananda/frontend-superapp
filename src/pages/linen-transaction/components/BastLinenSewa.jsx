@@ -270,6 +270,7 @@ export default function BastLinenSewa() {
     loadHistory(hospitalId).catch((err) => showToast("error", err.message));
   }, [hospitalId, loadHistory]);
 
+
   useEffect(() => {
     if (!hospitalId || activeTab !== "form") return;
     loadLinens(hospitalId, roomId, editingId);

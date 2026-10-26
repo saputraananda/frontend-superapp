@@ -86,7 +86,7 @@ const LABEL_CLS = "block text-[10px] font-bold uppercase tracking-wider text-sla
 export default function JadwalLibur() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate, selectedYear, selectedMonth } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters } = hrisFilters;
 
   const [rows, setRows] = useState([]);
@@ -373,7 +373,7 @@ export default function JadwalLibur() {
         periodLabel: cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel,
         filters: {
           outlet: outletFilterName(hrisFilters.outlets, hrisFilters.outletId),
-          role: hrisFilters.role,
+          role: hrisFilters.roles.join(", "),
           status: statusFilter,
           search: search.trim(),
         },
@@ -502,11 +502,12 @@ export default function JadwalLibur() {
         <div className="space-y-3">
           <CutoffPeriodFilter cutoff={cutoff} showToday />
           <HrisOutletRoleFilter
+            multiple
             outlets={hrisFilters.outlets}
-            outletId={hrisFilters.outletId}
-            onOutletChange={hrisFilters.setOutletId}
-            role={hrisFilters.role}
-            onRoleChange={hrisFilters.setRole}
+            outletIds={hrisFilters.outletIds}
+            onOutletIdsChange={hrisFilters.setOutletIds}
+            roles={hrisFilters.roles}
+            onRolesChange={hrisFilters.setRoles}
           />
           <div className="relative w-full">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

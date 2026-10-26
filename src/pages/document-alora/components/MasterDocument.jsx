@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, apiUpload, assetUrl } from "../../../lib/api";
+import { exportDocumentsToExcel } from "../utils/exportDocumentExcel";
 import {
+  HiOutlineArrowDownTray,
   HiOutlinePlus,
   HiOutlineMagnifyingGlass,
   HiOutlinePencilSquare,
@@ -22,9 +25,39 @@ import {
   HiOutlinePaperClip,
   HiOutlineDocument,
   HiOutlinePhoto,
+  HiOutlineBuildingOffice2,
+  HiOutlineDocumentDuplicate,
+  HiOutlineHashtag,
+  HiOutlineMapPin,
+  HiOutlineCheck,
+  HiOutlineChatBubbleBottomCenterText,
+  HiOutlineUserGroup,
+  HiOutlineChevronUp,
+  HiOutlineChevronDown,
 } from "react-icons/hi2";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
+
+// Kunci scroll halaman selama modal terbuka: body + container scroll layout ([data-scroll-lock-root] di index.jsx).
+// Counter supaya modal bertumpuk (mis. preview di atas detail) tidak saling membuka kunci.
+let scrollLockCount = 0;
+let scrollLockSaved = [];
+function useScrollLock(active) {
+  useEffect(() => {
+    if (!active) return;
+    if (scrollLockCount++ === 0) {
+      const els = [document.body, ...document.querySelectorAll("[data-scroll-lock-root]")];
+      scrollLockSaved = els.map(el => [el, el.style.overflow]);
+      els.forEach(el => { el.style.overflow = "hidden"; });
+    }
+    return () => {
+      if (--scrollLockCount === 0) {
+        scrollLockSaved.forEach(([el, overflow]) => { el.style.overflow = overflow; });
+        scrollLockSaved = [];
+      }
+    };
+  }, [active]);
+}
 
 const toTitleCase = (str) => {
   if (!str) return "";
@@ -65,9 +98,73 @@ const getRemainingDays = (expiryDateStr) => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-function StatusBadge({ status, expiryDate }) {
+// Selisih kalender (tahun, bulan, hari) dari a ke b, dengan a <= b
+const diffYMD = (a, b) => {
+  let y = b.getFullYear() - a.getFullYear();
+  let m = b.getMonth() - a.getMonth();
+  let d = b.getDate() - a.getDate();
+  if (d < 0) {
+    m--;
+    d += new Date(b.getFullYear(), b.getMonth(), 0).getDate(); // jumlah hari bulan sebelumnya
+  }
+  if (m < 0) { y--; m += 12; }
+  return { y, m, d };
+};
+
+// Aging: "1 Tahun 2 Bulan 2 Hari Lagi" / "Lewat 2 Bulan 3 Hari"
+const getAging = (expiryDateStr) => {
+  const days = getRemainingDays(expiryDateStr);
+  if (days === null) return null;
+  if (days === 0) return { days, text: "Hari Ini" };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDateStr); expiry.setHours(0, 0, 0, 0);
+  const { y, m, d } = days > 0 ? diffYMD(today, expiry) : diffYMD(expiry, today);
+  const parts = [];
+  if (y) parts.push(`${y} Tahun`);
+  if (m) parts.push(`${m} Bulan`);
+  if (d) parts.push(`${d} Hari`);
+  const span = parts.join(" ");
+  return { days, text: days > 0 ? `${span} Lagi` : `Lewat ${span}` };
+};
+
+function AgingBadge({ expiryDate, small }) {
+  const aging = getAging(expiryDate);
+  if (!aging) return <span className={cn("text-slate-400", small && "text-xs")}>—</span>;
+  const cls =
+    aging.days < 0   ? "border-slate-200 bg-slate-50 text-slate-400" :
+    aging.days <= 30 ? "border-rose-200 bg-rose-50 text-rose-600" :
+    aging.days <= 60 ? "border-orange-200 bg-orange-50 text-orange-600" :
+                       "border-slate-200 bg-slate-50 text-slate-600";
+  return (
+    <span className={cn("inline-flex items-center border whitespace-nowrap", cls,
+      small ? "rounded-md px-1.5 py-0.5 text-[10px] font-medium" : "rounded-lg px-2 py-0.5 text-xs font-semibold")}>
+      {aging.text}
+    </span>
+  );
+}
+
+// Nama entitas untuk tampilan: company (+ outlet) atau teks custom
+const entityLabel = (row) => {
+  if (!row.company_id) return row.entity;
+  const company = row.entity_company_name || row.entity;
+  return row.entity_outlet_name ? `${company} – ${row.entity_outlet_name}` : company;
+};
+
+const OUTLET_COMPANY_ID = 5;
+
+// Filter sisa masa berlaku — bucket sama dengan Dashboard
+const EXPIRY_FILTERS = [
+  { value: "expired", label: "Sudah kadaluarsa" },
+  { value: "30",      label: "≤ 30 hari" },
+  { value: "60",      label: "31–60 hari" },
+  { value: "90",      label: "61–90 hari" },
+  { value: "safe",    label: "> 90 hari" },
+  { value: "none",    label: "Tanpa tgl kadaluarsa" },
+];
+
+// Label + warna status, memperhitungkan sisa hari untuk dokumen aktif
+const getStatusInfo = (status, expiryDate) => {
   let c = STATUS_CONFIG[status] ?? STATUS_CONFIG.active;
-  
   if (status === "active" && expiryDate) {
     const days = getRemainingDays(expiryDate);
     if (days !== null) {
@@ -80,7 +177,11 @@ function StatusBadge({ status, expiryDate }) {
       }
     }
   }
+  return c;
+};
 
+function StatusBadge({ status, expiryDate }) {
+  const c = getStatusInfo(status, expiryDate);
   return (
     <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap", c.cls)}>
       {c.label}
@@ -158,6 +259,7 @@ const monthsBetween = (startStr, endStr) => {
 
 // ── File Preview Modal ───────────────────────────────────────────────────────
 function FilePreviewModal({ open, onClose, file }) {
+  useScrollLock(open && !!file);
   if (!open || !file) return null;
   const url = file.url;
   const name = file.name;
@@ -167,7 +269,7 @@ function FilePreviewModal({ open, onClose, file }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm" />
       <div className="relative w-full max-w-5xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -208,12 +310,32 @@ function FilePreviewModal({ open, onClose, file }) {
   );
 }
 
+// ── Sortable Table Header ────────────────────────────────────────────────────
+function SortableTh({ label, column, sort, onSort, className }) {
+  const active = sort.by === column;
+  return (
+    <th aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+      className={cn("px-5 py-3.5 text-center text-[11px] font-bold uppercase tracking-widest", className)}>
+      <button type="button" onClick={() => onSort(column)}
+        className={cn("inline-flex items-center gap-1 uppercase tracking-widest transition hover:text-slate-600",
+          active ? "text-blue-900" : "text-slate-400")}>
+        {label}
+        <span className="flex flex-col -space-y-1">
+          <HiOutlineChevronUp className={cn("h-2.5 w-2.5", active && sort.dir === "asc" ? "text-blue-900" : "text-slate-300")} />
+          <HiOutlineChevronDown className={cn("h-2.5 w-2.5", active && sort.dir === "desc" ? "text-blue-900" : "text-slate-300")} />
+        </span>
+      </button>
+    </th>
+  );
+}
+
 // ── Confirm Delete Modal ─────────────────────────────────────────────────────
 function ConfirmDeleteModal({ open, onClose, onConfirm, title, message, itemName, loading }) {
+  useScrollLock(open);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={loading ? undefined : onClose} />
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Red accent bar */}
         <div className="h-1.5 w-full bg-gradient-to-r from-rose-500 to-rose-600" />
@@ -281,21 +403,283 @@ function AttachmentCard({ name, size, mime, onPreview, onRemove }) {
         className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-blue-700 hover:bg-blue-50 transition" title="Preview">
         <HiOutlineEye className="h-4 w-4" />
       </button>
+      {onRemove && (
       <button type="button" onClick={onRemove}
         className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition" title="Hapus">
         <HiOutlineTrash className="h-4 w-4" />
       </button>
+      )}
     </div>
   );
 }
 
+// ── Detail Modal ─────────────────────────────────────────────────────────────
+function DetailCard({ icon: Icon, title, right, children }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+          <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">{title}</h3>
+        </div>
+        {right}
+      </div>
+      <div className="px-4 py-3.5">{children}</div>
+    </section>
+  );
+}
+
+function DetailRow({ icon: Icon, label, children }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,9rem)_1fr] gap-3 py-2.5 first:pt-0 last:pb-0">
+      <dt className="flex items-center gap-1.5 text-[12px] text-slate-400">
+        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
+        {label}
+      </dt>
+      <dd className="text-sm font-medium text-slate-800 break-words">{children}</dd>
+    </div>
+  );
+}
+
+const formatValidity = (days) => {
+  if (!days) return "—";
+  const { val, unit } = fromDays(days);
+  return `${val} ${VALIDITY_UNITS.find(u => u.value === unit)?.label || ""}`;
+};
+
+// Persentase masa berlaku yang sudah berjalan (0–100), null jika tidak ada tanggal kadaluarsa
+const validityProgress = (effectiveStr, expiryStr) => {
+  if (!effectiveStr || !expiryStr) return null;
+  const start = new Date(effectiveStr).getTime();
+  const end   = new Date(expiryStr).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  const pct = ((Date.now() - start) / (end - start)) * 100;
+  return Math.min(100, Math.max(0, pct));
+};
+
+function NumberItem({ number, label }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(number);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard tidak tersedia */ }
+  };
+  return (
+    <li className="group flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="font-mono text-[13px] font-semibold text-slate-800 break-all">{number}</p>
+        {label && <p className="mt-0.5 text-[11px] text-slate-500">{label}</p>}
+      </div>
+      <button type="button" onClick={copy} title="Salin nomor"
+        className={cn("flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-[11px] font-semibold transition",
+          copied ? "text-emerald-600" : "text-slate-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-blue-700")}>
+        {copied ? <><HiOutlineCheck className="h-3.5 w-3.5" /> Tersalin</> : <HiOutlineDocumentDuplicate className="h-4 w-4" />}
+      </button>
+    </li>
+  );
+}
+
+export function DetailModal({ open, onClose, onEdit, row, lookups }) {
+  // detail = { id, data, attachments, numbers } — id dipakai untuk tahu apakah sudah dimuat untuk row ini
+  const [fetched, setDetail]          = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
+
+  useEffect(() => {
+    if (!open || !row) return;
+    api(`/doc-alora/documents/${row.id}`)
+      .then(d => setDetail({ ...d, id: row.id }))
+      .catch(() => setDetail({ id: row.id }));
+  }, [open, row]);
+
+  useEffect(() => {
+    if (!open || previewFile) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, previewFile, onClose]);
+
+  useScrollLock(open && !!row);
+  if (!open || !row) return null;
+
+  const loading = fetched?.id !== row.id;
+  const detail  = loading ? null : fetched;
+  const doc = { ...row, ...(detail?.data || {}) };
+  const numbers = detail?.numbers?.length
+    ? detail.numbers
+    : [{ document_number: row.document_numbers || row.document_number, label: "" }];
+  const attachments = detail?.attachments || [];
+  const archiveCompany = lookups.companies.find(c => String(c.company_id) === String(doc.archive_location));
+
+  const aging    = getAging(doc.expiry_date);
+  const progress = validityProgress(doc.effective_date, doc.expiry_date);
+  const barCls =
+    !aging            ? "bg-slate-300" :
+    aging.days <= 30  ? "bg-rose-500" :
+    aging.days <= 60  ? "bg-orange-500" : "bg-emerald-500";
+
+  return (
+    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" />
+
+      <div role="dialog" aria-modal="true" aria-labelledby="doc-detail-title"
+        className="relative w-full max-w-3xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-start gap-4 px-6 pt-6 pb-5 border-b border-slate-100">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-900">
+            <HiOutlineDocumentText className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Detail Dokumen</p>
+            <h2 id="doc-detail-title" className="mt-0.5 text-lg font-bold leading-snug text-slate-900 break-words">
+              {doc.document_name}
+            </h2>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <StatusBadge status={doc.status} expiryDate={doc.expiry_date} />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
+                <HiOutlineBuildingOffice2 className="h-3.5 w-3.5 text-slate-400" />
+                {entityLabel(doc) || "—"}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Tutup"
+            className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition">
+            <HiOutlineXMark className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto bg-slate-50/70 px-6 py-5 space-y-4">
+
+          {/* Masa berlaku */}
+          <DetailCard icon={HiOutlineCalendarDays} title="Masa Berlaku"
+            right={<AgingBadge expiryDate={doc.expiry_date} small />}>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[11px] text-slate-400">Tanggal Efektif</p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-800">{formatDate(doc.effective_date)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400">Tanggal Kadaluarsa</p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-800">{formatDate(doc.expiry_date)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400">Durasi</p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-800">{formatValidity(doc.validity_period)}</p>
+              </div>
+            </div>
+            {progress !== null ? (
+              <div className="mt-3.5">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className={cn("h-full rounded-full transition-all", barCls)} style={{ width: `${progress}%` }} />
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-400">{Math.round(progress)}% masa berlaku telah berjalan</p>
+              </div>
+            ) : !doc.expiry_date && (
+              <p className="mt-3 text-[11px] text-slate-400">Dokumen ini tidak memiliki tanggal kadaluarsa.</p>
+            )}
+          </DetailCard>
+
+          {/* Nomor dokumen */}
+          <DetailCard icon={HiOutlineHashtag} title="Nomor Dokumen"
+            right={numbers.length > 1 && <span className="text-[11px] font-semibold text-slate-400">{numbers.length} nomor</span>}>
+            <ul className="space-y-1.5">
+              {numbers.map((n, i) => (
+                <NumberItem key={i} number={n.document_number} label={n.label} />
+              ))}
+            </ul>
+          </DetailCard>
+
+          {/* Informasi */}
+          <DetailCard icon={HiOutlineInformationCircle} title="Informasi">
+            <dl className="divide-y divide-slate-100">
+              <DetailRow icon={HiOutlineBuildingOffice2} label="Entitas">{entityLabel(doc) || "—"}</DetailRow>
+              <DetailRow icon={HiOutlineUser} label="PIC">{toTitleCase(doc.pic_name) || "—"}</DetailRow>
+              <DetailRow icon={HiOutlineUserGroup} label="Departemen">{doc.department_name || "—"}</DetailRow>
+              <DetailRow icon={HiOutlineMapPin} label="Lokasi Arsip">
+                {archiveCompany?.company_name || doc.archive_location_name || doc.archive_location || "—"}
+              </DetailRow>
+            </dl>
+          </DetailCard>
+
+          {/* Catatan */}
+          {doc.notes && (
+            <DetailCard icon={HiOutlineChatBubbleBottomCenterText} title="Catatan">
+              <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line break-words">{doc.notes}</p>
+            </DetailCard>
+          )}
+
+          {/* Lampiran */}
+          <DetailCard icon={HiOutlinePaperClip} title="Lampiran"
+            right={!loading && attachments.length > 0 && <span className="text-[11px] font-semibold text-slate-400">{attachments.length} file</span>}>
+            {loading ? (
+              <div className="flex justify-center py-3">
+                <div className="h-5 w-5 rounded-full border-2 border-blue-900 border-t-transparent animate-spin" />
+              </div>
+            ) : attachments.length === 0 ? (
+              <p className="py-2 text-center text-[12px] text-slate-400">Belum ada lampiran</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {attachments.map(att => (
+                  <AttachmentCard
+                    key={att.id}
+                    name={att.original_name}
+                    size={formatFileSize(att.file_size_kb)}
+                    mime={att.mime_type}
+                    onPreview={() => setPreviewFile({ url: assetUrl(att.file_path), name: att.original_name, mime: att.mime_type })}
+                  />
+                ))}
+              </div>
+            )}
+          </DetailCard>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-100">
+          <p className="text-[11px] text-slate-400 truncate">
+            {doc.updated_at ? `Diperbarui ${formatDate(doc.updated_at)}` : doc.created_at ? `Dibuat ${formatDate(doc.created_at)}` : ""}
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+              Tutup
+            </button>
+            {onEdit && (
+              <button type="button" onClick={() => onEdit(row)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-900 text-sm font-semibold text-white hover:bg-blue-800 transition shadow-sm">
+                <HiOutlinePencilSquare className="h-4 w-4" />
+                Edit
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <FilePreviewModal
+      open={!!previewFile}
+      file={previewFile}
+      onClose={() => setPreviewFile(null)}
+    />
+    </>
+  );
+}
+
 // ── Form Modal ────────────────────────────────────────────────────────────────
+const EMPTY_FORM = {
+  document_name: "", company_id: "", outlet_id: "", entity: "",
+  effective_date: "", expiry_date: "",
+  status: "active", pic_id: "", department_id: "", archive_location: "", notes: "",
+};
+const EMPTY_NUMBER = { number: "", label: "" };
+
 function FormModal({ open, onClose, onSaved, editData, lookups }) {
-  const [form, setForm] = useState({
-    document_name: "", document_number: "", entity: "",
-    effective_date: "", expiry_date: "",
-    status: "active", pic_id: "", department_id: "", archive_location: "", notes: "",
-  });
+  // company_id: "" (belum dipilih) | id company | "custom"
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [numbers, setNumbers] = useState([EMPTY_NUMBER]);
   const [validityVal, setValidityVal]   = useState("");
   const [validityUnit, setValidityUnit] = useState("days");
   const [validityManual, setValidityManual] = useState(false); // user pernah edit manual
@@ -320,8 +704,9 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
         const { val, unit } = fromDays(editData.validity_period);
         setForm({
           document_name:    editData.document_name    || "",
-          document_number:  editData.document_number  || "",
-          entity:           editData.entity           || "",
+          company_id:       editData.company_id ? String(editData.company_id) : "custom",
+          outlet_id:        editData.outlet_id  ? String(editData.outlet_id)  : "",
+          entity:           editData.company_id ? "" : (editData.entity || ""),
           effective_date:   editData.effective_date   ? editData.effective_date.split("T")[0]  : "",
           expiry_date:      editData.expiry_date       ? editData.expiry_date.split("T")[0]    : "",
           status:           editData.status           || "active",
@@ -336,13 +721,19 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
         setValidityManual(!!editData.validity_period);
         setPicSearch(toTitleCase(editData.pic_name || ""));
 
-        // Fetch attachments
+        // Fetch attachments + nomor dokumen
+        const fallbackNumbers = [{ number: editData.document_number || "", label: "" }];
+        setNumbers(fallbackNumbers);
         try {
           const d = await api(`/doc-alora/documents/${editData.id}`);
           setExistingAtts(d.attachments || []);
+          if (d.numbers?.length) {
+            setNumbers(d.numbers.map(n => ({ number: n.document_number, label: n.label || "" })));
+          }
         } catch { setExistingAtts([]); }
       } else {
-        setForm({ document_name:"", document_number:"", entity:"", effective_date:"", expiry_date:"", status:"active", pic_id:"", department_id:"", archive_location:"", notes:"" });
+        setForm(EMPTY_FORM);
+        setNumbers([EMPTY_NUMBER]);
         setValidityVal(""); setValidityUnit("days"); setPicSearch("");
         setValidityManual(false);
         setExistingAtts([]);
@@ -367,6 +758,7 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
     }
   }, [form.effective_date, form.expiry_date, validityManual, open]);
 
+  useScrollLock(open);
   if (!open) return null;
 
   const filteredEmployees = lookups.employees.filter(e =>
@@ -412,14 +804,31 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.document_name || !form.document_number || !form.entity || !form.effective_date || !form.pic_id || !form.department_id) {
+    const filledNumbers = numbers
+      .map(n => ({ number: n.number.trim(), label: n.label.trim() }))
+      .filter(n => n.number);
+    const isCustom = form.company_id === "custom";
+    if (!form.document_name || !filledNumbers.length || !form.company_id || (isCustom && !form.entity.trim())
+      || !form.effective_date || !form.pic_id || !form.department_id) {
       setError("Mohon lengkapi semua field wajib (*)");
+      return;
+    }
+    const lowered = filledNumbers.map(n => n.number.toLowerCase());
+    if (new Set(lowered).size !== lowered.length) {
+      setError("Ada nomor dokumen yang diisi lebih dari sekali");
       return;
     }
     setSaving(true);
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => { if (v !== "" && v != null) fd.append(k, v); });
+      const payload = {
+        ...form,
+        company_id: isCustom ? "" : form.company_id,
+        outlet_id:  !isCustom && Number(form.company_id) === OUTLET_COMPANY_ID ? form.outlet_id : "",
+        entity:     isCustom ? form.entity : "",
+      };
+      Object.entries(payload).forEach(([k, v]) => { if (v !== "" && v != null) fd.append(k, v); });
+      fd.append("document_numbers", JSON.stringify(filledNumbers));
       const inDays = toInDays(validityVal, validityUnit);
       if (inDays) fd.append("validity_period", inDays);
       newFiles.forEach(f => fd.append("attachments", f));
@@ -439,7 +848,7 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" />
 
       <div className="relative w-full max-w-5xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
 
@@ -487,20 +896,6 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
                   className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Nomor Dokumen <span className="text-rose-500">*</span></label>
-                <input value={form.document_number}
-                  onChange={e => setForm(f => ({ ...f, document_number: e.target.value }))}
-                  placeholder="Contoh: DOC/HR/2024/001"
-                  className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Entitas <span className="text-rose-500">*</span></label>
-                <input value={form.entity}
-                  onChange={e => setForm(f => ({ ...f, entity: e.target.value }))}
-                  placeholder="Nama entitas / badan hukum penerbit"
-                  className={inputCls} />
-              </div>
-              <div>
                 <label className={labelCls}>Status</label>
                 <select value={form.status}
                   onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
@@ -511,6 +906,72 @@ function FormModal({ open, onClose, onSaved, editData, lookups }) {
                   <option value="archived">Diarsipkan</option>
                 </select>
               </div>
+              <div>
+                <label className={labelCls}>Entitas <span className="text-rose-500">*</span></label>
+                <select value={form.company_id}
+                  onChange={e => setForm(f => ({ ...f, company_id: e.target.value, outlet_id: "" }))}
+                  className={selectCls}>
+                  <option value="">— Pilih entitas —</option>
+                  {lookups.companies.map(c => (
+                    <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
+                  ))}
+                  <option value="custom">Lainnya (custom)…</option>
+                </select>
+              </div>
+              {Number(form.company_id) === OUTLET_COMPANY_ID && (
+                <div>
+                  <label className={labelCls}>Outlet <span className="text-[10px] font-normal text-slate-400">(opsional)</span></label>
+                  <select value={form.outlet_id}
+                    onChange={e => setForm(f => ({ ...f, outlet_id: e.target.value }))}
+                    className={selectCls}>
+                    <option value="">— Tanpa outlet —</option>
+                    {lookups.outlets.map(o => (
+                      <option key={o.outlet_id} value={o.outlet_id}>{o.outlet_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {form.company_id === "custom" && (
+                <div>
+                  <label className={labelCls}>Nama Entitas Custom <span className="text-rose-500">*</span></label>
+                  <input value={form.entity}
+                    onChange={e => setForm(f => ({ ...f, entity: e.target.value }))}
+                    placeholder="Nama entitas / badan hukum di luar daftar"
+                    className={inputCls} />
+                </div>
+              )}
+            </div>
+
+            {/* Nomor dokumen (bisa lebih dari satu) */}
+            <div className="mt-4">
+              <label className={labelCls}>
+                Nomor Dokumen <span className="text-rose-500">*</span>
+                <span className="ml-1.5 text-[10px] font-normal text-slate-400">bisa lebih dari satu, tiap nomor harus unik</span>
+              </label>
+              <div className="space-y-2">
+                {numbers.map((n, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input value={n.number}
+                      onChange={e => setNumbers(list => list.map((x, i) => i === idx ? { ...x, number: e.target.value } : x))}
+                      placeholder="Contoh: DOC/HR/2024/001"
+                      className={cn(inputCls, "flex-[3] min-w-0")} />
+                    <input value={n.label}
+                      onChange={e => setNumbers(list => list.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
+                      placeholder="Keterangan (opsional), mis. No. Pihak Kedua"
+                      className={cn(inputCls, "flex-[2] min-w-0")} />
+                    <button type="button" disabled={numbers.length === 1}
+                      onClick={() => setNumbers(list => list.filter((_, i) => i !== idx))}
+                      className="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition"
+                      title="Hapus nomor">
+                      <HiOutlineTrash className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => setNumbers(list => [...list, EMPTY_NUMBER])}
+                className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-blue-700 hover:underline">
+                <HiOutlinePlus className="h-3.5 w-3.5" /> Tambah nomor
+              </button>
             </div>
           </section>
 
@@ -799,6 +1260,7 @@ function SummaryDetailModal({ open, type, onClose }) {
     })();
   }, [open, type]);
 
+  useScrollLock(open);
   if (!open) return null;
 
   const titles = {
@@ -813,7 +1275,7 @@ function SummaryDetailModal({ open, type, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" />
       
       <div className="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         
@@ -862,10 +1324,10 @@ function SummaryDetailModal({ open, type, onClose }) {
                         <>
                           <td className="px-4 py-3">
                             <p className="text-xs font-semibold text-slate-800">{row.document_name}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">{row.document_number}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{row.document_numbers || row.document_number}</p>
                           </td>
                           <td className="px-4 py-3">
-                            <p className="text-xs text-slate-700">{row.entity}</p>
+                            <p className="text-xs text-slate-700">{entityLabel(row)}</p>
                             <p className="text-[10px] text-slate-400 mt-0.5">{row.department_name || "—"}</p>
                           </td>
                           <td className="px-4 py-3">
@@ -873,20 +1335,7 @@ function SummaryDetailModal({ open, type, onClose }) {
                             <p className="text-[10px] text-slate-400 mt-0.5">s/d {formatDate(row.expiry_date)}</p>
                           </td>
                           <td className="px-4 py-3">
-                            {(() => {
-                              const days = getRemainingDays(row.expiry_date);
-                              if (days === null) return <span className="text-slate-400 text-xs">—</span>;
-                              if (days < 0) {
-                                return <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">Expired</span>;
-                              }
-                              if (days <= 30) {
-                                return <span className="inline-flex rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-600">{days} Hari</span>;
-                              }
-                              if (days <= 60) {
-                                return <span className="inline-flex rounded-md border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600">{days} Hari</span>;
-                              }
-                              return <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{days} Hari</span>;
-                            })()}
+                            <AgingBadge expiryDate={row.expiry_date} small />
                           </td>
                         </>
                       ) : (
@@ -942,22 +1391,31 @@ export default function MasterDocument() {
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
   const [page, setPage]           = useState(1);
-  const [searchInput, setSI]      = useState("");
-  const [search, setSearch]       = useState("");
-  const [filterStatus, setFS]     = useState("");
+  // Filter awal bisa datang dari dashboard lewat query string (?expiry=30&company_id=2&search=...)
+  const [urlParams]               = useSearchParams();
+  const [searchInput, setSI]      = useState(() => urlParams.get("search") || "");
+  const [search, setSearch]       = useState(() => urlParams.get("search") || "");
+  const [filterStatus, setFS]     = useState(() => urlParams.get("status") || "");
+  const [filterCompany, setFC]    = useState(() => urlParams.get("company_id") || ""); // "" | company_id | "custom"
+  const [filterOutlet, setFO]     = useState("");
+  const [filterExpiry, setFE]     = useState(() => urlParams.get("expiry") || ""); // "" | expired | 30 | 60 | 90 | safe | none
+  const [sort, setSort]           = useState({ by: "", dir: "asc" }); // by "" = urutan default (terbaru)
   const [toast, setToast]         = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData]   = useState(null);
   const [summaryDetailType, setSummaryDetailType] = useState(null);
-  const [lookups, setLookups]     = useState({ employees: [], departments: [], companies: [] });
+  const [lookups, setLookups]     = useState({ employees: [], departments: [], companies: [], outlets: [] });
   const [summary, setSummary]     = useState(null);
 
   // Preview untuk row attachment
   const [rowPreview, setRowPreview] = useState(null);
+  // Modal detail dokumen
+  const [detailRow, setDetailRow]   = useState(null);
 
   // Confirm delete master document
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
   const [deleting, setDeleting]         = useState(false);
+  const [exporting, setExporting]       = useState(false);
 
   const LIMIT = 15;
   const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 3500); };
@@ -970,16 +1428,18 @@ export default function MasterDocument() {
   useEffect(() => {
     (async () => {
       try {
-        const [empRes, deptRes, compRes, summaryRes] = await Promise.all([
+        const [empRes, deptRes, compRes, outletRes, summaryRes] = await Promise.all([
           api("/doc-alora/lookup/employees"),
           api("/doc-alora/lookup/departments"),
           api("/doc-alora/lookup/companies"),
+          api("/doc-alora/lookup/outlets"),
           api("/doc-alora/dashboard"),
         ]);
         setLookups({
           employees:   empRes.data   || [],
           departments: deptRes.data  || [],
           companies:   compRes.data  || [],
+          outlets:     outletRes.data || [],
         });
         setSummary(summaryRes);
       } catch { /* ignore */ }
@@ -992,6 +1452,10 @@ export default function MasterDocument() {
       const params = new URLSearchParams({ page, limit: LIMIT });
       if (search)       params.set("search", search);
       if (filterStatus) params.set("status", filterStatus);
+      if (filterCompany) params.set("company_id", filterCompany);
+      if (filterOutlet)  params.set("outlet_id", filterOutlet);
+      if (filterExpiry)  params.set("expiry", filterExpiry);
+      if (sort.by) { params.set("sort_by", sort.by); params.set("sort_dir", sort.dir); }
       const d = await api(`/doc-alora/documents?${params}`);
       setData(d.data || []);
       setTotal(d.total || 0);
@@ -1000,9 +1464,18 @@ export default function MasterDocument() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterStatus]);
+  }, [page, search, filterStatus, filterCompany, filterOutlet, filterExpiry, sort]);
 
   useEffect(() => { loadList(); }, [loadList]);
+
+  // Klik header: asc → desc → kembali ke urutan default
+  const handleSort = (column) => {
+    setSort(prev =>
+      prev.by !== column ? { by: column, dir: "asc" } :
+      prev.dir === "asc" ? { by: column, dir: "desc" } :
+                           { by: "", dir: "asc" });
+    setPage(1);
+  };
 
   const askDelete = (row) => setDeleteTarget({ id: row.id, name: row.document_name });
 
@@ -1040,6 +1513,71 @@ export default function MasterDocument() {
     } catch (err) { showToast("error", err.message); }
   };
 
+  // Export semua dokumen sesuai filter aktif (bukan hanya halaman yang tampil)
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const PAGE_SIZE = 100; // batas maksimum limit di backend
+      const all = [];
+      for (let p = 1; ; p++) {
+        const params = new URLSearchParams({ page: p, limit: PAGE_SIZE });
+        if (search)        params.set("search", search);
+        if (filterStatus)  params.set("status", filterStatus);
+        if (filterCompany) params.set("company_id", filterCompany);
+        if (filterOutlet)  params.set("outlet_id", filterOutlet);
+        if (filterExpiry)  params.set("expiry", filterExpiry);
+        const d = await api(`/doc-alora/documents?${params}`);
+        all.push(...(d.data || []));
+        if (!d.data?.length || all.length >= (d.total || 0)) break;
+      }
+      if (!all.length) {
+        showToast("error", "Tidak ada dokumen untuk diekspor");
+        return;
+      }
+
+      const rows = all.map(r => {
+        const aging = getAging(r.expiry_date);
+        return {
+          document_name:  r.document_name,
+          numbers:        r.document_numbers_detail || r.document_numbers || r.document_number,
+          entity:         r.company_id ? (r.entity_company_name || r.entity) : r.entity,
+          outlet:         r.entity_outlet_name || "",
+          status:         getStatusInfo(r.status, r.expiry_date).label,
+          effective_date: r.effective_date,
+          expiry_date:    r.expiry_date,
+          validity:       r.validity_period ? formatValidity(r.validity_period) : "",
+          aging:          aging?.text || "",
+          aging_days:     aging?.days ?? null,
+          pic:            toTitleCase(r.pic_name),
+          department:     r.department_name || "",
+          archive:        r.archive_location_name || "",
+          attachments:    Number(r.attachment_count) || 0,
+          notes:          r.notes || "",
+        };
+      });
+
+      const filters = [];
+      if (search) filters.push(`Pencarian: "${search}"`);
+      if (filterStatus) filters.push(`Status: ${STATUS_CONFIG[filterStatus]?.label || filterStatus}`);
+      if (filterExpiry) filters.push(`Masa berlaku: ${EXPIRY_FILTERS.find(o => o.value === filterExpiry)?.label || filterExpiry}`);
+      if (filterCompany) {
+        filters.push(`Entitas: ${filterCompany === "custom"
+          ? "Lainnya (custom)"
+          : lookups.companies.find(c => String(c.company_id) === filterCompany)?.company_name || filterCompany}`);
+      }
+      if (filterOutlet) {
+        filters.push(`Outlet: ${lookups.outlets.find(o => String(o.outlet_id) === filterOutlet)?.outlet_name || filterOutlet}`);
+      }
+
+      await exportDocumentsToExcel({ rows, filters });
+      showToast("success", `${rows.length} dokumen berhasil diekspor`);
+    } catch (err) {
+      showToast("error", err.message || "Gagal export Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const openEdit   = (row) => { setEditData(row);  setModalOpen(true); };
   const openCreate = ()    => { setEditData(null);  setModalOpen(true); };
   const totalPages = Math.ceil(total / LIMIT) || 1;
@@ -1054,11 +1592,21 @@ export default function MasterDocument() {
           <h1 className="text-lg font-bold text-slate-800">Master Dokumen</h1>
           <p className="text-xs text-slate-500 mt-0.5">Kelola data dokumen perusahaan</p>
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 transition shadow-sm">
-          <HiOutlinePlus className="h-4 w-4" />
-          <span className="hidden sm:inline">Tambah Dokumen</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} disabled={exporting}
+            title="Export dokumen sesuai filter ke Excel"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-60 transition shadow-sm">
+            {exporting
+              ? <span className="h-4 w-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
+              : <HiOutlineArrowDownTray className="h-4 w-4 text-emerald-600" />}
+            <span className="hidden sm:inline">{exporting ? "Mengekspor..." : "Export Excel"}</span>
+          </button>
+          <button onClick={openCreate}
+            className="flex items-center gap-2 rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 transition shadow-sm">
+            <HiOutlinePlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Tambah Dokumen</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -1123,6 +1671,28 @@ export default function MasterDocument() {
           <option value="expired">Kadaluarsa</option>
           <option value="archived">Diarsipkan</option>
         </select>
+        <select value={filterExpiry} onChange={e => { setFE(e.target.value); setPage(1); }}
+          className={cn(selectCls, "w-full sm:w-52")}>
+          <option value="">Semua Masa Berlaku</option>
+          {EXPIRY_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={filterCompany} onChange={e => { setFC(e.target.value); setFO(""); setPage(1); }}
+          className={cn(selectCls, "w-full sm:w-56")}>
+          <option value="">Semua Entitas</option>
+          {lookups.companies.map(c => (
+            <option key={c.company_id} value={c.company_id}>{c.company_name}</option>
+          ))}
+          <option value="custom">Lainnya (custom)</option>
+        </select>
+        {Number(filterCompany) === OUTLET_COMPANY_ID && (
+          <select value={filterOutlet} onChange={e => { setFO(e.target.value); setPage(1); }}
+            className={cn(selectCls, "w-full sm:w-48")}>
+            <option value="">Semua Outlet</option>
+            {lookups.outlets.map(o => (
+              <option key={o.outlet_id} value={o.outlet_id}>{o.outlet_name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Table */}
@@ -1141,18 +1711,19 @@ export default function MasterDocument() {
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Dokumen</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Entitas</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden lg:table-cell">PIC</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:table-cell">Berlaku</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:table-cell">Aging</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-5 py-3.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest">Aksi</th>
+                  <SortableTh label="Dokumen" column="document_name" sort={sort} onSort={handleSort} />
+                  <SortableTh label="Entitas" column="entity" sort={sort} onSort={handleSort} className="hidden md:table-cell" />
+                  <SortableTh label="PIC" column="pic_name" sort={sort} onSort={handleSort} className="hidden lg:table-cell" />
+                  <SortableTh label="Berlaku" column="effective_date" sort={sort} onSort={handleSort} className="hidden sm:table-cell" />
+                  <SortableTh label="Aging" column="expiry_date" sort={sort} onSort={handleSort} className="hidden sm:table-cell" />
+                  <SortableTh label="Status" column="status" sort={sort} onSort={handleSort} />
+                  <th className="px-5 py-3.5 text-center text-[11px] font-bold text-slate-400 uppercase tracking-widest">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {data.map(row => (
-                  <tr key={row.id} className="hover:bg-blue-50/30 transition-colors">
+                  <tr key={row.id} onClick={() => setDetailRow(row)}
+                    className="hover:bg-blue-50/30 transition-colors cursor-pointer">
                     <td className="px-5 py-4 max-w-[280px] sm:max-w-xs md:max-w-sm lg:max-w-md">
                       <div className="flex items-center gap-2.5">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-900">
@@ -1160,8 +1731,8 @@ export default function MasterDocument() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-800 break-words whitespace-normal">{row.document_name}</p>
-                          <p className="text-[11px] text-slate-400 truncate flex items-center gap-1.5">
-                            {row.document_number}
+                          <p className="text-[11px] text-slate-400 flex flex-wrap items-center gap-1.5">
+                            <span className="break-words whitespace-normal">{row.document_numbers || row.document_number}</span>
                             {row.attachment_count > 0 && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 text-[9px] font-semibold">
                                 <HiOutlinePaperClip className="h-3 w-3" />{row.attachment_count}
@@ -1172,7 +1743,7 @@ export default function MasterDocument() {
                       </div>
                     </td>
                     <td className="px-5 py-4 hidden md:table-cell">
-                      <p className="text-sm text-slate-700">{row.entity}</p>
+                      <p className="text-sm text-slate-700">{entityLabel(row)}</p>
                       <p className="text-[11px] text-slate-400">{row.department_name || "—"}</p>
                     </td>
                     <td className="px-5 py-4 hidden lg:table-cell">
@@ -1183,44 +1754,20 @@ export default function MasterDocument() {
                       <p className="text-[11px] text-slate-400">s/d {formatDate(row.expiry_date)}</p>
                     </td>
                     <td className="px-5 py-4 hidden sm:table-cell">
-                      {(() => {
-                        const days = getRemainingDays(row.expiry_date);
-                        if (days === null) return <span className="text-slate-400">—</span>;
-                        if (days < 0) {
-                          return (
-                            <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-400">
-                              Expired
-                            </span>
-                          );
-                        }
-                        if (days <= 30) {
-                          return (
-                            <span className="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-600">
-                              {days} Hari Lagi
-                            </span>
-                          );
-                        }
-                        if (days <= 60) {
-                          return (
-                            <span className="inline-flex items-center rounded-lg border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-600">
-                              {days} Hari Lagi
-                            </span>
-                          );
-                        }
-                        return (
-                          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                            {days} Hari Lagi
-                          </span>
-                        );
-                      })()}
+                      <AgingBadge expiryDate={row.expiry_date} />
                     </td>
                     <td className="px-5 py-4"><StatusBadge status={row.status} expiryDate={row.expiry_date} /></td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
+                      {/* stopPropagation: klik tombol aksi tidak ikut membuka modal detail dari row */}
+                      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setDetailRow(row)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" title="Lihat detail">
+                          <HiOutlineEye className="h-4 w-4" />
+                        </button>
                         {row.attachment_count > 0 && (
                           <button onClick={() => handleViewAttachments(row)}
                             className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" title="Lihat lampiran">
-                            <HiOutlineEye className="h-4 w-4" />
+                            <HiOutlinePaperClip className="h-4 w-4" />
                           </button>
                         )}
                         <button onClick={() => openEdit(row)}
@@ -1265,6 +1812,14 @@ export default function MasterDocument() {
         onSaved={() => { showToast("success", editData ? "Dokumen diperbarui" : "Dokumen ditambahkan"); loadList(); }}
         editData={editData}
         lookups={lookups}
+      />
+
+      <DetailModal
+        open={!!detailRow}
+        row={detailRow}
+        lookups={lookups}
+        onClose={() => setDetailRow(null)}
+        onEdit={(row) => { setDetailRow(null); openEdit(row); }}
       />
 
       {/* Row preview modal */}

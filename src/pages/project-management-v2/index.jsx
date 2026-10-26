@@ -641,10 +641,6 @@ export default function ProjectManagementV2() {
                         </button>
                         <ActiveMenuTitle />
                     </div>
-                    <div className="flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600">
-                        <div className="h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />
-                        Project Management 2.0
-                    </div>
                 </header>
 
                 {/* Mobile topbar */}

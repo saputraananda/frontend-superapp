@@ -247,10 +247,6 @@ export default function PengajuanAlora() {
                         </button>
                         <ActiveMenuTitle />
                     </div>
-                    <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Pengadaan & Pengajuan
-                    </div>
                 </header>
 
                 <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">

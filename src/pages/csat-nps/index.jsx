@@ -213,10 +213,6 @@ export default function CsAtNps() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-            <div className="h-2 w-2 rounded-full bg-amber-500" />
-            CSAT & NPS
-          </div>
         </header>
 
         <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">

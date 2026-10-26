@@ -18,6 +18,7 @@ import {
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import UnitUsersPanel from "./UnitUsersPanel";
 
 // ── Fix leaflet default icon paths (broken by webpack/vite) ──────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -197,6 +198,25 @@ function Modal({ open, title, onClose, className = "max-w-lg", children }) {
 	);
 }
 
+// ── Tab bar (Data RS / User Unit) ─────────────────────────────────────────
+function TabBar({ tab, onChange }) {
+	const tabs = [["data", "Data Rumah Sakit"], ["users", "User Unit"]];
+	return (
+		<div className="mb-4 flex gap-1 border-b border-slate-200">
+			{tabs.map(([key, label]) => (
+				<button
+					key={key}
+					type="button"
+					onClick={() => onChange(key)}
+					className={`-mb-px border-b-2 px-4 py-2 text-xs font-semibold transition ${tab === key ? "border-red-600 text-red-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+				>
+					{label}
+				</button>
+			))}
+		</div>
+	);
+}
+
 // ── Map Controller ───────────────────────────────────────────────────────
 function MapController({ target }) {
 	const map = useMap();
@@ -229,6 +249,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			kg_agreement: initial.kg_agreement != null && initial.kg_agreement !== "" ? String(Number(initial.kg_agreement)) : "",
 		};
 	});
+	const [tab, setTab] = useState("data");
 	const [newRoom, setNewRoom] = useState("");
 	const [editingIdx, setEditingIdx] = useState(null);
 	const [editingRoom, setEditingRoom] = useState("");
@@ -464,7 +485,8 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 
 	return (
 		<form onSubmit={handleSubmit} className="relative space-y-4">
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			{initial?.id && <TabBar tab={tab} onChange={setTab} />}
+			<div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${tab === "data" ? "" : "hidden"}`}>
 				{/* Kiri: Data Rumah Sakit */}
 				<div className="space-y-4">
 					<div>
@@ -798,7 +820,8 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 					</div>
 				</div>
 			</div>
-			<div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+			{initial?.id && tab === "users" && <UnitUsersPanel hospitalId={initial.id} rooms={form.rooms} />}
+			<div className={`flex justify-end gap-3 pt-4 border-t border-slate-100 ${tab === "data" ? "" : "hidden"}`}>
 				<button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
 					Batal
 				</button>
@@ -822,6 +845,7 @@ export default function RumahSakitPage() {
 	const [modal, setModal] = useState(null); // { mode: "add"|"edit", data: null|{...} }
 	const [deleteTarget, setDeleteTarget] = useState(null);
 	const [detailModal, setDetailModal] = useState(null);
+	const [detailTab, setDetailTab] = useState("data");
 	const [detailPriceLogs, setDetailPriceLogs] = useState([]);
 	const [loadingDetailPriceLogs, setLoadingDetailPriceLogs] = useState(false);
 	const [showDetailRooms, setShowDetailRooms] = useState(false);
@@ -1153,6 +1177,7 @@ export default function RumahSakitPage() {
 														type="button"
 														title="Detail"
 														onClick={() => {
+															setDetailTab("data");
 															setDetailModal(h);
 															setShowDetailRooms(false);
 														}}
@@ -1245,7 +1270,9 @@ export default function RumahSakitPage() {
 			>
 				{detailModal && (
 					<div className="space-y-4">
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<TabBar tab={detailTab} onChange={setDetailTab} />
+						{detailTab === "users" && <UnitUsersPanel hospitalId={detailModal.id} rooms={detailModal.rooms || []} />}
+						<div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${detailTab === "data" ? "" : "hidden"}`}>
 							<div className="sm:col-span-2">
 								<label className="block text-xs font-semibold text-slate-500 mb-1">Nama Rumah Sakit</label>
 								<div className="text-sm font-semibold text-slate-800">{detailModal.hospital_name}</div>

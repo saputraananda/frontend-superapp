@@ -61,7 +61,7 @@ const TYPE_FILTERS = [
 export default function Perizinan() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
-  const hrisFilters = useHrisOutletRoleFilters();
+  const hrisFilters = useHrisOutletRoleFilters({ multiple: true });
   const { appendFilters } = hrisFilters;
   const { sort, toggle: toggleSort, apply: applySort } = useSort({ col: "created_at", dir: "desc" });
 
@@ -229,11 +229,12 @@ export default function Perizinan() {
         <div className="space-y-3">
           <CutoffPeriodFilter cutoff={cutoff} showToday />
           <HrisOutletRoleFilter
+            multiple
             outlets={hrisFilters.outlets}
-            outletId={hrisFilters.outletId}
-            onOutletChange={hrisFilters.setOutletId}
-            role={hrisFilters.role}
-            onRoleChange={hrisFilters.setRole}
+            outletIds={hrisFilters.outletIds}
+            onOutletIdsChange={hrisFilters.setOutletIds}
+            roles={hrisFilters.roles}
+            onRolesChange={hrisFilters.setRoles}
           />
           <div className="relative w-full">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

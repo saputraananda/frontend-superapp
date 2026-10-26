@@ -60,6 +60,7 @@ import ColumbiaBSD from "./pages/master-rs-ikm/components/MasterLinen/ColumbiaBS
 import RSAtmaJayaJKT from "./pages/master-rs-ikm/components/MasterLinen/RSAtmaJayaJKT";
 import StockOpnamePage from "./pages/master-rs-ikm/components/MasterLinen/StockOpnamePage";
 import DataLinenPage from "./pages/master-rs-ikm/components/Dashboard/DataLinen";
+import KomplainRsPage from "./pages/master-rs-ikm/components/Dashboard/KomplainRs";
 import MasterSize from "./pages/master-rs-ikm/components/MasterData/MasterSize";
 import MasterColor from "./pages/master-rs-ikm/components/MasterData/MasterColor";
 import MasterMaterial from "./pages/master-rs-ikm/components/MasterData/MasterMaterial";
@@ -97,6 +98,7 @@ import PengajuanBarang from "./pages/pengajuan-alora/pages/PengajuanBarang";
 import FormPengajuan from "./pages/pengajuan-alora/pages/FormPengajuan";
 import MasterClassification from "./pages/pengajuan-alora/pages/MasterClassification";
 import DocumentAlora from "./pages/document-alora";
+import DashboardDocument from "./pages/document-alora/components/DashboardDocument";
 import MasterDocument from "./pages/document-alora/components/MasterDocument";
 import TransDocument from "./pages/document-alora/components/TransDocument";
 import CsAtNps from "./pages/csat-nps";
@@ -160,6 +162,7 @@ import PerizinanWaschen from "./pages/my-waschen/components/HRIS/Perizinan";
 import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
 import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
+import PayrollWaschen from "./pages/my-waschen/components/HRIS/Payroll";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
 import EventDashboardWaschen from "./pages/my-waschen/components/EventB2B/EventDashboard";
@@ -415,6 +418,7 @@ export default function App() {
         >
           <Route path="/rumah-sakit-ikm" element={<RumahSakitPage />} />
           <Route path="/linen-ikm" element={<DataLinenPage />} />
+          <Route path="/komplain-rs-ikm" element={<KomplainRsPage />} />
           <Route path="/eka-bsd-linen" element={<EkaBSD />} />
           <Route path="/eka-bsd-stock-opname" element={<StockOpnamePage key="eka-bsd-opname" hospitalId={2} hospitalName="Eka Hospital BSD (Bumi Serpong Damai)" />} />
           <Route path="/eka-mth-linen" element={<EkaMTH />} />
@@ -605,7 +609,9 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/document-alora" element={<MasterDocument />} />
+          <Route path="/document-alora/dashboard" element={<DashboardDocument />} />
+          <Route path="/document-alora/master" element={<MasterDocument />} />
+          <Route path="/document-alora" element={<Navigate to="/document-alora/dashboard" replace />} />
           <Route path="/document-alora/transactions" element={<TransDocument />} />
         </Route>
 
@@ -697,6 +703,7 @@ export default function App() {
           <Route path="/my-waschen/hris/kasbon" element={<KasbonWaschen />} />
           <Route path="/my-waschen/hris/overtime" element={<OvertimeWaschen />} />
           <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
+          <Route path="/my-waschen/hris/payroll" element={<PayrollWaschen />} />
           <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
           <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />

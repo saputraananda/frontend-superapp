@@ -13,6 +13,7 @@ import {
 	HiOutlineFolder,
 	HiOutlineTruck,
 	HiOutlineXMark,
+	HiOutlineChatBubbleLeftEllipsis,
 } from "react-icons/hi2";
 
 function cn(...c) {
@@ -35,6 +36,12 @@ const MENU_SECTIONS = [
 				icon: HiOutlineTableCells,
 				label: "Data Linen",
 				description: "Manajemen data linen",
+			},
+			{
+				to: "/komplain-rs-ikm",
+				icon: HiOutlineChatBubbleLeftEllipsis,
+				label: "Komplain RS",
+				description: "Pantau komplain unit & RS",
 			},
 		],
 	},
@@ -508,10 +515,6 @@ export default function MasterRsIkm() {
 							<HiOutlineBars3 className="h-5 w-5" />
 						</button>
 						<ActiveMenuTitle />
-					</div>
-					<div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-						<div className="h-2 w-2 rounded-full bg-emerald-500" />
-						Desktop Mode
 					</div>
 				</header>
 

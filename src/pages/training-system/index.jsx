@@ -208,13 +208,6 @@ export default function TrainingManagementSystem() {
                         </button>
                         <ActiveMenuTitle />
                     </div>
-                    <div
-                        className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
-                        style={{ background: "#FFFAE8", border: "1px solid #D4A12A80", color: "#A07D18" }}
-                    >
-                        <div className="h-2 w-2 rounded-full" style={{ background: "#D4A12A" }} />
-                        Training Management
-                    </div>
                 </header>
 
                 <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">

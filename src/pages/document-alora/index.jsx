@@ -7,13 +7,20 @@ import {
   HiOutlineXMark,
   HiOutlineClipboardDocumentList,
   HiOutlineArrowsRightLeft,
+  HiOutlineChartBarSquare,
 } from "react-icons/hi2";
 
 function cn(...classes) { return classes.filter(Boolean).join(" "); }
 
 const MENU_ITEMS = [
   {
-    to: "/document-alora",
+    to: "/document-alora/dashboard",
+    icon: HiOutlineChartBarSquare,
+    label: "Dashboard",
+    description: "Ringkasan & prioritas tindakan",
+  },
+  {
+    to: "/document-alora/master",
     icon: HiOutlineDocumentText,
     label: "Master Dokumen",
     description: "Daftar dokumen perusahaan",
@@ -195,10 +202,6 @@ export default function DocumentAlora() {
             </button>
             <ActiveMenuTitle />
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-900">
-            <div className="h-2 w-2 rounded-full bg-blue-900" />
-            Document Management
-          </div>
         </header>
 
         <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
@@ -216,7 +219,7 @@ export default function DocumentAlora() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div data-scroll-lock-root className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </div>
       </div>

@@ -507,13 +507,17 @@ export default function HospitalLinenPage({ hospitalId }) {
       {/* Stat Cards */}
       {!loading && items.length > 0 && (() => {
         const totalLinen = items.length;
-        const milikRs = items.filter(i => i.ownership_type === "MILIK_RS").reduce((s, i) => s + Number(i.current_stock ?? 0), 0);
-        const sewa    = items.filter(i => i.ownership_type === "SEWA").reduce((s, i) => s + Number(i.current_stock ?? 0), 0);
+        const sumBy = (type, field) => items.filter(i => i.ownership_type === type).reduce((s, i) => s + Number(i[field] ?? 0), 0);
+        const milikRs = sumBy("MILIK_RS", "stock_in_rs");
+        const sewaRs  = sumBy("SEWA", "stock_in_rs");
+        const sewaIkm = sumBy("SEWA", "stock_in_ikm");
+        const totalRs = items.reduce((s, i) => s + Number(i.stock_in_rs ?? 0), 0);
         const totalStok = items.reduce((s, i) => s + Number(i.current_stock ?? 0), 0);
+        const pct = (v) => (totalRs > 0 ? `${Math.round(v / totalRs * 100)}%` : "0%");
         const toggle = (val) => setCardFilter(prev => prev === val ? null : val);
         const ringCls = "ring-2 ring-white/60 scale-[1.02]";
         return (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
             {/* Total Linen */}
             <button type="button" onClick={() => setCardFilter(null)}
               className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-700 px-4 py-3 shadow-md text-left transition-all cursor-pointer hover:scale-[1.01] active:scale-100",
@@ -544,11 +548,11 @@ export default function HospitalLinenPage({ hospitalId }) {
               </div>
               <p className="text-2xl font-extrabold text-white">{milikRs.toLocaleString("id-ID")}</p>
               <p className="mt-0.5 text-[11px] text-blue-200">
-                {totalStok > 0 ? `${Math.round(milikRs / totalStok * 100)}%` : "0%"} dari total stok
+                {pct(milikRs)} dari total di RS
               </p>
             </button>
 
-            {/* Sewa */}
+            {/* Sewa di RS */}
             <button type="button" onClick={() => toggle("SEWA")}
               className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 px-4 py-3 shadow-md text-left transition-all cursor-pointer hover:scale-[1.01] active:scale-100",
                 cardFilter === "SEWA" ? ringCls : "")}>
@@ -558,28 +562,61 @@ export default function HospitalLinenPage({ hospitalId }) {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20">
                   <HiOutlineCheckCircle className="h-4 w-4 text-white" />
                 </div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-100">Sewa</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-100">Sewa di RS</p>
               </div>
-              <p className="text-2xl font-extrabold text-white">{sewa.toLocaleString("id-ID")}</p>
+              <p className="text-2xl font-extrabold text-white">{sewaRs.toLocaleString("id-ID")}</p>
               <p className="mt-0.5 text-[11px] text-amber-200">
-                {totalStok > 0 ? `${Math.round(sewa / totalStok * 100)}%` : "0%"} dari total stok
+                {pct(sewaRs)} dari total di RS
               </p>
             </button>
 
-            {/* Total Stok */}
+            {/* Sewa di IKM */}
+            <button type="button" onClick={() => toggle("SEWA")}
+              className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-purple-500 px-4 py-3 shadow-md text-left transition-all cursor-pointer hover:scale-[1.01] active:scale-100",
+                cardFilter === "SEWA" ? ringCls : "")}>
+              <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
+              <div className="absolute -right-1 -bottom-6 h-24 w-24 rounded-full bg-white/10" />
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20">
+                  <HiOutlineCheckCircle className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-100">Sewa di IKM</p>
+              </div>
+              <p className="text-2xl font-extrabold text-white">{sewaIkm.toLocaleString("id-ID")}</p>
+              <p className="mt-0.5 text-[11px] text-violet-200">
+                stok sewa di gudang IKM
+              </p>
+            </button>
+
+            {/* Total Stok di RS */}
             <button type="button" onClick={() => setCardFilter(null)}
               className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-500 px-4 py-3 shadow-md text-left transition-all cursor-pointer hover:scale-[1.01] active:scale-100",
-                cardFilter === null ? ringCls : "")}>
+                "")}>
               <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
               <div className="absolute -right-1 -bottom-6 h-24 w-24 rounded-full bg-white/10" />
               <div className="flex items-center gap-2.5 mb-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20">
                   <HiOutlineCircleStack className="h-4 w-4 text-white" />
                 </div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-100">Total Stok</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-100">Total Stok di RS</p>
+              </div>
+              <p className="text-2xl font-extrabold text-white">{totalRs.toLocaleString("id-ID")}</p>
+              <p className="mt-0.5 text-[11px] text-emerald-200">hanya yang berada di RS</p>
+            </button>
+            {/* Total Stok Keseluruhan */}
+            <button type="button" onClick={() => setCardFilter(null)}
+              className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 to-slate-600 px-4 py-3 shadow-md text-left transition-all cursor-pointer hover:scale-[1.01] active:scale-100",
+                "")}>
+              <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
+              <div className="absolute -right-1 -bottom-6 h-24 w-24 rounded-full bg-white/10" />
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20">
+                  <HiOutlineCircleStack className="h-4 w-4 text-white" />
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">Total Stok (RS + IKM)</p>
               </div>
               <p className="text-2xl font-extrabold text-white">{totalStok.toLocaleString("id-ID")}</p>
-              <p className="mt-0.5 text-[11px] text-emerald-200">akumulasi semua linen</p>
+              <p className="mt-0.5 text-[11px] text-slate-300">akumulasi RS dan IKM</p>
             </button>
           </div>
         );
