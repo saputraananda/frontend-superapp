@@ -90,10 +90,12 @@ function dailyRows(details, withName) {
     const notes = [
       x.backup_for.length ? `Backup untuk ${x.backup_for.map((n) => fmtEmployeeName(n)).join(", ")}` : "",
       x.half_day_leave ? `${LEAVE_TYPE_LABEL[x.half_day_leave]} ½ hari` : "",
+      x.shift_name ? `${x.shift_name}${x.shift_assumed ? " (asumsi)" : ""}` : "",
       x.late_excused ? "Masuk siang (izin ½ hari pagi), tidak dihitung terlambat" : "",
+      x.early_minutes ? `Pulang cepat ${x.early_minutes} menit` : "",
       x.off_but_present ? "Masuk di hari libur" : "",
       x.outside_home ? "Di luar outlet asal" : "",
-      x.no_checkout ? "Belum check-out" : "",
+      x.no_checkout ? "Belum Out" : "",
       x.note || "",
     ].filter(Boolean).join(" · ");
     out.push([
@@ -359,9 +361,15 @@ function summarySheet(d, lines) {
     ["Durasi Kerja", fmtDur(d.work_minutes), `Rata-rata ${fmtDur(d.avg_work_minutes)} per hari`],
     ["Belum Check-out", `${d.incomplete_checkout} kali`, "Tidak dihitung ke durasi kerja"],
     ["Jumlah Terlambat", `${d.late.count} kali`, [
-      d.late.count ? `Total ${d.late.minutes} menit · terlama ${d.late.max} menit (jam masuk 08:00)` : "Jam masuk 08:00",
+      d.late.count ? `Total ${d.late.minutes} menit · terlama ${d.late.max} menit` : "Tepat waktu",
+      d.role === "Frontliner" ? "Batas ikut shift (Pagi 08:00 / Siang 10:30)" : "Jam masuk 08:00",
       d.late.excused ? `${d.late.excused}x dikecualikan karena izin ½ hari pagi` : "",
     ].filter(Boolean).join(" · ")],
+    ...(d.early?.count || d.role === "Frontliner" ? [["Pulang Cepat", `${d.early?.count || 0} kali`, [
+      d.early?.count ? `Total ${d.early.minutes} menit` : "",
+      "Sebelum jam selesai shift (Pagi 17:00 / Siang 20:00)",
+      d.early?.excused ? `${d.early.excused}x dikecualikan karena izin ½ hari siang` : "",
+    ].filter(Boolean).join(" · ")]] : []),
     ["Lokasi & Backup", ""],
     ["Lokasi Absen", d.locations.map((l) => `${placeLabel(l)} (${l.count}x)`).join(", ") || "-"],
     ["Absen di Luar Outlet Asal", `${d.outside_home} kali`],

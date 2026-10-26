@@ -53,7 +53,7 @@ import {
 import DashboardGrooming from "./DashboardGrooming";
 import DashboardHRWaschen from "./DashboardHRWaschen";
 
-const STATUS_FILTERS = ["Semua", "Lengkap", "Belum check-out", "Belum check-in", "Foto belum lengkap"];
+const STATUS_FILTERS = ["Semua", "Lengkap", "Belum Out", "Belum check-in", "Foto belum lengkap"];
 const EMPTY_FORM = { employee_id: "", outlet_id: "", work_date: "", check_in_time: "", check_out_time: "" };
 const INPUT_CLS = "mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-[#5f1340]/40";
 const LABEL_CLS = "block text-[10px] font-bold uppercase tracking-wider text-slate-400";
@@ -163,8 +163,17 @@ function rowToForm(row) {
     work_date: row.work_date || "",
     check_in_time: toDateTimeLocalInput(row.check_in_time),
     check_out_time: toDateTimeLocalInput(row.check_out_time),
+    // Frontliner: shift_code null tampil sebagai pagi (asumsi), disimpan eksplisit saat edit.
+    shift_code: row.shift_code || "",
+    is_frontliner: row.role_code === "Frontliner",
   };
 }
+
+// ponytail: pilihan shift hardcode = seed mst_time_shift; ambil dari master bila shift bertambah.
+const SHIFT_OPTIONS = [
+  { code: "pagi", label: "Shift Pagi (08:00–17:00)" },
+  { code: "siang", label: "Shift Siang (10:30–20:00)" },
+];
 
 function AttendanceFormFields({ form, setForm, employees, outlets, isEdit = false }) {
   return (
@@ -202,6 +211,15 @@ function AttendanceFormFields({ form, setForm, employees, outlets, isEdit = fals
         <span className={LABEL_CLS}>Tanggal Kerja</span>
         <input type="date" required value={form.work_date} onChange={(e) => setForm((f) => ({ ...f, work_date: e.target.value }))} className={INPUT_CLS} />
       </label>
+      {isEdit && form.is_frontliner && (
+        <label className="block">
+          <span className={LABEL_CLS}>Shift</span>
+          <select value={form.shift_code} onChange={(e) => setForm((f) => ({ ...f, shift_code: e.target.value }))} className={INPUT_CLS}>
+            <option value="">Belum dipilih (dianggap Shift Pagi)</option>
+            {SHIFT_OPTIONS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+        </label>
+      )}
       <label className="block">
         <span className={LABEL_CLS}>Jam Masuk</span>
         <input type="datetime-local" value={form.check_in_time} onChange={(e) => setForm((f) => ({ ...f, check_in_time: e.target.value }))} className={INPUT_CLS} />
@@ -452,6 +470,7 @@ export default function Absensi() {
           work_date: form.work_date,
           check_in_time: form.check_in_time || null,
           check_out_time: form.check_out_time || null,
+          ...(form.is_frontliner ? { shift_code: form.shift_code || null } : {}),
         }),
       });
       showToast("success", "Absensi berhasil diperbarui");
@@ -674,6 +693,11 @@ export default function Absensi() {
                       </td>
                       <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
                         {fmtDateTime(r.check_in_time)}
+                        {r.shift_name && (
+                          <p className={cn("mt-0.5 text-[10px] font-semibold", r.late_min > 0 ? "text-rose-600" : "text-slate-500")}>
+                            {r.shift_name}{r.shift_assumed ? " (asumsi)" : ""}{r.late_min > 0 ? ` · telat ${r.late_min} mnt` : ""}
+                          </p>
+                        )}
                         {r.check_in_note && (
                           <p className="mt-0.5 max-w-[200px] truncate whitespace-normal text-[10px] font-medium text-slate-400" title={r.check_in_note}>
                             {r.check_in_note}

@@ -201,9 +201,11 @@ function DailyTab({ d }) {
             const notes = [
               x.backup_for.length ? `Backup untuk ${x.backup_for.map((n) => fmtEmployeeName(n)).join(", ")}` : "",
               x.half_day_leave ? `${LEAVE_LABEL[x.half_day_leave]} ½ hari` : "",
+              x.shift_name ? `${x.shift_name}${x.shift_assumed ? " (asumsi)" : ""}` : "",
               x.late_excused ? "Masuk siang (izin ½ hari pagi), tidak dihitung terlambat" : "",
+              x.early_minutes ? `Pulang cepat ${fmtDur(x.early_minutes)}` : "",
               x.off_but_present ? "Masuk di hari libur" : "",
-              x.no_checkout ? "Belum check-out" : "",
+              x.no_checkout ? "Belum Out" : "",
               x.note || "",
             ].filter(Boolean);
             return (
@@ -586,6 +588,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
               sub={[
                 d.late.count ? `Total ${fmtDur(d.late.minutes)} · terlama ${fmtDur(d.late.max)}` : "Tepat waktu",
                 d.late.excused ? `${d.late.excused}x dikecualikan (izin ½ hari)` : "",
+                d.early?.count ? `Pulang cepat ${d.early.count}x (${fmtDur(d.early.minutes)})` : "",
               ].filter(Boolean).join(" · ")}
               tone={d.late.count ? "border-rose-200 bg-rose-50/50" : undefined} />
             <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)}
@@ -859,7 +862,8 @@ export default function Payroll() {
             <li><b>Backup</b>: menggantikan rekan yang libur (ditunjuk di Jadwal Libur).</li>
             <li><b>Lembur</b>: yang disetujui; pengajuan/berlangsung tampil di detail.</li>
             <li><b>Perizinan</b>: hari izin/sakit/cuti disetujui di periode (½ hari = 0,5).</li>
-            <li><b>Terlambat</b>: check-in setelah 08:00; tidak dihitung bila ada izin ½ hari pagi yang disetujui.</li>
+            <li><b>Terlambat</b>: check-in setelah 08:00; Frontliner ikut shift (Pagi 08:00 / Siang 10:30, shift kosong = Pagi). Tidak dihitung bila ada izin ½ hari pagi yang disetujui.</li>
+            <li><b>Pulang cepat</b>: Frontliner check-out sebelum jam selesai shift (Pagi 17:00 / Siang 20:00); tidak dihitung bila izin ½ hari siang.</li>
             <li><b>Kasbon / Pinjaman</b>: potong gaji = termin jatuh tempo di periode + tunggakan termin sebelumnya yang belum lunas.
               Metode <i>bayar langsung</i> ditampilkan terpisah, tidak memotong gaji.</li>
           </ul>
@@ -982,6 +986,7 @@ export default function Payroll() {
                           </>
                         ) : <span className="text-slate-300">0</span>}
                         {r.late.excused > 0 && <Sub>{r.late.excused}x izin ½ hari</Sub>}
+                        {r.early?.count > 0 && <Sub tone="amber">pulang cepat {r.early.count}x</Sub>}
                       </td>
                       <td className="px-4 py-3">
                         {r.kasbon.deduction || r.kasbon.direct || r.kasbon.count ? (

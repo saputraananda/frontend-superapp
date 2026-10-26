@@ -36,7 +36,7 @@ import HrisOutletRoleFilter from "../HrisOutletRoleFilter";
 import { FILTER_SECTION, TABLE_SECTION, cn, fmtDateShort, fmtEmployeeName } from "../../utils/hrisUtils";
 import { FilterPill, FilterScroll, SortTh } from "./hrisShared";
 
-// Jam masuk Waschen. Check-in setelah 08:00 (mulai 08:01) dihitung terlambat.
+// Jam masuk Waschen 08:00. Frontliner ikut shift (Pagi 08:00 / Siang 10:30) — late_min dari server.
 const JAM_MASUK_MIN = 8 * 60;
 const FETCH_LIMIT = 10000;
 
@@ -48,12 +48,12 @@ const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const BUCKETS = [
-  { id: "b1", label: "< 07:30", test: (m) => m < 450, late: false },
-  { id: "b2", label: "07:30–08:00", test: (m) => m >= 450 && m <= JAM_MASUK_MIN, late: false },
-  { id: "b3", label: "08:01–08:15", test: (m) => m > JAM_MASUK_MIN && m <= 495, late: true },
-  { id: "b4", label: "08:16–08:30", test: (m) => m > 495 && m <= 510, late: true },
-  { id: "b5", label: "08:31–09:00", test: (m) => m > 510 && m <= 540, late: true },
-  { id: "b6", label: "> 09:00", test: (m) => m > 540, late: true },
+  { id: "b1", label: "> 30 mnt lebih awal", test: (m) => m < -30, late: false },
+  { id: "b2", label: "0–30 mnt lebih awal", test: (m) => m >= -30 && m <= 0, late: false },
+  { id: "b3", label: "Telat 1–15 mnt", test: (m) => m > 0 && m <= 15, late: true },
+  { id: "b4", label: "Telat 16–30 mnt", test: (m) => m > 15 && m <= 30, late: true },
+  { id: "b5", label: "Telat 31–60 mnt", test: (m) => m > 30 && m <= 60, late: true },
+  { id: "b6", label: "Telat > 60 mnt", test: (m) => m > 60, late: true },
 ];
 
 const EMP_FILTERS = [
@@ -331,14 +331,18 @@ export default function DashboardHRWaschen() {
     const inMin = toMinutes(r.check_in_time);
     const outMin = toMinutes(r.check_out_time);
     const hasIn = inMin != null;
-    const late = hasIn && inMin > JAM_MASUK_MIN;
+    // Server menghitung batas per shift (Frontliner Pagi 08:00 / Siang 10:30); fallback 08:00.
+    const lateMin = hasIn ? (r.late_min ?? Math.max(0, inMin - JAM_MASUK_MIN)) : 0;
+    const late = lateMin > 0;
     return {
       ...r,
       inMin,
       outMin,
       hasIn,
       late,
-      lateMin: late ? inMin - JAM_MASUK_MIN : 0,
+      lateMin,
+      earlyMin: r.early_min || 0,
+      lateAfterMin: r.late_after_min ?? JAM_MASUK_MIN,
       noOut: hasIn && !r.check_out_time,
     };
   }), [rows]);
@@ -424,7 +428,7 @@ export default function DashboardHRWaschen() {
   const distribution = useMemo(() => {
     const withIn = scoped.filter((r) => r.hasIn);
     return BUCKETS.map((b) => {
-      const count = withIn.filter((r) => b.test(r.inMin)).length;
+      const count = withIn.filter((r) => b.test(r.inMin - r.lateAfterMin)).length;
       return { ...b, count, share: pct(count, withIn.length) };
     });
   }, [scoped]);
@@ -601,7 +605,7 @@ export default function DashboardHRWaschen() {
           <div className="min-w-0 flex-1">
             <h2 className="text-sm sm:text-base font-bold text-slate-800">Filter Periode & Data</h2>
             <p className="text-[11px] sm:text-xs text-slate-500">
-              Jam masuk <b>08:00</b>. Check-in setelah 08:00 dihitung terlambat.
+              Jam masuk <b>08:00</b>. Frontliner ikut shift: Pagi <b>08:00</b>, Siang <b>10:30</b>.
             </p>
           </div>
           <button type="button" onClick={() => load()} title="Muat ulang" className="shrink-0 rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
@@ -702,7 +706,7 @@ export default function DashboardHRWaschen() {
             <div className="w-full space-y-2">
               <div>
                 <div className="flex justify-between text-[11px] font-semibold">
-                  <span className="text-emerald-700">Tepat waktu (≤ 08:00)</span>
+                  <span className="text-emerald-700">Tepat waktu</span>
                   <span className="tabular-nums text-slate-600">{kpi.tepat}</span>
                 </div>
                 <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
@@ -711,7 +715,7 @@ export default function DashboardHRWaschen() {
               </div>
               <div>
                 <div className="flex justify-between text-[11px] font-semibold">
-                  <span className="text-rose-700">Terlambat (&gt; 08:00)</span>
+                  <span className="text-rose-700">Terlambat</span>
                   <span className="tabular-nums text-slate-600">{kpi.telat}</span>
                 </div>
                 <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
@@ -806,7 +810,7 @@ export default function DashboardHRWaschen() {
       {/* Distribusi jam masuk + per hari + perlu perhatian */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <section className={TABLE_SECTION}>
-          <SectionHead icon={HiOutlineClock} title="Distribusi Jam Masuk" sub="Seberapa jauh dari jam 08:00." />
+          <SectionHead icon={HiOutlineClock} title="Distribusi Jam Masuk" sub="Selisih dari batas masuk masing-masing (08:00 / jam shift)." />
           <div className="h-60 px-2 py-3">
             {loading ? <div className="h-full animate-pulse rounded-xl bg-slate-50" /> : (
               <ResponsiveContainer width="100%" height="100%">
@@ -1245,10 +1249,11 @@ function EmployeeDays({ emp, outletName }) {
               : "border-emerald-200 bg-emerald-50 text-emerald-700";
           return (
             <div key={d.attendance_id} className={cn("rounded-lg border px-2 py-1.5", tone)} title={outletName(d.outlet_id)}>
-              <p className="text-[10px] font-semibold text-slate-500">{fmtDayShort(d.work_date)}</p>
+              <p className="text-[10px] font-semibold text-slate-500">{fmtDayShort(d.work_date)}{d.shift_name ? ` · ${d.shift_name.replace(/^Shift /, "")}` : ""}</p>
               <p className="text-sm font-bold tabular-nums">{d.hasIn ? fmtClock(d.inMin) : "—"}</p>
               <p className="text-[10px] font-semibold">
                 {!d.hasIn ? "Tanpa check-in" : d.late ? `+${fmtLate(d.lateMin)}` : "Tepat"}
+                {d.earlyMin ? ` · pulang -${fmtLate(d.earlyMin)}` : ""}
                 {d.noOut ? " · blm out" : ""}
               </p>
             </div>

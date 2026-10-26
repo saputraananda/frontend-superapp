@@ -2,7 +2,7 @@ import XLSXStyle from "xlsx-js-style";
 import { saveAs } from "file-saver";
 import { fmtEmployeeName, groomingStatusLabel } from "../../../utils/hrisUtils";
 
-// Jam masuk Waschen. Check-in setelah 08:00 (mulai 08:01) dihitung terlambat.
+// Jam masuk Waschen 08:00. Frontliner ikut shift (late_min/early_min dari server).
 // Samakan dengan JAM_MASUK_MIN di DashboardHRWaschen.jsx.
 const JAM_MASUK_MIN = 8 * 60;
 
@@ -76,7 +76,7 @@ const numStyle = (isAlt) => ({
 
 const STATUS_STYLE = {
   "Lengkap":            badgeStyle(C.okBg, C.okText),
-  "Belum check-out":    badgeStyle(C.warnBg, C.warnText),
+  "Belum Out":    badgeStyle(C.warnBg, C.warnText),
   "Belum check-in":     badgeStyle(C.lateBg, C.lateText),
   "Foto belum lengkap": badgeStyle(C.orgBg, C.orgText),
 };
@@ -184,13 +184,15 @@ export function exportAbsensiWaschenExcel({ records = [], startDate, endDate, pe
   const rows = records
     .map((r) => {
       const inMin = toMinutes(r.check_in_time);
-      const late = inMin != null && inMin > JAM_MASUK_MIN;
+      const lateMin = inMin != null ? (r.late_min ?? Math.max(0, inMin - JAM_MASUK_MIN)) : 0;
+      const late = lateMin > 0;
       return {
         ...r,
         inMin,
         outMin: toMinutes(r.check_out_time),
         late,
-        lateMin: late ? inMin - JAM_MASUK_MIN : 0,
+        lateMin,
+        earlyMin: r.early_min || 0,
         durMin: durationMin(r.check_in_time, r.check_out_time),
         outletLabel: getOutlet(r),
         name: fmtEmployeeName(r.employee_name, `#${r.employee_id}`),
@@ -215,14 +217,14 @@ export function exportAbsensiWaschenExcel({ records = [], startDate, endDate, pe
   const lines = [
     `Periode: ${periodLabel ? `${periodLabel} (${periodStr})` : periodStr}`,
     `Filter: ${filterParts.length ? filterParts.join("  |  ") : "Semua data (tanpa filter)"}`,
-    `Jam masuk 08:00 · check-in setelah 08:00 dihitung terlambat`,
+    `Jam masuk 08:00 · Frontliner: Shift Pagi 08:00–17:00, Shift Siang 10:30–20:00 (shift kosong = Pagi)`,
     `Diekspor: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}`,
   ];
 
   // ── Sheet 1: Riwayat Absensi ────────────────────────────────────────────────
   const H1 = [
     "No", "Tanggal", "Hari", "Kode", "Nama Karyawan", "Posisi", "Outlet / Lokasi",
-    "Jam Masuk", "Jam Pulang", "Durasi", "Ketepatan", "Telat", "Grooming", "Status", "Catatan Masuk", "Catatan Pulang",
+    "Shift", "Jam Masuk", "Jam Pulang", "Durasi", "Ketepatan", "Telat", "Pulang Cepat", "Grooming", "Status", "Catatan Masuk", "Catatan Pulang",
   ];
   const ws1Data = metaRows("Riwayat Absensi Karyawan Waschen", H1.length, lines);
   const headerRow1 = ws1Data.length;
@@ -241,11 +243,13 @@ export function exportAbsensiWaschenExcel({ records = [], startDate, endDate, pe
       cell(r.name, cs),
       cell(r.role_code || "-", cs),
       cell(r.outletLabel, cs),
+      cell(r.shift_name ? `${r.shift_name}${r.shift_assumed ? " (asumsi)" : ""}` : "-", cc),
       cell(fmtClock(r.inMin), r.late ? badgeStyle(C.lateBg, C.lateText) : cc),
       cell(fmtClock(r.outMin), r.check_out_time ? cc : badgeStyle(C.warnBg, C.warnText)),
       cell(fmtMinutes(r.durMin), cc),
       cell(ketepatan, r.inMin == null ? cc : r.late ? badgeStyle(C.lateBg, C.lateText) : badgeStyle(C.okBg, C.okText)),
       cell(r.late ? fmtMinutes(r.lateMin) : "-", r.late ? badgeStyle(C.lateBg, C.lateText) : cc),
+      cell(r.earlyMin ? fmtMinutes(r.earlyMin) : "-", r.earlyMin ? badgeStyle(C.warnBg, C.warnText) : cc),
       cell(groomingStatusLabel(r.grooming_status) || "-", GROOMING_STYLE[r.grooming_status] || cc),
       cell(r.status_label || "-", STATUS_STYLE[r.status_label] || cc),
       cell(r.check_in_note || "", cs),
@@ -257,7 +261,7 @@ export function exportAbsensiWaschenExcel({ records = [], startDate, endDate, pe
   ws1["!merges"] = metaMerges(headerRow1, H1.length);
   ws1["!cols"] = [
     { wch: 5 }, { wch: 13 }, { wch: 9 }, { wch: 11 }, { wch: 26 }, { wch: 15 }, { wch: 26 },
-    { wch: 10 }, { wch: 10 }, { wch: 9 }, { wch: 12 }, { wch: 9 }, { wch: 13 }, { wch: 18 }, { wch: 32 }, { wch: 32 },
+    { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 9 }, { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 13 }, { wch: 18 }, { wch: 32 }, { wch: 32 },
   ];
   ws1["!rows"] = [{ hpt: 32 }, ...lines.map(() => ({ hpt: 18 })), { hpt: 6 }, { hpt: 26 }];
   ws1["!autofilter"] = { ref: XLSXStyle.utils.encode_range({ s: { r: headerRow1, c: 0 }, e: { r: headerRow1 + rows.length, c: H1.length - 1 } }) };
