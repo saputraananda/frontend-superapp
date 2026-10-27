@@ -16,6 +16,7 @@ import {
   HiOutlineClock,
   HiOutlineBuildingStorefront,
   HiOutlineBellAlert,
+  HiOutlineArrowsRightLeft,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -113,6 +114,13 @@ const MENU_GROUPS = [
         icon: HiOutlineBellAlert,
         label: "Aging & Reminder Layanan",
         description: "Reminder siklus cuci pelanggan",
+        end: true,
+      },
+      {
+        to: "/cleanox-management-system/cross-sell",
+        icon: HiOutlineArrowsRightLeft,
+        label: "Rekomendasi Cross-Sell",
+        description: "Rekomendasi kontak Waschen ke Cleanox",
         end: true,
       },
     ],

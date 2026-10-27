@@ -128,6 +128,7 @@ import PendapatanCleanox from "./pages/cleanox-management/components/PendapatanC
 import PiutangCleanox from "./pages/cleanox-management/components/PiutangCleanox";
 import CustomerAgingCleanox from "./pages/cleanox-management/components/CustomerAgingCleanox";
 import MasterAgingServices from "./pages/cleanox-management/components/MasterAgingServices";
+import CrossSellWaschenCleanox from "./pages/cleanox-management/components/CrossSellWaschenCleanox";
 import EmployeeCleanoxDetail from "./pages/cleanox-management/components/[id]";
 import MyWaschen from "./pages/my-waschen";
 import DashboardPage from "./pages/my-waschen/components/Transaction/DashboardPage";
@@ -684,6 +685,7 @@ export default function App() {
           <Route path="/cleanox-management-system/piutang" element={<PiutangCleanox />} />
           <Route path="/cleanox-management-system/aging-reminder" element={<CustomerAgingCleanox />} />
           <Route path="/cleanox-management-system/aging-services" element={<MasterAgingServices />} />
+          <Route path="/cleanox-management-system/cross-sell" element={<CrossSellWaschenCleanox />} />
           <Route path="/cleanox-management-system/:id" element={<EmployeeCleanoxDetail />} />
         </Route>
 
