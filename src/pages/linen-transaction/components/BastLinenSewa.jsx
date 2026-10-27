@@ -198,6 +198,7 @@ export default function BastLinenSewa() {
   const [bastDate, setBastDate] = useState(nowLocal);
   const [employees, setEmployees] = useState([]);
   const [senderId, setSenderId] = useState("");
+  const [senderManual, setSenderManual] = useState(false);
   const [senderName, setSenderName] = useState("");
   const [senderPosition, setSenderPosition] = useState("");
   const [receiverName, setReceiverName] = useState("");
@@ -286,6 +287,7 @@ export default function BastLinenSewa() {
     setEntries({});
     setBastDate(nowLocal());
     setSenderId("");
+    setSenderManual(false);
     setSenderPosition("");
     setReceiverName("");
     setReceiverPosition("");
@@ -383,9 +385,10 @@ export default function BastLinenSewa() {
     if (!receiverName.trim()) return showToast("error", "Nama penerima wajib diisi");
     if (!isTitleCase(receiverName)) return showToast("error", "Nama penerima harus Capital Each Word");
     if (!receiverPosition.trim()) return showToast("error", "Jabatan penerima wajib diisi");
-    if (!gaHeadName.trim()) return showToast("error", "Nama yang mengetahui wajib diisi");
-    if (!isTitleCase(gaHeadName)) return showToast("error", "Nama yang mengetahui harus Capital Each Word");
-    if (!gaHeadPosition.trim()) return showToast("error", "Jabatan yang mengetahui wajib diisi");
+    const hasGa = Boolean(gaHeadName.trim() || gaHeadPosition.trim());
+    if (hasGa && !gaHeadName.trim()) return showToast("error", "Nama yang mengetahui wajib diisi jika jabatan diisi");
+    if (hasGa && !isTitleCase(gaHeadName)) return showToast("error", "Nama yang mengetahui harus Capital Each Word");
+    if (hasGa && !gaHeadPosition.trim()) return showToast("error", "Jabatan yang mengetahui wajib diisi jika nama diisi");
     const details = detailsFromEntries(entries);
     if (!details.length) return showToast("error", "Isi minimal satu pengiriman atau penarikan");
     setSaving(true);
@@ -614,17 +617,27 @@ export default function BastLinenSewa() {
               <div className="flex flex-1 flex-col gap-3 p-4">
                 <div className="text-sm text-slate-600">
                   <span className="mb-1.5 block text-xs font-medium text-slate-500">Nama Pengirim</span>
-                  <EmployeeSearchSelect
-                    value={senderId}
-                    employees={employees}
-                    accent="orange"
-                    placeholder="Pilih pengirim"
-                    onChange={(id) => {
-                      setSenderId(id);
-                      const emp = employees.find((item) => String(item.employee_id) === String(id));
-                      setSenderName(emp ? toTitleCase(emp.full_name) : "");
-                    }}
-                  />
+                  {senderManual || (senderName && !senderId) ? (
+                    <div className="flex items-center gap-2">
+                      <input value={senderName} onChange={(e) => setSenderName(e.target.value)} onBlur={() => setSenderName(toTitleCase(senderName))} placeholder="Ketik nama pengirim" autoFocus={senderManual} className={fieldClass} />
+                      <button type="button" onClick={() => { setSenderManual(false); setSenderId(""); setSenderName(""); }} className="shrink-0 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Pilih daftar</button>
+                    </div>
+                  ) : (
+                    <>
+                      <EmployeeSearchSelect
+                        value={senderId}
+                        employees={employees}
+                        accent="orange"
+                        placeholder="Pilih pengirim"
+                        onChange={(id) => {
+                          setSenderId(id);
+                          const emp = employees.find((item) => String(item.employee_id) === String(id));
+                          setSenderName(emp ? toTitleCase(emp.full_name) : "");
+                        }}
+                      />
+                      <button type="button" onClick={() => { setSenderManual(true); setSenderId(""); setSenderName(""); }} className="mt-1.5 text-xs font-semibold text-indigo-600 hover:underline">+ Isi manual (tidak ada di daftar)</button>
+                    </>
+                  )}
                 </div>
                 <label className="block text-sm text-slate-600">
                   <span className="mb-1.5 block text-xs font-medium text-slate-500">Jabatan Pengirim</span>
@@ -651,7 +664,7 @@ export default function BastLinenSewa() {
             <div className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200">
               <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Mengetahui</p>
-                <p className="text-sm font-semibold text-slate-800">Pejabat yang mengetahui</p>
+                <p className="text-sm font-semibold text-slate-800">Pejabat yang mengetahui <span className="text-xs font-normal text-slate-400">(opsional)</span></p>
               </div>
               <div className="flex flex-1 flex-col gap-3 p-4">
                 <label className="block text-sm text-slate-600">
@@ -736,10 +749,10 @@ export default function BastLinenSewa() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className={`grid grid-cols-1 gap-4 ${gaHeadName.trim() && gaHeadPosition.trim() ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
           <SignaturePad label="Yang menyerahkan," role="Pihak Kedua" caption={senderPosition} value={sigSender} onChange={setSigSender} />
           <SignaturePad label="Yang menerima," role="Pihak Pertama" caption={receiverPosition} value={sigReceiver} onChange={setSigReceiver} />
-          <SignaturePad label="Mengetahui," caption={gaHeadPosition} value={sigGa} onChange={setSigGa} />
+          {gaHeadName.trim() && gaHeadPosition.trim() && <SignaturePad label="Mengetahui," name={gaHeadName} caption={gaHeadPosition} value={sigGa} onChange={setSigGa} />}
         </div>
         <p className="mt-2 text-xs text-slate-400">Tanda tangan boleh dikosongkan dan dilengkapi nanti. Kanvas kosong saat edit mempertahankan tanda tangan yang sudah tersimpan.</p>
 
