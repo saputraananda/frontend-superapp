@@ -35,6 +35,7 @@ import {
   fmtDateShort,
   calcDuration,
   fmtDateTime,
+  fmtClockTime,
   attendanceStatusBadge,
   groomingStatusBadge,
   groomingStatusLabel,
@@ -274,7 +275,8 @@ export default function Absensi() {
     if (!startDate || !endDate) return;
     if (!silent) setLoading(true);
     try {
-      const q = new URLSearchParams({ startDate, endDate });
+      // Tanpa limit backend memotong di 1000 baris terbaru; satu periode cutoff bisa lebih.
+      const q = new URLSearchParams({ startDate, endDate, limit: "10000" });
       appendFilters(q);
       if (onlyIncomplete) q.set("onlyIncomplete", "1");
       if (search.trim()) q.set("search", search.trim());
@@ -692,7 +694,7 @@ export default function Absensi() {
                         {r.employee_code && <p className="text-[10px] text-slate-400">{r.employee_code}</p>}
                       </td>
                       <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
-                        {fmtDateTime(r.check_in_time)}
+                        {fmtClockTime(r.check_in_time)}
                         {r.shift_name && (
                           <p className={cn("mt-0.5 text-[10px] font-semibold", r.late_min > 0 ? "text-rose-600" : "text-slate-500")}>
                             {r.shift_name}{r.shift_assumed ? " (asumsi)" : ""}{r.late_min > 0 ? ` · telat ${r.late_min} mnt` : ""}
@@ -708,7 +710,7 @@ export default function Absensi() {
                         <PhotoThumb url={r.check_in_photo_url} label="Foto masuk" onView={setPhotoView} />
                       </td>
                       <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
-                        {fmtDateTime(r.check_out_time)}
+                        {fmtClockTime(r.check_out_time)}
                         {r.check_out_note && (
                           <p className="mt-0.5 max-w-[200px] truncate whitespace-normal text-[10px] font-medium text-slate-400" title={r.check_out_note}>
                             {r.check_out_note}
