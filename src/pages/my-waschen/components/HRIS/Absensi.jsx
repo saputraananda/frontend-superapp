@@ -275,7 +275,8 @@ export default function Absensi() {
     if (!startDate || !endDate) return;
     if (!silent) setLoading(true);
     try {
-      const q = new URLSearchParams({ startDate, endDate });
+      // Tanpa limit backend memotong di 1000 baris terbaru; satu periode cutoff bisa lebih.
+      const q = new URLSearchParams({ startDate, endDate, limit: "10000" });
       appendFilters(q);
       if (onlyIncomplete) q.set("onlyIncomplete", "1");
       if (search.trim()) q.set("search", search.trim());
