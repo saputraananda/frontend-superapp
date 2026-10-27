@@ -93,6 +93,14 @@ export function fmtDateTime(v) {
   });
 }
 
+// Jam saja (HH.mm) — dipakai di tabel yang sudah punya kolom tanggal.
+export function fmtClockTime(v) {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+}
+
 export function leaveDurationLabel(type) {
   if (type === "half_day_morning") return "Setengah hari (pagi)";
   if (type === "half_day_afternoon") return "Setengah hari (sore)";
