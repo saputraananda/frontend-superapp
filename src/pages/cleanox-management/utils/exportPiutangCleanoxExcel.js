@@ -122,7 +122,7 @@ function buildFilterLabel(filters) {
 
 // ─── Main export function ─────────────────────────────────────────────────────
 export function exportPiutangCleanoxExcel({ rows, meta, filters, searchKeyword, statusFilter }) {
-  const TOTAL_COLS = 10;
+  const TOTAL_COLS = 11;
 
   const periodStr = meta?.dateStart
     ? `${fmtDate(meta.dateStart)} s.d. ${fmtDate(meta.dateEnd)}`
@@ -164,7 +164,7 @@ export function exportPiutangCleanoxExcel({ rows, meta, filters, searchKeyword, 
   wsData.push(Array.from({ length: TOTAL_COLS }, () => empty({ fill: { fgColor: { rgb: "FFFFFF" } } })));
 
   // Row 5: Column headers
-  const HEADERS = ["#", "Customer", "No. Telepon", "Layanan", "No Nota", "Tgl Terima", "Jatuh Tempo", "Aging (Hari)", "Jumlah Piutang", "Status"];
+  const HEADERS = ["#", "Customer", "No. Telepon", "Layanan", "No Nota", "Tgl Terima", "Jatuh Tempo", "Aging (Hari)", "Jumlah Piutang", "Status", "Status Reminder"];
   wsData.push(HEADERS.map(h => cell(h, headerStyle)));
 
   // Row 6+: Data rows
@@ -172,6 +172,18 @@ export function exportPiutangCleanoxExcel({ rows, meta, filters, searchKeyword, 
     const isAlt = idx % 2 === 1;
     const cs = makeCellStyle(isAlt);
     const csCenter = makeCellStyle(isAlt, "center");
+    const reminderText = row.is_reminded
+      ? `Sudah Di-reminder (${row.reminder_count || 1}x)`
+      : "Belum Di-reminder";
+    const reminderStyle = {
+      ...csCenter,
+      font: {
+        ...csCenter.font,
+        bold: true,
+        color: { rgb: row.is_reminded ? "047857" : "64748B" },
+      },
+    };
+
     wsData.push([
       cell(idx + 1,              { ...cs, alignment: { horizontal: "center", vertical: "center" }, border: border() }),
       cell(row.customer_nama ?? "-", cs),
@@ -183,6 +195,7 @@ export function exportPiutangCleanoxExcel({ rows, meta, filters, searchKeyword, 
       cell(row.aging ?? 0,          csCenter),
       cell(Number(row.piutang) || 0, makeCurrencyStyle(isAlt)),
       cell(row.status ?? "-",       makeStatusStyle(row.status, isAlt)),
+      cell(reminderText,            reminderStyle),
     ]);
   });
 
@@ -197,13 +210,13 @@ export function exportPiutangCleanoxExcel({ rows, meta, filters, searchKeyword, 
   const se = summaryEmptyStyle;
 
   wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Total Piutang", sl), cell(total, sf), empty(se) ]);
+    cell("Total Piutang", sl), cell(total, sf), empty(se), empty(se) ]);
   wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Belum Jatuh Tempo", sl), cell(belum, sf), empty(se) ]);
+    cell("Belum Jatuh Tempo", sl), cell(belum, sf), empty(se), empty(se) ]);
   wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Jatuh Tempo", sl), cell(jt, sf), empty(se) ]);
+    cell("Jatuh Tempo", sl), cell(jt, sf), empty(se), empty(se) ]);
   wsData.push([ empty(se), empty(se), empty(se), empty(se), empty(se), empty(se), empty(se),
-    cell("Terlambat", sl), cell(terlambat, sf), empty(se) ]);
+    cell("Terlambat", sl), cell(terlambat, sf), empty(se), empty(se) ]);
 
   // ── Build worksheet ───────────────────────────────────────────────────────
   const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
@@ -230,6 +243,7 @@ export function exportPiutangCleanoxExcel({ rows, meta, filters, searchKeyword, 
     { wch: 12 }, // Aging (Hari)
     { wch: 18 }, // Jumlah
     { wch: 20 }, // Status
+    { wch: 22 }, // Status Reminder
   ];
 
   // Row heights
