@@ -157,13 +157,41 @@ function toDateTimeLocalInput(value) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Form hanya meminta jam; tanggal diturunkan dari Tanggal Kerja.
+// ponytail: batas hari kerja 04:00 hardcode (sama dengan work_date_cutoff_time default).
+const WORK_DAY_CUTOFF = "04:00";
+
+function addDay(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+/** Susun "YYYY-MM-DD HH:mm" dari tanggal kerja + jam. Jam sebelum 04:00 = lewat tengah malam (besoknya). */
+function composeTimes(form, original) {
+  const asIs = (time, orig) => (orig && toDateTimeLocalInput(orig).slice(11) === time ? orig : null);
+  let checkIn = null;
+  let checkOut = null;
+  if (form.check_in_time) {
+    const keep = asIs(form.check_in_time, original?.check_in_time);
+    const date = form.check_in_time < WORK_DAY_CUTOFF ? addDay(form.work_date) : form.work_date;
+    checkIn = keep || `${date} ${form.check_in_time}`;
+  }
+  if (form.check_out_time) {
+    const keep = asIs(form.check_out_time, original?.check_out_time);
+    let date = form.check_out_time < WORK_DAY_CUTOFF ? addDay(form.work_date) : form.work_date;
+    if (!keep && checkIn && `${date} ${form.check_out_time}` <= String(checkIn).slice(0, 16).replace("T", " ")) date = addDay(date);
+    checkOut = keep || `${date} ${form.check_out_time}`;
+  }
+  return { checkIn, checkOut };
+}
+
 function rowToForm(row) {
   return {
     employee_id: String(row.employee_id || ""),
     outlet_id: String(row.outlet_id || ""),
     work_date: row.work_date || "",
-    check_in_time: toDateTimeLocalInput(row.check_in_time),
-    check_out_time: toDateTimeLocalInput(row.check_out_time),
+    check_in_time: toDateTimeLocalInput(row.check_in_time).slice(11),
+    check_out_time: toDateTimeLocalInput(row.check_out_time).slice(11),
     // Frontliner: shift_code null tampil sebagai pagi (asumsi), disimpan eksplisit saat edit.
     shift_code: row.shift_code || "",
     is_frontliner: row.role_code === "Frontliner",
@@ -223,11 +251,11 @@ function AttendanceFormFields({ form, setForm, employees, outlets, isEdit = fals
       )}
       <label className="block">
         <span className={LABEL_CLS}>Jam Masuk</span>
-        <input type="datetime-local" value={form.check_in_time} onChange={(e) => setForm((f) => ({ ...f, check_in_time: e.target.value }))} className={INPUT_CLS} />
+        <input type="time" value={form.check_in_time} onChange={(e) => setForm((f) => ({ ...f, check_in_time: e.target.value }))} className={INPUT_CLS} />
       </label>
       <label className="block">
-        <span className={LABEL_CLS}>Jam Keluar</span>
-        <input type="datetime-local" value={form.check_out_time} onChange={(e) => setForm((f) => ({ ...f, check_out_time: e.target.value }))} className={INPUT_CLS} />
+        <span className={LABEL_CLS}>Jam Keluar <span className="normal-case font-medium text-slate-400">(sebelum jam masuk = lewat tengah malam)</span></span>
+        <input type="time" value={form.check_out_time} onChange={(e) => setForm((f) => ({ ...f, check_out_time: e.target.value }))} className={INPUT_CLS} />
       </label>
     </div>
   );
@@ -427,8 +455,12 @@ export default function Absensi() {
       setFormError("Minimal isi jam masuk atau jam keluar");
       return false;
     }
-    if (form.check_in_time && form.check_out_time && form.check_out_time <= form.check_in_time) {
-      setFormError("Jam keluar harus lebih besar dari jam masuk");
+    if (!form.work_date) {
+      setFormError("Tanggal kerja wajib diisi");
+      return false;
+    }
+    if (form.check_in_time && form.check_out_time && form.check_out_time === form.check_in_time) {
+      setFormError("Jam keluar tidak boleh sama dengan jam masuk");
       return false;
     }
     setFormError("");
@@ -446,8 +478,8 @@ export default function Absensi() {
           employee_id: Number(form.employee_id),
           outlet_id: Number(form.outlet_id),
           work_date: form.work_date,
-          check_in_time: form.check_in_time || null,
-          check_out_time: form.check_out_time || null,
+          check_in_time: composeTimes(form, null).checkIn,
+          check_out_time: composeTimes(form, null).checkOut,
         }),
       });
       showToast("success", "Absensi berhasil ditambahkan");
@@ -470,8 +502,8 @@ export default function Absensi() {
         body: JSON.stringify({
           outlet_id: Number(form.outlet_id),
           work_date: form.work_date,
-          check_in_time: form.check_in_time || null,
-          check_out_time: form.check_out_time || null,
+          check_in_time: composeTimes(form, editRow).checkIn,
+          check_out_time: composeTimes(form, editRow).checkOut,
           ...(form.is_frontliner ? { shift_code: form.shift_code || null } : {}),
         }),
       });
