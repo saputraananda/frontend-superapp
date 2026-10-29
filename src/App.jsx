@@ -182,6 +182,13 @@ import Workspaces from "./pages/project-management-v2/pages/Workspaces/Workspace
 import WorkspaceDetail from "./pages/project-management-v2/pages/Workspaces/WorkspaceDetail";
 import PersonalChat from "./pages/project-management-v2/pages/DirectMessages/PersonalChat";
 
+// HO Finance Imports
+import FinanceHO from "./pages/finance-ho";
+import JurnalUmum from "./pages/finance-ho/components/JurnalUmum";
+import COA from "./pages/finance-ho/components/COA";
+import DashboardFinance from "./pages/finance-ho/components/DashboardFinance";
+
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -294,6 +301,7 @@ export default function App() {
         {/* ── Legacy redirects ── */}
         <Route path="/add-user" element={<Navigate to="/master-data-superapp/master-user" replace />} />
         <Route path="/add-menu" element={<Navigate to="/master-data-superapp/master-menu" replace />} />
+        <Route path="/finance" element={<Navigate to="/finance-ho" replace />} />
 
         {/* ── Login ── */}
         <Route
@@ -768,6 +776,19 @@ export default function App() {
           <Route path="/project-management-v2/workspaces/:workspaceId" element={<WorkspaceDetail />} />
           <Route path="/project-management-v2/workspaces/:workspaceId/sub/:subId" element={<WorkspaceDetail />} />
           <Route path="/project-management-v2/chat" element={<PersonalChat />} />
+        </Route>
+
+        {/* ── HO Finance ── */}
+        <Route
+          element={
+            <ProtectedRoute user={user} allowedRoles={appRoles["/finance-ho"]}>
+              <FinanceHO />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/finance-ho" element={<DashboardFinance />} />
+          <Route path="/finance-ho/jurnal-umum" element={<JurnalUmum />} />
+          <Route path="/finance-ho/coa" element={<COA />} />
         </Route>
       </Routes>
     </BrowserRouter>
