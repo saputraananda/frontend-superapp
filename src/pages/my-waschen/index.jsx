@@ -132,6 +132,12 @@ const MENU_SECTIONS = [
         description: "Database pelanggan & membership",
       },
       {
+        to: "/my-waschen/memberships",
+        icon: HiOutlineTicket,
+        label: "Data Membership",
+        description: "Member aktif, berakhir & top-up",
+      },
+      {
         to: "/my-waschen/transactions",
         icon: HiOutlineClipboardDocumentList,
         label: "Riwayat Transaksi",
