@@ -189,6 +189,7 @@ import JurnalUmum from "./pages/finance-ho/components/JurnalUmum";
 import COA from "./pages/finance-ho/components/COA";
 import BukuBesar from "./pages/finance-ho/components/BukuBesar";
 import AnggaranBeban from "./pages/finance-ho/components/AnggaranBeban";
+import Rekonsiliasi from "./pages/finance-ho/components/Rekonsiliasi";
 
 
 
@@ -790,6 +791,7 @@ export default function App() {
         >
           <Route path="/finance-ho" element={<Navigate to="/finance-ho/dashboard" replace />} />
           <Route path="/finance-ho/dashboard" element={<DashboardFinance />} />
+          <Route path="/finance-ho/rekonsiliasi" element={<Rekonsiliasi />} />
           <Route path="/finance-ho/jurnal-umum" element={<JurnalUmum />} />
           <Route path="/finance-ho/buku-besar" element={<BukuBesar />} />
           <Route path="/finance-ho/coa" element={<COA />} />

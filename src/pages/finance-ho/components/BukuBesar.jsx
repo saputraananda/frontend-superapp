@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   HiOutlineDocumentText,
   HiOutlineCalendarDays,
@@ -58,10 +59,12 @@ const TYPE_CONFIG = {
 };
 
 export default function BukuBesar() {
+  const [searchParams] = useSearchParams();
+  const qAccId = searchParams.get("account_id");
   const { firstDay, lastDay } = getDefaultDateRange();
 
   const [accounts, setAccounts] = useState([]);
-  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState(qAccId || "");
   const [fromDate, setFromDate] = useState(firstDay);
   const [toDate, setToDate] = useState(lastDay);
 
@@ -79,7 +82,9 @@ export default function BukuBesar() {
         if (mounted) {
           const accs = res.data || [];
           setAccounts(accs);
-          if (accs.length > 0 && !selectedAccountId) {
+          if (qAccId && accs.some((a) => String(a.id) === String(qAccId))) {
+            setSelectedAccountId(String(qAccId));
+          } else if (accs.length > 0 && !selectedAccountId) {
             setSelectedAccountId(String(accs[0].id));
           }
         }
@@ -91,7 +96,7 @@ export default function BukuBesar() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [qAccId]);
 
   // 2. Fetch Buku Besar
   const fetchLedger = useCallback(async () => {
@@ -160,7 +165,7 @@ export default function BukuBesar() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-white sm:text-2xl drop-shadow-xs">
-                    Buku Besar (General Ledger)
+                    General Ledger
                   </h1>
                   <p className="text-xs sm:text-sm text-emerald-50 mt-0.5 font-medium drop-shadow-xs">
                     Histori mutasi debit, kredit, dan saldo kumulatif per akun finansial
