@@ -186,7 +186,7 @@ import PersonalChat from "./pages/project-management-v2/pages/DirectMessages/Per
 import FinanceHO from "./pages/finance-ho";
 import JurnalUmum from "./pages/finance-ho/components/JurnalUmum";
 import COA from "./pages/finance-ho/components/COA";
-import DashboardFinance from "./pages/finance-ho/components/DashboardFinance";
+import BukuBesar from "./pages/finance-ho/components/BukuBesar";
 
 
 
@@ -786,8 +786,10 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/finance-ho" element={<DashboardFinance />} />
+          <Route path="/finance-ho" element={<JurnalUmum />} />
+          <Route path="/finance-ho/jurnal" element={<JurnalUmum />} />
           <Route path="/finance-ho/jurnal-umum" element={<JurnalUmum />} />
+          <Route path="/finance-ho/buku-besar" element={<BukuBesar />} />
           <Route path="/finance-ho/coa" element={<COA />} />
         </Route>
       </Routes>
