@@ -1146,20 +1146,20 @@ export default function JurnalUmum() {
       <main className="min-h-screen bg-slate-50 py-6 sm:py-8">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-6">
           {/* Header Banner */}
-          <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-emerald-950 to-teal-900 p-6 shadow-sm">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-            <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+          <section className="relative overflow-hidden rounded-3xl border border-emerald-300/30 bg-gradient-to-r from-[#059669] to-[#6EE7B7] p-6 shadow-sm">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/20 blur-3xl pointer-events-none" />
+            <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-teal-200/25 blur-3xl pointer-events-none" />
 
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 border border-white/15 text-white shadow-inner">
-                  <HiOutlineBookOpen className="h-6 w-6 text-emerald-300" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 border border-white/30 text-white shadow-inner backdrop-blur-xs">
+                  <HiOutlineBookOpen className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white sm:text-2xl">
+                  <h1 className="text-xl font-bold text-white sm:text-2xl drop-shadow-xs">
                     Jurnal Umum
                   </h1>
-                  <p className="text-xs sm:text-sm text-emerald-100/70 mt-0.5">
+                  <p className="text-xs sm:text-sm text-emerald-50 mt-0.5 font-medium drop-shadow-xs">
                     Pencatatan transaksi pembukuan double-entry secara otomatis berstatus posted.
                   </p>
                 </div>
@@ -1168,7 +1168,7 @@ export default function JurnalUmum() {
               <button
                 type="button"
                 onClick={() => setFormOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition shadow-md shadow-emerald-500/20 shrink-0"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-50 transition shadow-md shadow-emerald-950/10 shrink-0"
               >
                 <HiOutlinePlus className="h-4 w-4 stroke-[2.5]" />
                 Jurnal Baru

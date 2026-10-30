@@ -8,6 +8,7 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineXMark,
   HiOutlineSparkles,
+  HiOutlineNumberedList,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
 
@@ -79,41 +80,51 @@ export default function COA() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-            Daftar Akun (Chart of Accounts)
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Bagan akun keuangan HO Finance untuk pencatatan transaksi jurnal umum
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {accounts.length === 0 && (
+      {/* Header Banner */}
+      <section className="relative overflow-hidden rounded-3xl border border-emerald-300/30 bg-gradient-to-r from-[#059669] to-[#6EE7B7] p-6 shadow-sm">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/20 blur-3xl pointer-events-none" />
+        <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-teal-200/25 blur-3xl pointer-events-none" />
+
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 border border-white/30 text-white shadow-inner backdrop-blur-xs">
+              <HiOutlineNumberedList className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white sm:text-2xl drop-shadow-xs">
+                Daftar Akun (Chart of Accounts)
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-50 mt-0.5 font-medium drop-shadow-xs">
+                Bagan akun keuangan HO Finance untuk pencatatan transaksi jurnal umum
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {accounts.length === 0 && (
+              <button
+                type="button"
+                onClick={handleSeedDefault}
+                disabled={seeding || loading}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white px-3.5 py-2 text-xs font-bold text-emerald-900 transition shadow-sm disabled:opacity-50"
+              >
+                <HiOutlineSparkles className="h-4 w-4 text-emerald-600" />
+                {seeding ? "Memuat..." : "Muat Akun Standar"}
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleSeedDefault}
-              disabled={seeding || loading}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition shadow-sm"
+              onClick={() => {
+                setEditingAccount(null);
+                setModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-emerald-50 px-4 py-2.5 text-xs sm:text-sm font-bold text-emerald-800 transition shadow-md shadow-emerald-950/10 active:scale-95"
             >
-              <HiOutlineSparkles className="h-4 w-4 text-amber-600" />
-              {seeding ? "Memuat..." : "Muat Akun Standar"}
+              <HiOutlinePlus className="h-4 w-4 stroke-[2.5]" />
+              Tambah Akun Baru
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingAccount(null);
-              setModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-md shadow-emerald-600/20 active:scale-95"
-          >
-            <HiOutlinePlus className="h-4 w-4" />
-            Tambah Akun Baru
-          </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Alert Message */}
       {message && (
