@@ -56,49 +56,66 @@ const MENU_ITEMS = [
 ];
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
+  const location = useLocation();
+
+  const isItemActive = (isActive) => {
+    if (isActive) return true;
+    if (
+      to === "/finance-ho/dashboard" &&
+      (location.pathname === "/finance-ho" || location.pathname === "/finance-ho/")
+    ) {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <NavLink
       to={to}
       end={end}
       onClick={onClose}
       title={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
+      className={({ isActive }) => {
+        const active = isItemActive(isActive);
+        return cn(
           "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all",
           collapsed && "justify-center px-2",
-          isActive
+          active
             ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-semibold"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-        )
-      }
+        );
+      }}
     >
-      {({ isActive }) => (
-        <>
-          <div
-            className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition",
-              isActive
-                ? "bg-white/20 text-white"
-                : "border border-slate-200 bg-white text-slate-400 group-hover:border-slate-300 group-hover:text-slate-600"
-            )}
-          >
-            <Icon className="h-4 w-4" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <p className="truncate text-sm font-semibold leading-none">{label}</p>
-              <p
-                className={cn(
-                  "mt-0.5 truncate text-[11px] leading-none",
-                  isActive ? "text-emerald-100" : "text-slate-400"
-                )}
-              >
-                {description}
-              </p>
+      {({ isActive }) => {
+        const active = isItemActive(isActive);
+        return (
+          <>
+            <div
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition",
+                active
+                  ? "bg-white/20 text-white"
+                  : "border border-slate-200 bg-white text-slate-400 group-hover:border-slate-300 group-hover:text-slate-600"
+              )}
+            >
+              <Icon className="h-4 w-4" />
             </div>
-          )}
-        </>
-      )}
+            {!collapsed && (
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="truncate text-sm font-semibold leading-none">{label}</p>
+                <p
+                  className={cn(
+                    "mt-0.5 truncate text-[11px] leading-none",
+                    active ? "text-emerald-100" : "text-slate-400"
+                  )}
+                >
+                  {description}
+                </p>
+              </div>
+            )}
+          </>
+        );
+      }}
     </NavLink>
   );
 }
