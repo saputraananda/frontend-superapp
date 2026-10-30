@@ -46,7 +46,7 @@ const MENU_ITEMS = [
     end: false,
   },
   {
-    to: "/finance-ho/budget",
+    to: "/finance-ho/anggaran-beban",
     icon: HiOutlineCalculator,
     label: "Anggaran Beban",
     description: "Budget per akun per bulan",

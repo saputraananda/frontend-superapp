@@ -188,6 +188,7 @@ import DashboardFinance from "./pages/finance-ho/components/DashboardFinance";
 import JurnalUmum from "./pages/finance-ho/components/JurnalUmum";
 import COA from "./pages/finance-ho/components/COA";
 import BukuBesar from "./pages/finance-ho/components/BukuBesar";
+import AnggaranBeban from "./pages/finance-ho/components/AnggaranBeban";
 
 
 
@@ -792,6 +793,8 @@ export default function App() {
           <Route path="/finance-ho/jurnal-umum" element={<JurnalUmum />} />
           <Route path="/finance-ho/buku-besar" element={<BukuBesar />} />
           <Route path="/finance-ho/coa" element={<COA />} />
+
+          <Route path="/finance-ho/anggaran-beban" element={<AnggaranBeban />} />
         </Route>
       </Routes>
     </BrowserRouter>
