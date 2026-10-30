@@ -8,19 +8,20 @@ import {
   MONTH_OPTIONS,
 } from "../utils/cutoffPeriod";
 
-export default function useCutoffPeriod() {
+/** `restore` (opsional): hasil `snapshot` sebelumnya, untuk memulihkan periode saat kembali dari halaman detail. */
+export default function useCutoffPeriod(restore = null) {
   const defaultPeriod = useMemo(() => currentCutoffPeriod(), []);
   const initialRange = useMemo(
     () => cutoffRange(defaultPeriod.year, defaultPeriod.month),
     [defaultPeriod.year, defaultPeriod.month],
   );
 
-  const [isCustomDate, setIsCustomDate] = useState(false);
-  const [todayOnly, setTodayOnly] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(defaultPeriod.year);
-  const [selectedMonth, setSelectedMonth] = useState(defaultPeriod.month);
-  const [dateFrom, setDateFrom] = useState(initialRange.dateFrom);
-  const [dateTo, setDateTo] = useState(initialRange.dateTo);
+  const [isCustomDate, setIsCustomDate] = useState(restore?.isCustomDate ?? false);
+  const [todayOnly, setTodayOnly] = useState(restore?.todayOnly ?? false);
+  const [selectedYear, setSelectedYear] = useState(restore?.selectedYear ?? defaultPeriod.year);
+  const [selectedMonth, setSelectedMonth] = useState(restore?.selectedMonth ?? defaultPeriod.month);
+  const [dateFrom, setDateFrom] = useState(restore?.dateFrom ?? initialRange.dateFrom);
+  const [dateTo, setDateTo] = useState(restore?.dateTo ?? initialRange.dateTo);
   const savedRange = useRef(null);
 
   const years = useMemo(() => cutoffYearOptions(), []);
@@ -106,7 +107,10 @@ export default function useCutoffPeriod() {
 
   const rangeLabelShort = dateFrom && dateTo ? `${dateFrom} s/d ${dateTo}` : "";
 
+  const snapshot = () => ({ isCustomDate, todayOnly, selectedYear, selectedMonth, dateFrom, dateTo });
+
   return {
+    snapshot,
     isCustomDate,
     todayOnly,
     toggleToday,
