@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../../../lib/api";
 import {
   HiOutlineStar, HiOutlineChartBar, HiOutlineChatBubbleLeftRight,
@@ -122,6 +122,8 @@ function LayananEditorWaschen({ row, onSaved }) {
 
       <div className="flex items-center gap-3 text-xs text-slate-500 mb-3 flex-wrap">
         {row.no_nota && <span>No. Nota: <strong className="text-slate-700">{row.no_nota}</strong></span>}
+        <span>Cabang: <strong className="text-slate-700">{row.outlet_name || "—"}</strong></span>
+        <span>Customer: <strong className="text-slate-700">{row.customer_name || "—"}</strong></span>
         <span>{row.created_at}</span>
       </div>
 
@@ -245,15 +247,22 @@ export default function CsatWaschen() {
   const [detail, setDetail] = useState({ data: [], pagination: { page: 1, totalPages: 1, total: 0 }, loading: false });
   const [filters, setFilters] = useState({ search: "", nps_category: "", csat_score: "", startDate: "", endDate: "" });
 
+  /* ── Filter cabang (level halaman): berlaku untuk statistik, tabel, dan modal ── */
+  const [outlet, setOutlet] = useState("");
+  const outletRef = useRef("");
+  const firstLoad = useRef(true);
+
   const fetchStats = useCallback(async () => {
-    setLoading(true);
+    if (firstLoad.current) setLoading(true);
     setErr("");
     try {
-      const res = await api("/csat-nps/stats/waschen");
+      const qs = outletRef.current ? `?outlet_id=${outletRef.current}` : "";
+      const res = await api(`/csat-nps/stats/waschen${qs}`);
       setData(res.data || null);
     } catch (e) {
       setErr(e.message || "Gagal memuat data");
     } finally {
+      firstLoad.current = false;
       setLoading(false);
     }
   }, []);
@@ -268,6 +277,7 @@ export default function CsatWaschen() {
       if (f.search) params.set("search", f.search);
       if (f.nps_category) params.set("nps_category", f.nps_category);
       if (f.csat_score) params.set("csat_score", f.csat_score);
+      if (outletRef.current) params.set("outlet_id", outletRef.current);
       if (f.startDate) params.set("startDate", f.startDate);
       if (f.endDate) params.set("endDate", f.endDate);
       const res = await api(`/csat-nps/waschen?${params}`);
@@ -285,6 +295,7 @@ export default function CsatWaschen() {
     try {
       const params = new URLSearchParams({ page, limit: 20 });
       Object.entries(flt).forEach(([k, v]) => { if (v) params.set(k, v); });
+      if (outletRef.current) params.set("outlet_id", outletRef.current);
       const res = await api(`/csat-nps/waschen?${params}`);
       setModal(p => ({ ...p, data: res.data || [], pagination: res.pagination || {}, loading: false }));
     } catch {
@@ -305,6 +316,14 @@ export default function CsatWaschen() {
     const f = { search: "", nps_category: "", csat_score: "", startDate: "", endDate: "" };
     setFilters(f);
     fetchDetail(1, f);
+  };
+
+  const changeOutlet = (id) => {
+    const v = id ? String(id) : "";
+    outletRef.current = v;
+    setOutlet(v);
+    fetchStats();
+    fetchDetail(1, filters);
   };
 
   const handleSearchKey = (e) => {
@@ -361,10 +380,17 @@ export default function CsatWaschen() {
                 <p className="text-sm text-white/70">Customer Satisfaction (CSAT) & Net Promoter Score (NPS)</p>
               </div>
             </div>
-            <button onClick={fetchStats}
-              className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm shrink-0">
-              <HiOutlineArrowPath className="h-4 w-4" /> Refresh
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <select value={outlet} onChange={(e) => changeOutlet(e.target.value)}
+                className="rounded-xl bg-white/15 border border-white/25 px-3 py-2.5 text-sm font-semibold text-white outline-none focus:ring-2 focus:ring-white/40">
+                <option value="" className="text-slate-800">Semua Cabang</option>
+                {(data?.outlets || []).map(o => <option key={o.id} value={o.id} className="text-slate-800">{o.name}</option>)}
+              </select>
+              <button onClick={fetchStats}
+                className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm">
+                <HiOutlineArrowPath className="h-4 w-4" /> Refresh
+              </button>
+            </div>
           </div>
         </section>
 
@@ -403,6 +429,77 @@ export default function CsatWaschen() {
             accent={{ border: "border-green-200", bg: "bg-green-50", iconBg: "bg-green-100", iconText: "text-green-600" }}
           />
         </section>
+
+        {/* ── Perbandingan Per Cabang ── */}
+        {data?.by_outlet?.length > 0 && (
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <HiOutlineStar className="h-5 w-5 text-amber-500" />
+                <h2 className="text-sm font-bold text-slate-800">Rata-rata CSAT per Cabang</h2>
+              </div>
+              <p className="text-[11px] text-slate-400 mb-4">Klik cabang untuk memfilter seluruh halaman</p>
+              <div className="space-y-3">
+                {data.by_outlet.map((o) => {
+                  const active = o.outlet_id && String(o.outlet_id) === outlet;
+                  const color = o.avg_csat >= 4.5 ? "bg-green-500" : o.avg_csat >= 4 ? "bg-emerald-500" : o.avg_csat >= 3 ? "bg-amber-500" : "bg-red-500";
+                  return (
+                    <div key={o.outlet_id ?? "none"}
+                      className={cn("flex items-center gap-3 rounded-lg px-2 py-1 -mx-2 transition",
+                        o.outlet_id && "cursor-pointer hover:bg-slate-50", active && "bg-violet-50 ring-1 ring-violet-200")}
+                      onClick={() => o.outlet_id && changeOutlet(active ? "" : o.outlet_id)}
+                    >
+                      <span className="w-28 shrink-0 truncate text-xs font-semibold text-slate-700">{o.outlet_name}</span>
+                      <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={cn("h-5 rounded-full transition-all duration-700", color)} style={{ width: `${(o.avg_csat / 5) * 100}%` }} />
+                      </div>
+                      <span className="w-20 shrink-0 text-right">
+                        <span className="text-xs font-bold text-slate-700">{Number(o.avg_csat).toFixed(2)}</span>
+                        <span className="text-[10px] text-slate-400 ml-1">({o.total})</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <HiOutlineArrowTrendingUp className="h-5 w-5 text-emerald-500" />
+                <h2 className="text-sm font-bold text-slate-800">NPS per Cabang</h2>
+              </div>
+              <p className="text-[11px] text-slate-400 mb-4">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1" />Promoter
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-500 mx-1 ml-3" />Passive
+                <span className="inline-block h-2 w-2 rounded-full bg-red-500 mx-1 ml-3" />Detractor
+              </p>
+              <div className="space-y-3">
+                {data.by_outlet.map((o) => {
+                  const active = o.outlet_id && String(o.outlet_id) === outlet;
+                  const pct = (n) => (o.total ? (n / o.total) * 100 : 0);
+                  return (
+                    <div key={o.outlet_id ?? "none"}
+                      className={cn("flex items-center gap-3 rounded-lg px-2 py-1 -mx-2 transition",
+                        o.outlet_id && "cursor-pointer hover:bg-slate-50", active && "bg-violet-50 ring-1 ring-violet-200")}
+                      onClick={() => o.outlet_id && changeOutlet(active ? "" : o.outlet_id)}
+                    >
+                      <span className="w-28 shrink-0 truncate text-xs font-semibold text-slate-700">{o.outlet_name}</span>
+                      <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden flex">
+                        <div className="h-5 bg-emerald-500" style={{ width: `${pct(o.promoters)}%` }} title={`Promoter ${o.promoters}`} />
+                        <div className="h-5 bg-amber-500" style={{ width: `${pct(o.passives)}%` }} title={`Passive ${o.passives}`} />
+                        <div className="h-5 bg-red-500" style={{ width: `${pct(o.detractors)}%` }} title={`Detractor ${o.detractors}`} />
+                      </div>
+                      <span className={cn("w-20 shrink-0 text-right text-xs font-extrabold",
+                        o.nps_score >= 50 ? "text-emerald-600" : o.nps_score >= 0 ? "text-amber-600" : "text-red-600")}>
+                        {o.nps_score > 0 ? `+${o.nps_score}` : o.nps_score}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── CSAT Distribution + NPS Breakdown ── */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -592,6 +689,8 @@ export default function CsatWaschen() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">No. Nota</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Cabang</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Customer</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Layanan</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">CSAT</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Label</th>
@@ -608,6 +707,8 @@ export default function CsatWaschen() {
                     onClick={() => openModal(`Detail: ${r.no_nota || "#" + r.id}`, { search: r.no_nota || "" })}
                   >
                     <td className="py-2 px-3 font-medium text-slate-700">{r.no_nota || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{r.outlet_name || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600 max-w-[160px] truncate">{r.customer_name || "—"}</td>
                     <td className="py-2 px-3 text-slate-600">{r.layanan || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       <span className="inline-flex items-center gap-0.5">
@@ -669,6 +770,8 @@ export default function CsatWaschen() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">No. Nota</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Cabang</th>
+                  <th className="text-left py-2 px-3 font-semibold text-slate-500">Customer</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Layanan</th>
                   <th className="text-center py-2 px-3 font-semibold text-slate-500">CSAT</th>
                   <th className="text-left py-2 px-3 font-semibold text-slate-500">Label</th>
@@ -681,15 +784,17 @@ export default function CsatWaschen() {
               </thead>
               <tbody>
                 {detail.loading ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={11} className="py-8 text-center text-slate-400">Loading...</td></tr>
                 ) : detail.data.length === 0 ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
+                  <tr><td colSpan={11} className="py-8 text-center text-slate-400">Tidak ada data</td></tr>
                 ) : detail.data.map((r) => (
                   <tr key={r.id}
                     className="border-b border-slate-100 hover:bg-violet-50 cursor-pointer transition"
                     onClick={() => openModal(`Detail: ${r.no_nota || "#" + r.id}`, { search: r.no_nota || "" })}
                   >
                     <td className="py-2 px-3 font-medium text-slate-700">{r.no_nota || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{r.outlet_name || "—"}</td>
+                    <td className="py-2 px-3 text-slate-600 max-w-[160px] truncate">{r.customer_name || "—"}</td>
                     <td className="py-2 px-3 text-slate-600">{r.layanan || "—"}</td>
                     <td className="py-2 px-3 text-center">
                       <span className="inline-flex items-center gap-0.5">
