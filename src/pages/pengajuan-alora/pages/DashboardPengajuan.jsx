@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../lib/api";
 import {
@@ -6,17 +6,19 @@ import {
     HiOutlineCreditCard,
     HiOutlineArrowRight,
     HiOutlineBuildingOffice2,
+    HiOutlineBuildingStorefront,
+    HiOutlineBriefcase,
     HiOutlineExclamationTriangle,
     HiOutlineMagnifyingGlass,
-    HiOutlineChevronLeft,
-    HiOutlineChevronRight,
-    HiOutlineClipboardDocumentList,
     HiOutlineCalendarDays,
     HiOutlineBanknotes,
 } from "react-icons/hi2";
 import PengajuanDetailModal from "../components/PengajuanDetailModal";
 import InstallmentPaymentModal from "../components/InstallmentPaymentModal";
+import CheckboxFilter from "../components/CheckboxFilter";
+import ClassificationPanel from "../components/ClassificationPanel";
 import useCutoffPeriod from "../utils/useCutoffPeriod";
+
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -28,16 +30,33 @@ const toTitleCase = (str) => {
         .replace(/(?:^|\s+)\S/g, (c) => c.toUpperCase());
 };
 
-const STATUS_CONFIG = {
-    1: { label: "Telah Diajukan",       cls: "bg-amber-50 text-amber-700 border-amber-200" },
+export const STATUS_CONFIG = {
+    1: { label: "Telah Diajukan", cls: "bg-amber-50 text-amber-700 border-amber-200" },
     2: { label: "Disetujui Supervisor", cls: "bg-blue-50 text-blue-700 border-blue-200" },
-    3: { label: "Disetujui Direktur",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    4: { label: "PR Ready",             cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-    5: { label: "Menunggu Bayar",       cls: "bg-orange-50 text-orange-700 border-orange-200" },
-    6: { label: "Terbayar",             cls: "bg-cyan-50 text-cyan-700 border-cyan-200" },
-    7: { label: "Selesai",              cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    9: { label: "Ditolak",              cls: "bg-rose-50 text-rose-700 border-rose-200" },
+    3: { label: "Disetujui Direktur", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    4: { label: "PR Ready", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+    5: { label: "Menunggu Bayar", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+    6: { label: "Terbayar", cls: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+    7: { label: "Selesai", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    9: { label: "Ditolak", cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
+
+export const STATUS_FILTER_OPTIONS = [
+    { key: "done", label: "Terbayar + Selesai", statuses: "6,7" },
+    ...[1, 2, 3, 4, 5, 6, 7, 9].map((s) => ({
+        key: String(s),
+        label: STATUS_CONFIG[s].label,
+        statuses: String(s),
+    })),
+    { key: "all", label: "Semua Status", statuses: "1,2,3,4,5,6,7,9" },
+];
+
+
+const DEFAULT_STATUS_FILTER = "done";
+
+// Status yang sudah berarti uang keluar; selain ini nominal PR hanya perkiraan.
+export const PAID_STATUS_KEYS = ["done", "7", "6"];
+
 
 const formatRupiah = (v) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })
@@ -58,6 +77,18 @@ const isFinanceOrGAPosition = (positionName) => {
         || pos.includes("accounting")
         || pos.includes("accountiing");
 };
+
+// Outlet hanya berlaku untuk company ini (sama dengan WASCHEN_COMPANY_ID di backend)
+const WASCHEN_COMPANY_ID = 5;
+const CLS_LIMIT = 5;      // klasifikasi per halaman
+const REFRESH_MS = 30000;  // query per klasifikasi lebih berat dari list biasa
+
+const EMPTY_SUMMARY = {
+    pengajuan: { count: 0, nominal: 0 },
+    reimburse: { count: 0, nominal: 0 },
+    grandTotal: 0,
+};
+const EMPTY_CREDIT = { totalTarget: 0, totalPaid: 0, totalSisa: 0, countAll: 0, countUnpaid: 0, countPaid: 0 };
 
 // ── StatCard ─────────────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, sub, iconBg, iconText, onClick, active, large }) {
@@ -100,133 +131,164 @@ export default function DashboardPengajuan() {
 
     const userRaw = localStorage.getItem("user");
     const currentEmployee = userRaw ? (JSON.parse(userRaw)?.employee || null) : null;
-    const isFinanceOrGA   = isFinanceOrGAPosition(currentEmployee?.position_name) || Number(currentEmployee?.job_level_id) === 1;
-
-    // ── Department selector (khusus finance/GA) ──────────────────────────
-    // Default = "all" (Semua Departemen) untuk Finance/GA
-    const myDeptId   = currentEmployee?.department_id ?? null;
+    const isFinanceOrGA = isFinanceOrGAPosition(currentEmployee?.position_name) || Number(currentEmployee?.job_level_id) === 1;
     const myDeptName = currentEmployee?.department_name ?? "—";
-    const [selectedDeptId, setSelectedDeptId] = useState(isFinanceOrGA ? "all" : myDeptId);
-    const [departments, setDepartments]       = useState([]);
+
+    // ── Opsi filter + pilihan user ───────────────────────────────────────
+    // Pilihan: null = semua terpilih (tidak ada filter terkirim), array = id terpilih.
+    const [departments, setDepartments] = useState([]);
+    const [companies, setCompanies] = useState([]);
+    const [outlets, setOutlets] = useState([]);
+    const [deptSel, setDeptSel] = useState(null);
+    const [compSel, setCompSel] = useState(null);
+    const [outSel, setOutSel] = useState(null);
 
     useEffect(() => {
-        if (!isFinanceOrGA) return;
         let cancel = false;
+        const load = async (path) => {
+            try { return (await api(path)).data || []; } catch { return []; }
+        };
         (async () => {
-            try {
-                const d = await api("/pengajuan/departments");
-                if (!cancel) setDepartments(d.data || []);
-            } catch { /* ignore */ }
+            const [c, o, d] = await Promise.all([
+                load("/pengajuan/companies"),
+                load("/pengajuan/outlets"),
+                isFinanceOrGA ? load("/pengajuan/departments") : Promise.resolve([]),
+            ]);
+            if (cancel) return;
+            setCompanies(c);
+            setOutlets(o);
+            setDepartments(d);
         })();
         return () => { cancel = true; };
     }, [isFinanceOrGA]);
 
+    const deptOptions = useMemo(
+        () => departments.map(d => ({ value: d.department_id, label: d.department_name })), [departments]);
+    const compOptions = useMemo(
+        () => companies.map(c => ({ value: c.company_id, label: c.company_name })), [companies]);
+    const outOptions = useMemo(
+        () => outlets.map(o => ({ value: o.outlet_id, label: o.name })), [outlets]);
+
+    const waschenOn = compSel === null || (Array.isArray(compSel) && compSel.includes(WASCHEN_COMPANY_ID));
+
     // ── Cutoff period — satu state, berlaku untuk SEMUA section ──────────
-    // Pass selectedDeptId supaya periode dropdown ikut ter-scope dgn
-    // departemen yang dipilih (penting untuk Finance/GA "Semua Departemen").
-    const period = useCutoffPeriod("department", { departmentId: selectedDeptId });
-
-    // ── Summary state ─────────────────────────────────────────────────────
-    const [summaryLoading, setSummaryLoading] = useState(true);
-    const [summaryErr, setSummaryErr]         = useState(null);
-    const [summaryLoaded, setSummaryLoaded]   = useState(false); // first-load flag
-    const [summary, setSummary] = useState({
-        department: { id: null, name: "—" },
-        pengajuan:  { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
-        reimburse:  { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
-    });
-
-    // ── Total Kredit (khusus finance/GA, dari endpoint credit) ───────────
-    const [creditSummary, setCreditSummary] = useState({ totalTarget: 0, totalPaid: 0, totalSisa: 0, countAll: 0, countUnpaid: 0, countPaid: 0 });
-    const [creditLoading, setCreditLoading] = useState(false);
-    const [creditData, setCreditData]       = useState([]);
-
-    // ── View toggle: "summary" (default) | "credit" — only finance/GA ────
-    const [view, setView] = useState("summary");
-    const [creditFilter, setCreditFilter]   = useState("unpaid");
-    const [creditSearch, setCreditSearch]   = useState("");
-    const [creditSearchInput, setCSI]       = useState("");
+    const period = useCutoffPeriod("department", { departmentId: isFinanceOrGA ? "all" : null });
 
     // ── "Tampilkan Semua" — disable filter periode sama sekali ──────────
     const [showAllDates, setShowAllDates] = useState(false);
 
-    // ── Department list state ─────────────────────────────────────────────
-    const [listData, setListData]       = useState([]);
-    const [listTotal, setListTotal]     = useState(0);
-    const [listLoading, setListLoading] = useState(true);
-    const [page, setPage]               = useState(1);
+    // ── Search + dropdown tipe & status (panel klasifikasi) ──────────────
     const [searchInput, setSearchInput] = useState("");
-    const [search, setSearch]           = useState("");
-    const [filterStatus, setFS]         = useState("");
-    const [filterType, setFT]           = useState("");
+    const [search, setSearch] = useState("");
+    const [typeFilter, setTypeFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState(DEFAULT_STATUS_FILTER);
+    const statusOption = STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter) || STATUS_FILTER_OPTIONS[0];
 
-    const [detailId, setDetailId]               = useState(null);
-    const [installmentId, setInstallmentId]     = useState(null);
-    const [refreshTick, setRefreshTick]         = useState(0);
-    const LIMIT = 10;
-
-    // ── Auto-refresh tick setiap 5 detik (berlaku untuk summary + list) ──
+    // debounce search
     useEffect(() => {
-        const interval = setInterval(() => setRefreshTick(t => t + 1), 5000);
+        const t = setTimeout(() => setSearch(searchInput.trim()), 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
+    // ── Query string scope + periode (departemen/company/outlet/tanggal) ─
+    // Dipakai endpoint kredit; kartu & panel klasifikasi menambah status/tipe/search di atasnya.
+    const baseQuery = useMemo(() => {
+        const p = new URLSearchParams();
+        const setIfSubset = (key, sel, opts) => {
+            if (sel !== null && opts.length && sel.length < opts.length) p.set(key, sel.join(","));
+        };
+        if (isFinanceOrGA) setIfSubset("department_ids", deptSel, deptOptions.map(o => o.value));
+        setIfSubset("company_ids", compSel, compOptions.map(o => o.value));
+        if (waschenOn) setIfSubset("outlet_ids", outSel, outOptions.map(o => o.value));
+        if (!showAllDates && period.dateFrom) {
+            p.set("date_from", period.dateFrom);
+            p.set("date_to", period.dateTo);
+        }
+        return p.toString();
+    }, [isFinanceOrGA, deptSel, compSel, outSel, waschenOn, deptOptions, compOptions, outOptions,
+        showAllDates, period.dateFrom, period.dateTo]);
+
+    // Query lengkap untuk kartu + panel klasifikasi (tanpa page/sort)
+    const filterQuery = useMemo(() => {
+        const p = new URLSearchParams(baseQuery);
+        p.set("statuses", statusOption.statuses);
+        if (typeFilter) p.set("type", typeFilter);
+        if (search) p.set("search", search);
+        return p.toString();
+    }, [baseQuery, statusOption, typeFilter, search]);
+
+    const periodReady = showAllDates || !!period.dateFrom;
+
+    // ── Auto-refresh tick (berlaku untuk klasifikasi + kredit) ───────────
+    const [refreshTick, setRefreshTick] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => setRefreshTick(t => t + 1), REFRESH_MS);
         return () => clearInterval(interval);
     }, []);
 
-    // ── Load summary (filtered by period + selectedDeptId) ────────────────
+    // ── Data per klasifikasi + ringkasan kartu ───────────────────────────
+    const [clsSort, setClsSort] = useState("desc");
+    const [clsPage, setClsPage] = useState(1);
+    const [cls, setCls] = useState({ data: [], total: 0, summary: EMPTY_SUMMARY });
+    const [clsLoading, setClsLoading] = useState(true);
+    const [clsLoaded, setClsLoaded] = useState(false); // first-load flag
+    const [clsErr, setClsErr] = useState(null);
+
+    // kembali ke halaman 1 saat filter / urutan berubah
+    useEffect(() => { setClsPage(1); }, [filterQuery, clsSort]);
+
     useEffect(() => {
-        // Saat showAllDates = true: tidak butuh period.dateFrom (semua periode)
-        if (!showAllDates && !period.dateFrom) return;
+        if (!periodReady) return;
         let cancel = false;
         (async () => {
-            // Loading skeleton hanya pada first load (sebelum data pernah masuk).
-            // Polling berikutnya silent supaya tidak glitch.
-            if (!summaryLoaded) setSummaryLoading(true);
-            setSummaryErr(null);
+            // Spinner hanya pada first load; polling berikutnya silent.
+            if (!clsLoaded) setClsLoading(true);
+            setClsErr(null);
             try {
-                const params = new URLSearchParams();
-                if (!showAllDates) {
-                    params.set("date_from", period.dateFrom);
-                    params.set("date_to",   period.dateTo);
-                }
-                if (isFinanceOrGA && selectedDeptId != null && selectedDeptId !== "")
-                    params.set("department_id", String(selectedDeptId));
-                const d = await api(`/pengajuan/dashboard?${params}`);
-                if (!cancel) {
-                    setSummary({
-                        department: d.department || { id: null, name: "—" },
-                        pengajuan:  d.summary?.pengajuan || { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
-                        reimburse:  d.summary?.reimburse || { total: 0, byStatus: {}, totalNominal: 0, nominalByStatus: {} },
-                    });
-                    setSummaryLoaded(true);
-                }
+                const p = new URLSearchParams(filterQuery);
+                p.set("page", String(clsPage));
+                p.set("limit", String(CLS_LIMIT));
+                p.set("sort", clsSort);
+                const d = await api(`/pengajuan/by-classification?${p}`);
+                if (cancel) return;
+                setCls({ data: d.data || [], total: d.total || 0, summary: d.summary || EMPTY_SUMMARY });
+                setClsLoaded(true);
             } catch (e) {
-                if (!cancel) setSummaryErr(e.message || "Gagal memuat ringkasan");
+                if (!cancel) setClsErr(e.message || "Gagal memuat ringkasan");
             } finally {
-                if (!cancel) setSummaryLoading(false);
+                if (!cancel) setClsLoading(false);
             }
         })();
         return () => { cancel = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [period.dateFrom, period.dateTo, refreshTick, selectedDeptId, isFinanceOrGA, showAllDates]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterQuery, clsPage, clsSort, refreshTick, periodReady]);
 
-    // ── Load credit summary (khusus finance/GA, scoped per department) ───
+    // ── Total Kredit (khusus finance/GA, dari endpoint credit) ───────────
+    const [creditSummary, setCreditSummary] = useState(EMPTY_CREDIT);
+    const [creditLoading, setCreditLoading] = useState(false);
+    const [creditData, setCreditData] = useState([]);
+
+    // ── View toggle: "summary" (default) | "credit" — only finance/GA ────
+    const [view, setView] = useState("summary");
+    const [creditFilter, setCreditFilter] = useState("unpaid");
+    const [creditSearch, setCreditSearch] = useState("");
+    const [creditSearchInput, setCSI] = useState("");
+
+    const [detailId, setDetailId] = useState(null);
+    const [installmentId, setInstallmentId] = useState(null);
+
+    // kartu Total Kredit mengikuti filter yang sama
     useEffect(() => {
-        if (!isFinanceOrGA) return;
+        if (!isFinanceOrGA || !periodReady) return;
         let cancel = false;
         (async () => {
             try {
-                const params = new URLSearchParams();
-                if (selectedDeptId != null && selectedDeptId !== "")
-                    params.set("department_id", String(selectedDeptId));
-                if (!showAllDates && period.dateFrom) {
-                    params.set("date_from", period.dateFrom);
-                    params.set("date_to",   period.dateTo);
-                }
-                const d = await api(`/pengajuan/credit?${params}`);
-                if (!cancel) setCreditSummary(d.summary || { totalTarget: 0, totalPaid: 0, totalSisa: 0, countAll: 0, countUnpaid: 0, countPaid: 0 });
+                const d = await api(`/pengajuan/credit?${baseQuery}`);
+                if (!cancel) setCreditSummary(d.summary || EMPTY_CREDIT);
             } catch { /* ignore */ }
         })();
         return () => { cancel = true; };
-    }, [isFinanceOrGA, selectedDeptId, period.dateFrom, period.dateTo, refreshTick, showAllDates]);
+    }, [isFinanceOrGA, baseQuery, refreshTick, periodReady]);
 
     // ── Load credit list (only when view === "credit") ───────────────────
     useEffect(() => {
@@ -235,27 +297,21 @@ export default function DashboardPengajuan() {
     }, [creditSearchInput]);
 
     const loadCredit = useCallback(async (silent = false) => {
-        if (view !== "credit" || !isFinanceOrGA) return;
+        if (view !== "credit" || !isFinanceOrGA || !periodReady) return;
         if (!silent) setCreditLoading(true);
         try {
-            const params = new URLSearchParams();
+            const params = new URLSearchParams(baseQuery);
             if (creditFilter) params.set("status", creditFilter);
             if (creditSearch) params.set("search", creditSearch);
-            if (selectedDeptId != null && selectedDeptId !== "")
-                params.set("department_id", String(selectedDeptId));
-            if (!showAllDates && period.dateFrom) {
-                params.set("date_from", period.dateFrom);
-                params.set("date_to",   period.dateTo);
-            }
             const d = await api(`/pengajuan/credit?${params}`);
             setCreditData(d.data || []);
-            setCreditSummary(d.summary || { totalTarget: 0, totalPaid: 0, totalSisa: 0, countAll: 0, countUnpaid: 0, countPaid: 0 });
+            setCreditSummary(d.summary || EMPTY_CREDIT);
         } catch {
             if (!silent) setCreditData([]);
         } finally {
             if (!silent) setCreditLoading(false);
         }
-    }, [view, isFinanceOrGA, creditFilter, creditSearch, selectedDeptId, period.dateFrom, period.dateTo, showAllDates]);
+    }, [view, isFinanceOrGA, periodReady, creditFilter, creditSearch, baseQuery]);
 
     useEffect(() => { loadCredit(); }, [loadCredit]);
 
@@ -265,64 +321,24 @@ export default function DashboardPengajuan() {
         return () => clearInterval(interval);
     }, [view, loadCredit]);
 
-    // debounce search
-    useEffect(() => {
-        const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
-        return () => clearTimeout(t);
-    }, [searchInput]);
+    const handleChangedRefresh = () => { setRefreshTick(t => t + 1); loadCredit(true); };
 
-    // reset page saat period / dept / showAllDates berubah
-    useEffect(() => { setPage(1); }, [period.dateFrom, period.dateTo, selectedDeptId, showAllDates]);
+    // Label departemen di pojok kanan atas
+    const scopeLabel = !isFinanceOrGA
+        ? myDeptName
+        : deptSel === null
+            ? "Semua Departemen"
+            : deptSel.length === 0
+                ? "Tidak ada departemen"
+                : deptSel.length === 1
+                    ? (departments.find(d => d.department_id === deptSel[0])?.department_name || "1 departemen")
+                    : `${deptSel.length} departemen`;
 
-    // ── Load department list (filtered by period + selectedDeptId) ────────
-    const loadList = useCallback(async (silent = false) => {
-        if (!showAllDates && !period.dateFrom) return;
-        if (view !== "summary") return; // hanya saat view summary
-        if (!silent) setListLoading(true);
-        try {
-            const params = new URLSearchParams({ page, limit: LIMIT });
-            if (search)       params.set("search",    search);
-            if (filterStatus) params.set("status",    filterStatus);
-            if (filterType)   params.set("type",      filterType);
-            if (!showAllDates) {
-                params.set("date_from", period.dateFrom);
-                params.set("date_to",   period.dateTo);
-            }
-            if (isFinanceOrGA && selectedDeptId != null && selectedDeptId !== "")
-                params.set("department_id", String(selectedDeptId));
-            const d = await api(`/pengajuan/department?${params}`);
-            setListData(d.data  || []);
-            setListTotal(d.total || 0);
-        } catch {
-            if (!silent) setListData([]);
-        } finally {
-            if (!silent) setListLoading(false);
-        }
-    }, [view, page, search, filterStatus, filterType, period.dateFrom, period.dateTo, selectedDeptId, isFinanceOrGA, showAllDates]);
-
-    useEffect(() => { loadList(); }, [loadList]);
-
-    // ── Auto-refresh setiap 5 detik (silent — tanpa spinner) ─────────────
-    useEffect(() => {
-        if (view !== "summary") return;
-        const interval = setInterval(() => { loadList(true); }, 5000);
-        return () => clearInterval(interval);
-    }, [view, loadList]);
-
-    const totalPages    = Math.ceil(listTotal / LIMIT) || 1;
-    const { pengajuan, reimburse } = summary;
-
-    // Status 4 ke atas = sudah disetujui sampai tahap finance (PR Ready, Menunggu Bayar, Terbayar, Selesai)
-    const FINANCE_STATUSES = [4, 5, 6, 7];
-    const pengajuanNominalFinance = FINANCE_STATUSES.reduce(
-        (sum, s) => sum + Number(pengajuan.nominalByStatus?.[s] || 0), 0);
-    const pengajuanCountFinance = FINANCE_STATUSES.reduce(
-        (sum, s) => sum + Number(pengajuan.byStatus?.[s] || 0), 0);
-
-    const handleChangedRefresh = () => { setRefreshTick(t => t + 1); loadCredit(true); loadList(true); };
+    const pengajuan = cls?.summary?.pengajuan || EMPTY_SUMMARY.pengajuan;
+    const reimburse = cls?.summary?.reimburse || EMPTY_SUMMARY.reimburse;
 
     // ── render ────────────────────────────────────────────────────────────
-    if (summaryLoading && !summaryLoaded) {
+    if (clsLoading && !clsLoaded) {
         return (
             <div className="flex items-center justify-center py-24">
                 <div className="h-7 w-7 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
@@ -330,12 +346,12 @@ export default function DashboardPengajuan() {
         );
     }
 
-    if (summaryErr) {
+    if (clsErr && !clsLoaded) {
         return (
             <div className="p-6">
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 flex items-center gap-3">
                     <HiOutlineExclamationTriangle className="h-5 w-5 shrink-0" />
-                    {summaryErr}
+                    {clsErr}
                 </div>
             </div>
         );
@@ -344,29 +360,27 @@ export default function DashboardPengajuan() {
     return (
         <div className="p-6 space-y-6">
 
-            {/* ── Header + Period Filter + (opsional) Department Selector ── */}
+            {/* ── Header + Filter ── */}
             <div className="flex flex-col gap-3">
-                {/* top row: judul + departemen */}
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                         <h1 className="text-lg font-bold text-slate-800">Dashboard Pengajuan</h1>
                         <p className="text-xs text-slate-500 mt-0.5">
                             {isFinanceOrGA
-                                ? "Monitoring pengajuan & reimburse per departemen"
-                                : "Ringkasan pengajuan & reimburse departemen Anda"}
+                                ? "Monitoring pengeluaran per klasifikasi, departemen, company & outlet"
+                                : "Ringkasan pengeluaran departemen Anda per klasifikasi"}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
                         <HiOutlineBuildingOffice2 className="h-4 w-4" />
-                        {summary.department.name || "—"}
+                        {scopeLabel}
                     </div>
                 </div>
 
-                {/* period + (opsional) department filter — Finance/GA */}
                 <div className="bg-white border border-slate-200/80 rounded-2xl px-4 py-3 shadow-sm shadow-slate-200/50 flex flex-col gap-2.5">
                     {/* Row 1: Periode + tombol Tampilkan Semua */}
                     <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0 w-28">
                             <HiOutlineCalendarDays className="h-4 w-4" />
                             Periode Cutoff:
                         </div>
@@ -396,7 +410,6 @@ export default function DashboardPengajuan() {
                         {period.loading && (
                             <span className="text-[11px] text-slate-400 italic">memuat periode...</span>
                         )}
-                        {/* Tombol Tampilkan Semua — pojok kanan */}
                         <button
                             type="button"
                             onClick={() => setShowAllDates(prev => !prev)}
@@ -411,69 +424,64 @@ export default function DashboardPengajuan() {
                         </button>
                     </div>
 
-                    {/* Row 2: Department selector (khusus Finance/GA) */}
-                    {isFinanceOrGA && (
-                        <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-slate-100">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0">
-                                <HiOutlineBuildingOffice2 className="h-4 w-4" />
-                                Departemen:
-                            </div>
-                            <select
-                                value={selectedDeptId == null ? "" : String(selectedDeptId)}
-                                onChange={e => {
-                                    const v = e.target.value;
-                                    if (v === "all") setSelectedDeptId("all");
-                                    else if (v === "") setSelectedDeptId(null);
-                                    else setSelectedDeptId(Number(v));
-                                }}
-                                className="flex-1 min-w-[200px] rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-semibold text-cyan-800 outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 transition"
-                            >
-                                <option value="all">Semua Departemen</option>
-                                {myDeptId && (
-                                    <option value={String(myDeptId)}>{myDeptName} (Dept Saya)</option>
-                                )}
-                                {departments
-                                    .filter(d => d.department_id !== myDeptId)
-                                    .map(d => (
-                                        <option key={d.department_id} value={String(d.department_id)}>
-                                            {d.department_name}
-                                        </option>
-                                    ))}
-                            </select>
+                    {/* Row 2: Filter Scope Dropdowns (Departemen, Company, Outlet) */}
+                    <div className="pt-2.5 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0 w-28">
+                            <HiOutlineBuildingOffice2 className="h-4 w-4" />
+                            Filter Scope:
                         </div>
-                    )}
+                        <div className="flex items-center gap-2 flex-wrap flex-1">
+                            {isFinanceOrGA && (
+                                <CheckboxFilter
+                                    label="Departemen"
+                                    icon={HiOutlineBuildingOffice2}
+                                    options={deptOptions}
+                                    selected={deptSel}
+                                    onChange={setDeptSel}
+                                />
+                            )}
+                            <CheckboxFilter
+                                label="Company"
+                                icon={HiOutlineBriefcase}
+                                options={compOptions}
+                                selected={compSel}
+                                onChange={setCompSel}
+                            />
+                            <CheckboxFilter
+                                label="Outlet"
+                                icon={HiOutlineBuildingStorefront}
+                                options={outOptions}
+                                selected={outSel}
+                                onChange={setOutSel}
+                                disabled={!waschenOn}
+                                hint="Aktif jika Waschen Laundry dipilih"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* ── Stat cards ── */}
-            {(summaryLoading && !summaryLoaded) ? (
-                <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", isFinanceOrGA && "xl:grid-cols-3")}>
-                    {[...Array(isFinanceOrGA ? 3 : 2)].map((_, i) => (
-                        <div key={i} className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 p-5 h-28 animate-pulse" />
-                    ))}
-                </div>
-            ) : (
-                <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", isFinanceOrGA && "xl:grid-cols-3")}>
-                    <StatCard icon={HiOutlineDocumentPlus} label="Pengajuan Barang"
-                        value={formatRupiah(pengajuanNominalFinance)}
-                        sub={`${pengajuanCountFinance} pengajuan disetujui hingga finance · ${pengajuan.total} total`}
-                        iconBg="bg-emerald-100" iconText="text-emerald-700" large />
-                    <StatCard icon={HiOutlineCreditCard} label="Reimburse"
-                        value={formatRupiah(reimburse.totalNominal)}
-                        sub={`${reimburse.total} pengajuan`}
-                        iconBg="bg-teal-100" iconText="text-teal-700" large />
-                    {isFinanceOrGA && (
-                        <StatCard icon={HiOutlineBanknotes} label="Total Kredit"
-                            value={creditSummary.countUnpaid}
-                            sub={`Sisa: ${formatRupiah(creditSummary.totalSisa)}`}
-                            iconBg="bg-cyan-100" iconText="text-cyan-700"
-                            onClick={() => setView(v => v === "credit" ? "summary" : "credit")}
-                            active={view === "credit"} />
-                    )}
-                </div>
-            )}
+            <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", isFinanceOrGA && "xl:grid-cols-3")}>
+                <StatCard icon={HiOutlineDocumentPlus} label="Pengajuan Barang"
+                    value={formatRupiah(pengajuan.nominal)}
+                    sub={`${pengajuan.count} pengajuan · ${statusOption.label}`}
+                    iconBg="bg-emerald-100" iconText="text-emerald-700" large />
+                <StatCard icon={HiOutlineCreditCard} label="Reimburse"
+                    value={formatRupiah(reimburse.nominal)}
+                    sub={`${reimburse.count} reimburse · ${statusOption.label}`}
+                    iconBg="bg-teal-100" iconText="text-teal-700" large />
+                {isFinanceOrGA && (
+                    <StatCard icon={HiOutlineBanknotes} label="Total Kredit"
+                        value={creditSummary.countUnpaid}
+                        sub={`Sisa: ${formatRupiah(creditSummary.totalSisa)}`}
+                        iconBg="bg-cyan-100" iconText="text-cyan-700"
+                        onClick={() => setView(v => v === "credit" ? "summary" : "credit")}
+                        active={view === "credit"} />
+                )}
+            </div>
 
-            {/* ── Body: summary view (default) atau credit list view ── */}
+            {/* ── Body: per klasifikasi (default) atau credit list view ── */}
             {view === "credit" && isFinanceOrGA ? (
                 <CreditListSection
                     data={creditData}
@@ -485,125 +493,34 @@ export default function DashboardPengajuan() {
                     setSearchInput={setCSI}
                     onPay={(id) => setInstallmentId(id)}
                     onDetail={(id) => setDetailId(id)}
-                    deptName={summary.department.name}
+                    deptName={scopeLabel}
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-5">
-                    {/* department list */}
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-300/40 flex flex-col overflow-hidden">
-
-                        {/* list header + search/filter */}
-                        <div className="px-5 pt-4 pb-3 border-b border-slate-100 space-y-3">
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                                <div>
-                                    <p className="text-sm font-bold text-slate-700">Pengajuan Departemen</p>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">
-                                        Semua rekan sedepartemen · {listTotal} data
-                                    </p>
-                                </div>
-                                <button onClick={() => navigate("/pengajuan-alora/list")}
-                                    className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition shrink-0">
-                                    Pengajuan Saya <HiOutlineArrowRight className="h-3.5 w-3.5" />
-                                </button>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                <div className="relative flex-1 min-w-0">
-                                    <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                    <input
-                                        value={searchInput}
-                                        onChange={e => setSearchInput(e.target.value)}
-                                        placeholder="Cari barang, kode, atau nama..."
-                                        className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition" />
-                                </div>
-                                <select value={filterType} onChange={e => { setFT(e.target.value); setPage(1); }}
-                                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
-                                    <option value="">Semua Tipe</option>
-                                    <option value="pengajuan">Pengajuan</option>
-                                    <option value="reimburse">Reimburse</option>
-                                </select>
-                                <select value={filterStatus} onChange={e => { setFS(e.target.value); setPage(1); }}
-                                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
-                                    <option value="">Semua Status</option>
-                                    {Object.entries(STATUS_CONFIG).map(([k, v]) =>
-                                        <option key={k} value={k}>{v.label}</option>
-                                    )}
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* list body */}
-                        <div className="flex-1 overflow-y-auto">
-                            {listLoading ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="h-6 w-6 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-                                </div>
-                            ) : listData.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-14 gap-3 text-center">
-                                    <HiOutlineClipboardDocumentList className="h-9 w-9 text-slate-200" />
-                                    <p className="text-sm text-slate-400">
-                                        {showAllDates ? "Belum ada pengajuan" : "Belum ada pengajuan pada periode ini"}
-                                    </p>
-                                    {!showAllDates && (
-                                        <p className="text-[11px] text-slate-300">{period.rangeLabelShort}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="divide-y divide-slate-50">
-                                    {listData.map(item => (
-                                        <button
-                                            key={item.pr_id}
-                                            onClick={() => setDetailId(item.pr_id)}
-                                            className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/80 transition text-left group"
-                                        >
-                                            <div className={cn(
-                                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                                                item.type === "reimburse" ? "bg-teal-50 text-teal-600" : "bg-emerald-50 text-emerald-600",
-                                            )}>
-                                                {item.type === "reimburse"
-                                                    ? <HiOutlineCreditCard className="h-4 w-4" />
-                                                    : <HiOutlineDocumentPlus className="h-4 w-4" />}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-semibold text-slate-700 truncate group-hover:text-emerald-700 transition">
-                                                    {toTitleCase(item.nama_barang)}
-                                                </p>
-                                                <p className="text-[11px] text-slate-400 truncate">
-                                                    {toTitleCase(item.pengaju_name) || "—"}
-                                                    {" · "}{item.qty}{item.satuan_name ? ` ${item.satuan_name}` : ""}
-                                                    {" · "}{formatDate(item.tanggal_pengajuan || item.created_at)}
-                                                    {item.estimasi_harga ? ` · ${formatRupiah(item.estimasi_harga)}` : ""}
-                                                </p>
-                                            </div>
-                                            <StatusBadge status={Number(item.status)} />
-                                            <HiOutlineArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-500 transition shrink-0 ml-1" />
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* pagination */}
-                        {totalPages > 1 && (
-                            <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between bg-slate-50/50">
-                                <p className="text-[11px] text-slate-400">
-                                    Hal <span className="font-semibold text-slate-600">{page}</span>/{totalPages}
-                                    <span className="ml-1">({listTotal} data)</span>
-                                </p>
-                                <div className="flex items-center gap-1">
-                                    <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                                        className="flex items-center justify-center h-7 w-7 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                                        <HiOutlineChevronLeft className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
-                                        className="flex items-center justify-center h-7 w-7 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                                        <HiOutlineChevronRight className="h-3.5 w-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <ClassificationPanel
+                    data={cls.data}
+                    total={cls.total}
+                    page={clsPage}
+                    limit={CLS_LIMIT}
+                    grandTotal={cls?.summary?.grandTotal || 0}
+                    loading={clsLoading}
+                    sort={clsSort}
+                    onSort={() => setClsSort(s => s === "desc" ? "asc" : "desc")}
+                    onPage={setClsPage}
+                    searchInput={searchInput}
+                    onSearchInput={setSearchInput}
+                    typeFilter={typeFilter}
+                    onTypeFilter={setTypeFilter}
+                    statusFilter={statusFilter}
+                    onStatusFilter={setStatusFilter}
+                    statusLabel={statusOption.label}
+                    isEstimate={!PAID_STATUS_KEYS.includes(statusFilter)}
+                    filterQuery={filterQuery}
+                    refreshTick={refreshTick}
+                    onOpenPR={setDetailId}
+                    emptyHint={showAllDates
+                        ? "Belum ada pengeluaran yang cocok dengan filter"
+                        : `Belum ada pengeluaran pada periode ini${period.rangeLabelShort ? ` (${period.rangeLabelShort})` : ""}`}
+                />
             )}
 
             {/* ── Quick actions ── */}
@@ -701,8 +618,8 @@ function CreditListSection({ data, summary, loading, filter, setFilter, searchIn
                     <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
                         {[
                             { key: "unpaid", label: `Belum Lunas (${summary.countUnpaid || 0})` },
-                            { key: "paid",   label: `Lunas (${summary.countPaid || 0})` },
-                            { key: "",       label: `Semua (${summary.countAll || 0})` },
+                            { key: "paid", label: `Lunas (${summary.countPaid || 0})` },
+                            { key: "", label: `Semua (${summary.countAll || 0})` },
                         ].map(opt => (
                             <button key={opt.key}
                                 onClick={() => setFilter(opt.key)}
@@ -732,9 +649,9 @@ function CreditListSection({ data, summary, loading, filter, setFilter, searchIn
                 <div className="divide-y divide-slate-50">
                     {data.map(row => {
                         const target = Number(row.nominal_bayar) || 0;
-                        const paid   = Number(row.total_paid)    || 0;
-                        const sisa   = Number(row.sisa)          || 0;
-                        const pct    = formatPct(target, paid);
+                        const paid = Number(row.total_paid) || 0;
+                        const sisa = Number(row.sisa) || 0;
+                        const pct = formatPct(target, paid);
                         const isLunas = row.is_lunas;
                         return (
                             <div key={row.pr_id}
