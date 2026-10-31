@@ -425,39 +425,40 @@ export default function DashboardPengajuan() {
                     </div>
 
                     {/* Row 2: Filter Scope Dropdowns (Departemen, Company, Outlet) */}
-                    <div className="pt-2.5 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0 w-28">
-                            <HiOutlineBuildingOffice2 className="h-4 w-4" />
-                            Filter Scope:
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap flex-1">
-                            {isFinanceOrGA && (
-                                <CheckboxFilter
-                                    label="Departemen"
-                                    icon={HiOutlineBuildingOffice2}
-                                    options={deptOptions}
-                                    selected={deptSel}
-                                    onChange={setDeptSel}
-                                />
-                            )}
-                            <CheckboxFilter
-                                label="Company"
-                                icon={HiOutlineBriefcase}
-                                options={compOptions}
-                                selected={compSel}
-                                onChange={setCompSel}
-                            />
-                            <CheckboxFilter
-                                label="Outlet"
-                                icon={HiOutlineBuildingStorefront}
-                                options={outOptions}
-                                selected={outSel}
-                                onChange={setOutSel}
-                                disabled={!waschenOn}
-                                hint="Aktif jika Waschen Laundry dipilih"
-                            />
-                        </div>
-                    </div>
+                    {isFinanceOrGA && (
+                        <div className="pt-2.5 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0 w-28">
+                                <HiOutlineBuildingOffice2 className="h-4 w-4" />
+                                Filter Scope:
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap flex-1">
+                                <>
+                                    <CheckboxFilter
+                                        label="Departemen"
+                                        icon={HiOutlineBuildingOffice2}
+                                        options={deptOptions}
+                                        selected={deptSel}
+                                        onChange={setDeptSel}
+                                    />
+                                    <CheckboxFilter
+                                        label="Company"
+                                        icon={HiOutlineBriefcase}
+                                        options={compOptions}
+                                        selected={compSel}
+                                        onChange={setCompSel}
+                                    />
+                                    <CheckboxFilter
+                                        label="Outlet"
+                                        icon={HiOutlineBuildingStorefront}
+                                        options={outOptions}
+                                        selected={outSel}
+                                        onChange={setOutSel}
+                                        disabled={!waschenOn}
+                                        hint="Aktif jika Waschen Laundry dipilih"
+                                    />
+                                </>
+                            </div>
+                        </div>)}
                 </div>
             </div>
 
