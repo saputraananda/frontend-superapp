@@ -142,6 +142,7 @@ import ItemKgMaster from "./pages/my-waschen/components/MasterData/ItemKg";
 import MembershipPackage from "./pages/my-waschen/components/MasterData/MembershipPackage";
 import UnitMaster from "./pages/my-waschen/components/MasterData/Unit";
 import CustomerPage from "./pages/my-waschen/components/Transaction/Customer";
+import MembershipPage from "./pages/my-waschen/components/Transaction/Membership";
 import PaymentMethodMaster from "./pages/my-waschen/components/MasterData/PaymentMethod";
 import PettyCashCategoryMaster from "./pages/my-waschen/components/MasterData/PettyCashCategory";
 import PromoMaster from "./pages/my-waschen/components/MasterData/Promo";
@@ -725,6 +726,7 @@ export default function App() {
           <Route path="/my-waschen/master/membership-packages" element={<MembershipPackage />} />
           <Route path="/my-waschen/master/units" element={<UnitMaster />} />
           <Route path="/my-waschen/customers" element={<CustomerPage />} />
+          <Route path="/my-waschen/memberships" element={<MembershipPage />} />
           <Route path="/my-waschen/master/customers" element={<CustomerPage />} />
           <Route path="/my-waschen/master/payment-methods" element={<PaymentMethodMaster />} />
           <Route path="/my-waschen/master/petty-cash-categories" element={<PettyCashCategoryMaster />} />

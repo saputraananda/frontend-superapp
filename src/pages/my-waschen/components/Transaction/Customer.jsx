@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
+import { rememberPage, useRestoreScroll, useSavedPage } from "../../hooks/usePageMemory";
 import {
   HiOutlineMagnifyingGlass,
   HiOutlinePlus,
@@ -211,7 +213,112 @@ function MembershipPayments({ customerId }) {
   );
 }
 
-function CustomerReport({ item, onClose, onEdit }) {
+function PayBadge({ status }) {
+  const tone = status === "Lunas"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : status === "DP" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-700";
+  return <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", tone)}>{status || "Outstanding"}</span>;
+}
+
+function useCustomerList(path) {
+  const [state, setState] = useState({ rows: null, total: 0, error: "" });
+  useEffect(() => {
+    let alive = true;
+    api(path)
+      .then((res) => { if (alive) setState({ rows: res.data || [], total: Number(res.meta?.total) || (res.data || []).length, error: "" }); })
+      .catch((err) => { if (alive) setState({ rows: [], total: 0, error: err.message || "Gagal memuat data" }); });
+    return () => { alive = false; };
+  }, [path]);
+  return state;
+}
+
+function CustomerTransactions({ customerId, onOpenNota }) {
+  const { rows, total, error } = useCustomerList(`/waschen/customers/${customerId}/transactions`);
+  if (rows === null) return <p className="py-8 text-center text-xs text-slate-400">Memuat riwayat transaksi…</p>;
+  if (error) return <p className="py-8 text-center text-xs text-rose-600">{error}</p>;
+  if (!rows.length) return <p className="py-8 text-center text-xs text-slate-400">Belum ada transaksi</p>;
+  return (
+    <div>
+      <p className="mb-2 text-[11px] text-slate-400">
+        {rows.length < total ? `${rows.length} nota terbaru dari ${total}` : `${total} nota`}
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full min-w-[560px] text-left text-xs">
+          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-3 py-2.5 font-semibold">No. Nota</th>
+              <th className="px-3 py-2.5 font-semibold">Dibuat</th>
+              <th className="px-3 py-2.5 font-semibold">Dilunasi</th>
+              <th className="px-3 py-2.5 font-semibold text-right">Tagihan</th>
+              <th className="px-3 py-2.5 font-semibold text-center">Bayar</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((r) => (
+              <tr key={r.id} onClick={() => onOpenNota(r.id)} className="cursor-pointer hover:bg-slate-50/80">
+                <td className="px-3 py-2.5">
+                  <p className="font-mono font-bold text-[#5f1340]">{r.order_no}</p>
+                  <p className="text-[10px] text-slate-400">
+                    {r.outlet_name || "—"}
+                    {r.source === "SMARTLINK" ? " · Smartlink" : ""}
+                    {Number(r.is_delete_requested) === 1 ? " · Diajukan hapus" : ""}
+                  </p>
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{fmtDateShort(r.order_date)}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">
+                  {r.settled_at || (r.payment_status === "Lunas" && r.paid_at) ? fmtDateShort(r.settled_at || r.paid_at) : "—"}
+                </td>
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-800">{formatRupiah(r.grand_total)}</td>
+                <td className="px-3 py-2.5 text-center"><PayBadge status={r.payment_status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CustomerComplaints({ customerId }) {
+  const { rows, error } = useCustomerList(`/waschen/customers/${customerId}/complaints`);
+  if (rows === null) return <p className="py-8 text-center text-xs text-slate-400">Memuat komplain…</p>;
+  if (error) return <p className="py-8 text-center text-xs text-rose-600">{error}</p>;
+  if (!rows.length) return <p className="py-8 text-center text-xs text-slate-400">Tidak ada komplain untuk customer ini</p>;
+  return (
+    <ul className="space-y-2.5">
+      {rows.map((c) => (
+        <li key={c.complaint_id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-800">{c.complaint_name || "Komplain"}</p>
+              <p className="font-mono text-[11px] text-[#5f1340]">{c.nota_number}</p>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">{c.progress || "—"}</span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {[c.type_name, c.category_name, c.topic_name].filter(Boolean).join(" · ") || "—"}
+          </p>
+          {filled(c.description) && <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{c.description}</p>}
+          <p className="mt-1.5 text-[10px] text-slate-400">
+            {fmtDateShort(c.submitted_at)}
+            {c.outlet_name ? ` · ${c.outlet_name}` : ""}
+            {c.pic_name ? ` · PIC ${c.pic_name}` : ""}
+            {Number(c.deduction) > 0 ? ` · Potongan ${formatRupiah(c.deduction)}` : ""}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const REPORT_TABS = [
+  { key: "ringkasan", label: "Ringkasan" },
+  { key: "transaksi", label: "Riwayat Transaksi" },
+  { key: "komplain", label: "Komplain" },
+];
+
+function CustomerReport({ item, onClose, onEdit, onOpenNota, initialTab = "ringkasan" }) {
+  const [tab, setTab] = useState(initialTab);
   const facts = [
     ["Telepon", item.phone],
     ["Email", item.email],
@@ -243,7 +350,35 @@ function CustomerReport({ item, onClose, onEdit }) {
           <HiOutlineXMark className="h-5 w-5" />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+      <div className="flex shrink-0 gap-1 border-b border-slate-200 px-5" role="tablist">
+        {REPORT_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition",
+              tab === t.key ? "border-[#5f1340] text-[#5f1340]" : "border-transparent text-slate-500 hover:text-slate-800",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "transaksi" && (
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <CustomerTransactions key={item.id} customerId={item.id} onOpenNota={(id) => onOpenNota(id, tab)} />
+        </div>
+      )}
+      {tab === "komplain" && (
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <CustomerComplaints key={item.id} customerId={item.id} />
+        </div>
+      )}
+      {tab === "ringkasan" && (
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4">
         <div className="rounded-2xl bg-gradient-to-br from-[#5f1340] to-[#3d0c2a] px-5 py-5 text-white">
           <p className="text-xs text-white/70">Total spending</p>
           <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{formatRupiah(item.total_spent)}</p>
@@ -295,6 +430,7 @@ function CustomerReport({ item, onClose, onEdit }) {
         )}
         {filled(item.notes) && <p className="mt-4 text-sm leading-relaxed text-slate-600">{item.notes}</p>}
       </div>
+      )}
       <div className="flex shrink-0 justify-end gap-2 border-t px-5 py-3">
         <button type="button" onClick={onClose} className="rounded-xl border px-4 py-2 text-xs font-semibold text-slate-600">Tutup</button>
         <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#5f1340] to-[#4a0d31] px-4 py-2 text-xs font-semibold text-white">
@@ -329,24 +465,28 @@ function toFormData(item) {
 }
 
 export default function Customer() {
-  const cutoff = useCutoffPeriod();
-  const [allPeriods, setAllPeriods] = useState(true);
+  const navigate = useNavigate();
+  const saved = useSavedPage("customers");
+  const cutoff = useCutoffPeriod(saved.cutoff);
+  const [allPeriods, setAllPeriods] = useState(saved.allPeriods ?? true);
   const [dbYears, setDbYears] = useState([]);
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({ total: 0, members: 0, vip: 0, gold: 0, reguler: 0, oneTime: 0 });
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(saved.page ?? 1);
+  const [searchInput, setSearchInput] = useState(saved.search ?? "");
   const [tiers, setTiers] = useState([]);
   const [packages, setPackages] = useState([]);
   const [sources, setSources] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterTierId, setFilterTierId] = useState("");
-  const [filterPackageId, setFilterPackageId] = useState("");
-  const [filterOutletId, setFilterOutletId] = useState("");
-  const [sortBy, setSortBy] = useState("id");
-  const [sortDir, setSortDir] = useState("desc");
+  const [search, setSearch] = useState(saved.search ?? "");
+  const [filterTierId, setFilterTierId] = useState(saved.filterTierId ?? "");
+  const [filterPackageId, setFilterPackageId] = useState(saved.filterPackageId ?? "");
+  const [filterOutletId, setFilterOutletId] = useState(saved.filterOutletId ?? "");
+  const [sortBy, setSortBy] = useState(saved.sortBy ?? "id");
+  const [sortDir, setSortDir] = useState(saved.sortDir ?? "desc");
+  const [reportTab, setReportTab] = useState("ringkasan");
+  const restoredModal = useRef(false);
   const [modalMode, setModalMode] = useState(null);
   const [selected, setSelected] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -400,11 +540,43 @@ export default function Customer() {
   };
 
   useEffect(() => { loadLookups(); }, []);
+  const prevSearch = useRef(saved.search ?? "");
   useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
+    const t = setTimeout(() => {
+      const next = searchInput.trim();
+      setSearch(next);
+      if (next !== prevSearch.current) { prevSearch.current = next; setPage(1); }
+    }, 400);
     return () => clearTimeout(t);
   }, [searchInput]);
-  useEffect(() => { setPage(1); }, [filterTierId, filterPackageId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+  // Filter berubah → halaman 1 (bukan saat mount / pemulihan dari halaman detail)
+  const filterKey = JSON.stringify([filterTierId, filterPackageId, filterOutletId, sortBy, sortDir, allPeriods, cutoff.dateFrom, cutoff.dateTo]);
+  const prevFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (prevFilterKey.current === filterKey) return;
+    prevFilterKey.current = filterKey;
+    setPage(1);
+  }, [filterKey]);
+  useRestoreScroll(saved.scroll, !loading, data.length);
+
+  // Kembali dari detail nota → buka lagi modal customer (beserta tab) bila ada di halaman ini
+  useEffect(() => {
+    if (restoredModal.current || loading || !saved.selectedId) return;
+    restoredModal.current = true;
+    const item = data.find((r) => String(r.id) === String(saved.selectedId));
+    if (!item) return;
+    setReportTab(saved.reportTab || "ringkasan");
+    setSelected(item); setFormData(toFormData(item)); setFormError(""); setModalMode("view");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, data]);
+
+  const openNota = (notaId, tab) => {
+    rememberPage("customers", {
+      allPeriods, page, search, filterTierId, filterPackageId, filterOutletId, sortBy, sortDir,
+      cutoff: cutoff.snapshot(), selectedId: selected?.id, reportTab: tab,
+    });
+    navigate(`/my-waschen/transactions/${notaId}`);
+  };
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -456,7 +628,7 @@ export default function Customer() {
   };
 
   const closeModal = () => setModalMode(null);
-  const openView = (item) => { setSelected(item); setFormData(toFormData(item)); setFormError(""); setModalMode("view"); };
+  const openView = (item) => { setReportTab("ringkasan"); setSelected(item); setFormData(toFormData(item)); setFormError(""); setModalMode("view"); };
   const openEdit = (item) => {
     if (item) { setSelected(item); setFormData(toFormData(item)); }
     setFormError("");
@@ -736,7 +908,7 @@ export default function Customer() {
               </div>
             )}
             {modalMode === "view" && selected ? (
-              <CustomerReport item={selected} onClose={closeModal} onEdit={() => openEdit()} />
+              <CustomerReport item={selected} initialTab={reportTab} onClose={closeModal} onEdit={() => openEdit()} onOpenNota={openNota} />
             ) : (
             <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto">
               {formError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700">{formError}</div>}
