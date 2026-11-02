@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   HiOutlinePlus,
   HiOutlineMagnifyingGlass,
@@ -552,11 +553,16 @@ export function ModalFormAkun({ account, accounts = [], onClose, onSuccess }) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl animate-[fadeIn_0.2s_ease-out]"
+        style={{ maxHeight: "92vh" }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-slate-50/50">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 bg-slate-50/50">
           <h2 className="text-base font-bold text-slate-800">
             {isEdit ? "Edit Akun" : "Tambah Akun Baru"}
           </h2>
@@ -570,7 +576,7 @@ export function ModalFormAkun({ account, accounts = [], onClose, onSuccess }) {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-medium">
               {error}
@@ -726,6 +732,7 @@ export function ModalFormAkun({ account, accounts = [], onClose, onSuccess }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

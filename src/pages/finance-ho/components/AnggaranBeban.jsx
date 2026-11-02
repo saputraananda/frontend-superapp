@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   HiOutlineCalculator,
   HiOutlineArrowTrendingDown,
@@ -734,9 +735,16 @@ export default function AnggaranBeban() {
       </div>
 
       {/* ── Modal Input / Edit Anggaran ─────────────────────────────────── */}
-      {editModalAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl transition-all">
+      {editModalAccount && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setEditModalAccount(null)}
+          />
+          <div
+            className="relative w-full max-w-md overflow-y-auto rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl animate-[fadeIn_0.2s_ease-out]"
+            style={{ maxHeight: "92vh" }}
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -844,13 +852,18 @@ export default function AnggaranBeban() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Modal Konfirmasi Salin dari Bulan Lalu ──────────────────────── */}
-      {copyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl transition-all">
+      {copyModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => !copying && setCopyModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl animate-[fadeIn_0.2s_ease-out]">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                 <HiOutlineDocumentDuplicate className="h-5 w-5" />
@@ -902,7 +915,8 @@ export default function AnggaranBeban() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
