@@ -27,7 +27,9 @@ export default function CheckboxFilter({
     onChange,
     disabled = false,
     hint,
+    variant = "pill", // "pill" (default) | "select" → tampil seperti <select> biasa
 }) {
+    const asSelect = variant === "select";
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef(null);
@@ -100,15 +102,19 @@ export default function CheckboxFilter({
                 onClick={() => setOpen((prev) => !prev)}
                 title={hint && disabled ? hint : undefined}
                 className={cn(
-                    "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition select-none shadow-2xs outline-none",
-                    disabled
+                    "inline-flex items-center transition select-none outline-none",
+                    asSelect
+                        ? "w-full justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400"
+                        : "gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-2xs",
+                    !asSelect && (disabled
                         ? "border-slate-200 bg-slate-100/70 text-slate-400 cursor-not-allowed opacity-60"
                         : isFiltered
                         ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/70 font-bold"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"),
+                    asSelect && disabled && "cursor-not-allowed opacity-60"
                 )}
             >
-                {Icon && (
+                {Icon && !asSelect && (
                     <Icon
                         className={cn(
                             "h-3.5 w-3.5 shrink-0",
@@ -117,7 +123,7 @@ export default function CheckboxFilter({
                     />
                 )}
                 <span className="truncate max-w-[130px] sm:max-w-[170px]">{summaryLabel}</span>
-                {isFiltered && (
+                {isFiltered && !asSelect && (
                     <span className="rounded-full bg-emerald-600 px-1.5 py-0.2 text-[10px] font-bold text-white tabular-nums">
                         {checkedCount}
                     </span>

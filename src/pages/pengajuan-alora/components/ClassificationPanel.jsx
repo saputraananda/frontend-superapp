@@ -9,8 +9,10 @@ import {
     HiOutlineArrowRight,
     HiOutlineMagnifyingGlass,
     HiOutlineInformationCircle,
+    HiOutlineArrowDownTray,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
+import CheckboxFilter from "./CheckboxFilter";
 import { STATUS_CONFIG, STATUS_FILTER_OPTIONS } from "../pages/DashboardPengajuan";
 
 
@@ -49,6 +51,8 @@ export default function ClassificationPanel({
     data, total, page, limit, grandTotal, loading,
     sort, onSort, onPage,
     searchInput, onSearchInput, typeFilter, onTypeFilter, statusFilter, onStatusFilter,
+    clsOptions, clsSel, onClsSel,
+    onExport, exporting, exportErr,
     statusLabel, isEstimate,
     filterQuery, refreshTick, onOpenPR, emptyHint,
 }) {
@@ -109,12 +113,28 @@ export default function ClassificationPanel({
                             {statusLabel} · {total} klasifikasi · total {formatRupiah(grandTotal)}
                         </p>
                     </div>
-                    <button type="button" onClick={onSort}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
-                        <HiOutlineArrowsUpDown className="h-3.5 w-3.5 text-slate-400" />
-                        Nominal: {sort === "desc" ? "Terbesar ↓" : "Terkecil ↑"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={onSort}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                            <HiOutlineArrowsUpDown className="h-3.5 w-3.5 text-slate-400" />
+                            Nominal: {sort === "desc" ? "Terbesar ↓" : "Terkecil ↑"}
+                        </button>
+                        <button type="button" onClick={onExport} disabled={exporting}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition disabled:opacity-60 disabled:cursor-not-allowed">
+                            {exporting
+                                ? <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                                : <HiOutlineArrowDownTray className="h-4 w-4" />}
+                            {exporting ? "Menyiapkan..." : "Download Excel"}
+                        </button>
+                    </div>
                 </div>
+
+                {exportErr && (
+                    <p className="flex items-start gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700">
+                        <HiOutlineInformationCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                        {exportErr}
+                    </p>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1 min-w-0">
@@ -125,6 +145,13 @@ export default function ClassificationPanel({
                             placeholder="Cari barang, kode, atau nama..."
                             className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition" />
                     </div>
+                    <CheckboxFilter
+                        label="Klasifikasi"
+                        variant="select"
+                        options={clsOptions}
+                        selected={clsSel}
+                        onChange={onClsSel}
+                    />
                     <select value={typeFilter} onChange={e => onTypeFilter(e.target.value)}
                         className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition">
                         <option value="">Semua Tipe</option>
