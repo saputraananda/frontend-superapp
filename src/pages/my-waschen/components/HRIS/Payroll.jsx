@@ -6,6 +6,8 @@ import {
   HiOutlineArrowPath,
   HiOutlineBanknotes,
   HiOutlineCalendarDays,
+  HiOutlineBolt,
+  HiOutlineCheckCircle,
   HiOutlineChevronRight,
   HiOutlineClock,
   HiOutlineExclamationTriangle,
@@ -166,7 +168,7 @@ function Kpi({ label, value, hint, icon: Icon, tone = "slate" }) {
   return (
     <div className={cn("rounded-2xl border p-3 sm:p-4 shadow-sm", t)}>
       <div className="flex items-center gap-1.5 opacity-80">
-        {Icon && <Icon className="h-4 w-4" />}
+        {Icon && <Icon className="h-3.5 w-3.5" />}
         <p className="text-[10px] font-bold uppercase tracking-wider">{label}</p>
       </div>
       <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{value}</p>
@@ -185,12 +187,30 @@ const TABS = [
   { id: "backup", label: "Backup & Lokasi" },
 ];
 
-function Stat({ label, value, sub, tone }) {
+const STAT_ACCENT = {
+  slate: { icon: "bg-slate-100 text-slate-500", card: "border-slate-200 bg-white" },
+  emerald: { icon: "bg-emerald-100 text-emerald-600", card: "border-emerald-200 bg-emerald-50/40" },
+  sky: { icon: "bg-sky-100 text-sky-600", card: "border-sky-200 bg-sky-50/40" },
+  amber: { icon: "bg-amber-100 text-amber-600", card: "border-amber-200 bg-amber-50/40" },
+  rose: { icon: "bg-rose-100 text-rose-600", card: "border-rose-200 bg-rose-50/40" },
+  orange: { icon: "bg-orange-100 text-orange-600", card: "border-orange-200 bg-orange-50/50" },
+  brand: { icon: "bg-[#5f1340]/10 text-[#5f1340]", card: "border-[#5f1340]/20 bg-[#5f1340]/5" },
+};
+
+function Stat({ label, value, sub, tone, icon: Icon, accent = "slate" }) {
+  const a = STAT_ACCENT[accent] || STAT_ACCENT.slate;
   return (
-    <div className={cn("rounded-xl border px-3 py-2.5", tone || "border-slate-200 bg-white")}>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-0.5 text-lg font-bold text-slate-800 tabular-nums">{value}</p>
-      {sub && <p className="text-[10px] font-semibold text-slate-500">{sub}</p>}
+    <div className={cn("flex gap-2 rounded-xl border px-2.5 py-2 shadow-sm", tone || a.card)}>
+      {Icon && (
+        <span className={cn("hidden h-6 w-6 shrink-0 items-center justify-center rounded-md min-[1100px]:inline-flex", a.icon)}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-sm font-bold leading-tight text-slate-800 tabular-nums">{value}</p>
+        {sub && <p className="mt-0.5 text-[9px] font-semibold leading-snug text-slate-500">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -201,7 +221,7 @@ function Empty({ children }) {
 
 function DailyTab({ d }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[820px] text-left text-xs">
         <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
           <tr>
@@ -269,7 +289,7 @@ function DailyTab({ d }) {
 function OvertimeTab({ d }) {
   if (!d.overtime_list.length) return <Empty>Tidak ada lembur di periode ini</Empty>;
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[760px] text-left text-xs">
         <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
           <tr>
@@ -320,7 +340,7 @@ function LeaveTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Izin / Sakit / Cuti</h4>
         {!d.leave_list.length ? <Empty>Tidak ada perizinan di periode ini</Empty> : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[640px] text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                 <tr>
@@ -359,7 +379,7 @@ function LeaveTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Jadwal Libur (Off)</h4>
         {!d.off_list.length ? <Empty>Tidak ada jadwal libur di periode ini</Empty> : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[560px] text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                 <tr>
@@ -491,7 +511,7 @@ function BackupTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Backup — Menggantikan Rekan Libur ({d.backup}x)</h4>
         {!d.backup_list.length ? <Empty>Tidak ada tugas backup di periode ini</Empty> : (
-          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-sm">
             {d.backup_list.map((b) => (
               <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
                 <div className="min-w-0">
@@ -507,7 +527,7 @@ function BackupTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Lokasi Absen</h4>
         {!d.locations.length ? <Empty>Belum ada absensi</Empty> : (
-          <ul className="space-y-2.5 rounded-xl border border-slate-200 p-3">
+          <ul className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             {d.locations.map((l) => (
               <li key={l.id ?? l.name}>
                 <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -530,7 +550,8 @@ function BackupTab({ d }) {
   );
 }
 
-function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose }) {
+// hideLoans: sembunyikan kasbon & pinjaman (dipakai halaman Absensi)
+export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose, hideLoans = false }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("harian");
@@ -566,6 +587,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
   };
 
   const d = detail || employee;
+  const tabs = hideLoans ? TABS.filter((t) => t.id !== "kasbon") : TABS;
   const counts = detail ? {
     lembur: detail.overtime_list.length,
     izin: detail.leave_list.length + detail.off_list.length,
@@ -574,59 +596,81 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
   } : {};
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-2 sm:p-4 backdrop-blur-sm">
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-2 sm:p-4 backdrop-blur-sm">
       <div role="dialog" aria-modal="true" aria-labelledby="payroll-detail-title"
-        className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
+        className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#5f1340]">Detail Payroll · {periodLabel || `${fmtDateShort(startDate)} – ${fmtDateShort(endDate)}`}</p>
-            <h3 id="payroll-detail-title" className="mt-0.5 text-lg font-bold text-slate-900">{fmtEmployeeName(d.employee_name)}</h3>
-            <p className="text-xs text-slate-500">
-              {[d.employee_code, d.role && `${d.role}${d.is_leader ? " (Leader)" : ""}`, d.home_outlet && `Outlet asal ${placeLabel(d.home_outlet)}`]
-                .filter(Boolean).join(" · ")}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportExcelButton onClick={handleExport} loading={exporting} disabled={!detail} label="Export Karyawan Ini" />
-            <button type="button" onClick={onClose} aria-label="Tutup"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-              <HiOutlineXMark className="h-5 w-5" />
-            </button>
+        <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-[#5f1340] via-[#7a1b52] to-[#8a2a5e] px-4 py-4 text-white sm:px-6 sm:py-5">
+          <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-16 right-24 h-32 w-32 rounded-full bg-white/5" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-base font-bold ring-1 ring-white/30 sm:h-14 sm:w-14 sm:text-lg">
+                {String(fmtEmployeeName(d.employee_name) || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                  {hideLoans ? "Detail Karyawan" : "Detail Payroll"} · {periodLabel || `${fmtDateShort(startDate)} – ${fmtDateShort(endDate)}`}
+                </p>
+                <h3 id="payroll-detail-title" className="mt-0.5 truncate text-lg font-bold sm:text-xl">{fmtEmployeeName(d.employee_name)}</h3>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {[d.employee_code, d.role && `${d.role}${d.is_leader ? " (Leader)" : ""}`, d.home_outlet && placeLabel(d.home_outlet)]
+                    .filter(Boolean).map((t) => (
+                      <span key={t} className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/20">{t}</span>
+                    ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {!hideLoans && <ExportExcelButton onClick={handleExport} loading={exporting} disabled={!detail} label="Export Karyawan Ini" />}
+              <button type="button" onClick={onClose} aria-label="Tutup"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/80 ring-1 ring-white/20 transition hover:bg-white/20 hover:text-white">
+                <HiOutlineXMark className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4 sm:px-6 space-y-4">
           {/* Ringkasan */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            <Stat label="Hadir" value={`${d.hadir} hari`}
-              sub={d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"}
-              tone={d.no_info_days ? "border-orange-200 bg-orange-50/50" : undefined} />
-            <Stat label="Off" value={`${d.off} hari`} sub={d.off_pending ? `${d.off_pending} menunggu persetujuan` : `${d.backup}x jadi backup`} />
-            <Stat label="Durasi Kerja" value={fmtDur(d.work_minutes)}
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&>*]:min-w-[8.5rem] [&>*]:flex-1">
+            <Stat label="Hadir" value={`${d.hadir} hari`} icon={HiOutlineCheckCircle}
+              accent={d.no_info_days ? "orange" : "emerald"}
+              sub={d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"} />
+            <Stat label="Off" value={`${d.off} hari`} icon={HiOutlineCalendarDays} accent="sky"
+              sub={d.off_pending ? `${d.off_pending} menunggu persetujuan` : `${d.backup}x jadi backup`} />
+            <Stat label="Durasi Kerja" value={fmtDur(d.work_minutes)} icon={HiOutlineClock} accent="slate"
               sub={`Rata-rata ${fmtDur(d.avg_work_minutes)}/hari${d.incomplete_checkout ? ` · ${d.incomplete_checkout} belum check-out` : ""}`} />
-            <Stat label="Terlambat" value={`${d.late.count}x`}
+            <Stat label="Terlambat" value={`${d.late.count}x`} icon={HiOutlineExclamationTriangle}
+              accent={d.late.count ? "rose" : "emerald"}
               sub={[
                 d.late.count ? `Total ${fmtDur(d.late.minutes)} · terlama ${fmtDur(d.late.max)}` : "Tepat waktu",
                 d.late.excused ? `${d.late.excused}x dikecualikan (izin ½ hari)` : "",
                 d.early?.count ? `Pulang cepat ${d.early.count}x (${fmtDur(d.early.minutes)})` : "",
-              ].filter(Boolean).join(" · ")}
-              tone={d.late.count ? "border-rose-200 bg-rose-50/50" : undefined} />
-            <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)}
+              ].filter(Boolean).join(" · ")} />
+            <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)} icon={HiOutlineBolt} accent="amber"
               sub={`${d.overtime.approved_count}x disetujui${d.overtime.pending_count ? ` · ${d.overtime.pending_count} menunggu` : ""}`} />
-            <Stat label="Potong Gaji" value={fmtIDR(d.deduction_total)}
-              sub={d.direct_total ? `+ bayar langsung ${fmtIDR(d.direct_total)}` : `Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`}
-              tone="border-[#5f1340]/20 bg-[#5f1340]/5" />
+            {hideLoans ? (
+              <Stat label="Perizinan" value={`${fmtDays(d.leave.total_days)} hari`} icon={HiOutlineTableCells} accent="brand"
+                sub={`Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`} />
+            ) : (
+              <Stat label="Potong Gaji" value={fmtIDR(d.deduction_total)} icon={HiOutlineBanknotes} accent="brand"
+                sub={d.direct_total ? `+ bayar langsung ${fmtIDR(d.direct_total)}` : `Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`} />
+            )}
           </div>
 
           {/* Tab */}
           <div className="-mx-1 overflow-x-auto">
-            <div className="flex gap-1 px-1 border-b border-slate-200 min-w-max">
-              {TABS.map((t) => (
+            <div className="inline-flex min-w-max gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              {tabs.map((t) => (
                 <button key={t.id} type="button" onClick={() => setTab(t.id)} aria-pressed={tab === t.id}
-                  className={cn("-mb-px border-b-2 px-3 py-2 text-xs font-bold transition whitespace-nowrap",
-                    tab === t.id ? "border-[#5f1340] text-[#5f1340]" : "border-transparent text-slate-400 hover:text-slate-700")}>
-                  {t.label}{counts[t.id] ? <span className="ml-1 rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">{counts[t.id]}</span> : null}
+                  className={cn("rounded-xl px-3.5 py-2 text-xs font-bold transition whitespace-nowrap",
+                    tab === t.id ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800")}>
+                  {t.label}
+                  {counts[t.id] ? (
+                    <span className={cn("ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]", tab === t.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>{counts[t.id]}</span>
+                  ) : null}
                 </button>
               ))}
             </div>

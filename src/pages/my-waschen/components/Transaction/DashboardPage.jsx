@@ -81,14 +81,46 @@ function StatCard({ icon: Icon, label, value, sub, tone = "from-[#5f1340] to-[#3
   );
 }
 
-function ChartCard({ title, subtitle, children, className = "" }) {
+function ChartCard({ title, subtitle, children, className = "", action = null }) {
   return (
-    <div className={cn("rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm", className)}>
-      <div className="mb-4">
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+    <div className={cn("min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm", className)}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+        </div>
+        {action}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** 1.250.000 → "1,3jt", 45.000 → "45rb" */
+function fmtShort(val) {
+  const n = Number(val) || 0;
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${(n / 1e9).toFixed(1).replace(".", ",")}M`;
+  if (abs >= 1e6) return `${(n / 1e6).toFixed(1).replace(".", ",")}jt`;
+  if (abs >= 1e3) return `${Math.round(n / 1e3)}rb`;
+  return String(Math.round(n));
+}
+
+const PAY_COLORS = { Lunas: "#10b981", DP: "#f59e0b", Outstanding: "#e11d48" };
+const WEEKDAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+function InsightChip({ label, value, hint, tone = "slate" }) {
+  const t = {
+    slate: "border-slate-200 bg-white",
+    emerald: "border-emerald-200 bg-emerald-50/50",
+    rose: "border-rose-200 bg-rose-50/50",
+    amber: "border-amber-200 bg-amber-50/50",
+  }[tone];
+  return (
+    <div className={cn("rounded-2xl border p-3 sm:p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md", t)}>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-base font-bold text-slate-800 sm:text-lg">{value}</p>
+      {hint && <p className="mt-0.5 text-[11px] text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -204,41 +236,113 @@ export default function DashboardPage() {
   const revenueByService = data?.revenueByService || [];
   const depositLedger = data?.depositLedger || [];
 
+  const [svcMetric, setSvcMetric] = useState("revenue");
+  const [svcSearch, setSvcSearch] = useState("");
+  const [payFilter, setPayFilter] = useState("");
+  const [trxSearch, setTrxSearch] = useState("");
+  const [weekdayFocus, setWeekdayFocus] = useState(null);
+
+  const cumulativeTrend = useMemo(() => {
+    let run = 0;
+    return salesTrend.map((r) => ({ label: r.label, cumulative: (run += r.revenue) }));
+  }, [salesTrend]);
+
+  const insights = useMemo(() => {
+    const active = salesTrend.filter((r) => r.revenue > 0);
+    const total = active.reduce((s, r) => s + r.revenue, 0);
+    const sorted = [...active].sort((a, b) => b.revenue - a.revenue);
+    const revenue = Number(summary.total_revenue) || 0;
+    const outstanding = Number(summary.outstanding_amount) || 0;
+    return {
+      days: active.length,
+      avgPerDay: active.length ? total / active.length : 0,
+      best: sorted[0] || null,
+      worst: sorted[sorted.length - 1] || null,
+      outstandingPct: revenue ? Math.round((outstanding / revenue) * 100) : 0,
+    };
+  }, [salesTrend, summary.total_revenue, summary.outstanding_amount]);
+
+  const weekdayStats = useMemo(() => {
+    const acc = WEEKDAYS.map((name) => ({ name, total: 0, count: 0 }));
+    salesTrend.forEach((r) => {
+      const d = new Date(r.sale_date);
+      if (Number.isNaN(d.getTime()) || r.revenue <= 0) return;
+      acc[d.getDay()].total += r.revenue;
+      acc[d.getDay()].count += 1;
+    });
+    return acc.map((a) => ({ name: a.name, avg: a.count ? Math.round(a.total / a.count) : 0 }));
+  }, [salesTrend]);
+  const weekdayBest = useMemo(() => {
+    const top = [...weekdayStats].sort((a, b) => b.avg - a.avg)[0];
+    return top && top.avg > 0 ? top.name : null;
+  }, [weekdayStats]);
+
+  const serviceTotal = useMemo(() => revenueByService.reduce((s, r) => s + (Number(r.revenue) || 0), 0), [revenueByService]);
+  const servicesView = useMemo(() => {
+    const q = svcSearch.trim().toLowerCase();
+    return revenueByService
+      .map((r) => ({ ...r, revenue: Number(r.revenue) || 0, qty: Number(r.qty) || 0 }))
+      .filter((r) => !q || `${r.service_name} ${r.category_name} ${r.service_code}`.toLowerCase().includes(q))
+      .sort((a, b) => b[svcMetric] - a[svcMetric]);
+  }, [revenueByService, svcSearch, svcMetric]);
+
+  const membershipChart = useMemo(
+    () => membershipSummary.map((r) => ({ name: r.package_name, value: Number(r.active_memberships) || 0 })),
+    [membershipSummary],
+  );
+  const membershipTotal = membershipChart.reduce((s, r) => s + r.value, 0);
+  const depositChart = useMemo(
+    () => depositLedger.map((r) => ({ name: String(r.type || "").replace(/^./, (c) => c.toUpperCase()), amount: Math.abs(Number(r.total_amount) || 0) })),
+    [depositLedger],
+  );
+  const topSpentMax = useMemo(() => Math.max(0, ...topCustomers.map((c) => Number(c.total_spent) || 0)), [topCustomers]);
+  const paymentChart = useMemo(
+    () => paymentStatus.map((r) => ({ name: r.payment_status, value: Number(r.amount) || 0 })),
+    [paymentStatus],
+  );
+  const paymentTotal = paymentChart.reduce((s, r) => s + r.value, 0);
+  const trxView = useMemo(() => {
+    const q = trxSearch.trim().toLowerCase();
+    return recentTransactions.filter((t) =>
+      (!payFilter || t.payment_status === payFilter)
+      && (!q || `${t.order_no} ${t.customer_name}`.toLowerCase().includes(q)));
+  }, [recentTransactions, payFilter, trxSearch]);
+
   return (
     <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-[100rem] mx-auto overflow-x-hidden">
-      <PageHero className="!flex-col !items-stretch !gap-4">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">Dashboard My Waschen</h1>
-            <p className="mt-2 text-sm leading-6 text-white/75 sm:text-base">
-              Ringkasan penjualan, pelanggan, dan membership
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.2fr)_auto] gap-2 sm:gap-3">
-              <select
-                value={outletId}
-                onChange={(e) => setOutletId(e.target.value)}
-                className="w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-xs text-white outline-none backdrop-blur-sm"
-              >
-                <option value="" className="text-slate-800">Semua Outlet</option>
-                {outlets.map((o) => (
-                  <option key={o.id} value={o.id} className="text-slate-800">{o.outlet_code} — {o.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={loadDashboard}
-                disabled={loading}
-                className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#5f1340] shadow-md hover:bg-pink-50 disabled:opacity-60"
-              >
-                {loading ? <HiOutlineArrowPath className="h-4 w-4 animate-spin" /> : <HiOutlineArrowPath className="h-4 w-4" />}
-                Refresh
-              </button>
-            </div>
-            <CutoffPeriodFilter cutoff={cutoff} variant="hero" />
-          </div>
-        
+      <PageHero>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">Dashboard My Waschen</h1>
+          <p className="mt-2 text-sm leading-6 text-white/75 sm:text-base">
+            Ringkasan penjualan, pelanggan, dan membership
+          </p>
+        </div>
       </PageHero>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 lg:p-5 shadow-sm min-w-0 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.2fr)_auto] gap-2 sm:gap-3">
+          <select
+            value={outletId}
+            onChange={(e) => setOutletId(e.target.value)}
+            className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-[#5f1340]/40"
+          >
+            <option value="">Semua Outlet</option>
+            {outlets.map((o) => (
+              <option key={o.id} value={o.id}>{o.outlet_code} — {o.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={loadDashboard}
+            disabled={loading}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-xl bg-[#5f1340] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#4d0f34] disabled:opacity-60"
+          >
+            <HiOutlineArrowPath className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+        <CutoffPeriodFilter cutoff={cutoff} />
+      </section>
 
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center gap-2">
@@ -355,125 +459,291 @@ export default function DashboardPage() {
             </ChartCard>
           </div>
 
+          {/* Insight cepat dari tren harian */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <InsightChip label="Rata-rata Revenue / Hari" value={fmtIDR(insights.avgPerDay)} hint={`${fmtNum(insights.days)} hari aktif`} />
+            <InsightChip label="Hari Terbaik" value={insights.best ? fmtIDR(insights.best.revenue) : "—"} hint={insights.best ? insights.best.label : "Belum ada data"} tone="emerald" />
+            <InsightChip label="Hari Terendah" value={insights.worst ? fmtIDR(insights.worst.revenue) : "—"} hint={insights.worst ? insights.worst.label : "Belum ada data"} tone="rose" />
+            <InsightChip label="Piutang / Revenue" value={`${insights.outstandingPct}%`} hint="Porsi nota belum dibayar" tone="amber" />
+          </div>
+
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-            <ChartCard title="Top Layanan Terjual" subtitle="Layanan dengan revenue tertinggi" className="xl:col-span-7">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 text-slate-500">
-                    <tr>
-                      <th className="py-2 pr-3">Layanan</th>
-                      <th className="py-2 pr-3">Kategori</th>
-                      <th className="py-2 pr-3 text-right">Qty</th>
-                      <th className="py-2 text-right">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {revenueByService.length === 0 ? (
-                      <tr><td colSpan={4} className="py-6 text-center text-slate-400">Belum ada data layanan</td></tr>
-                    ) : revenueByService.map((row) => (
-                      <tr key={row.service_id}>
-                        <td className="py-2.5 pr-3">
-                          <p className="font-semibold text-slate-800">{row.service_name}</p>
-                          <p className="text-[10px] font-mono text-[#5f1340]">{row.service_code}</p>
-                        </td>
-                        <td className="py-2.5 pr-3 text-slate-600">{row.category_name}</td>
-                        <td className="py-2.5 pr-3 text-right font-mono">{fmtNum(row.qty)}</td>
-                        <td className="py-2.5 text-right font-semibold text-emerald-700">{fmtIDR(row.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <ChartCard title="Akumulasi Revenue" subtitle="Pertumbuhan revenue kumulatif sepanjang periode" className="xl:col-span-7">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={cumulativeTrend}>
+                    <defs>
+                      <linearGradient id="cumGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtShort} />
+                    <Tooltip content={<ChartTooltip valueFormatter={fmtIDR} />} />
+                    <Area type="monotone" dataKey="cumulative" name="Kumulatif" stroke="#10b981" fill="url(#cumGrad)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
+            </ChartCard>
+
+            <ChartCard title="Pola Hari dalam Seminggu" subtitle="Rata-rata revenue per hari (klik batang untuk fokus)" className="xl:col-span-5">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weekdayStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtShort} />
+                    <Tooltip content={<ChartTooltip valueFormatter={fmtIDR} />} />
+                    <Bar dataKey="avg" name="Rata-rata" radius={[6, 6, 0, 0]} onClick={(d) => setWeekdayFocus((p) => (p === d.name ? null : d.name))} className="cursor-pointer">
+                      {weekdayStats.map((d) => (
+                        <Cell key={d.name} fill={d.name === weekdayBest ? "#5f1340" : "#c45c8a"} fillOpacity={weekdayFocus && weekdayFocus !== d.name ? 0.3 : 1} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {weekdayBest && <p className="mt-2 text-[11px] text-slate-500">Hari tersibuk: <b className="text-[#5f1340]">{weekdayBest}</b></p>}
+            </ChartCard>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            <ChartCard
+              title="Top Layanan Terjual"
+              subtitle="Layanan dengan revenue tertinggi"
+              className="xl:col-span-7"
+              action={
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-semibold">
+                  {[["revenue", "Revenue"], ["qty", "Qty"]].map(([k, l]) => (
+                    <button key={k} type="button" onClick={() => setSvcMetric(k)}
+                      className={cn("rounded-md px-2.5 py-1 transition", svcMetric === k ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-500 hover:text-slate-800")}>{l}</button>
+                  ))}
+                </div>
+              }
+            >
+              <input value={svcSearch} onChange={(e) => setSvcSearch(e.target.value)} placeholder="Cari layanan atau kategori..."
+                className="mb-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]/40" />
+              {servicesView.length === 0 ? (
+                <p className="py-10 text-center text-xs text-slate-400">Belum ada data layanan</p>
+              ) : (
+                <>
+                  <div style={{ height: Math.max(180, Math.min(servicesView.length, 8) * 36) }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={servicesView.slice(0, 8)} layout="vertical" margin={{ left: 10, right: 16 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={svcMetric === "revenue" ? fmtShort : fmtNum} />
+                        <YAxis type="category" dataKey="service_name" width={130} tick={{ fontSize: 11 }} tickFormatter={(v) => (String(v).length > 20 ? `${String(v).slice(0, 19)}…` : v)} />
+                        <Tooltip content={<ChartTooltip valueFormatter={svcMetric === "revenue" ? fmtIDR : fmtNum} />} />
+                        <Bar dataKey={svcMetric} name={svcMetric === "revenue" ? "Revenue" : "Qty"} radius={[0, 6, 6, 0]}>
+                          {servicesView.slice(0, 8).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-slate-100">
+                    <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">Layanan</th>
+                          <th className="px-3 py-2">Kategori</th>
+                          <th className="px-3 py-2 text-right">Qty</th>
+                          <th className="px-3 py-2 text-right">Revenue</th>
+                          <th className="px-3 py-2 w-28">Kontribusi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {servicesView.map((row) => {
+                          const share = serviceTotal ? (row.revenue / serviceTotal) * 100 : 0;
+                          return (
+                            <tr key={row.service_id} className="transition hover:bg-[#5f1340]/[0.03]">
+                              <td className="px-3 py-2.5">
+                                <p className="font-semibold text-slate-800">{row.service_name}</p>
+                                <p className="text-[10px] font-mono text-[#5f1340]">{row.service_code}</p>
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-600">{row.category_name}</td>
+                              <td className="px-3 py-2.5 text-right font-mono tabular-nums">{fmtNum(row.qty)}</td>
+                              <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 tabular-nums">{fmtIDR(row.revenue)}</td>
+                              <td className="px-3 py-2.5">
+                                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#5f1340]" style={{ width: `${Math.min(100, share)}%` }} /></div>
+                                <p className="mt-0.5 text-[10px] text-slate-400">{share.toFixed(1)}%</p>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </ChartCard>
 
             <div className="xl:col-span-5 space-y-4">
               <ChartCard title="Membership Aktif" subtitle="Paket membership yang sedang berjalan">
-                <div className="space-y-2">
-                  {membershipSummary.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-4 text-center">Belum ada membership aktif</p>
-                  ) : membershipSummary.map((row) => (
-                    <div key={`${row.tier}-${row.package_name}`} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">{row.package_name}</p>
-                        <p className="text-[10px] text-slate-500">Tier {row.tier}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-[#5f1340]">{fmtNum(row.active_memberships)} member</p>
-                        <p className="text-[10px] text-slate-500">{fmtIDR(row.total_top_up)} top up</p>
+                {membershipSummary.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-slate-400">Belum ada membership aktif</p>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 sm:flex-row">
+                    <div className="relative h-40 w-40 shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={membershipChart} dataKey="value" nameKey="name" innerRadius={46} outerRadius={70} paddingAngle={3}>
+                            {membershipChart.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip formatter={(v) => `${fmtNum(v)} member`} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <p className="text-lg font-bold text-slate-800">{fmtNum(membershipTotal)}</p>
+                        <p className="text-[10px] text-slate-400">member</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="w-full space-y-2">
+                      {membershipSummary.map((row, i) => (
+                        <div key={`${row.tier}-${row.package_name}`} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 transition hover:border-[#5f1340]/30 hover:bg-white">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">{row.package_name}</p>
+                              <p className="text-[10px] text-slate-500">Tier {row.tier}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-[#5f1340]">{fmtNum(row.active_memberships)} member</p>
+                            <p className="text-[10px] text-slate-500">{fmtIDR(row.total_top_up)} top up</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </ChartCard>
 
               <ChartCard title="Mutasi Deposit" subtitle="Ringkasan top up & pemakaian deposit">
-                <div className="space-y-2">
-                  {depositLedger.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-4 text-center">Belum ada mutasi deposit</p>
-                  ) : depositLedger.map((row) => (
-                    <div key={row.type} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
-                      <span className="text-xs font-semibold text-slate-700">{row.type}</span>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-emerald-700">{fmtIDR(row.total_amount)}</p>
-                        <p className="text-[10px] text-slate-400">{fmtNum(row.txn_count)} transaksi</p>
-                      </div>
+                {depositLedger.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-slate-400">Belum ada mutasi deposit</p>
+                ) : (
+                  <>
+                    <div className="h-40">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={depositChart}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtShort} />
+                          <Tooltip content={<ChartTooltip valueFormatter={fmtIDR} />} />
+                          <Bar dataKey="amount" name="Nominal" radius={[6, 6, 0, 0]}>
+                            {depositChart.map((_, i) => <Cell key={i} fill={CHART_COLORS[(i + 5) % CHART_COLORS.length]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
-                  ))}
-                </div>
+                    <div className="mt-2 space-y-2">
+                      {depositLedger.map((row) => (
+                        <div key={row.type} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
+                          <span className="text-xs font-semibold capitalize text-slate-700">{row.type}</span>
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-emerald-700">{fmtIDR(row.total_amount)}</p>
+                            <p className="text-[10px] text-slate-400">{fmtNum(row.txn_count)} transaksi</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </ChartCard>
             </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
             <ChartCard title="Top Pelanggan" subtitle="Pelanggan dengan belanja tertinggi" className="xl:col-span-5">
-              <div className="space-y-2">
-                {topCustomers.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">Belum ada data pelanggan</p>
-                ) : topCustomers.map((c, idx) => (
-                  <div key={c.id} className="flex items-start gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#5f1340]/10 text-[11px] font-bold text-[#5f1340]">{idx + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold text-slate-800">{c.name}</p>
-                      <p className="text-[10px] text-slate-500">{c.customer_code} · {c.tier_name}</p>
-                      {c.membership_package && <p className="text-[10px] text-amber-700">{c.membership_package}</p>}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-bold text-emerald-700">{fmtIDR(c.total_spent)}</p>
-                      <p className="text-[10px] text-slate-400">Depo {fmtIDR(c.deposit_balance)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {topCustomers.length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-400">Belum ada data pelanggan</p>
+              ) : (
+                <div className="space-y-2">
+                  {topCustomers.map((c, idx) => {
+                    const pct = topSpentMax ? (Number(c.total_spent) / topSpentMax) * 100 : 0;
+                    return (
+                      <div key={c.id} className="group rounded-xl border border-slate-100 px-3 py-2.5 transition hover:border-[#5f1340]/30 hover:shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold", idx < 3 ? "bg-[#5f1340] text-white" : "bg-[#5f1340]/10 text-[#5f1340]")}>{idx + 1}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold text-slate-800">{c.name}</p>
+                            <p className="text-[10px] text-slate-500">{c.customer_code} · {c.tier_name}</p>
+                            {c.membership_package && <p className="text-[10px] text-amber-700">{c.membership_package}</p>}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs font-bold text-emerald-700">{fmtIDR(c.total_spent)}</p>
+                            <p className="text-[10px] text-slate-400">Depo {fmtIDR(c.deposit_balance)}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-full rounded-full bg-gradient-to-r from-[#5f1340] to-[#c45c8a] transition-all group-hover:opacity-80" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </ChartCard>
 
-            <ChartCard title="Status Pembayaran" subtitle="Lunas, DP, dan outstanding" className="xl:col-span-3">
-              <div className="space-y-2">
-                {paymentStatus.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">Belum ada transaksi</p>
-                ) : paymentStatus.map((row) => (
-                  <div key={row.payment_status} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
-                    <PaymentBadge status={row.payment_status} />
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-slate-800">{fmtIDR(row.amount)}</p>
-                      <p className="text-[10px] text-slate-400">{fmtNum(row.order_count)} nota</p>
+            <ChartCard title="Status Pembayaran" subtitle="Klik status untuk memfilter transaksi terbaru" className="xl:col-span-3">
+              {paymentStatus.length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-400">Belum ada transaksi</p>
+              ) : (
+                <>
+                  <div className="relative h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={paymentChart} dataKey="value" nameKey="name" innerRadius={52} outerRadius={78} paddingAngle={3}
+                          onClick={(d) => setPayFilter((p) => (p === d.name ? "" : d.name))} className="cursor-pointer">
+                          {paymentChart.map((d) => (
+                            <Cell key={d.name} fill={PAY_COLORS[d.name] || "#94a3b8"} fillOpacity={payFilter && payFilter !== d.name ? 0.25 : 1} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v) => fmtIDR(v)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-[10px] text-slate-400">Total nilai</p>
+                      <p className="text-sm font-bold text-slate-800">{fmtShort(paymentTotal)}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="mt-2 space-y-2">
+                    {paymentStatus.map((row) => (
+                      <button key={row.payment_status} type="button" onClick={() => setPayFilter((p) => (p === row.payment_status ? "" : row.payment_status))}
+                        className={cn("flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition",
+                          payFilter === row.payment_status ? "border-[#5f1340] bg-[#5f1340]/5" : "border-slate-100 hover:border-slate-300")}>
+                        <PaymentBadge status={row.payment_status} />
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-slate-800">{fmtIDR(row.amount)}</p>
+                          <p className="text-[10px] text-slate-400">{fmtNum(row.order_count)} nota · {paymentTotal ? Math.round((Number(row.amount) / paymentTotal) * 100) : 0}%</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </ChartCard>
 
-            <ChartCard title="Transaksi Terbaru" subtitle="Nota terbaru beserta pelanggan & outlet" className="xl:col-span-4">
-              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                {recentTransactions.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">Belum ada transaksi</p>
-                ) : recentTransactions.map((t) => (
-                  <div key={t.id} className="rounded-xl border border-slate-100 px-3 py-2.5">
+            <ChartCard
+              title="Transaksi Terbaru"
+              subtitle={payFilter ? `Difilter: ${payFilter}` : "Nota terbaru beserta pelanggan & outlet"}
+              className="xl:col-span-4"
+              action={payFilter ? <button type="button" onClick={() => setPayFilter("")} className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-50">Reset</button> : null}
+            >
+              <input value={trxSearch} onChange={(e) => setTrxSearch(e.target.value)} placeholder="Cari no. nota atau pelanggan..."
+                className="mb-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]/40" />
+              <div className="max-h-[26rem] space-y-2 overflow-y-auto pr-1">
+                {trxView.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-slate-400">Tidak ada transaksi yang cocok</p>
+                ) : trxView.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-slate-100 px-3 py-2.5 transition hover:border-[#5f1340]/30 hover:shadow-sm">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-slate-800">{t.order_no}</p>
                         <p className="text-[10px] text-slate-500">{t.customer_name} · {t.outlet_code}</p>
                       </div>
-                      <p className="text-xs font-bold text-emerald-700 shrink-0">{fmtIDR(t.grand_total)}</p>
+                      <p className="shrink-0 text-xs font-bold text-emerald-700">{fmtIDR(t.grand_total)}</p>
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <PaymentBadge status={t.payment_status} />
