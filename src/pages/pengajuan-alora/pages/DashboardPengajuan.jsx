@@ -18,6 +18,7 @@ import InstallmentPaymentModal from "../components/InstallmentPaymentModal";
 import CheckboxFilter from "../components/CheckboxFilter";
 import ClassificationPanel from "../components/ClassificationPanel";
 import useCutoffPeriod from "../utils/useCutoffPeriod";
+import { exportPengajuanExcel } from "../utils/exportPengajuanExcel";
 
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
@@ -142,6 +143,8 @@ export default function DashboardPengajuan() {
     const [deptSel, setDeptSel] = useState(null);
     const [compSel, setCompSel] = useState(null);
     const [outSel, setOutSel] = useState(null);
+    const [classifications, setClassifications] = useState([]);
+    const [clsSel, setClsSel] = useState(null);
 
     useEffect(() => {
         let cancel = false;
@@ -149,15 +152,17 @@ export default function DashboardPengajuan() {
             try { return (await api(path)).data || []; } catch { return []; }
         };
         (async () => {
-            const [c, o, d] = await Promise.all([
+            const [c, o, d, k] = await Promise.all([
                 load("/pengajuan/companies"),
                 load("/pengajuan/outlets"),
                 isFinanceOrGA ? load("/pengajuan/departments") : Promise.resolve([]),
+                load("/pengajuan/classifications"),
             ]);
             if (cancel) return;
             setCompanies(c);
             setOutlets(o);
             setDepartments(d);
+            setClassifications(k);
         })();
         return () => { cancel = true; };
     }, [isFinanceOrGA]);
@@ -168,6 +173,8 @@ export default function DashboardPengajuan() {
         () => companies.map(c => ({ value: c.company_id, label: c.company_name })), [companies]);
     const outOptions = useMemo(
         () => outlets.map(o => ({ value: o.outlet_id, label: o.name })), [outlets]);
+    const clsOptions = useMemo(
+        () => classifications.map(k => ({ value: k.id, label: k.classification_name })), [classifications]);
 
     const waschenOn = compSel === null || (Array.isArray(compSel) && compSel.includes(WASCHEN_COMPANY_ID));
 
@@ -214,8 +221,40 @@ export default function DashboardPengajuan() {
         p.set("statuses", statusOption.statuses);
         if (typeFilter) p.set("type", typeFilter);
         if (search) p.set("search", search);
+        if (clsSel !== null && clsOptions.length && clsSel.length < clsOptions.length) {
+            p.set("classification_ids", clsSel.join(","));
+        }
         return p.toString();
-    }, [baseQuery, statusOption, typeFilter, search]);
+    }, [baseQuery, statusOption, typeFilter, search, clsSel, clsOptions]);
+
+    // ── Download Excel (semua PR sesuai filter aktif, bukan hanya halaman yang tampil) ──
+    const [exporting, setExporting] = useState(false);
+    const [exportErr, setExportErr] = useState(null);
+
+    const handleExport = async () => {
+        setExporting(true);
+        setExportErr(null);
+        try {
+            const d = await api(`/pengajuan/by-classification/export?${filterQuery}`);
+            const extraFilters = [`Status: ${statusOption.label}`];
+            if (clsSel !== null && clsSel.length < clsOptions.length) {
+                extraFilters.push(`Klasifikasi: ${clsOptions.filter(o => clsSel.includes(o.value)).map(o => o.label).join(", ") || "-"}`);
+            }
+            if (search) extraFilters.push(`Cari: "${search}"`);
+            exportPengajuanExcel({
+                records: d.data || [],
+                periodLabel: showAllDates ? "Semua Periode" : (period.rangeLabelShort || "-"),
+                filters: { type: typeFilter ? toTitleCase(typeFilter) : null },
+                extraFilters,
+                fileName: "pengeluaran_per_klasifikasi",
+            });
+            if (d.truncated) setExportErr("Data terlalu banyak, hanya 10.000 baris pertama yang diekspor. Persempit filter.");
+        } catch (e) {
+            setExportErr(e.message || "Gagal mengunduh Excel");
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const periodReady = showAllDates || !!period.dateFrom;
 
@@ -513,6 +552,12 @@ export default function DashboardPengajuan() {
                     onTypeFilter={setTypeFilter}
                     statusFilter={statusFilter}
                     onStatusFilter={setStatusFilter}
+                    onExport={handleExport}
+                    exporting={exporting || !periodReady}
+                    exportErr={exportErr}
+                    clsOptions={clsOptions}
+                    clsSel={clsSel}
+                    onClsSel={setClsSel}
                     statusLabel={statusOption.label}
                     isEstimate={!PAID_STATUS_KEYS.includes(statusFilter)}
                     filterQuery={filterQuery}
