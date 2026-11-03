@@ -155,6 +155,27 @@ export function KasbonTypeBadge({ type }) {
   );
 }
 
+/** "lunas" | "belum" untuk kasbon/pinjaman yang sudah disetujui; null bila belum ada tagihan. */
+export function kasbonLunasState(row) {
+  if (row.status !== "disetujui") return null;
+  const remaining = row.remaining != null
+    ? Number(row.remaining)
+    : (Number(row.amount_approved ?? row.amount_requested) || 0) - (Number(row.total_paid) || 0);
+  return remaining <= 0 ? "lunas" : "belum";
+}
+
+export function LunasBadge({ row }) {
+  const state = kasbonLunasState(row);
+  if (!state) return <span className="text-sm text-slate-300">—</span>;
+  const lunas = state === "lunas";
+  return (
+    <span className={cn("inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+      lunas ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700")}>
+      {lunas ? "Lunas" : "Belum Lunas"}
+    </span>
+  );
+}
+
 export function AbsensiMobileCard({ row, onViewPhoto, mapsLink, onEdit, onDelete, onViewDetail, submitting }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm space-y-3">
@@ -283,7 +304,10 @@ export function KasbonMobileCard({ row, onDetail, onApprove, onReject, onDelete,
         </div>
       )}
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", kasbonStatusBadge(row.status))}>{capitalizeStatus(row.status)}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", kasbonStatusBadge(row.status))}>{capitalizeStatus(row.status)}</span>
+          {kasbonLunasState(row) && <LunasBadge row={row} />}
+        </div>
         <PhotoThumb url={row.proof_url} label="Bukti" onView={onViewPhoto} />
       </div>
       <div className="flex flex-wrap gap-1.5 pt-1">

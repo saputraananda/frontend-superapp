@@ -139,7 +139,7 @@ export default function StatusWork() {
   const inputCls = "w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340] focus:ring-1 focus:ring-[#5f1340]";
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto">
       {toast && (
         <div className={cn("fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold text-white shadow-xl", toast.type === "error" ? "bg-rose-600" : "bg-emerald-600")}>
           {toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4" /> : <HiOutlineCheckCircle className="h-4 w-4" />}
@@ -148,7 +148,7 @@ export default function StatusWork() {
       )}
 
       <PageHero>
-
+
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Status Pekerjaan</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">

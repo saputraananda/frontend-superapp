@@ -97,7 +97,28 @@ function Sub({ children, tone = "slate" }) {
     rose: "text-rose-600",
     sky: "text-sky-600",
   }[tone];
-  return <p className={cn("mt-0.5 text-[10px] font-semibold leading-tight", cls)}>{children}</p>;
+  return <p className={cn("mt-0.5 whitespace-nowrap text-[10px] font-semibold leading-tight", cls)}>{children}</p>;
+}
+
+/** Angka ringkas di tengah sel; redup bila nol. */
+function Num({ value, tone = "slate" }) {
+  const cls = value
+    ? { slate: "bg-slate-100 text-slate-800", emerald: "bg-emerald-50 text-emerald-700", sky: "bg-sky-50 text-sky-700", brand: "bg-[#5f1340]/10 text-[#5f1340]" }[tone]
+    : "text-slate-300";
+  return (
+    <span className={cn("inline-flex min-w-[2rem] items-center justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums", cls)}>
+      {value}
+    </span>
+  );
+}
+
+function Avatar({ name }) {
+  const initials = String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  return (
+    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#5f1340] to-[#8a2a5e] text-[11px] font-bold text-white shadow-sm">
+      {initials}
+    </span>
+  );
 }
 
 function LeaveChips({ leave }) {
@@ -122,7 +143,7 @@ function LocationChips({ row }) {
       <div className="flex flex-wrap gap-1">
         {shown.map((l) => (
           <span key={l.id ?? l.name} title={`${placeLabel(l)} · ${l.count}x`}
-            className={cn("inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-bold",
+            className={cn("inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-bold",
               l.is_home ? "border-slate-200 bg-slate-50 text-slate-700" : "border-sky-200 bg-sky-50 text-sky-700")}>
             {l.code || l.name} {l.count}
           </span>
@@ -918,15 +939,16 @@ export default function Payroll() {
 
             {/* Desktop */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[1280px] text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
+              <table className="w-full min-w-[1500px] border-separate border-spacing-0 text-left text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&_th]:border-b [&_th]:border-slate-200 [&_th]:bg-slate-50">
                   <tr>
-                    <th className="px-4 py-3 font-semibold w-12 text-center">No</th>
-                    <SortTh col="employee_name" label="Nama" sort={sort} onSort={toggleSort} />
+                    <th className="sticky left-0 z-20 w-14 min-w-[3.5rem] px-4 py-3 text-center font-semibold">No</th>
+                    <SortTh col="employee_name" label="Nama" sort={sort} onSort={toggleSort}
+                      className="sticky left-14 z-20 min-w-[240px] shadow-[4px_0_6px_-4px_rgba(15,23,42,0.12)]" />
                     <SortTh col="hadir" label="Jumlah Hadir" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="off" label="Jumlah Off" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="work_minutes" label="Durasi Kerja" sort={sort} onSort={toggleSort} />
-                    <th className="px-4 py-3 font-semibold">Lokasi</th>
+                    <th className="min-w-[170px] px-4 py-3 font-semibold">Lokasi</th>
                     <SortTh col="backup" label="Jumlah Backup" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="overtime" label="Lembur" sort={sort} onSort={toggleSort} />
                     <SortTh col="leave" label="Perizinan" sort={sort} onSort={toggleSort} />
@@ -936,39 +958,44 @@ export default function Payroll() {
                     <th className="w-16" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="[&_td]:border-b [&_td]:border-slate-100 [&_td]:px-4 [&_td]:py-3.5">
                   {sorted.map((r, idx) => (
                     <tr key={r.employee_id} tabIndex={0} onClick={() => setSelected(r)}
                       onKeyDown={(e) => { if (e.key === "Enter") setSelected(r); }}
                       className="group cursor-pointer align-top transition hover:bg-[#5f1340]/[0.03] focus:bg-[#5f1340]/[0.04] focus:outline-none">
-                      <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-800 group-hover:text-[#5f1340]">{fmtEmployeeName(r.employee_name)}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {[r.employee_code, r.role && `${r.role}${r.is_leader ? " ★" : ""}`, r.home_outlet?.code].filter(Boolean).join(" · ")}
-                        </p>
+                      <td className="sticky left-0 z-10 w-14 bg-white text-center text-slate-400 group-hover:bg-[#faf5f8]">{idx + 1}</td>
+                      <td className="sticky left-14 z-10 min-w-[240px] bg-white shadow-[4px_0_6px_-4px_rgba(15,23,42,0.12)] group-hover:bg-[#faf5f8]">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={fmtEmployeeName(r.employee_name)} />
+                          <div className="min-w-0">
+                            <p className="whitespace-nowrap text-[13px] font-semibold text-slate-800 group-hover:text-[#5f1340]">{fmtEmployeeName(r.employee_name)}</p>
+                            <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[10px] text-slate-400">
+                              {r.employee_code && <span className="font-mono">{r.employee_code}</span>}
+                              {r.role && <span className="rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-500">{r.role}{r.is_leader ? " ★" : ""}</span>}
+                              {r.home_outlet?.code && <span className="rounded bg-[#5f1340]/10 px-1.5 py-px font-bold text-[#5f1340]">{r.home_outlet.code}</span>}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <p className="text-sm font-bold text-slate-800 tabular-nums">{r.hadir}</p>
+                      <td className="text-center">
+                        <Num value={r.hadir} tone="emerald" />
                         {r.no_info_days > 0 && <Sub tone="orange">{r.no_info_days} tanpa ket.</Sub>}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <p className="text-sm font-bold text-slate-800 tabular-nums">{r.off}</p>
+                      <td className="text-center">
+                        <Num value={r.off} tone="sky" />
                         {r.off_pending > 0 && <Sub tone="amber">+{r.off_pending} menunggu</Sub>}
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-700">{fmtDur(r.work_minutes)}</p>
+                      <td className="min-w-[130px]">
+                        <p className="whitespace-nowrap font-semibold text-slate-700">{fmtDur(r.work_minutes)}</p>
                         <Sub>rata² {fmtDur(r.avg_work_minutes)}/hari</Sub>
                         {r.incomplete_checkout > 0 && <Sub tone="amber">{r.incomplete_checkout} belum check-out</Sub>}
                       </td>
                       <td className="px-4 py-3"><LocationChips row={r} /></td>
-                      <td className="px-4 py-3 text-center">
-                        <p className={cn("text-sm font-bold tabular-nums", r.backup ? "text-slate-800" : "text-slate-300")}>{r.backup}</p>
-                      </td>
+                      <td className="text-center"><Num value={r.backup} tone="brand" /></td>
                       <td className="px-4 py-3">
                         {r.overtime.approved_count ? (
                           <>
-                            <p className="font-semibold text-slate-700">{fmtDur(r.overtime.approved_minutes)}</p>
+                            <p className="whitespace-nowrap font-semibold text-slate-700">{fmtDur(r.overtime.approved_minutes)}</p>
                             <Sub>{r.overtime.approved_count}x disetujui</Sub>
                           </>
                         ) : <span className="text-slate-300">—</span>}
@@ -991,7 +1018,7 @@ export default function Payroll() {
                       <td className="px-4 py-3">
                         {r.kasbon.deduction || r.kasbon.direct || r.kasbon.count ? (
                           <>
-                            <p className="font-semibold text-slate-700">{fmtIDR(r.kasbon.deduction)}</p>
+                            <p className="whitespace-nowrap font-semibold tabular-nums text-slate-700">{fmtIDR(r.kasbon.deduction)}</p>
                             <Sub>{r.kasbon.count} pengajuan</Sub>
                           </>
                         ) : <span className="text-slate-300">—</span>}
@@ -1002,7 +1029,7 @@ export default function Payroll() {
                       <td className="px-4 py-3">
                         {r.pinjaman.deduction || r.pinjaman.direct || r.pinjaman.outstanding ? (
                           <>
-                            <p className="font-semibold text-slate-700">{fmtIDR(r.pinjaman.deduction)}</p>
+                            <p className="whitespace-nowrap font-semibold tabular-nums text-slate-700">{fmtIDR(r.pinjaman.deduction)}</p>
                             <Sub tone={r.pinjaman.outstanding ? "rose" : "slate"}>sisa {fmtIDR(r.pinjaman.outstanding)}</Sub>
                           </>
                         ) : <span className="text-slate-300">—</span>}
@@ -1027,9 +1054,9 @@ export default function Payroll() {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="border-t-2 border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700">
+                <tfoot className="bg-slate-50 text-[11px] font-bold text-slate-700 [&_td]:border-t-2 [&_td]:border-slate-200 [&_td]:bg-slate-50 [&_td]:whitespace-nowrap">
                   <tr>
-                    <td className="px-4 py-3" colSpan={2}>Total {sorted.length} karyawan</td>
+                    <td className="sticky left-0 z-10 px-4 py-3" colSpan={2}>Total {sorted.length} karyawan</td>
                     <td className="px-4 py-3 text-center">{totals.hadir}</td>
                     <td className="px-4 py-3 text-center">{totals.off}</td>
                     <td className="px-4 py-3">{fmtDur(totals.work)}</td>

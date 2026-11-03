@@ -41,6 +41,7 @@ import {
   KasbonTypeBadge,
   MobileSkeleton,
   KasbonMobileCard,
+  LunasBadge,
   ExportExcelButton,
 } from "./hrisShared";
 
@@ -688,6 +689,7 @@ export default function Kasbon() {
                 <SortTh col="amount_approved" label="Disetujui" sort={sort} onSort={toggleSort} align="center" />
                 <th className="px-4 py-3 text-center font-semibold">Cicilan</th>
                 <SortTh col="status" label="Status" sort={sort} onSort={toggleSort} align="center" />
+                <th className="px-4 py-3 text-center font-semibold">Pelunasan</th>
                 <th className="px-4 py-3 text-center font-semibold">Bukti</th>
                 <th className="px-4 py-3 text-center font-semibold">Aksi</th>
               </tr>
@@ -717,6 +719,7 @@ export default function Kasbon() {
                     <td className="px-4 py-3.5 text-center">
                       <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", kasbonStatusBadge(r.status))}>{capitalizeStatus(r.status)}</span>
                     </td>
+                    <td className="px-4 py-3.5 text-center"><LunasBadge row={r} /></td>
                     <td className="px-4 py-3.5 text-center">
                       <PhotoThumb url={r.proof_url} label="Bukti kasbon" onView={setPhotoView} />
                     </td>

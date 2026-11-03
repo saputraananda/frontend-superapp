@@ -287,7 +287,7 @@ export default function MasterAbsenShift() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans text-slate-700">
+    <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto font-sans text-slate-700">
       {toast && (
         <div
           className={cn(
