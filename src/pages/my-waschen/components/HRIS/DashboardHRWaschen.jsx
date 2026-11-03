@@ -1023,7 +1023,7 @@ export default function DashboardHRWaschen() {
                         <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-600">Masuk ~{fmtClock(e.avgIn)}</span>
                       </div>
                     </button>
-                    {open && <EmployeeDays emp={e} outletName={outletName} />}
+                    {open && <EmployeeDays emp={e} outletName={outletName} startDate={focusDate || startDate} endDate={focusDate || endDate} />}
                   </div>
                 );
               })}
@@ -1085,7 +1085,7 @@ export default function DashboardHRWaschen() {
                         {open && (
                           <tr>
                             <td colSpan={10} className="p-0">
-                              <EmployeeDays emp={e} outletName={outletName} />
+                              <EmployeeDays emp={e} outletName={outletName} startDate={focusDate || startDate} endDate={focusDate || endDate} />
                             </td>
                           </tr>
                         )}
@@ -1236,19 +1236,91 @@ function EmployeeMultiSelect({ options, selected, onChange, disabled }) {
   );
 }
 
-function EmployeeDays({ emp, outletName }) {
+// Status hari tanpa absen masuk (dari endpoint payroll)
+const ABSENCE_UI = {
+  izin: { label: "Izin", tone: "border-amber-200 bg-amber-50 text-amber-800" },
+  sakit: { label: "Sakit", tone: "border-rose-200 bg-rose-50 text-rose-700" },
+  cuti: { label: "Cuti", tone: "border-violet-200 bg-violet-50 text-violet-700" },
+  off: { label: "Libur", tone: "border-sky-200 bg-sky-50 text-sky-700" },
+  tanpa_keterangan: { label: "Tanpa Ket.", tone: "border-orange-300 bg-orange-50 text-orange-700" },
+};
+
+const INACTIVE_LABEL = { belum_berjalan: "Belum berjalan", belum_bergabung: "Belum bergabung", sudah_keluar: "Sudah keluar" };
+
+function EmployeeDays({ emp, outletName, startDate, endDate }) {
+  const [calendar, setCalendar] = useState([]);
+
+  // Kalender harian penuh periode (hadir, izin, sakit, cuti, libur, tanpa ket., belum berjalan) dari payroll
+  useEffect(() => {
+    if (!emp.employee_id || !startDate || !endDate) return undefined;
+    let cancelled = false;
+    const q = new URLSearchParams({ startDate, endDate });
+    api(`/waschen/hris/payroll/${emp.employee_id}?${q}`)
+      .then((res) => { if (!cancelled) setCalendar(res.data?.days || []); })
+      .catch(() => { if (!cancelled) setCalendar([]); });
+    return () => { cancelled = true; };
+  }, [emp.employee_id, startDate, endDate]);
+
+  const cards = useMemo(() => {
+    const byDate = new Map();
+    emp.days.forEach((d) => {
+      if (!byDate.has(d.work_date)) byDate.set(d.work_date, []);
+      byDate.get(d.work_date).push(d);
+    });
+    const out = [];
+    const seen = new Set();
+    calendar.forEach((a) => {
+      seen.add(a.date);
+      const recs = (byDate.get(a.date) || []).filter((d) => d.hasIn);
+      if (recs.length) {
+        recs.forEach((d) => out.push({ kind: "attendance", date: a.date, key: `a${d.attendance_id}`, d }));
+      } else if (ABSENCE_UI[a.status]) {
+        out.push({ kind: "absence", date: a.date, key: `x${a.date}`, a });
+      } else {
+        out.push({ kind: "inactive", date: a.date, key: `i${a.date}`, a });
+      }
+    });
+    // Absensi di luar kalender (mis. payroll belum termuat) tetap ditampilkan
+    emp.days.forEach((d) => {
+      if (!seen.has(d.work_date)) out.push({ kind: "attendance", date: d.work_date, key: `a${d.attendance_id}`, d });
+    });
+    return out.sort((p, q) => String(p.date).localeCompare(String(q.date)));
+  }, [emp.days, calendar]);
+
   return (
     <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-3">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Jam masuk harian</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Jam masuk & ketidakhadiran harian</p>
       <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 gap-2">
-        {emp.days.map((d) => {
+        {cards.map((c) => {
+          if (c.kind === "inactive") {
+            return (
+              <div key={c.key} className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-slate-400 opacity-40">
+                <p className="text-[10px] font-semibold">{fmtDayShort(c.date)}</p>
+                <p className="text-sm font-bold">—</p>
+                <p className="text-[10px] font-semibold">{INACTIVE_LABEL[c.a.status] || "Belum berjalan"}</p>
+              </div>
+            );
+          }
+          if (c.kind === "absence") {
+            const ui = ABSENCE_UI[c.a.status];
+            return (
+              <div key={c.key} className={cn("rounded-lg border px-2 py-1.5", ui.tone)}>
+                <p className="text-[10px] font-semibold text-slate-500">{fmtDayShort(c.date)}</p>
+                <p className="text-sm font-bold">{ui.label}</p>
+                <p className="text-[10px] font-semibold">
+                  {c.a.status === "tanpa_keterangan" ? "Tidak masuk" : c.a.status === "off" ? "Jadwal libur" : "Disetujui"}
+                </p>
+              </div>
+            );
+          }
+          const d = c.d;
           const tone = !d.hasIn
             ? "border-slate-200 bg-white text-slate-400"
             : d.late
               ? "border-rose-200 bg-rose-50 text-rose-700"
               : "border-emerald-200 bg-emerald-50 text-emerald-700";
           return (
-            <div key={d.attendance_id} className={cn("rounded-lg border px-2 py-1.5", tone)} title={outletName(d.outlet_id)}>
+            <div key={c.key} className={cn("rounded-lg border px-2 py-1.5", tone)} title={outletName(d.outlet_id)}>
               <p className="text-[10px] font-semibold text-slate-500">{fmtDayShort(d.work_date)}{d.shift_name ? ` · ${d.shift_name.replace(/^Shift /, "")}` : ""}</p>
               <p className="text-sm font-bold tabular-nums">{d.hasIn ? fmtClock(d.inMin) : "—"}</p>
               <p className="text-[10px] font-semibold">

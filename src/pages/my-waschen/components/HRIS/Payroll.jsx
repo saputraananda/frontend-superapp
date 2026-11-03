@@ -530,7 +530,8 @@ function BackupTab({ d }) {
   );
 }
 
-function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose }) {
+// hideLoans: sembunyikan kasbon & pinjaman (dipakai halaman Absensi)
+export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose, hideLoans = false }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("harian");
@@ -566,6 +567,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
   };
 
   const d = detail || employee;
+  const tabs = hideLoans ? TABS.filter((t) => t.id !== "kasbon") : TABS;
   const counts = detail ? {
     lembur: detail.overtime_list.length,
     izin: detail.leave_list.length + detail.off_list.length,
@@ -588,7 +590,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <ExportExcelButton onClick={handleExport} loading={exporting} disabled={!detail} label="Export Karyawan Ini" />
+            {!hideLoans && <ExportExcelButton onClick={handleExport} loading={exporting} disabled={!detail} label="Export Karyawan Ini" />}
             <button type="button" onClick={onClose} aria-label="Tutup"
               className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
               <HiOutlineXMark className="h-5 w-5" />
@@ -598,7 +600,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
 
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 space-y-4">
           {/* Ringkasan */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-2", hideLoans ? "lg:grid-cols-5" : "lg:grid-cols-6")}>
             <Stat label="Hadir" value={`${d.hadir} hari`}
               sub={d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"}
               tone={d.no_info_days ? "border-orange-200 bg-orange-50/50" : undefined} />
@@ -614,15 +616,21 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
               tone={d.late.count ? "border-rose-200 bg-rose-50/50" : undefined} />
             <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)}
               sub={`${d.overtime.approved_count}x disetujui${d.overtime.pending_count ? ` · ${d.overtime.pending_count} menunggu` : ""}`} />
-            <Stat label="Potong Gaji" value={fmtIDR(d.deduction_total)}
-              sub={d.direct_total ? `+ bayar langsung ${fmtIDR(d.direct_total)}` : `Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`}
-              tone="border-[#5f1340]/20 bg-[#5f1340]/5" />
+            {hideLoans ? (
+              <Stat label="Perizinan" value={`${fmtDays(d.leave.total_days)} hari`}
+                sub={`Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`}
+                tone="border-[#5f1340]/20 bg-[#5f1340]/5" />
+            ) : (
+              <Stat label="Potong Gaji" value={fmtIDR(d.deduction_total)}
+                sub={d.direct_total ? `+ bayar langsung ${fmtIDR(d.direct_total)}` : `Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`}
+                tone="border-[#5f1340]/20 bg-[#5f1340]/5" />
+            )}
           </div>
 
           {/* Tab */}
           <div className="-mx-1 overflow-x-auto">
             <div className="flex gap-1 px-1 border-b border-slate-200 min-w-max">
-              {TABS.map((t) => (
+              {tabs.map((t) => (
                 <button key={t.id} type="button" onClick={() => setTab(t.id)} aria-pressed={tab === t.id}
                   className={cn("-mb-px border-b-2 px-3 py-2 text-xs font-bold transition whitespace-nowrap",
                     tab === t.id ? "border-[#5f1340] text-[#5f1340]" : "border-transparent text-slate-400 hover:text-slate-700")}>
