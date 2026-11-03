@@ -40,6 +40,28 @@ export function getDefaultCutoffDates() {
   return cutoffRange(year, month);
 }
 
+/**
+ * Bulan cutoff (format "YYYY-MM") yang periodenya beririsan dengan rentang tanggal.
+ * Rentang cutoff penuh 26 Okt – 25 Nov → ["2026-11"].
+ */
+export function cutoffMonthsBetween(dateFrom, dateTo, max = 60) {
+  if (!dateFrom || !dateTo) return [];
+  const a = new Date(`${dateFrom}T12:00:00`);
+  const b = new Date(`${dateTo}T12:00:00`);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || a > b) return [];
+  const start = currentCutoffPeriod(a);
+  const end = currentCutoffPeriod(b);
+  const out = [];
+  let y = start.year;
+  let m = start.month;
+  while ((y < end.year || (y === end.year && m <= end.month)) && out.length < max) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
 /** Opsi tahun: ±2 dari tahun cutoff aktif */
 export function cutoffYearOptions(now = new Date()) {
   const { year } = currentCutoffPeriod(now);

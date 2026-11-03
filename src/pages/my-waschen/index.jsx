@@ -34,6 +34,7 @@ import {
   HiOutlineClipboardDocumentCheck,
   HiOutlineSun,
   HiOutlineCalculator,
+  HiOutlineDocumentText,
   HiOutlineFlag,
   HiOutlinePresentationChartBar,
 } from "react-icons/hi2";
@@ -110,6 +111,12 @@ const MENU_SECTIONS = [
         icon: HiOutlineCalculator,
         label: "Payroll",
         description: "Rekap data penggajian per karyawan",
+      },
+      {
+        to: "/my-waschen/hris/slip-gaji",
+        icon: HiOutlineDocumentText,
+        label: "Slip Gaji",
+        description: "Upload & riwayat slip gaji karyawan",
       },
     ],
   },
