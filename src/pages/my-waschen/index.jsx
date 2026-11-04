@@ -157,6 +157,12 @@ const MENU_SECTIONS = [
         description: "Pantau & koreksi saldo shift frontliner",
       },
       {
+        to: "/my-waschen/cash-deposit",
+        icon: HiOutlineBanknotes,
+        label: "Setoran Tunai",
+        description: "Bukti setoran tunai closing per outlet",
+      },
+      {
         to: "/my-waschen/petty-cash",
         icon: HiOutlineBanknotes,
         label: "Petty Cash",

@@ -156,6 +156,7 @@ import HistoryTransactionPage from "./pages/my-waschen/components/Transaction/Hi
 import DetailTransactionPage from "./pages/my-waschen/components/Transaction/DetailTransaction";
 import PettyCashPage from "./pages/my-waschen/components/Transaction/PettyCash";
 import DailyReportPage from "./pages/my-waschen/components/Transaction/DailyReport";
+import CashDepositPage from "./pages/my-waschen/components/Transaction/CashDeposit";
 import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
 import InventoryPage from "./pages/my-waschen/components/Inventory/InventoryPage";
 import DashboardInventory from "./pages/my-waschen/components/Inventory/DashboardInventory";
@@ -733,6 +734,7 @@ export default function App() {
           <Route path="/my-waschen/event/customers" element={<EventCustomerWaschen />} />
           <Route path="/my-waschen/event/transactions" element={<EventTransactionWaschen />} />
           <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
+          <Route path="/my-waschen/cash-deposit" element={<CashDepositPage />} />
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
           <Route path="/my-waschen/master/day-off-policy" element={<DayOffPolicyMaster />} />
