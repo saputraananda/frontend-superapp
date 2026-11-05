@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   HiOutlineTruck,
   HiOutlineArchiveBox,
@@ -98,8 +99,8 @@ export default function ChangeFulfillmentModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+  return createPortal(
+    <div data-modal-root className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
@@ -265,6 +266,7 @@ export default function ChangeFulfillmentModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
