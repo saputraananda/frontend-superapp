@@ -17,6 +17,7 @@ import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
 import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
 import HospitalSearchSelect from "./HospitalSearchSelect";
+import RoomStatusSelect from "./RoomStatusSelect";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -604,6 +605,19 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     if (isNullRoomId(targetRoomId)) return isNullRoomId(detailRoomId);
     return Number(detailRoomId) === Number(targetRoomId);
   };
+
+  // Total linen kotor per ruangan di transaksi ini. Badge tetap tampil walau sudah dikirim bersih / transaksi SELESAI,
+  // supaya kelihatan ruangan mana saja yang terlibat.
+  const roomPendingDelivery = useMemo(() => {
+    const map = {};
+    if (mode === "create") return map;
+    details.forEach((d) => {
+      if (isNullRoomId(d.room_id)) return;
+      const kotor = Number(d.qty_kotor || 0);
+      if (kotor > 0) map[d.room_id] = (map[d.room_id] || 0) + kotor;
+    });
+    return map;
+  }, [details, mode]);
 
   const handleQtyChange = (hospitalLinenId, field, value) => {
     const targetRoomId = selectedRoomId || null;
@@ -1249,19 +1263,15 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-slate-500">Filter Ruangan:</span>
-                              <select
+                              <RoomStatusSelect
                                 value={selectedRoomId}
-                                onChange={(e) => {
-                                  setSelectedRoomId(e.target.value);
+                                onChange={(id) => {
+                                  setSelectedRoomId(id);
                                   setShowAllLinens(false);
                                 }}
-                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 font-medium text-slate-700 cursor-pointer"
-                              >
-                                <option value="">Semua Ruangan</option>
-                                {rooms.map(room => (
-                                  <option key={room.id} value={room.id}>{room.room_name}</option>
-                                ))}
-                              </select>
+                                rooms={rooms}
+                                roomStatus={roomPendingDelivery}
+                              />
                             </div>
                             {selectedRoomId && roomHasLinenStandard && (
                               <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
@@ -1392,7 +1402,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                           : selisih < 0 ? "text-blue-600"
                                             : "text-slate-400"
                                     )}>
-                                      {selisih === null ? "—" : selisih === 0 ? "0" : selisih > 0 ? `+${selisih}` : selisih}
+                                      {selisih === null ? "—" : Math.abs(selisih)}
                                     </td>
                                     <td className="px-2 py-2">
                                       <input
