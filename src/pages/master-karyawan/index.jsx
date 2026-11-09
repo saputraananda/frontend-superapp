@@ -84,6 +84,13 @@ const MENU_ITEMS = [
         end: false,
     },
     {
+        to: "/master-karyawan/payroll",
+        icon: HiOutlineBanknotes,
+        label: "Rekap Payroll",
+        description: "Rekap absensi & potongan payroll",
+        end: false,
+    },
+    {
         to: "/master-karyawan/report-absensi",
         icon: HiOutlineCalendarDays,
         label: "Report Absensi",

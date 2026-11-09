@@ -33,6 +33,7 @@ import LemburRoAlora from "./pages/master-karyawan/components/LemburRoAlora";
 import ReportAbsensiAlora from "./pages/master-karyawan/components/ReportAbsensiAlora";
 import AnnualLeaveAlora from "./pages/master-karyawan/components/AnnualLeaveAlora";
 import PayslipAlora from "./pages/master-karyawan/components/PayslipAlora";
+import PayrollAlora from "./pages/master-karyawan/components/PayrollAlora";
 import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
 import PengumumanAlora from "./pages/master-karyawan/components/PengumumanAlora";
 import HariLiburAlora from "./pages/master-karyawan/components/HariLiburAlora";
@@ -173,6 +174,14 @@ import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
 import FormRequestTraining from "./pages/training-system/components/FormRequestTraining";
+import TrainingMaster from "./pages/training-system/pages/academy/TrainingMaster";
+import TrainingForm from "./pages/training-system/pages/academy/TrainingForm";
+import SkillMatrixMaster from "./pages/training-system/pages/academy/SkillMatrixMaster";
+import LoManagement from "./pages/training-system/pages/academy/LoManagement";
+import BatchList from "./pages/training-system/pages/academy/BatchList";
+import BatchForm from "./pages/training-system/pages/academy/BatchForm";
+import BatchDetail from "./pages/training-system/pages/academy/BatchDetail";
+import AcademyDashboard from "./pages/training-system/pages/academy/AcademyDashboard";
 
 // Project Management V2 Imports
 import ProjectManagementV2 from "./pages/project-management-v2";
@@ -378,6 +387,7 @@ export default function App() {
           <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
           <Route path="/master-karyawan/annual-leave" element={<AnnualLeaveAlora />} />
           <Route path="/master-karyawan/slip-gaji" element={<PayslipAlora />} />
+          <Route path="/master-karyawan/payroll" element={<PayrollAlora />} />
           <Route path="/master-karyawan/report-bugar" element={<ReportBugarAlora />} />
         </Route>
 
@@ -749,6 +759,15 @@ export default function App() {
           <Route path="/training-management-system" element={<DashboardTraining />} />
           <Route path="/training-management-system/request" element={<RequestTraining />} />
           <Route path="/training-management-system/request/form" element={<FormRequestTraining />} />
+          <Route path="/training-management-system/academy/trainings" element={<TrainingMaster />} />
+          <Route path="/training-management-system/academy/trainings/:id" element={<TrainingForm />} />
+          <Route path="/training-management-system/academy/skill-matrix" element={<SkillMatrixMaster />} />
+          <Route path="/training-management-system/academy/lo" element={<LoManagement />} />
+          <Route path="/training-management-system/academy/dashboard" element={<AcademyDashboard />} />
+          <Route path="/training-management-system/academy/batches" element={<BatchList />} />
+          <Route path="/training-management-system/academy/batches/new" element={<BatchForm />} />
+          <Route path="/training-management-system/academy/batches/:id" element={<BatchDetail />} />
+          <Route path="/training-management-system/academy/batches/:id/edit" element={<BatchForm />} />
 
         </Route>
 

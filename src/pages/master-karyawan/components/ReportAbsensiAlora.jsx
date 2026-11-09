@@ -21,6 +21,7 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportReportAbsensiAloraExcel } from "../utils/exportReportAbsensiAloraExcel";
+import { exportReportAbsensiMultiSheetExcel } from "../utils/exportReportAbsensiMultiSheetExcel";
 import AddManualAttendanceAloraModal from "./AddManualAttendanceAloraModal";
 import EditManualAttendanceAloraModal from "./EditManualAttendanceAloraModal";
 import DeleteManualAttendanceAloraModal from "./DeleteManualAttendanceAloraModal";
@@ -140,6 +141,28 @@ function LateCell({ row }) {
 				{late.duration && (
 					<p className="text-[11px] text-slate-400">
 						Durasi Asli: {late.duration} ({row.late_minutes}m)
+					</p>
+				)}
+				{late.reason && (
+					<p className="line-clamp-1 text-[10px] text-slate-400" title={late.reason}>
+						{late.reason}
+					</p>
+				)}
+			</div>
+		);
+	}
+	if (row?.late_compensation_type === "pending_overtime") {
+		const hours = row.late_compensation_hours != null ? Number(row.late_compensation_hours) : (row.late_minutes ? Math.round((Number(row.late_minutes) / 60) * 100) / 100 : 0);
+		return (
+			<div className="max-w-xs space-y-1">
+				<p className="text-xs font-semibold text-slate-700">{late.category}</p>
+				<span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+					<HiOutlineExclamationTriangle className="h-3 w-3 shrink-0 text-amber-600" />
+					Perlu Potong Saldo Lembur ({hours}j)
+				</span>
+				{late.duration && (
+					<p className="text-[11px] text-slate-400">
+						Durasi Telat: {late.duration} ({row.late_minutes}m)
 					</p>
 				)}
 				{late.reason && (
@@ -464,6 +487,7 @@ export default function ReportAbsensiAlora() {
 	const [finalStatusFilter, setFinalStatusFilter] = useState("");
 	const [sort, setSort] = useState({ col: "check_in_time", dir: "desc" });
 	const [exporting, setExporting] = useState(false);
+	const [exportingMulti, setExportingMulti] = useState(false);
 	const [addModalOpen, setAddModalOpen] = useState(false);
 	const [editModalItem, setEditModalItem] = useState(null);
 	const [deleteModalItem, setDeleteModalItem] = useState(null);
@@ -765,6 +789,41 @@ export default function ReportAbsensiAlora() {
 		}
 	};
 
+	const handleExportMultiSheet = async () => {
+		try {
+			setExportingMulti(true);
+			const qs = new URLSearchParams();
+			qs.set("startDate", activePeriod.startDate);
+			qs.set("endDate", activePeriod.endDate);
+			qs.set("page", "1");
+			qs.set("limit", "99999");
+			qs.set("includeExport", "1");
+			if (selectedEmployeeIds.length > 0) qs.set("employeeIds", selectedEmployeeIds.join(","));
+			if (filters.onlyIncomplete) qs.set("onlyIncomplete", "1");
+			if (statusFilter) qs.set("status", statusFilter);
+
+			const response = await api(`/alora/attendance?${qs.toString()}`);
+			const allRecords = response.records || [];
+
+			exportReportAbsensiMultiSheetExcel({
+				records: allRecords,
+				lemburSummary: response.lemburSummary || [],
+				employeeSummary: response.employeeSummary || employeeSummary || [],
+				periodLabel: activePeriodLabel,
+				activePeriod,
+				filters: {
+					onlyIncomplete: filters.onlyIncomplete,
+					statusFilter,
+				},
+			});
+		} catch (err) {
+			console.error("Gagal mendownload excel detail per karyawan:", err);
+			alert(`Gagal mengunduh data excel multi-sheet: ${err.message}`);
+		} finally {
+			setExportingMulti(false);
+		}
+	};
+
 	return (
 		<main className="min-h-screen bg-indigo-50 py-6 sm:py-10">
 			<div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
@@ -1034,17 +1093,16 @@ export default function ReportAbsensiAlora() {
 							<table className="min-w-[1400px] w-full table-fixed text-sm">
 								<thead className="border-b border-slate-100 bg-slate-50">
 									<tr>
-										<th className="w-[14%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Karyawan</th>
-										<th className="w-[9%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">NIK</th>
-										<th className="w-[12%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Jabatan</th>
-										<th className="w-[7%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Record</th>
-										<th className="w-[7%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Lengkap</th>
-										<th className="w-[7%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Belum Lengkap</th>
-										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Lembur</th>
-										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Saldo Lembur</th>
-										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total RO</th>
-										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Unpaid</th>
-										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Saldo RO</th>
+										<th className="w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Karyawan</th>
+										<th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">NIK</th>
+										<th className="w-[13%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Jabatan</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Record</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Lengkap</th>
+										<th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Belum Lengkap</th>
+										<th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Lembur</th>
+										<th className="w-[9%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total RO</th>
+										<th className="w-[9%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Total Unpaid</th>
+										<th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Saldo RO</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-slate-100">
@@ -1062,9 +1120,6 @@ export default function ReportAbsensiAlora() {
 												{Number(row.total_lembur_hours) > 0
 													? `${Number(row.total_lembur_hours).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`
 													: "—"}
-											</td>
-											<td className="px-4 py-3 text-center text-sm font-semibold text-violet-600">
-												{`${Number(row.overtime_balance_hours || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 })} jam`}
 											</td>
 											<td className="px-4 py-3 text-center text-sm font-semibold text-sky-700">
 												{Number(row.total_ro_earned_hours) > 0
@@ -1142,11 +1197,22 @@ export default function ReportAbsensiAlora() {
 							<button
 								type="button"
 								onClick={handleExport}
-								disabled={exporting || loading}
+								disabled={exporting || exportingMulti || loading}
 								className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+								title="Download Rekap Absensi & Total Lembur"
 							>
 								<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
 								{exporting ? "Mengunduh..." : "Download Excel"}
+							</button>
+							<button
+								type="button"
+								onClick={handleExportMultiSheet}
+								disabled={exporting || exportingMulti || loading}
+								className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+								title="Download Detail Rincian Harian Per Karyawan (Multi-Sheet dengan highlight Sabtu)"
+							>
+								<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
+								{exportingMulti ? "Membuat Sheet..." : "Excel Detail Per Karyawan"}
 							</button>
 							{isHrd && (
 								<button

@@ -7,6 +7,11 @@ import {
     HiOutlineSquares2X2,
     HiOutlineDocumentText,
     HiOutlineAcademicCap,
+    HiOutlineBookOpen,
+    HiOutlineStar,
+    HiOutlineUserGroup,
+    HiOutlineCalendarDays,
+    HiOutlineChartBar,
 } from "react-icons/hi2";
 
 function cn(...classes) { return classes.filter(Boolean).join(" "); }
@@ -25,7 +30,47 @@ const MENU_ITEMS = [
         label: "Pengajuan Training",
         description: "Request & approval training",
     },
+    {
+        to: "/training-management-system/academy/dashboard",
+        icon: HiOutlineChartBar,
+        label: "Dashboard Academy",
+        description: "Hasil training & skill",
+        hrOnly: true,
+    },
+    {
+        to: "/training-management-system/academy/trainings",
+        icon: HiOutlineBookOpen,
+        label: "Master Training",
+        description: "Soal, feedback, dan materi",
+        hrOnly: true,
+    },
+    {
+        to: "/training-management-system/academy/batches",
+        icon: HiOutlineCalendarDays,
+        label: "Batch Training",
+        description: "Jadwal, peserta, dan nilai",
+        hrOnly: true,
+    },
+    {
+        to: "/training-management-system/academy/skill-matrix",
+        icon: HiOutlineStar,
+        label: "Skill Matrix",
+        description: "Posisi, kategori, dan bobot",
+        hrOnly: true,
+    },
+    {
+        to: "/training-management-system/academy/lo",
+        icon: HiOutlineUserGroup,
+        label: "Manajemen LO",
+        description: "Penilai skill matrix per cabang",
+        hrOnly: true,
+    },
 ];
+
+const isHRUser = () => {
+    const user = JSON.parse(localStorage.getItem("user") ?? "null");
+    return [1, 8, 17, 18, 19].includes(Number(user?.employee?.position_id));
+};
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
     return (
@@ -75,6 +120,7 @@ function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }
 
 function Sidebar({ collapsed = false, onClose }) {
     const navigate = useNavigate();
+    const isHR = isHRUser();
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <div className={cn("flex items-center border-b border-slate-100 py-4",
@@ -116,7 +162,7 @@ function Sidebar({ collapsed = false, onClose }) {
             {collapsed && <div className="pt-3" />}
 
             <nav className={cn("flex-1 overflow-y-auto space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
-                {MENU_ITEMS.map(item => (
+                {MENU_ITEMS.filter(item => !item.hrOnly || isHR).map(({ hrOnly: _hrOnly, ...item }) => (
                     <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
                 ))}
             </nav>
