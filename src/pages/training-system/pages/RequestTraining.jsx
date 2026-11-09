@@ -479,7 +479,18 @@ export default function RequestTraining() {
                               >
                                 <HiOutlinePrinter className="h-4.5 w-4.5" />
                               </button>
-                              
+
+                              {/* Alora Academy: pengajuan Waschen yang terjadwal bisa dijadikan batch */}
+                              {isHR && row.status === "Scheduled" && Number(row.company_id) === 5 && (
+                                <button
+                                  onClick={() => navigate(`/training-management-system/academy/batches/new?request_id=${row.id}`)}
+                                  title="Buat batch Academy"
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-amber-600 transition"
+                                >
+                                  <HiOutlineUserGroup className="h-4.5 w-4.5" />
+                                </button>
+                              )}
+
                               {/* Edit permissions */}
                               {(!isHR && ["Pending_Supervisor", "Rejected_Supervisor", "Rejected_HRD"].includes(row.status) && Number(currentUser?.employee?.employee_id) === Number(row.requester_id)) || isHR ? (
                                 <button
