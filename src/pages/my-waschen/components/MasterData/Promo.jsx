@@ -121,12 +121,12 @@ export default function Promo() {
   }), [data]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto">
       {toast && <div className={cn("fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold text-white shadow-xl", toast.type === "error" ? "bg-rose-600" : "bg-emerald-600")}><span>{toast.message}</span></div>}
 
       {/* Hero Header */}
       <PageHero>
-
+
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Master Promo</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">

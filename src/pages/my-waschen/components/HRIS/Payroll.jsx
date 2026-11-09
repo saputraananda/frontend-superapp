@@ -6,6 +6,8 @@ import {
   HiOutlineArrowPath,
   HiOutlineBanknotes,
   HiOutlineCalendarDays,
+  HiOutlineBolt,
+  HiOutlineCheckCircle,
   HiOutlineChevronRight,
   HiOutlineClock,
   HiOutlineExclamationTriangle,
@@ -97,7 +99,28 @@ function Sub({ children, tone = "slate" }) {
     rose: "text-rose-600",
     sky: "text-sky-600",
   }[tone];
-  return <p className={cn("mt-0.5 text-[10px] font-semibold leading-tight", cls)}>{children}</p>;
+  return <p className={cn("mt-0.5 whitespace-nowrap text-[10px] font-semibold leading-tight", cls)}>{children}</p>;
+}
+
+/** Angka ringkas di tengah sel; redup bila nol. */
+function Num({ value, tone = "slate" }) {
+  const cls = value
+    ? { slate: "bg-slate-100 text-slate-800", emerald: "bg-emerald-50 text-emerald-700", sky: "bg-sky-50 text-sky-700", brand: "bg-[#5f1340]/10 text-[#5f1340]" }[tone]
+    : "text-slate-300";
+  return (
+    <span className={cn("inline-flex min-w-[2rem] items-center justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums", cls)}>
+      {value}
+    </span>
+  );
+}
+
+function Avatar({ name }) {
+  const initials = String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  return (
+    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#5f1340] to-[#8a2a5e] text-[11px] font-bold text-white shadow-sm">
+      {initials}
+    </span>
+  );
 }
 
 function LeaveChips({ leave }) {
@@ -122,7 +145,7 @@ function LocationChips({ row }) {
       <div className="flex flex-wrap gap-1">
         {shown.map((l) => (
           <span key={l.id ?? l.name} title={`${placeLabel(l)} · ${l.count}x`}
-            className={cn("inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-bold",
+            className={cn("inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-bold",
               l.is_home ? "border-slate-200 bg-slate-50 text-slate-700" : "border-sky-200 bg-sky-50 text-sky-700")}>
             {l.code || l.name} {l.count}
           </span>
@@ -145,7 +168,7 @@ function Kpi({ label, value, hint, icon: Icon, tone = "slate" }) {
   return (
     <div className={cn("rounded-2xl border p-3 sm:p-4 shadow-sm", t)}>
       <div className="flex items-center gap-1.5 opacity-80">
-        {Icon && <Icon className="h-4 w-4" />}
+        {Icon && <Icon className="h-3.5 w-3.5" />}
         <p className="text-[10px] font-bold uppercase tracking-wider">{label}</p>
       </div>
       <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{value}</p>
@@ -164,12 +187,30 @@ const TABS = [
   { id: "backup", label: "Backup & Lokasi" },
 ];
 
-function Stat({ label, value, sub, tone }) {
+const STAT_ACCENT = {
+  slate: { icon: "bg-slate-100 text-slate-500", card: "border-slate-200 bg-white" },
+  emerald: { icon: "bg-emerald-100 text-emerald-600", card: "border-emerald-200 bg-emerald-50/40" },
+  sky: { icon: "bg-sky-100 text-sky-600", card: "border-sky-200 bg-sky-50/40" },
+  amber: { icon: "bg-amber-100 text-amber-600", card: "border-amber-200 bg-amber-50/40" },
+  rose: { icon: "bg-rose-100 text-rose-600", card: "border-rose-200 bg-rose-50/40" },
+  orange: { icon: "bg-orange-100 text-orange-600", card: "border-orange-200 bg-orange-50/50" },
+  brand: { icon: "bg-[#5f1340]/10 text-[#5f1340]", card: "border-[#5f1340]/20 bg-[#5f1340]/5" },
+};
+
+function Stat({ label, value, sub, tone, icon: Icon, accent = "slate" }) {
+  const a = STAT_ACCENT[accent] || STAT_ACCENT.slate;
   return (
-    <div className={cn("rounded-xl border px-3 py-2.5", tone || "border-slate-200 bg-white")}>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-0.5 text-lg font-bold text-slate-800 tabular-nums">{value}</p>
-      {sub && <p className="text-[10px] font-semibold text-slate-500">{sub}</p>}
+    <div className={cn("flex gap-2 rounded-xl border px-2.5 py-2 shadow-sm", tone || a.card)}>
+      {Icon && (
+        <span className={cn("hidden h-6 w-6 shrink-0 items-center justify-center rounded-md min-[1100px]:inline-flex", a.icon)}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-sm font-bold leading-tight text-slate-800 tabular-nums">{value}</p>
+        {sub && <p className="mt-0.5 text-[9px] font-semibold leading-snug text-slate-500">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -180,7 +221,7 @@ function Empty({ children }) {
 
 function DailyTab({ d }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[820px] text-left text-xs">
         <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
           <tr>
@@ -248,7 +289,7 @@ function DailyTab({ d }) {
 function OvertimeTab({ d }) {
   if (!d.overtime_list.length) return <Empty>Tidak ada lembur di periode ini</Empty>;
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full min-w-[760px] text-left text-xs">
         <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
           <tr>
@@ -299,7 +340,7 @@ function LeaveTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Izin / Sakit / Cuti</h4>
         {!d.leave_list.length ? <Empty>Tidak ada perizinan di periode ini</Empty> : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[640px] text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                 <tr>
@@ -338,7 +379,7 @@ function LeaveTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Jadwal Libur (Off)</h4>
         {!d.off_list.length ? <Empty>Tidak ada jadwal libur di periode ini</Empty> : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[560px] text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                 <tr>
@@ -470,7 +511,7 @@ function BackupTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Backup — Menggantikan Rekan Libur ({d.backup}x)</h4>
         {!d.backup_list.length ? <Empty>Tidak ada tugas backup di periode ini</Empty> : (
-          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-sm">
             {d.backup_list.map((b) => (
               <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
                 <div className="min-w-0">
@@ -486,7 +527,7 @@ function BackupTab({ d }) {
       <div>
         <h4 className="mb-2 text-xs font-bold text-slate-700">Lokasi Absen</h4>
         {!d.locations.length ? <Empty>Belum ada absensi</Empty> : (
-          <ul className="space-y-2.5 rounded-xl border border-slate-200 p-3">
+          <ul className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             {d.locations.map((l) => (
               <li key={l.id ?? l.name}>
                 <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -509,7 +550,8 @@ function BackupTab({ d }) {
   );
 }
 
-function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose }) {
+// hideLoans: sembunyikan kasbon & pinjaman (dipakai halaman Absensi)
+export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose, hideLoans = false }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("harian");
@@ -545,6 +587,7 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
   };
 
   const d = detail || employee;
+  const tabs = hideLoans ? TABS.filter((t) => t.id !== "kasbon") : TABS;
   const counts = detail ? {
     lembur: detail.overtime_list.length,
     izin: detail.leave_list.length + detail.off_list.length,
@@ -553,59 +596,81 @@ function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose
   } : {};
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-2 sm:p-4 backdrop-blur-sm">
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-2 sm:p-4 backdrop-blur-sm">
       <div role="dialog" aria-modal="true" aria-labelledby="payroll-detail-title"
-        className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
+        className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#5f1340]">Detail Payroll · {periodLabel || `${fmtDateShort(startDate)} – ${fmtDateShort(endDate)}`}</p>
-            <h3 id="payroll-detail-title" className="mt-0.5 text-lg font-bold text-slate-900">{fmtEmployeeName(d.employee_name)}</h3>
-            <p className="text-xs text-slate-500">
-              {[d.employee_code, d.role && `${d.role}${d.is_leader ? " (Leader)" : ""}`, d.home_outlet && `Outlet asal ${placeLabel(d.home_outlet)}`]
-                .filter(Boolean).join(" · ")}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportExcelButton onClick={handleExport} loading={exporting} disabled={!detail} label="Export Karyawan Ini" />
-            <button type="button" onClick={onClose} aria-label="Tutup"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-              <HiOutlineXMark className="h-5 w-5" />
-            </button>
+        <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-[#5f1340] via-[#7a1b52] to-[#8a2a5e] px-4 py-4 text-white sm:px-6 sm:py-5">
+          <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-16 right-24 h-32 w-32 rounded-full bg-white/5" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-base font-bold ring-1 ring-white/30 sm:h-14 sm:w-14 sm:text-lg">
+                {String(fmtEmployeeName(d.employee_name) || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                  {hideLoans ? "Detail Karyawan" : "Detail Payroll"} · {periodLabel || `${fmtDateShort(startDate)} – ${fmtDateShort(endDate)}`}
+                </p>
+                <h3 id="payroll-detail-title" className="mt-0.5 truncate text-lg font-bold sm:text-xl">{fmtEmployeeName(d.employee_name)}</h3>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {[d.employee_code, d.role && `${d.role}${d.is_leader ? " (Leader)" : ""}`, d.home_outlet && placeLabel(d.home_outlet)]
+                    .filter(Boolean).map((t) => (
+                      <span key={t} className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/20">{t}</span>
+                    ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {!hideLoans && <ExportExcelButton onClick={handleExport} loading={exporting} disabled={!detail} label="Export Karyawan Ini" />}
+              <button type="button" onClick={onClose} aria-label="Tutup"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/80 ring-1 ring-white/20 transition hover:bg-white/20 hover:text-white">
+                <HiOutlineXMark className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4 sm:px-6 space-y-4">
           {/* Ringkasan */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            <Stat label="Hadir" value={`${d.hadir} hari`}
-              sub={d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"}
-              tone={d.no_info_days ? "border-orange-200 bg-orange-50/50" : undefined} />
-            <Stat label="Off" value={`${d.off} hari`} sub={d.off_pending ? `${d.off_pending} menunggu persetujuan` : `${d.backup}x jadi backup`} />
-            <Stat label="Durasi Kerja" value={fmtDur(d.work_minutes)}
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&>*]:min-w-[8.5rem] [&>*]:flex-1">
+            <Stat label="Hadir" value={`${d.hadir} hari`} icon={HiOutlineCheckCircle}
+              accent={d.no_info_days ? "orange" : "emerald"}
+              sub={d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"} />
+            <Stat label="Off" value={`${d.off} hari`} icon={HiOutlineCalendarDays} accent="sky"
+              sub={d.off_pending ? `${d.off_pending} menunggu persetujuan` : `${d.backup}x jadi backup`} />
+            <Stat label="Durasi Kerja" value={fmtDur(d.work_minutes)} icon={HiOutlineClock} accent="slate"
               sub={`Rata-rata ${fmtDur(d.avg_work_minutes)}/hari${d.incomplete_checkout ? ` · ${d.incomplete_checkout} belum check-out` : ""}`} />
-            <Stat label="Terlambat" value={`${d.late.count}x`}
+            <Stat label="Terlambat" value={`${d.late.count}x`} icon={HiOutlineExclamationTriangle}
+              accent={d.late.count ? "rose" : "emerald"}
               sub={[
                 d.late.count ? `Total ${fmtDur(d.late.minutes)} · terlama ${fmtDur(d.late.max)}` : "Tepat waktu",
                 d.late.excused ? `${d.late.excused}x dikecualikan (izin ½ hari)` : "",
                 d.early?.count ? `Pulang cepat ${d.early.count}x (${fmtDur(d.early.minutes)})` : "",
-              ].filter(Boolean).join(" · ")}
-              tone={d.late.count ? "border-rose-200 bg-rose-50/50" : undefined} />
-            <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)}
+              ].filter(Boolean).join(" · ")} />
+            <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)} icon={HiOutlineBolt} accent="amber"
               sub={`${d.overtime.approved_count}x disetujui${d.overtime.pending_count ? ` · ${d.overtime.pending_count} menunggu` : ""}`} />
-            <Stat label="Potong Gaji" value={fmtIDR(d.deduction_total)}
-              sub={d.direct_total ? `+ bayar langsung ${fmtIDR(d.direct_total)}` : `Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`}
-              tone="border-[#5f1340]/20 bg-[#5f1340]/5" />
+            {hideLoans ? (
+              <Stat label="Perizinan" value={`${fmtDays(d.leave.total_days)} hari`} icon={HiOutlineTableCells} accent="brand"
+                sub={`Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`} />
+            ) : (
+              <Stat label="Potong Gaji" value={fmtIDR(d.deduction_total)} icon={HiOutlineBanknotes} accent="brand"
+                sub={d.direct_total ? `+ bayar langsung ${fmtIDR(d.direct_total)}` : `Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`} />
+            )}
           </div>
 
           {/* Tab */}
           <div className="-mx-1 overflow-x-auto">
-            <div className="flex gap-1 px-1 border-b border-slate-200 min-w-max">
-              {TABS.map((t) => (
+            <div className="inline-flex min-w-max gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              {tabs.map((t) => (
                 <button key={t.id} type="button" onClick={() => setTab(t.id)} aria-pressed={tab === t.id}
-                  className={cn("-mb-px border-b-2 px-3 py-2 text-xs font-bold transition whitespace-nowrap",
-                    tab === t.id ? "border-[#5f1340] text-[#5f1340]" : "border-transparent text-slate-400 hover:text-slate-700")}>
-                  {t.label}{counts[t.id] ? <span className="ml-1 rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">{counts[t.id]}</span> : null}
+                  className={cn("rounded-xl px-3.5 py-2 text-xs font-bold transition whitespace-nowrap",
+                    tab === t.id ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800")}>
+                  {t.label}
+                  {counts[t.id] ? (
+                    <span className={cn("ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]", tab === t.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>{counts[t.id]}</span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -918,15 +983,16 @@ export default function Payroll() {
 
             {/* Desktop */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[1280px] text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
+              <table className="w-full min-w-[1500px] border-separate border-spacing-0 text-left text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&_th]:border-b [&_th]:border-slate-200 [&_th]:bg-slate-50">
                   <tr>
-                    <th className="px-4 py-3 font-semibold w-12 text-center">No</th>
-                    <SortTh col="employee_name" label="Nama" sort={sort} onSort={toggleSort} />
+                    <th className="sticky left-0 z-20 w-14 min-w-[3.5rem] px-4 py-3 text-center font-semibold">No</th>
+                    <SortTh col="employee_name" label="Nama" sort={sort} onSort={toggleSort}
+                      className="sticky left-14 z-20 min-w-[240px] shadow-[4px_0_6px_-4px_rgba(15,23,42,0.12)]" />
                     <SortTh col="hadir" label="Jumlah Hadir" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="off" label="Jumlah Off" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="work_minutes" label="Durasi Kerja" sort={sort} onSort={toggleSort} />
-                    <th className="px-4 py-3 font-semibold">Lokasi</th>
+                    <th className="min-w-[170px] px-4 py-3 font-semibold">Lokasi</th>
                     <SortTh col="backup" label="Jumlah Backup" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="overtime" label="Lembur" sort={sort} onSort={toggleSort} />
                     <SortTh col="leave" label="Perizinan" sort={sort} onSort={toggleSort} />
@@ -936,39 +1002,44 @@ export default function Payroll() {
                     <th className="w-16" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="[&_td]:border-b [&_td]:border-slate-100 [&_td]:px-4 [&_td]:py-3.5">
                   {sorted.map((r, idx) => (
                     <tr key={r.employee_id} tabIndex={0} onClick={() => setSelected(r)}
                       onKeyDown={(e) => { if (e.key === "Enter") setSelected(r); }}
                       className="group cursor-pointer align-top transition hover:bg-[#5f1340]/[0.03] focus:bg-[#5f1340]/[0.04] focus:outline-none">
-                      <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-800 group-hover:text-[#5f1340]">{fmtEmployeeName(r.employee_name)}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {[r.employee_code, r.role && `${r.role}${r.is_leader ? " ★" : ""}`, r.home_outlet?.code].filter(Boolean).join(" · ")}
-                        </p>
+                      <td className="sticky left-0 z-10 w-14 bg-white text-center text-slate-400 group-hover:bg-[#faf5f8]">{idx + 1}</td>
+                      <td className="sticky left-14 z-10 min-w-[240px] bg-white shadow-[4px_0_6px_-4px_rgba(15,23,42,0.12)] group-hover:bg-[#faf5f8]">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={fmtEmployeeName(r.employee_name)} />
+                          <div className="min-w-0">
+                            <p className="whitespace-nowrap text-[13px] font-semibold text-slate-800 group-hover:text-[#5f1340]">{fmtEmployeeName(r.employee_name)}</p>
+                            <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[10px] text-slate-400">
+                              {r.employee_code && <span className="font-mono">{r.employee_code}</span>}
+                              {r.role && <span className="rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-500">{r.role}{r.is_leader ? " ★" : ""}</span>}
+                              {r.home_outlet?.code && <span className="rounded bg-[#5f1340]/10 px-1.5 py-px font-bold text-[#5f1340]">{r.home_outlet.code}</span>}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <p className="text-sm font-bold text-slate-800 tabular-nums">{r.hadir}</p>
+                      <td className="text-center">
+                        <Num value={r.hadir} tone="emerald" />
                         {r.no_info_days > 0 && <Sub tone="orange">{r.no_info_days} tanpa ket.</Sub>}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <p className="text-sm font-bold text-slate-800 tabular-nums">{r.off}</p>
+                      <td className="text-center">
+                        <Num value={r.off} tone="sky" />
                         {r.off_pending > 0 && <Sub tone="amber">+{r.off_pending} menunggu</Sub>}
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-700">{fmtDur(r.work_minutes)}</p>
+                      <td className="min-w-[130px]">
+                        <p className="whitespace-nowrap font-semibold text-slate-700">{fmtDur(r.work_minutes)}</p>
                         <Sub>rata² {fmtDur(r.avg_work_minutes)}/hari</Sub>
                         {r.incomplete_checkout > 0 && <Sub tone="amber">{r.incomplete_checkout} belum check-out</Sub>}
                       </td>
                       <td className="px-4 py-3"><LocationChips row={r} /></td>
-                      <td className="px-4 py-3 text-center">
-                        <p className={cn("text-sm font-bold tabular-nums", r.backup ? "text-slate-800" : "text-slate-300")}>{r.backup}</p>
-                      </td>
+                      <td className="text-center"><Num value={r.backup} tone="brand" /></td>
                       <td className="px-4 py-3">
                         {r.overtime.approved_count ? (
                           <>
-                            <p className="font-semibold text-slate-700">{fmtDur(r.overtime.approved_minutes)}</p>
+                            <p className="whitespace-nowrap font-semibold text-slate-700">{fmtDur(r.overtime.approved_minutes)}</p>
                             <Sub>{r.overtime.approved_count}x disetujui</Sub>
                           </>
                         ) : <span className="text-slate-300">—</span>}
@@ -991,7 +1062,7 @@ export default function Payroll() {
                       <td className="px-4 py-3">
                         {r.kasbon.deduction || r.kasbon.direct || r.kasbon.count ? (
                           <>
-                            <p className="font-semibold text-slate-700">{fmtIDR(r.kasbon.deduction)}</p>
+                            <p className="whitespace-nowrap font-semibold tabular-nums text-slate-700">{fmtIDR(r.kasbon.deduction)}</p>
                             <Sub>{r.kasbon.count} pengajuan</Sub>
                           </>
                         ) : <span className="text-slate-300">—</span>}
@@ -1002,7 +1073,7 @@ export default function Payroll() {
                       <td className="px-4 py-3">
                         {r.pinjaman.deduction || r.pinjaman.direct || r.pinjaman.outstanding ? (
                           <>
-                            <p className="font-semibold text-slate-700">{fmtIDR(r.pinjaman.deduction)}</p>
+                            <p className="whitespace-nowrap font-semibold tabular-nums text-slate-700">{fmtIDR(r.pinjaman.deduction)}</p>
                             <Sub tone={r.pinjaman.outstanding ? "rose" : "slate"}>sisa {fmtIDR(r.pinjaman.outstanding)}</Sub>
                           </>
                         ) : <span className="text-slate-300">—</span>}
@@ -1027,9 +1098,9 @@ export default function Payroll() {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="border-t-2 border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700">
+                <tfoot className="bg-slate-50 text-[11px] font-bold text-slate-700 [&_td]:border-t-2 [&_td]:border-slate-200 [&_td]:bg-slate-50 [&_td]:whitespace-nowrap">
                   <tr>
-                    <td className="px-4 py-3" colSpan={2}>Total {sorted.length} karyawan</td>
+                    <td className="sticky left-0 z-10 px-4 py-3" colSpan={2}>Total {sorted.length} karyawan</td>
                     <td className="px-4 py-3 text-center">{totals.hadir}</td>
                     <td className="px-4 py-3 text-center">{totals.off}</td>
                     <td className="px-4 py-3">{fmtDur(totals.work)}</td>

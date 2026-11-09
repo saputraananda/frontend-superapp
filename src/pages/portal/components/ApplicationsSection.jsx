@@ -6,9 +6,14 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-
   const getAppIcon = (appName) => {
     const name = appName.toLowerCase();
+    if (name.includes("finance") || name.includes("keuangan"))
+      return (
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
     if (name.includes("project management 2.0") || name.includes("project-management-v2") || name.includes("pm 2.0"))
       return (
         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -169,6 +174,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
 
   const getAppIconBg = (appName) => {
     const name = appName.toLowerCase();
+    if (name.includes("finance") || name.includes("keuangan")) return "bg-gradient-to-br from-emerald-600 to-teal-600";
     if (name.includes("project management 2.0") || name.includes("project-management-v2") || name.includes("pm 2.0")) return "bg-blue-950";
     if (name.includes("pengajuan") || name.includes("request") || name.includes("reimburse") || name.includes("pengadaan")) return "bg-emerald-600";
     if (name.includes("project")) return "bg-blue-600";
@@ -257,18 +263,19 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
             >
               <div className="relative flex-shrink-0">
                 <div
-                  className={`h-10 w-10 rounded-lg text-white flex items-center justify-center shadow-sm ${
-                    getAppIconBg(app.name) === "__waschen__" ? "" : getAppIconBg(app.name)
-                  }`}
+                  className={`h-10 w-10 rounded-lg text-white flex items-center justify-center shadow-sm ${getAppIconBg(app.name) === "__waschen__" ? "" : getAppIconBg(app.name)
+                    }`}
                   style={getAppIconBg(app.name) === "__waschen__" ? { background: "linear-gradient(135deg, #3d0728 0%, #5f1340 50%, #4a0d31 100%)" } : {}}
                 >
                   {getAppIcon(app.name)}
                 </div>
-                {(app.name.toLowerCase().includes("project management 2.0") || app.name.toLowerCase().includes("project-management-v2") || app.name.toLowerCase().includes("pm 2.0")) && (
-                  <span className="absolute -top-1 -left-0 bg-red-600 text-white text-[7px] font-bold px-2 py-0.5 shadow-md whitespace-nowrap -rotate-12 uppercase tracking-wider origin-bottom-left">
-                    New
-                  </span>
-                )}
+                {(app.name.toLowerCase().includes("project management 2.0") ||
+                  app.name.toLowerCase().includes("project-management-v2") ||
+                  app.name.toLowerCase().includes("pm 2.0")) && (
+                    <span className="absolute -top-1 -left-0 bg-red-600 text-white text-[7px] font-bold px-2 py-0.5 shadow-md whitespace-nowrap -rotate-12 uppercase tracking-wider origin-bottom-left">
+                      New
+                    </span>
+                  )}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-slate-800 truncate">{app.name}</h3>
@@ -277,7 +284,8 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
                   <span className="inline-block mt-2 rounded-full border px-2 py-0.5 text-[10px] font-medium text-rose-700 bg-rose-50 border-rose-200">
                     Perbaikan
                   </span>
-                )}              </div>
+                )}
+              </div>
             </a>
           ))}
         </div>

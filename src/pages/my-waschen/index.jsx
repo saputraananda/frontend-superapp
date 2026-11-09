@@ -34,6 +34,7 @@ import {
   HiOutlineClipboardDocumentCheck,
   HiOutlineSun,
   HiOutlineCalculator,
+  HiOutlineDocumentText,
   HiOutlineFlag,
   HiOutlinePresentationChartBar,
 } from "react-icons/hi2";
@@ -111,6 +112,12 @@ const MENU_SECTIONS = [
         label: "Payroll",
         description: "Rekap data penggajian per karyawan",
       },
+      {
+        to: "/my-waschen/hris/slip-gaji",
+        icon: HiOutlineDocumentText,
+        label: "Slip Gaji",
+        description: "Upload & riwayat slip gaji karyawan",
+      },
     ],
   },
   {
@@ -132,6 +139,12 @@ const MENU_SECTIONS = [
         description: "Database pelanggan & membership",
       },
       {
+        to: "/my-waschen/memberships",
+        icon: HiOutlineTicket,
+        label: "Data Membership",
+        description: "Member aktif, berakhir & top-up",
+      },
+      {
         to: "/my-waschen/transactions",
         icon: HiOutlineClipboardDocumentList,
         label: "Riwayat Transaksi",
@@ -142,6 +155,12 @@ const MENU_SECTIONS = [
         icon: HiOutlineCalendarDays,
         label: "Daily Report",
         description: "Pantau & koreksi saldo shift frontliner",
+      },
+      {
+        to: "/my-waschen/cash-deposit",
+        icon: HiOutlineBanknotes,
+        label: "Setoran Tunai",
+        description: "Bukti setoran tunai closing per outlet",
       },
       {
         to: "/my-waschen/petty-cash",

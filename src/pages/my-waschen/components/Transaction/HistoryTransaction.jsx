@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   HiOutlineMagnifyingGlass,
@@ -15,6 +15,7 @@ import useLiveRefresh from "../../hooks/useLiveRefresh";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
 import CutoffPeriodFilter from "../CutoffPeriodFilter";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
+import { rememberPage, useRestoreScroll, useSavedPage } from "../../hooks/usePageMemory";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -31,34 +32,17 @@ const DEFAULT_WORK_FILTER_TABS = [
   "Selesai",
 ];
 
-function getWorkPct(status) {
-  if (status == null || status === "") return 10;
-  if (typeof status === "number" && Number.isFinite(status)) return Number(status);
-  const raw = String(status).trim();
-  if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
-  return 10;
+/** Tanggal + jam, mis. "30 Okt 2026, 14.05". Kosong → "—". */
+function fmtDateTime(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-/** Band persentase per tab — sama dengan POS `matchesWorkStatusTab`. */
-function matchesWorkStatusTab(workStatus, tabName) {
-  if (!tabName || tabName === "Semua") return true;
-  const pct = getWorkPct(workStatus);
-  if (tabName === "Dibatalkan") return pct <= 0;
-  if (tabName === "Antrean" || tabName === "Diterima") return pct > 0 && pct <= 17.5;
-  if (tabName === "Pencucian" || tabName === "Proses Cuci") return pct > 17.5 && pct <= 37.5;
-  if (tabName === "Penyetrikaan" || tabName === "Proses Setrika") return pct > 37.5 && pct <= 62.5;
-  if (tabName === "Pengemasan" || tabName === "Proses Packing") return pct > 62.5 && pct <= 82.5;
-  if (
-    tabName === "Siap Diambil / Diantar" ||
-    tabName === "Siap Diambil" ||
-    tabName === "Siap Diantar" ||
-    tabName === "Delivery"
-  ) {
-    return pct > 82.5 && pct < 92.5;
-  }
-  if (tabName === "Sedang Diantar") return pct >= 92.5 && pct < 100;
-  if (tabName === "Selesai") return pct >= 100;
-  return false;
+/** Tgl nota dilunasi: settledAt (pelunasan DP/Outstanding), atau paidAt bila nota langsung Lunas. */
+function settledDate(row) {
+  return row.settledAt || (row.paymentStatus === "Lunas" ? row.paidAt : null);
 }
 
 function fmtIDR(v) {
@@ -154,6 +138,14 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
       </div>
       <div className="grid grid-cols-1 gap-1.5 text-xs">
         <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-400 shrink-0">Tgl Nota Dibuat</span>
+          <span className="text-slate-700 text-right">{fmtDateTime(row.orderDate) || "—"}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-400 shrink-0">Tgl Nota Dilunasi</span>
+          <span className="text-slate-700 text-right">{fmtDateTime(settledDate(row)) || "—"}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
           <span className="text-slate-400 shrink-0">Pelanggan</span>
           <span className="font-semibold text-slate-800 truncate text-right">{row.customerName || "—"}</span>
         </div>
@@ -223,16 +215,16 @@ export default function HistoryTransaction({
   detailFrom = null,
 }) {
   const navigate = useNavigate();
-  const openDetail = (id) =>
-    navigate(`/my-waschen/transactions/${id}`, detailFrom ? { state: { from: detailFrom } } : undefined);
-  const cutoff = useCutoffPeriod();
+  const memoryKey = eventOnly ? "history-event" : "history";
+  const saved = useSavedPage(memoryKey);
+  const cutoff = useCutoffPeriod(saved.cutoff);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [outletId, setOutletId] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("Semua");
-  const [workTab, setWorkTab] = useState("Semua");
+  const [search, setSearch] = useState(saved.search ?? "");
+  const [outletId, setOutletId] = useState(saved.outletId ?? "");
+  const [paymentStatus, setPaymentStatus] = useState(saved.paymentStatus ?? "Semua");
+  const [workTab, setWorkTab] = useState(saved.workTab ?? "Semua");
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteFile, setDeleteFile] = useState(null);
@@ -250,11 +242,34 @@ export default function HistoryTransaction({
     setTimeout(() => setToast(null), 3200);
   };
 
+  const [page, setPage] = useState(saved.page ?? 1);
+  const [pageSize, setPageSize] = useState(saved.pageSize ?? 50);
+  const [total, setTotal] = useState(0);
+  const [tabCounts, setTabCounts] = useState({});
+  const reqIdRef = useRef(0);
+
+  // Filter berubah → kembali ke halaman 1 (bukan saat mount / pemulihan dari halaman detail)
+  const filterKey = JSON.stringify([eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, pageSize]);
+  const prevFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (prevFilterKey.current === filterKey) return;
+    prevFilterKey.current = filterKey;
+    setPage(1);
+  }, [filterKey]);
+
+  const openDetail = (id) => {
+    rememberPage(memoryKey, { search, outletId, paymentStatus, workTab, page, pageSize, cutoff: cutoff.snapshot() });
+    navigate(`/my-waschen/transactions/${id}`, detailFrom ? { state: { from: detailFrom } } : undefined);
+  };
+  useRestoreScroll(saved.scroll, !loading, rows.length);
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     if (!silent) setError("");
+    const reqId = ++reqIdRef.current;
     try {
-      const qs = new URLSearchParams({ listType: "active" });
+      const qs = new URLSearchParams({ listType: "active", page: String(page), pageSize: String(pageSize) });
+      if (workTab !== "Semua") qs.set("workTab", workTab);
       if (eventOnly) qs.set("eventOnly", "1");
       if (search.trim()) qs.set("search", search.trim());
       if (outletId) qs.set("outletId", outletId);
@@ -262,15 +277,19 @@ export default function HistoryTransaction({
       if (cutoff.dateTo) qs.set("dateTo", cutoff.dateTo);
       if (paymentStatus && paymentStatus !== "Semua") qs.set("paymentStatus", paymentStatus);
       const res = await api(`/waschen/transactions?${qs}`);
+      if (reqId !== reqIdRef.current) return; // respons usang (filter/halaman sudah berganti)
       setRows(res.data || []);
+      setTotal(Number(res.meta?.total) || (res.data || []).length);
+      setTabCounts(res.meta?.tabCounts || {});
     } catch (err) {
-      if (silent) return;
+      if (silent || reqId !== reqIdRef.current) return;
       setError(err.message || "Gagal memuat transaksi");
       setRows([]);
+      setTotal(0);
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && reqId === reqIdRef.current) setLoading(false);
     }
-  }, [eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus]);
+  }, [eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -300,15 +319,24 @@ export default function HistoryTransaction({
     return ["Semua", ...unique];
   }, [workStatuses]);
 
-  const filtered = useMemo(() => {
-    if (workTab === "Semua") return rows;
-    return rows.filter((r) => matchesWorkStatusTab(r.workStatus, workTab));
-  }, [rows, workTab]);
+  // Filter tab & halaman sudah diterapkan server; `rows` adalah satu halaman.
+  const filtered = rows;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageNumbers = (() => {
+    const nums = [...new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])]
+      .filter((n) => n >= 1 && n <= totalPages)
+      .sort((a, b) => a - b);
+    const out = [];
+    nums.forEach((n, i) => {
+      if (i > 0 && n - nums[i - 1] > 1) out.push(`gap-${n}`);
+      out.push(n);
+    });
+    return out;
+  })();
 
-  const tabCount = (key) => {
-    if (key === "Semua") return rows.length;
-    return rows.filter((r) => matchesWorkStatusTab(r.workStatus, key)).length;
-  };
+  const tabCount = (key) => Number(tabCounts[key]) || 0;
 
   const submitDelete = async () => {
     if (!deleteModal) return;
@@ -412,7 +440,7 @@ export default function HistoryTransaction({
         <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">{title}</h2>
-            <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{filtered.length} Order</span>
+            <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{total} Order</span>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto] gap-2">
@@ -473,10 +501,12 @@ export default function HistoryTransaction({
       )}
 
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-xs">
+        <table className="w-full min-w-[900px] text-left text-xs">
           <thead className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-4 py-3 font-semibold">No. Nota</th>
+              <th className="px-4 py-3 font-semibold whitespace-nowrap">Tgl Nota Dibuat</th>
+              <th className="px-4 py-3 font-semibold whitespace-nowrap">Tgl Nota Dilunasi</th>
               <th className="px-4 py-3 font-semibold">Pelanggan</th>
               <th className="px-4 py-3 font-semibold">WhatsApp</th>
               <th className="px-4 py-3 font-semibold text-center">Status</th>
@@ -487,9 +517,9 @@ export default function HistoryTransaction({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={7} className="py-12 text-center text-slate-400">Memuat data...</td></tr>
+              <tr><td colSpan={9} className="py-12 text-center text-slate-400">Memuat data...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} className="py-12 text-center text-slate-400">Tidak ada transaksi sesuai filter</td></tr>
+              <tr><td colSpan={9} className="py-12 text-center text-slate-400">Tidak ada transaksi sesuai filter</td></tr>
             ) : (
               filtered.map((row) => (
                 <tr
@@ -509,6 +539,8 @@ export default function HistoryTransaction({
                     ) : null}
                     <EventBadge row={row} />
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-700">{fmtDateTime(row.orderDate) || "—"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-700">{fmtDateTime(settledDate(row)) || "—"}</td>
                   <td className="px-4 py-3 min-w-[10rem] max-w-[16rem]">
                     <p className="font-semibold text-slate-800 break-words">{row.customerName || "—"}</p>
                     {row.customerAddress ? (
@@ -587,8 +619,55 @@ export default function HistoryTransaction({
         )}
       </div>
 
-      <div className="border-t border-slate-100 px-3 sm:px-4 py-3 text-[10px] text-slate-400 font-semibold">
-        Menampilkan {filtered.length} dari {rows.length} transaksi
+      <div className="border-t border-slate-100 px-3 sm:px-4 py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-2 text-[10px] text-slate-400 font-semibold">
+        <span>
+          Menampilkan {total === 0 ? 0 : pageStart + 1}–{pageStart + filtered.length} dari {total} transaksi
+        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <label className="flex items-center gap-1.5 mr-2">
+            <span>Baris/halaman</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600"
+            >
+              {[25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => setPage(currentPage - 1)}
+            className="rounded-lg bg-[#5f1340]/10 px-2.5 py-1 font-bold text-[#5f1340] hover:bg-[#5f1340]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ‹ Sebelumnya
+          </button>
+          {pageNumbers.map((n) =>
+            typeof n === "string" ? (
+              <span key={n} className="px-1">…</span>
+            ) : (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setPage(n)}
+                className={cn(
+                  "min-w-[28px] rounded-lg px-2 py-1 font-bold",
+                  n === currentPage ? "bg-[#5f1340] text-white" : "bg-[#5f1340]/10 text-[#5f1340] hover:bg-[#5f1340]/20",
+                )}
+              >
+                {n}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => setPage(currentPage + 1)}
+            className="rounded-lg bg-[#5f1340]/10 px-2.5 py-1 font-bold text-[#5f1340] hover:bg-[#5f1340]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Berikutnya ›
+          </button>
+        </div>
       </div>
 
       {deleteModal && (

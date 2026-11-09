@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineBanknotes,
+  HiOutlineCalendarDays,
+  HiOutlineClock,
   HiOutlineMagnifyingGlass,
   HiOutlinePlus,
   HiOutlinePencilSquare,
@@ -89,11 +91,49 @@ export default function PaymentMethod() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
+  const [backdate, setBackdate] = useState({ enabled: false, updated_by: null, updated_at: null, logs: [], loading: true, saving: false });
+  const [showBackdateLog, setShowBackdateLog] = useState(false);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  const loadSettings = async () => {
+    try {
+      const res = await api("/waschen/payment-methods/settings");
+      setBackdate((p) => ({
+        ...p,
+        enabled: Number(res.data?.allow_backdate_payment) === 1,
+        updated_by: res.data?.updated_by || null,
+        updated_at: res.data?.updated_at || null,
+        logs: res.data?.logs || [],
+        loading: false,
+      }));
+    } catch (err) {
+      setBackdate((p) => ({ ...p, loading: false }));
+      showToast(err.message, "error");
+    }
+  };
+
+  const toggleBackdate = async () => {
+    const next = !backdate.enabled;
+    setBackdate((p) => ({ ...p, saving: true }));
+    try {
+      const res = await api("/waschen/payment-methods/settings", {
+        method: "PUT",
+        body: JSON.stringify({ allow_backdate_payment: next ? 1 : 0 }),
+      });
+      showToast(res.message || (next ? "Bayar backdate diaktifkan" : "Bayar backdate dinonaktifkan"));
+      await loadSettings();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setBackdate((p) => ({ ...p, saving: false }));
+    }
+  };
+
+  useEffect(() => { loadSettings(); }, []);
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -171,7 +211,7 @@ export default function PaymentMethod() {
   }), [data]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto">
       {toast && (
         <div className={cn("fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold text-white shadow-xl", toast.type === "error" ? "bg-rose-600" : "bg-emerald-600")}>
           {toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4" /> : <HiOutlineCheckCircle className="h-4 w-4" />}
@@ -181,7 +221,7 @@ export default function PaymentMethod() {
 
       {/* Hero Header */}
       <PageHero>
-
+
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Metode Pembayaran</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
@@ -215,6 +255,108 @@ export default function PaymentMethod() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Setelan Bayar Backdate (berlaku di semua modal pelunasan POS) */}
+      <div className={cn(
+        "rounded-2xl border bg-white p-4 sm:p-5 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between transition-colors",
+        backdate.enabled ? "border-amber-300 bg-amber-50/40" : "border-slate-200",
+      )}>
+        <div className="flex items-start gap-3 min-w-0">
+          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", backdate.enabled ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500")}>
+            <HiOutlineCalendarDays className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-800">Bayar Backdate</h2>
+              <span className={cn(
+                "rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                backdate.enabled ? "border-amber-300 bg-amber-100 text-amber-800" : "border-slate-200 bg-slate-100 text-slate-500",
+              )}>
+                {backdate.loading ? "Memuat..." : backdate.enabled ? "Aktif" : "Nonaktif"}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Bila aktif, kasir di My Waschen POS bisa memilih <b>tanggal bayar</b> di semua modal pelunasan
+              (Update Pembayaran & Gabung Bayar Nota). Tanggal tidak boleh di masa depan atau sebelum tanggal nota.
+              Revenue tercatat di tanggal bayar yang dipilih; uangnya tetap masuk laporan shift yang sedang buka.
+            </p>
+            {backdate.updated_at && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Terakhir diubah {new Date(backdate.updated_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+                {backdate.updated_by ? ` oleh ${backdate.updated_by}` : ""}
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={backdate.enabled}
+          aria-label="Aktifkan bayar backdate"
+          disabled={backdate.loading || backdate.saving}
+          onClick={toggleBackdate}
+          className="inline-flex shrink-0 items-center gap-3 self-start rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60 sm:self-auto"
+        >
+          <span className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors", backdate.enabled ? "bg-amber-500" : "bg-slate-300")}>
+            <span className={cn("inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform", backdate.enabled ? "translate-x-5" : "translate-x-0.5")} />
+          </span>
+          {backdate.saving ? "Menyimpan..." : backdate.enabled ? "Nonaktifkan" : "Aktifkan"}
+        </button>
+      </div>
+
+      {/* Log aktif / nonaktif Bayar Backdate */}
+      <div className="-mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowBackdateLog((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          <span className="inline-flex items-center gap-2">
+            <HiOutlineClock className="h-4 w-4 text-slate-400" />
+            Log Bayar Backdate
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{backdate.logs.length}</span>
+          </span>
+          {showBackdateLog ? <HiOutlineChevronUp className="h-4 w-4" /> : <HiOutlineChevronDown className="h-4 w-4" />}
+        </button>
+        {showBackdateLog && (
+          backdate.logs.length === 0 ? (
+            <p className="border-t border-slate-100 px-4 py-6 text-center text-xs text-slate-400">Belum ada riwayat perubahan</p>
+          ) : (
+            <div className="max-h-72 overflow-auto border-t border-slate-100">
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2.5 font-semibold">Waktu</th>
+                    <th className="px-4 py-2.5 font-semibold">Aksi</th>
+                    <th className="px-4 py-2.5 font-semibold">Oleh</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {backdate.logs.map((l) => {
+                    const on = Number(l.is_active) === 1;
+                    const t = new Date(l.changed_at);
+                    return (
+                      <tr key={l.id} className="hover:bg-slate-50/80">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-slate-700">
+                          <span className="font-semibold">{t.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                          <span className="ml-1.5 font-mono tabular-nums text-slate-500">{t.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                            on ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-100 text-slate-600")}>
+                            {on ? "Diaktifkan" : "Dinonaktifkan"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 font-semibold text-slate-700">{l.changed_by || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">

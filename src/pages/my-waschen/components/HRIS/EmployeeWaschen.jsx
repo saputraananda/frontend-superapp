@@ -1161,7 +1161,7 @@ export default function EmployeeWaschen() {
                 </div>,
                 document.body,
             )}
-            <div className="mx-auto max-w-screen-2xl space-y-6 px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-[1920px] space-y-6 px-4 sm:px-6 lg:px-8 2xl:px-12">
                 {/* Hero header */}
                 <PageHero>
                             <div className="min-w-0">

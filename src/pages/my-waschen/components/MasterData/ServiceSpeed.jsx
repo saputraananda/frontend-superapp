@@ -238,7 +238,7 @@ export default function ServiceSpeed() {
   }, [data]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto">
       {/* Toast Alert */}
       {toast && (
         <div

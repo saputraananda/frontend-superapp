@@ -11,7 +11,7 @@ export function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export const PAGE_WRAP = "p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-7xl mx-auto min-w-0 w-full";
+export const PAGE_WRAP = "p-3 sm:p-6 lg:p-8 2xl:px-12 space-y-4 sm:space-y-6 max-w-[1920px] mx-auto min-w-0 w-full";
 
 export const SUMMARY_GRID = "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3";
 

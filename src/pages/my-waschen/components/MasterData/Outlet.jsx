@@ -40,7 +40,7 @@ function SortTh({ col, label, sortBy, sortDir, onSort }) {
   );
 }
 
-const EMPTY_FORM = { id: null, outlet_code: "", name: "", full_name: "", address: "" };
+const EMPTY_FORM = { id: null, outlet_code: "", name: "", full_name: "", address: "", lat: "", lon: "" };
 
 export default function Outlet() {
   const [data, setData] = useState([]);
@@ -134,7 +134,7 @@ export default function Outlet() {
   const stats = useMemo(() => ({ total: data.length }), [data]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto">
       {toast && (
         <div className={cn("fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold text-white shadow-xl", toast.type === "error" ? "bg-rose-600" : "bg-emerald-600")}>
           {toast.type === "error" ? <HiOutlineExclamationTriangle className="h-4 w-4" /> : <HiOutlineCheckCircle className="h-4 w-4" />}
@@ -192,6 +192,7 @@ export default function Outlet() {
                 <SortTh col="name" label="Nama" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="full_name" label="Nama Lengkap" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3">Alamat</th>
+                <th className="px-4 py-3">Koordinat</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
@@ -199,14 +200,14 @@ export default function Outlet() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={6} className="px-4 py-4">
+                    <td colSpan={7} className="px-4 py-4">
                       <div className="h-3.5 bg-slate-200 rounded animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data outlet
                   </td>
                 </tr>
@@ -223,6 +224,13 @@ export default function Outlet() {
                     </td>
                     <td className="px-4 py-3.5 text-slate-600">{item.full_name}</td>
                     <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.address || "—"}</td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      {item.lat != null && item.lon != null ? (
+                        <span className="font-mono text-slate-600">{Number(item.lat).toFixed(6)}, {Number(item.lon).toFixed(6)}</span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Belum diisi</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="inline-flex gap-1">
                         <button
@@ -234,6 +242,8 @@ export default function Outlet() {
                               name: item.name || "",
                               full_name: item.full_name || "",
                               address: item.address || "",
+                              lat: item.lat != null ? String(item.lat) : "",
+                              lon: item.lon != null ? String(item.lon) : "",
                             });
                             setFormError("");
                             setModalOpen(true);
@@ -309,6 +319,28 @@ export default function Outlet() {
                     onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#5f1340]"
                   />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Koordinat Outlet</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.lat}
+                      onChange={(e) => setFormData((p) => ({ ...p, lat: e.target.value }))}
+                      placeholder="Latitude, mis. -6.2088"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono outline-none focus:border-[#5f1340]"
+                    />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.lon}
+                      onChange={(e) => setFormData((p) => ({ ...p, lon: e.target.value }))}
+                      placeholder="Longitude, mis. 106.8456"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono outline-none focus:border-[#5f1340]"
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-400">Opsional. Dipakai Waschen Mobile untuk cek jarak absen; tanpa koordinat, absen di outlet ini ditolak.</p>
                 </div>
                 <div className="flex justify-end gap-2 pt-3 border-t">
                   <button type="button" onClick={() => setModalOpen(false)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">

@@ -138,7 +138,10 @@ function getAgingBucket(days) {
 }
 
 // ─── Main export function ─────────────────────────────────────────────────────
-export function exportPengajuanExcel({ records, periodLabel, filters }) {
+// extraFilters : teks filter tambahan untuk header (mis. "Klasifikasi: ...")
+// withAging    : false → hanya sheet "Detail Pengajuan"
+// fileName     : prefix nama file (default "laporan_pengajuan")
+export function exportPengajuanExcel({ records, periodLabel, filters, extraFilters = [], withAging = true, fileName = "laporan_pengajuan" }) {
   const exportedAt = `Diekspor: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })}`;
 
   const filterParts = [];
@@ -146,6 +149,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
   if (filters?.status) filterParts.push(`Status: ${STATUS_LABELS[filters.status] || filters.status}`);
   if (filters?.payment_method) filterParts.push(`Metode: ${filters.payment_method}`);
   if (filters?.company) filterParts.push(`Kategori: ${filters.company}`);
+  filterParts.push(...extraFilters);
   const filterLabel = filterParts.length > 0 ? filterParts.join("  |  ") : "Semua data";
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -438,12 +442,12 @@ export function exportPengajuanExcel({ records, periodLabel, filters }) {
   // ══════════════════════════════════════════════════════════════════════════
   const wb = XLSXStyle.utils.book_new();
   XLSXStyle.utils.book_append_sheet(wb, ws, "Detail Pengajuan");
-  XLSXStyle.utils.book_append_sheet(wb, ws2, "Aging Summary");
+  if (withAging) XLSXStyle.utils.book_append_sheet(wb, ws2, "Aging Summary");
 
   const buf = XLSXStyle.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
   const dateStr = new Date().toISOString().split("T")[0].replaceAll("-", "");
   saveAs(
     new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-    `laporan_pengajuan_${dateStr}.xlsx`
+    `${fileName}_${dateStr}.xlsx`
   );
 }

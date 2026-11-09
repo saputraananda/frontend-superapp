@@ -1,5 +1,5 @@
 import { api } from "../../../lib/api";
-import { formatEmployeeName } from "./notaLayout.js";
+import { formatEmployeeName } from "./FormatName.js";
 
 export const PERHATIAN_ITEMS = [
   "Pengambilan barang harap disertai nota",
@@ -22,7 +22,7 @@ export const FIELD_LABELS = [
   { key: "show_item_price", label: "Harga Item" },
   { key: "show_item_detail", label: "Detail Item (merk/warna/ukuran)" },
   { key: "show_perfume", label: "Aroma Parfum" },
-  { key: "show_express", label: "Tipe Pengerjaan" },
+  { key: "show_express", label: "Tipe Pengerjaan (Express/Reguler)" },
   { key: "show_delivery", label: "Tipe Pengambilan" },
   { key: "show_discount", label: "Diskon Promo" },
   { key: "show_total", label: "Total Tagihan" },
@@ -30,7 +30,7 @@ export const FIELD_LABELS = [
   { key: "show_member_balance", label: "Saldo Member" },
   { key: "show_notes", label: "Catatan Order" },
   { key: "show_qr", label: "QR Tracking" },
-  { key: "show_perhatian", label: "Syarat & Ketentuan" },
+  { key: "show_perhatian", label: "Syarat & Ketentuan (PERHATIAN)" },
   { key: "show_footer_thanks", label: "Footer Terima Kasih" },
 ];
 
@@ -146,7 +146,8 @@ export function mapDbTransactionToReceipt(payload) {
   const paid = Number(order.paidAmount ?? order.paid_amount) || 0;
   const grand = Number(order.grandTotal ?? order.grand_total) || 0;
   const branch = order.branch || order.outletName || order.outlet_name || "Waschen Laundry";
-  const outletAddr = order.outletAddress || order.outlet_address || branch;
+  // Sama dengan POS: nota tidak menampilkan alamat outlet terpisah (alamat = nama outlet).
+  const outletAddr = branch;
 
   return {
     id: order.orderNo || order.order_no || order.id,
@@ -196,7 +197,6 @@ export function mapDbTransactionToReceipt(payload) {
     paymentBatchNo: order.paymentBatchNo || order.payment_batch_no || null,
     customerBalance: Number(order.depositBalance ?? order.member_balance ?? order.customer_deposit_balance ?? 0) || 0,
     generalNotes: order.specialNotes || order.special_notes || order.generalNotes || "",
-    rackNo: order.rackNo || order.rack_no || order.queueNo || order.queue_no || (Number(order.totalPcs ?? order.total_pcs) > 0 ? order.totalPcs ?? order.total_pcs : null),
     queueNo: order.queueNo || order.queue_no || null,
     estimatedAt: order.estimatedFinishedAt || order.estimated_finished_at || null,
     estimatedCompletion: order.estimatedFinishedAt || order.estimated_finished_at || null,

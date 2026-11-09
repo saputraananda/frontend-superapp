@@ -18,6 +18,7 @@ import {
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
   HiOutlineArrowDownTray,
+  HiOutlineUserGroup,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -51,6 +52,7 @@ import {
   MobileSkeleton,
   AbsensiMobileCard,
 } from "./hrisShared";
+import { PayrollDetailModal } from "./Payroll";
 import DashboardGrooming from "./DashboardGrooming";
 import DashboardHRWaschen from "./DashboardHRWaschen";
 
@@ -74,6 +76,194 @@ function readPageTab() {
 }
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+// Status karyawan pada hari ini (dari kalender harian payroll). Urutan = prioritas tampil (bermasalah dulu).
+const TODAY_STATUS = {
+  tanpa_keterangan: { label: "Tidak Masuk", cls: "border-rose-300 bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+  sakit: { label: "Sakit", cls: "border-rose-200 bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+  izin: { label: "Izin", cls: "border-amber-200 bg-amber-50 text-amber-800", dot: "bg-amber-500" },
+  cuti: { label: "Cuti", cls: "border-indigo-200 bg-indigo-50 text-indigo-700", dot: "bg-indigo-500" },
+  off: { label: "Libur", cls: "border-violet-200 bg-violet-50 text-violet-700", dot: "bg-violet-500" },
+  belum_absen: { label: "Belum Absen", cls: "border-rose-300 bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+  backup: { label: "Backup", cls: "border-sky-200 bg-sky-50 text-sky-700", dot: "bg-sky-500" },
+  hadir: { label: "Hadir", cls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  belum_bergabung: { label: "Belum Bergabung", cls: "border-slate-200 bg-slate-50 text-slate-400", dot: "bg-slate-300" },
+  sudah_keluar: { label: "Sudah Keluar", cls: "border-slate-200 bg-slate-50 text-slate-400", dot: "bg-slate-300" },
+};
+const TODAY_STATUS_ORDER = Object.keys(TODAY_STATUS);
+
+function localISODate() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function todayStatusKey(day) {
+  if (!day) return "belum_absen";
+  if (day.status === "hadir") return day.backup_for?.length ? "backup" : "hadir";
+  if (day.status === "belum_berjalan") return "belum_absen";
+  return TODAY_STATUS[day.status] ? day.status : "belum_absen";
+}
+
+/** Panel (breadcrumb, tampil saat diklik): kondisi tiap karyawan pada hari ini. Klik kartu → rincian. */
+function TodayStatusPanel({ appendFilters, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [only, setOnly] = useState("Semua");
+  const today = localISODate();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const q = new URLSearchParams({ startDate: today, endDate: today });
+      appendFilters(q);
+      const res = await api(`/waschen/hris/payroll/details?${q}`);
+      setItems((res.data || []).map((e) => ({ emp: e, key: todayStatusKey(e.days?.[0]) })));
+    } catch (err) {
+      setError(err.message || "Gagal memuat status karyawan");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [today, appendFilters]);
+
+  useEffect(() => { if (open) load(); }, [open, load]);
+
+  const counts = useMemo(() => {
+    const c = {};
+    items.forEach((i) => { c[i.key] = (c[i.key] || 0) + 1; });
+    return c;
+  }, [items]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items
+      .filter((i) => (only === "Semua" || i.key === only)
+        && (!q || String(i.emp.employee_name || "").toLowerCase().includes(q)))
+      .sort((a, b) => TODAY_STATUS_ORDER.indexOf(a.key) - TODAY_STATUS_ORDER.indexOf(b.key)
+        || String(a.emp.employee_name).localeCompare(String(b.emp.employee_name)));
+  }, [items, query, only]);
+
+  // Grup per outlet asal; lengkap = semua karyawan outlet itu hadir (atau backup). Dihitung dari semua karyawan, bukan hasil filter.
+  const groups = useMemo(() => {
+    const outletOf = (e) => e.home_outlet;
+    const idOf = (e) => String(outletOf(e)?.id ?? outletOf(e)?.code ?? outletOf(e)?.name ?? "none");
+    const all = new Map();
+    items.forEach((i) => {
+      const id = idOf(i.emp);
+      if (!all.has(id)) all.set(id, { id, name: outletOf(i.emp) ? (outletOf(i.emp).code ? `${outletOf(i.emp).code} · ${outletOf(i.emp).name}` : outletOf(i.emp).name) : "Tanpa Outlet", total: 0, present: 0, list: [] });
+      const g = all.get(id);
+      g.total += 1;
+      if (i.key === "hadir" || i.key === "backup") g.present += 1;
+    });
+    visible.forEach((i) => all.get(idOf(i.emp)).list.push(i));
+    return [...all.values()]
+      .filter((g) => g.list.length)
+      .map((g) => ({ ...g, complete: g.present === g.total }))
+      .sort((a, b) => Number(a.complete) - Number(b.complete) || a.name.localeCompare(b.name));
+  }, [items, visible]);
+  const completeCount = groups.filter((g) => g.complete).length;
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <nav aria-label="Status karyawan hari ini" className="flex items-center gap-1.5 px-4 py-3 text-xs">
+        <span className="font-semibold text-slate-400">Riwayat Absensi</span>
+        <HiOutlineChevronRight className="h-3.5 w-3.5 text-slate-300" />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={cn("inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold transition", open ? "bg-[#5f1340] text-white" : "bg-[#5f1340]/10 text-[#5f1340] hover:bg-[#5f1340]/20")}
+        >
+          <HiOutlineUserGroup className="h-3.5 w-3.5" />
+          Status Karyawan Hari Ini
+          {open && items.length > 0 && <span className="rounded-full bg-white/20 px-1.5 text-[10px]">{items.length}</span>}
+        </button>
+      </nav>
+
+      {open && (
+        <div className="space-y-3 border-t border-slate-100 p-3 sm:p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-xs">
+              <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama karyawan..." className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-[#5f1340]/40" />
+            </div>
+            <p className="text-[11px] font-semibold text-slate-400">{new Date(`${today}T00:00:00`).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+          </div>
+
+          <FilterScroll>
+            <FilterPill active={only === "Semua"} onClick={() => setOnly("Semua")}>Semua ({items.length})</FilterPill>
+            {TODAY_STATUS_ORDER.filter((k) => counts[k]).map((k) => (
+              <FilterPill key={k} active={only === k} onClick={() => setOnly(k)}>{TODAY_STATUS[k].label} ({counts[k]})</FilterPill>
+            ))}
+          </FilterScroll>
+
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#5f1340] border-t-transparent" />
+            </div>
+          ) : error ? (
+            <p className="py-8 text-center text-xs font-semibold text-rose-600">{error}</p>
+          ) : visible.length === 0 ? (
+            <p className="py-8 text-center text-xs font-semibold text-slate-400">Tidak ada karyawan</p>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-[11px] font-semibold text-slate-500">
+                {completeCount} dari {groups.length} outlet <span className="text-emerald-700">lengkap</span> · {groups.length - completeCount} <span className="text-rose-700">tidak lengkap</span>
+              </p>
+              {groups.map((g) => (
+                <div key={g.id}>
+                  <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
+                    <h4 className="min-w-0 truncate text-xs font-bold text-slate-700">{g.name}</h4>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-500">{g.present}/{g.total} hadir</span>
+                      <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", g.complete ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700")}>
+                        {g.complete ? "Lengkap" : "Tidak Lengkap"}
+                      </span>
+                    </span>
+                  </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {g.list.map(({ emp, key }) => {
+                const ui = TODAY_STATUS[key];
+                const day = emp.days?.[0];
+                const note = key === "backup"
+                  ? `Menggantikan ${day.backup_for.map((n) => fmtEmployeeName(n)).join(", ")}`
+                  : key === "hadir"
+                    ? [day?.check_in && `Masuk ${day.check_in}`, day?.late_minutes > 0 && "Terlambat"].filter(Boolean).join(" · ")
+                    : "";
+                return (
+                  <button
+                    key={emp.employee_id}
+                    type="button"
+                    onClick={() => onSelect(emp)}
+                    className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition hover:shadow-md", ui.cls)}
+                  >
+                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", ui.dot)} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-bold text-slate-800">{fmtEmployeeName(emp.employee_name)}</span>
+                      <span className="block truncate text-[10px] text-slate-500">{[emp.role, emp.home_outlet?.code || emp.home_outlet?.name].filter(Boolean).join(" · ") || "—"}</span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-[11px] font-bold">{ui.label}</span>
+                      {note && <span className="block max-w-[8rem] truncate text-[10px] font-semibold opacity-80">{note}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
 // Nomor halaman yang ditampilkan: 1 … 4 5 [6] 7 8 … 20
 function pageNumbers(page, total) {
@@ -288,6 +478,7 @@ export default function Absensi() {
     setPageTab(id);
     try { sessionStorage.setItem(PAGE_TAB_KEY, id); } catch { /* tab tetap di memori */ }
   };
+  const [statusEmp, setStatusEmp] = useState(null);
   const [detailRow, setDetailRow] = useState(null);
   const [deletingCleanId, setDeletingCleanId] = useState(null);
   const [cleanPhotoToDelete, setCleanPhotoToDelete] = useState(null);
@@ -579,6 +770,17 @@ export default function Absensi() {
       {pageTab === "dashboard" ? <DashboardGrooming /> : null}
       {pageTab === "riwayat" && (
         <>
+      <TodayStatusPanel appendFilters={appendFilters} onSelect={setStatusEmp} />
+      {statusEmp && (
+        <PayrollDetailModal
+          hideLoans
+          employee={statusEmp}
+          startDate={startDate}
+          endDate={endDate}
+          periodLabel={cutoff.todayOnly || cutoff.isCustomDate ? "" : cutoff.periodLabel}
+          onClose={() => setStatusEmp(null)}
+        />
+      )}
       <div className={SUMMARY_GRID}>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Record</p>

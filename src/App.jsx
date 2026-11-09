@@ -143,6 +143,7 @@ import ItemKgMaster from "./pages/my-waschen/components/MasterData/ItemKg";
 import MembershipPackage from "./pages/my-waschen/components/MasterData/MembershipPackage";
 import UnitMaster from "./pages/my-waschen/components/MasterData/Unit";
 import CustomerPage from "./pages/my-waschen/components/Transaction/Customer";
+import MembershipPage from "./pages/my-waschen/components/Transaction/Membership";
 import PaymentMethodMaster from "./pages/my-waschen/components/MasterData/PaymentMethod";
 import PettyCashCategoryMaster from "./pages/my-waschen/components/MasterData/PettyCashCategory";
 import PromoMaster from "./pages/my-waschen/components/MasterData/Promo";
@@ -156,6 +157,7 @@ import HistoryTransactionPage from "./pages/my-waschen/components/Transaction/Hi
 import DetailTransactionPage from "./pages/my-waschen/components/Transaction/DetailTransaction";
 import PettyCashPage from "./pages/my-waschen/components/Transaction/PettyCash";
 import DailyReportPage from "./pages/my-waschen/components/Transaction/DailyReport";
+import CashDepositPage from "./pages/my-waschen/components/Transaction/CashDeposit";
 import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
 import InventoryPage from "./pages/my-waschen/components/Inventory/InventoryPage";
 import DashboardInventory from "./pages/my-waschen/components/Inventory/DashboardInventory";
@@ -165,6 +167,7 @@ import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
 import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
 import PayrollWaschen from "./pages/my-waschen/components/HRIS/Payroll";
+import PaySlipWaschen from "./pages/my-waschen/components/HRIS/PaySlipWaschen";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
 import EventDashboardWaschen from "./pages/my-waschen/components/EventB2B/EventDashboard";
@@ -190,7 +193,6 @@ import PersonalTaskList from "./pages/project-management-v2/pages/MyTasks/Person
 import Workspaces from "./pages/project-management-v2/pages/Workspaces/Workspaces";
 import WorkspaceDetail from "./pages/project-management-v2/pages/Workspaces/WorkspaceDetail";
 import PersonalChat from "./pages/project-management-v2/pages/DirectMessages/PersonalChat";
-
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -716,6 +718,7 @@ export default function App() {
           <Route path="/my-waschen/hris/overtime" element={<OvertimeWaschen />} />
           <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
           <Route path="/my-waschen/hris/payroll" element={<PayrollWaschen />} />
+          <Route path="/my-waschen/hris/slip-gaji" element={<PaySlipWaschen />} />
           <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
           <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />
@@ -724,6 +727,7 @@ export default function App() {
           <Route path="/my-waschen/master/membership-packages" element={<MembershipPackage />} />
           <Route path="/my-waschen/master/units" element={<UnitMaster />} />
           <Route path="/my-waschen/customers" element={<CustomerPage />} />
+          <Route path="/my-waschen/memberships" element={<MembershipPage />} />
           <Route path="/my-waschen/master/customers" element={<CustomerPage />} />
           <Route path="/my-waschen/master/payment-methods" element={<PaymentMethodMaster />} />
           <Route path="/my-waschen/master/petty-cash-categories" element={<PettyCashCategoryMaster />} />
@@ -740,6 +744,7 @@ export default function App() {
           <Route path="/my-waschen/event/customers" element={<EventCustomerWaschen />} />
           <Route path="/my-waschen/event/transactions" element={<EventTransactionWaschen />} />
           <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
+          <Route path="/my-waschen/cash-deposit" element={<CashDepositPage />} />
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
           <Route path="/my-waschen/master/day-off-policy" element={<DayOffPolicyMaster />} />

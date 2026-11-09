@@ -54,9 +54,11 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
         const res = await api("/api/employee-mood/today");
         if (res.success && res.data) {
           setTodayMood(res.data);
-        } else {
-          setShowMoodModal(true);
         }
+        // Auto-popup modal E-Mood dinonaktifkan sementara
+        // else {
+        //   setShowMoodModal(true);
+        // }
       } catch (err) {
         console.error("[HeaderLayout] Gagal load today mood:", err);
       }
