@@ -243,13 +243,14 @@ function CustomerTransactions({ customerId, onOpenNota }) {
         {rows.length < total ? `${rows.length} nota terbaru dari ${total}` : `${total} nota`}
       </p>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[560px] text-left text-xs">
+        <table className="w-full min-w-[640px] text-left text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-3 py-2.5 font-semibold">No. Nota</th>
               <th className="px-3 py-2.5 font-semibold">Dibuat</th>
               <th className="px-3 py-2.5 font-semibold">Dilunasi</th>
               <th className="px-3 py-2.5 font-semibold text-right">Tagihan</th>
+              <th className="px-3 py-2.5 font-semibold">Metode</th>
               <th className="px-3 py-2.5 font-semibold text-center">Bayar</th>
             </tr>
           </thead>
@@ -263,12 +264,18 @@ function CustomerTransactions({ customerId, onOpenNota }) {
                     {r.source === "SMARTLINK" ? " · Smartlink" : ""}
                     {Number(r.is_delete_requested) === 1 ? " · Diajukan hapus" : ""}
                   </p>
+                  {(r.created_by_name || r.settled_by_name) && (
+                    <p className="text-[10px] text-slate-400">
+                      Dibuat: {r.created_by_name || "—"} · Lunas: {r.settled_by_name || "—"}
+                    </p>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{fmtDateShort(r.order_date)}</td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">
                   {r.settled_at || (r.payment_status === "Lunas" && r.paid_at) ? fmtDateShort(r.settled_at || r.paid_at) : "—"}
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-slate-800">{formatRupiah(r.grand_total)}</td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{r.payment_method || "—"}</td>
                 <td className="px-3 py-2.5 text-center"><PayBadge status={r.payment_status} /></td>
               </tr>
             ))}
@@ -498,7 +505,22 @@ export default function Customer() {
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = "success") => { setToast({ message, type }); setTimeout(() => setToast(null), 3500); };
+  // Kunci scroll halaman di belakang saat modal terbuka (area scroll utama = #mw-content).
+  const anyModalOpen = Boolean(modalMode || tierList || memberList || deleteTarget);
+  useEffect(() => {
+    if (!anyModalOpen) return undefined;
+    const content = document.getElementById("mw-content");
+    const prevBody = document.body.style.overflow;
+    const prevContent = content?.style.overflowY;
+    document.body.style.overflow = "hidden";
+    if (content) content.style.overflowY = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      if (content) content.style.overflowY = prevContent || "";
+    };
+  }, [anyModalOpen]);
+
+  const showToast =(message, type = "success") => { setToast({ message, type }); setTimeout(() => setToast(null), 3500); };
 
   const loadLookups = async () => {
     try {
@@ -899,8 +921,11 @@ export default function Customer() {
       </div>
 
       {modalMode && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50">
+          <div className={cn(
+            "w-full rounded-2xl bg-white shadow-2xl border overflow-hidden max-h-[92vh] flex flex-col",
+            modalMode === "view" ? "max-w-2xl lg:max-w-4xl 2xl:max-w-6xl" : "max-w-2xl",
+          )}>
             {modalMode !== "view" && (
               <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/95 shrink-0">
                 <h3 className="font-bold text-sm">{formData.id ? "Edit Customer" : "Tambah Customer Baru"}</h3>
