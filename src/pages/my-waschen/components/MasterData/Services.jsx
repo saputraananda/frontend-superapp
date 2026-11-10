@@ -471,7 +471,7 @@ export default function Services() {
       name: item.name,
       unit: item.unit || "Kg",
       price: item.price || 0,
-      regular_duration_days: item.regular_duration_days || 2.0,
+      regular_duration_days: item.regular_duration_days ?? 2.0,
       min_order_qty: item.min_order_qty || 1,
       description: item.description || "",
       is_cleanox: item.is_cleanox || 0,
@@ -805,7 +805,7 @@ export default function Services() {
                     <td className="px-4 py-3.5 font-semibold text-slate-700 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <HiOutlineClock className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{item.regular_duration_days || 2} Hari</span>
+                        <span>{item.regular_duration_days ?? 2} Hari</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-center font-medium tabular-nums">
@@ -970,7 +970,7 @@ export default function Services() {
                   <input
                     type="number"
                     step="0.5"
-                    min="0.5"
+                    min="0"
                     placeholder="2.0"
                     value={formData.regular_duration_days}
                     onChange={(e) => setFormData((p) => ({ ...p, regular_duration_days: e.target.value }))}
