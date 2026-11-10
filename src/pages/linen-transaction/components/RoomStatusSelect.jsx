@@ -4,7 +4,19 @@ import { HiOutlineChevronDown } from "react-icons/hi2";
 
 // Dropdown ruangan dengan badge jumlah (Pcs) untuk ruangan yang masih punya sisa linen
 // belum dikirim bersih. <select> bawaan browser tidak bisa menampilkan badge.
-export default function RoomStatusSelect({ value, onChange, rooms, roomStatus = {} }) {
+// Props opsional agar bisa dipakai di form lain: allLabel (teks "semua"), countLabel (satuan di badge "N ruangan"),
+// suffix (teks setelah angka di badge, "" = angka saja), disabled, buttonClassName (gaya tombol).
+export default function RoomStatusSelect({
+  value,
+  onChange,
+  rooms,
+  roomStatus = {},
+  allLabel = "Semua Ruangan",
+  countLabel = "ruangan",
+  suffix = " Pcs",
+  disabled = false,
+  buttonClassName = "flex min-w-[150px] items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-left text-xs font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 cursor-pointer",
+}) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, minWidth: 0 });
   const btnRef = useRef(null);
@@ -53,7 +65,7 @@ export default function RoomStatusSelect({ value, onChange, rooms, roomStatus = 
     qty > 0 ? (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-200 bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 whitespace-nowrap">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
-        {qty} Pcs
+        {qty}{suffix}
       </span>
     ) : null;
 
@@ -68,16 +80,17 @@ export default function RoomStatusSelect({ value, onChange, rooms, roomStatus = 
         ref={btnRef}
         type="button"
         onClick={toggle}
-        className="flex min-w-[150px] items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-left text-xs font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 cursor-pointer"
+        disabled={disabled}
+        className={`${buttonClassName} disabled:cursor-not-allowed disabled:bg-slate-100`}
       >
-        <span className="truncate">{selected ? selected.room_name : "Semua Ruangan"}</span>
+        <span className="truncate">{selected ? selected.room_name : allLabel}</span>
         <span className="flex items-center gap-1.5">
           {selected ? (
             <Badge qty={qtyOf(selected.id)} />
           ) : (
             pending > 0 && (
               <span className="rounded-full border border-sky-200 bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 whitespace-nowrap">
-                {pending} ruangan
+                {pending} {countLabel}
               </span>
             )
           )}
@@ -92,10 +105,10 @@ export default function RoomStatusSelect({ value, onChange, rooms, roomStatus = 
             className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
           >
             <button type="button" onClick={() => pick("")} className={optCls(!value)}>
-              <span>Semua Ruangan</span>
+              <span>{allLabel}</span>
               {pending > 0 && (
                 <span className="rounded-full border border-sky-200 bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">
-                  {pending} ruangan
+                  {pending} {countLabel}
                 </span>
               )}
             </button>
