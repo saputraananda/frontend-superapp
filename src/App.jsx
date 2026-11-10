@@ -185,6 +185,10 @@ import BatchList from "./pages/training-system/pages/academy/BatchList";
 import BatchForm from "./pages/training-system/pages/academy/BatchForm";
 import BatchDetail from "./pages/training-system/pages/academy/BatchDetail";
 import AcademyDashboard from "./pages/training-system/pages/academy/AcademyDashboard";
+import OjtList from "./pages/training-system/pages/academy/OjtList";
+import OjtForm from "./pages/training-system/pages/academy/OjtForm";
+import OjtDetail from "./pages/training-system/pages/academy/OjtDetail";
+import OjtCriteria from "./pages/training-system/pages/academy/OjtCriteria";
 
 // Project Management V2 Imports
 import ProjectManagementV2 from "./pages/project-management-v2";
@@ -773,6 +777,11 @@ export default function App() {
           <Route path="/training-management-system/academy/batches/new" element={<BatchForm />} />
           <Route path="/training-management-system/academy/batches/:id" element={<BatchDetail />} />
           <Route path="/training-management-system/academy/batches/:id/edit" element={<BatchForm />} />
+          <Route path="/training-management-system/academy/ojt" element={<OjtList />} />
+          <Route path="/training-management-system/academy/ojt/new" element={<OjtForm />} />
+          <Route path="/training-management-system/academy/ojt/:id" element={<OjtDetail />} />
+          <Route path="/training-management-system/academy/ojt/:id/edit" element={<OjtForm />} />
+          <Route path="/training-management-system/academy/kriteria-ojt" element={<OjtCriteria />} />
 
         </Route>
 

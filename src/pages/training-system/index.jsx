@@ -12,6 +12,8 @@ import {
     HiOutlineUserGroup,
     HiOutlineCalendarDays,
     HiOutlineChartBar,
+    HiOutlineClipboardDocumentCheck,
+    HiOutlineListBullet,
 } from "react-icons/hi2";
 
 function cn(...classes) { return classes.filter(Boolean).join(" "); }
@@ -49,6 +51,20 @@ const MENU_ITEMS = [
         icon: HiOutlineCalendarDays,
         label: "Batch Training",
         description: "Jadwal, peserta, dan nilai",
+        hrOnly: true,
+    },
+    {
+        to: "/training-management-system/academy/ojt",
+        icon: HiOutlineClipboardDocumentCheck,
+        label: "OJT",
+        description: "Penilaian harian karyawan",
+        hrOnly: true,
+    },
+    {
+        to: "/training-management-system/academy/kriteria-ojt",
+        icon: HiOutlineListBullet,
+        label: "Kriteria OJT",
+        description: "Master kriteria penilaian",
         hrOnly: true,
     },
     {

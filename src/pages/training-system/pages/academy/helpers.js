@@ -44,6 +44,19 @@ export const fmtDatetime = (value) => {
   return `${d}/${m}/${y} ${time.slice(0, 5).replace(":", ".")}`;
 };
 
+/** "2026-11-10" menjadi "10/11/2026". */
+export const fmtDate = (value) => {
+  if (!value) return "-";
+  const [y, m, d] = String(value).split("-");
+  return `${d}/${m}/${y}`;
+};
+
+export const OJT_PHASE = {
+  BELUM_MULAI: { label: "Belum mulai", cls: "border-slate-200 bg-slate-100 text-slate-500" },
+  BERJALAN: { label: "Berjalan", cls: "border-indigo-200 bg-indigo-50 text-indigo-700" },
+  SELESAI: { label: "Selesai", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+};
+
 export function useToast() {
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = "success") => {
