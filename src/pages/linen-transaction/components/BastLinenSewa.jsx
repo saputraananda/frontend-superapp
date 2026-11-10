@@ -42,7 +42,7 @@ function isTitleCase(str) {
   return raw !== "" && raw === toTitleCase(raw);
 }
 
-function SignaturePad({ label, role, caption, value, onChange }) {
+function SignaturePad({ label, role, name, caption, value, onChange }) {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
 
@@ -117,7 +117,12 @@ function SignaturePad({ label, role, caption, value, onChange }) {
         onTouchMove={move}
         onTouchEnd={end}
       />
-      {caption && <p className="mt-3 border-t border-slate-800 pt-2 text-center text-xs font-bold text-slate-800">{caption}</p>}
+      {(name || caption) && (
+        <div className="mt-3 border-t border-slate-800 pt-2 text-center">
+          {name && <p className="text-xs font-bold text-slate-800">{name}</p>}
+          {caption && <p className={`text-xs ${name ? "font-medium text-slate-500" : "font-bold text-slate-800"}`}>{caption}</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -381,14 +386,11 @@ export default function BastLinenSewa() {
     if (!hospitalId) return showToast("error", "Pilih rumah sakit");
     if (!senderName.trim()) return showToast("error", "Nama pengirim wajib diisi");
     if (!isTitleCase(senderName)) return showToast("error", "Nama pengirim harus Capital Each Word");
-    if (!senderPosition.trim()) return showToast("error", "Jabatan pengirim wajib diisi");
     if (!receiverName.trim()) return showToast("error", "Nama penerima wajib diisi");
     if (!isTitleCase(receiverName)) return showToast("error", "Nama penerima harus Capital Each Word");
-    if (!receiverPosition.trim()) return showToast("error", "Jabatan penerima wajib diisi");
     const hasGa = Boolean(gaHeadName.trim() || gaHeadPosition.trim());
     if (hasGa && !gaHeadName.trim()) return showToast("error", "Nama yang mengetahui wajib diisi jika jabatan diisi");
     if (hasGa && !isTitleCase(gaHeadName)) return showToast("error", "Nama yang mengetahui harus Capital Each Word");
-    if (hasGa && !gaHeadPosition.trim()) return showToast("error", "Jabatan yang mengetahui wajib diisi jika nama diisi");
     const details = detailsFromEntries(entries);
     if (!details.length) return showToast("error", "Isi minimal satu pengiriman atau penarikan");
     setSaving(true);
@@ -749,10 +751,10 @@ export default function BastLinenSewa() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-4 ${gaHeadName.trim() && gaHeadPosition.trim() ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-          <SignaturePad label="Yang menyerahkan," role="Pihak Kedua" caption={senderPosition} value={sigSender} onChange={setSigSender} />
-          <SignaturePad label="Yang menerima," role="Pihak Pertama" caption={receiverPosition} value={sigReceiver} onChange={setSigReceiver} />
-          {gaHeadName.trim() && gaHeadPosition.trim() && <SignaturePad label="Mengetahui," name={gaHeadName} caption={gaHeadPosition} value={sigGa} onChange={setSigGa} />}
+        <div className={`grid grid-cols-1 gap-4 ${gaHeadName.trim() ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+          <SignaturePad label="Yang menyerahkan," role="Pihak Kedua" name={senderName} caption={senderPosition} value={sigSender} onChange={setSigSender} />
+          <SignaturePad label="Yang menerima," role="Pihak Pertama" name={receiverName} caption={receiverPosition} value={sigReceiver} onChange={setSigReceiver} />
+          {gaHeadName.trim() && <SignaturePad label="Mengetahui," name={gaHeadName} caption={gaHeadPosition} value={sigGa} onChange={setSigGa} />}
         </div>
         <p className="mt-2 text-xs text-slate-400">Tanda tangan boleh dikosongkan dan dilengkapi nanti. Kanvas kosong saat edit mempertahankan tanda tangan yang sudah tersimpan.</p>
 
