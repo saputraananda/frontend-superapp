@@ -189,6 +189,7 @@ import OjtList from "./pages/training-system/pages/academy/OjtList";
 import OjtForm from "./pages/training-system/pages/academy/OjtForm";
 import OjtDetail from "./pages/training-system/pages/academy/OjtDetail";
 import OjtCriteria from "./pages/training-system/pages/academy/OjtCriteria";
+import OjtSubskills from "./pages/training-system/pages/academy/OjtSubskills";
 
 // Project Management V2 Imports
 import ProjectManagementV2 from "./pages/project-management-v2";
@@ -782,6 +783,7 @@ export default function App() {
           <Route path="/training-management-system/academy/ojt/:id" element={<OjtDetail />} />
           <Route path="/training-management-system/academy/ojt/:id/edit" element={<OjtForm />} />
           <Route path="/training-management-system/academy/kriteria-ojt" element={<OjtCriteria />} />
+          <Route path="/training-management-system/academy/kriteria-ojt/:id" element={<OjtSubskills />} />
 
         </Route>
 

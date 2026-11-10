@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { HiOutlineClipboardDocumentCheck, HiOutlinePlus } from "react-icons/hi2";
+import {
+  HiOutlineArrowTrendingDown,
+  HiOutlineArrowTrendingUp,
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineMinus,
+  HiOutlinePlus,
+} from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import { OJT_PHASE, cn, fmt, fmtDate, ghostBtnCls, useToast } from "./helpers";
 import { PageShell, Spinner } from "./ui";
@@ -8,6 +14,25 @@ import { PageShell, Spinner } from "./ui";
 export function PhaseBadge({ phase }) {
   const meta = OJT_PHASE[phase];
   return <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap", meta.cls)}>{meta.label}</span>;
+}
+
+// Naik, Turun, dan Tetap memakai ikon dan teks, bukan hanya warna.
+const PROGRESS = {
+  NAIK: { label: "Naik", Icon: HiOutlineArrowTrendingUp, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  TURUN: { label: "Turun", Icon: HiOutlineArrowTrendingDown, cls: "border-rose-200 bg-rose-50 text-rose-700" },
+  TETAP: { label: "Tetap", Icon: HiOutlineMinus, cls: "border-slate-200 bg-slate-100 text-slate-600" },
+};
+
+/** progress: NAIK, TURUN, TETAP, atau null kalau hari terakhir belum dinilai. */
+export function ProgressBadge({ progress }) {
+  const meta = PROGRESS[progress];
+  if (!meta) return <span className="text-xs text-slate-400">Belum ada</span>;
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap", meta.cls)}>
+      <meta.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {meta.label}
+    </span>
+  );
 }
 
 export default function OjtList() {
@@ -27,7 +52,7 @@ export default function OjtList() {
     <PageShell
       icon={HiOutlineClipboardDocumentCheck}
       title="OJT"
-      subtitle="Karyawan yang sedang atau sudah on job training, beserta nilai hariannya"
+      subtitle="Karyawan yang sedang atau sudah on job training, beserta nilai dan kemajuannya"
       toast={toast}
       action={
         <button
@@ -46,8 +71,9 @@ export default function OjtList() {
               <tr>
                 <th className="px-6 py-4">Karyawan</th>
                 <th className="px-6 py-4 text-center">Periode</th>
-                <th className="px-6 py-4 text-center">Hari dinilai</th>
+                <th className="px-6 py-4 text-center">Penilaian</th>
                 <th className="px-6 py-4 text-center">Nilai OJT</th>
+                <th className="px-6 py-4 text-center">Kemajuan</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
               </tr>
@@ -55,13 +81,13 @@ export default function OjtList() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10">
+                  <td colSpan={7} className="px-6 py-10">
                     <Spinner />
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="px-6 py-10 text-center text-xs text-slate-400">
                     Belum ada OJT
                   </td>
                 </tr>
@@ -76,10 +102,11 @@ export default function OjtList() {
                       {fmtDate(row.start_date)} - {fmtDate(row.end_date)}
                       <span className="block text-xs text-slate-400">{row.days} hari</span>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      {row.scored_days} dari {row.days}
-                    </td>
+                    <td className="px-6 py-4 text-center">{row.scored_days} dari 2</td>
                     <td className="px-6 py-4 text-center font-bold text-slate-800">{fmt(row.average)}</td>
+                    <td className="px-6 py-4 text-center">
+                      <ProgressBadge progress={row.progress} />
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <PhaseBadge phase={row.phase} />
                     </td>

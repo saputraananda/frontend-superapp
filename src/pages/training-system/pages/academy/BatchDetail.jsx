@@ -249,6 +249,128 @@ function EssayModal({ participant, onClose, onSaved, showToast }) {
   );
 }
 
+const PHASE_LABEL = { PRE: "Pre-test", POST: "Post-test" };
+
+const VERDICT = {
+  full: { label: "Benar", cls: RESULT_META.LULUS.cls },
+  zero: { label: "Salah", cls: RESULT_META.TIDAK_LULUS.cls },
+  partial: { label: "Benar, kurang lengkap", cls: RESULT_META.LULUS_PERBAIKAN.cls },
+  pending: { label: "Menunggu penilaian", cls: "border-slate-200 bg-slate-50 text-slate-500" },
+};
+
+// is_correct adalah poin yang didapat: poin penuh benar, nol salah, di antaranya benar sebagian, null essay belum dinilai.
+const verdictOf = ({ is_correct, max_points }) =>
+  is_correct === null ? "pending" : is_correct >= max_points ? "full" : is_correct === 0 ? "zero" : "partial";
+
+function AnswersModal({ participant, onClose, showToast }) {
+  const [tests, setTests] = useState(null);
+  const [phase, setPhase] = useState("PRE");
+
+  useEffect(() => {
+    api(`/academy/participants/${participant.id}/answers`)
+      .then((res) => setTests(res.tests))
+      .catch((err) => showToast(err.message, "error"));
+  }, [participant.id, showToast]);
+
+  const test = tests?.find((t) => t.phase === phase);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Jawaban ${participant.full_name}`}
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">Jawaban Peserta</h2>
+            <p className="text-xs text-slate-400">{participant.full_name}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Tutup" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+            <HiOutlineXMark className="h-5 w-5" />
+          </button>
+        </div>
+
+        {!tests ? (
+          <Spinner />
+        ) : (
+          <div className="space-y-4">
+            <div className="flex gap-2" role="group" aria-label="Pilih test">
+              {tests.map((t) => (
+                <button
+                  key={t.phase}
+                  type="button"
+                  aria-pressed={phase === t.phase}
+                  onClick={() => setPhase(t.phase)}
+                  className={cn(ghostBtnCls, phase === t.phase && "border-amber-500 bg-amber-50 text-amber-800")}
+                >
+                  {PHASE_LABEL[t.phase]} · Nilai {fmt(t.score)}
+                </button>
+              ))}
+            </div>
+
+            {test.questions.length === 0 ? (
+              <p className="text-xs text-slate-400">Tidak ada jawaban tercatat</p>
+            ) : (
+              test.questions.map((q) => {
+                const verdict = VERDICT[verdictOf(q)];
+                return (
+                  <div key={q.id} className="space-y-2 rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      Soal {q.number} · {q.topic_name}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-700">{q.question_text}</p>
+                    {q.type === "ESSAY" ? (
+                      <>
+                        <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2.5 text-xs text-slate-800">
+                          {q.answer_text || <span className="text-slate-400">Tidak dijawab</span>}
+                        </p>
+                        {q.answer_guide && (
+                          <p className="whitespace-pre-wrap rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-900">
+                            <span className="font-bold">Panduan penilai: </span>
+                            {q.answer_guide}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {q.options.map((o) => (
+                          <li
+                            key={o.id}
+                            className={cn(
+                              "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs font-semibold",
+                              o.is_correct ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 text-slate-600",
+                            )}
+                          >
+                            <span className="min-w-0">{o.option_text}</span>
+                            <span className="flex shrink-0 gap-1.5 text-[10px] font-bold">
+                              {o.is_correct && <span>Kunci</span>}
+                              {o.selected && <span className="rounded-full bg-slate-800 px-2 py-0.5 text-white">Dipilih</span>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold", verdict.cls)}>{verdict.label}</span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {q.is_correct === null ? "-" : q.is_correct} dari {q.max_points} poin
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function BatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -256,6 +378,7 @@ export default function BatchDetail() {
   const [batch, setBatch] = useState(null);
   const [mentorTarget, setMentorTarget] = useState(null);
   const [essayTarget, setEssayTarget] = useState(null);
+  const [answersTarget, setAnswersTarget] = useState(null);
 
   const load = useCallback(
     () =>
@@ -401,6 +524,11 @@ export default function BatchDetail() {
                               Nilai mentor
                             </button>
                           )}
+                          {!absent && p.status !== "ASSIGNED" && (
+                            <button type="button" onClick={() => setAnswersTarget(p)} className={ghostBtnCls}>
+                              Jawaban
+                            </button>
+                          )}
                           {p.essay_count > 0 && (
                             <button type="button" onClick={() => setEssayTarget(p)} className={ghostBtnCls}>
                               {p.essay_pending > 0 ? `Nilai essay (${p.essay_pending})` : "Lihat essay"}
@@ -430,6 +558,8 @@ export default function BatchDetail() {
           </table>
         </div>
       </section>
+
+      {answersTarget && <AnswersModal participant={answersTarget} showToast={showToast} onClose={() => setAnswersTarget(null)} />}
 
       {essayTarget && (
         <EssayModal

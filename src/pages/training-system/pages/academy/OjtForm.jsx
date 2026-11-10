@@ -5,6 +5,7 @@ import { api } from "../../../../lib/api";
 import { RESULT_META, cardCls, fmtDate, ghostBtnCls, inputCls, primaryBtnCls, useToast } from "./helpers";
 import { PageShell, Spinner } from "./ui";
 
+const MIN_DAYS = 2;
 const MAX_DAYS = 60;
 const BASE = "/training-management-system/academy/ojt";
 
@@ -88,9 +89,14 @@ export default function OjtForm() {
 
   const criteriaItems = useMemo(() => {
     if (!options) return [];
-    const items = options.criteria.map((c) => ({ id: c.id, label: c.name }));
-    // Kriteria OJT ini yang sekarang nonaktif tetap tampil supaya tidak hilang diam-diam.
-    for (const c of ojt?.criteria ?? []) if (!items.some((i) => i.id === c.id)) items.push({ id: c.id, label: c.name });
+    const toItem = (c) => ({ id: c.id, label: c.name, note: c.subskills.map((s) => s.name).join(", ") });
+    const items = options.criteria.map(toItem);
+    // Kriteria milik OJT ini memakai salinan sub-skill OJT-nya, dan tetap tampil walau di master sudah nonaktif.
+    for (const c of ojt?.criteria ?? []) {
+      const index = items.findIndex((i) => i.id === c.id);
+      if (index === -1) items.push(toItem(c));
+      else items[index] = toItem(c);
+    }
     return items;
   }, [options, ojt]);
 
@@ -103,7 +109,7 @@ export default function OjtForm() {
     });
 
   const valid =
-    (editing || participantId) && startDate && Number(days) >= 1 && Number(days) <= MAX_DAYS && observers.size > 0 && criteria.size > 0;
+    (editing || participantId) && startDate && Number(days) >= MIN_DAYS && Number(days) <= MAX_DAYS && observers.size > 0 && criteria.size > 0;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -166,12 +172,12 @@ export default function OjtForm() {
             </div>
             <div>
               <label htmlFor="ojt-days" className="mb-1.5 block text-xs font-bold text-slate-600">
-                Jumlah hari (maksimal {MAX_DAYS})
+                Jumlah hari ({MIN_DAYS} sampai {MAX_DAYS})
               </label>
               <input
                 id="ojt-days"
                 type="number"
-                min={1}
+                min={MIN_DAYS}
                 max={MAX_DAYS}
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
@@ -187,7 +193,7 @@ export default function OjtForm() {
           <div className="grid gap-6 lg:grid-cols-2">
             <CheckList
               title="Pemantau"
-              hint="Satu pemantau sudah cukup untuk menilai satu hari."
+              hint="Satu pemantau sudah cukup untuk satu penilaian. Hanya hari pertama dan hari terakhir yang dinilai."
               search
               items={options.employees.map((e) => ({ id: e.employee_id, label: e.full_name, note: e.position_name }))}
               selected={observers}
@@ -198,7 +204,7 @@ export default function OjtForm() {
               hint={
                 criteriaLocked
                   ? "Kriteria tidak bisa diubah karena sudah ada nilai."
-                  : "Kriteria dibuat di menu Kriteria OJT. Tiap kriteria dinilai 1 sampai 4."
+                  : "Memilih kriteria membawa semua sub-skill aktif di dalamnya saat OJT dibuat, masing-masing dinilai 1 sampai 4. Sub-skill yang ditambah kemudian tidak masuk ke OJT ini."
               }
               items={criteriaItems}
               selected={criteria}

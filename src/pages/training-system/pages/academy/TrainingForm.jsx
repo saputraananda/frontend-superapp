@@ -4,10 +4,13 @@ import {
   HiOutlineArrowLeft,
   HiOutlineArrowUpTray,
   HiOutlineBookOpen,
+  HiOutlineDocumentDuplicate,
   HiOutlineDocumentText,
+  HiOutlinePencilSquare,
   HiOutlinePlus,
   HiOutlineTrash,
 } from "react-icons/hi2";
+import ConfirmDialog from "../../../../components/ConfirmDialog";
 import { api, apiUpload, assetUrl } from "../../../../lib/api";
 import { cardCls, cn, ghostBtnCls, iconBtnCls, inputCls, primaryBtnCls, useToast } from "./helpers";
 import { PageShell, Spinner } from "./ui";
@@ -197,6 +200,10 @@ export default function TrainingForm() {
   const [topicName, setTopicName] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [copiedFromPre, setCopiedFromPre] = useState(false);
+  const [copyPrompt, setCopyPrompt] = useState(null);
+  const [trainingName, setTrainingName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const loadDetail = useCallback(async () => {
     const res = await api(`/academy/trainings/${id}`);
@@ -207,6 +214,8 @@ export default function TrainingForm() {
   const loadAll = useCallback(async () => {
     try {
       const data = await loadDetail();
+      setCopiedFromPre(false);
+      setTrainingName(data.name);
       setContent({
         pass_score: Number(data.version.pass_score),
         pass_with_fix_score: Number(data.version.pass_with_fix_score),
@@ -237,6 +246,54 @@ export default function TrainingForm() {
   const addRow = (list, row) => setContent((prev) => ({ ...prev, [list]: [...prev[list], withKey(row)] }));
   const removeRow = (list, key) =>
     setContent((prev) => ({ ...prev, [list]: prev[list].filter((row) => row._key !== key) }));
+
+  // Post-test kosong dan belum pernah disalin: langsung salin. Selain itu minta konfirmasi lewat dialog.
+  const requestCopy = () => {
+    const preCount = content.questions.filter((q) => q.phase === "PRE").length;
+    if (!preCount) return;
+    const postCount = content.questions.filter((q) => q.phase === "POST").length;
+    if (copiedFromPre) setCopyPrompt("Soal pre-test sudah pernah disalin ke post-test. Salin lagi ke bawahnya?");
+    else if (postCount > 0) setCopyPrompt(`Post-test sudah berisi ${postCount} soal. Salin ${preCount} soal pre-test ke bawahnya?`);
+    else doCopy();
+  };
+
+  // Salinan berdiri sendiri: tanpa id dan _key lama, ditaruh di bawah soal post-test yang sudah ada.
+  const doCopy = () => {
+    setCopyPrompt(null);
+    const pre = content.questions.filter((q) => q.phase === "PRE");
+    const copies = pre.map(({ topic_id, type, question_text, answer_guide, keywords, options }) =>
+      withKey({
+        phase: "POST",
+        topic_id,
+        type,
+        question_text,
+        answer_guide: answer_guide ?? "",
+        keywords: keywords ?? "",
+        options: options.map(({ option_text, is_correct }) => ({ option_text, is_correct })),
+      }),
+    );
+    setContent((prev) => ({ ...prev, questions: [...prev.questions, ...copies] }));
+    setCopiedFromPre(true);
+    showToast(`${pre.length} soal pre-test disalin ke post-test`);
+  };
+
+  // is_active ikut dikirim karena updateTraining menimpanya dengan nilai kiriman.
+  const renameTraining = async (e) => {
+    e.preventDefault();
+    const name = trainingName.trim();
+    if (!name || name === training.name) return;
+    setSavingName(true);
+    try {
+      await api(`/academy/trainings/${id}`, { method: "PUT", body: JSON.stringify({ name, is_active: training.is_active }) });
+      setTrainingName(name);
+      await loadDetail();
+      showToast("Nama training diperbarui");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const addTopic = async (e) => {
     e.preventDefault();
@@ -320,6 +377,7 @@ export default function TrainingForm() {
   }
 
   const phaseQuestions = content.questions.filter((q) => q.phase === phase);
+  const hasPreQuestions = content.questions.some((q) => q.phase === "PRE");
 
   return (
     <PageShell
@@ -334,6 +392,26 @@ export default function TrainingForm() {
           Versi ini sudah dipakai batch. Perubahan akan tersimpan sebagai versi baru, batch lama tetap memakai versi lamanya.
         </p>
       )}
+
+      <section className={cardCls}>
+        <SectionTitle title="Nama training" hint="Nama baru tampil di semua batch, rapor, dan dashboard, termasuk yang lama" />
+        <form onSubmit={renameTraining} className="flex gap-2">
+          <input
+            value={trainingName}
+            onChange={(e) => setTrainingName(e.target.value)}
+            maxLength={150}
+            aria-label="Nama training"
+            className={inputCls}
+          />
+          <button
+            type="submit"
+            disabled={!trainingName.trim() || trainingName.trim() === training.name || savingName}
+            className={`${primaryBtnCls} shrink-0`}
+          >
+            <HiOutlinePencilSquare className="h-4 w-4" /> {savingName ? "Menyimpan..." : "Simpan nama"}
+          </button>
+        </form>
+      </section>
 
       <section className={cardCls}>
         <SectionTitle title="Topik" hint="Soal dan penilaian mentor peserta mengikuti topik yang di-assign" />
@@ -444,6 +522,22 @@ export default function TrainingForm() {
                 </button>
               ))}
             </div>
+            {phase === "POST" && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={requestCopy}
+                  disabled={!hasPreQuestions}
+                  title={hasPreQuestions ? undefined : "Pre-test belum punya soal"}
+                  className={cn(ghostBtnCls, "disabled:opacity-40")}
+                >
+                  <HiOutlineDocumentDuplicate className="h-4 w-4" /> Salin dari Pre-test
+                </button>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Menyalin semua soal pre-test beserta kunci jawaban ke bawah soal post-test. Belum tersimpan sampai Anda menekan Simpan Isi Training.
+                </p>
+              </div>
+            )}
             <div className="space-y-3">
               {phaseQuestions.map((question, index) => (
                 <QuestionCard
@@ -616,6 +710,17 @@ export default function TrainingForm() {
           />
         </label>
       </section>
+
+      <ConfirmDialog
+        open={copyPrompt !== null}
+        variant="warning"
+        title="Salin soal pre-test?"
+        message={copyPrompt ?? ""}
+        confirmLabel="Salin"
+        cancelLabel="Batal"
+        onConfirm={doCopy}
+        onCancel={() => setCopyPrompt(null)}
+      />
     </PageShell>
   );
 }
