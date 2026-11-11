@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { HiOutlineListBullet, HiOutlinePlus } from "react-icons/hi2";
+import { HiOutlineBars3, HiOutlineListBullet, HiOutlinePlus } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import { cardCls, ghostBtnCls, inputCls, primaryBtnCls, useToast } from "./helpers";
 import { PageShell, Spinner, StatusBadge } from "./ui";
@@ -16,6 +16,8 @@ export default function OjtSubskills() {
   const [name, setName] = useState("");
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState("");
+  const [dragId, setDragId] = useState(null);
+  const [overId, setOverId] = useState(null);
 
   const load = useCallback(async () => {
     const res = await api("/academy/ojt/criteria");
@@ -36,7 +38,22 @@ export default function OjtSubskills() {
       await load();
     } catch (err) {
       showToast(err.message, "error");
+      load().catch(() => {});
     }
+  };
+
+  // Memindahkan baris yang ditarik ke posisi baris tujuan, lalu menyimpan urutan baru.
+  const move = (fromId, toId) => {
+    setDragId(null);
+    setOverId(null);
+    if (fromId === toId) return;
+    const ids = criterion.subskills.map((s) => s.id);
+    const to = ids.indexOf(toId);
+    ids.splice(ids.indexOf(fromId), 1);
+    ids.splice(to, 0, fromId);
+    const byId = new Map(criterion.subskills.map((s) => [s.id, s]));
+    setCriterion({ ...criterion, subskills: ids.map((sid) => byId.get(sid)) });
+    send(`/academy/ojt/criteria/${id}/subskills/order`, "PUT", { subskill_ids: ids });
   };
 
   const add = (e) => {
@@ -73,6 +90,7 @@ export default function OjtSubskills() {
 
   const activeCount = criterion.subskills.filter((s) => s.is_active).length;
   const shown = criterion.subskills.filter((s) => s.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const canDrag = query.trim() === "" && editing === null;
 
   return (
     <PageShell
@@ -106,13 +124,17 @@ export default function OjtSubskills() {
             className={inputCls}
           />
           <p className="text-xs text-slate-400">
-            Sub-skill yang ditambah atau diganti di sini hanya berlaku untuk OJT yang dibuat sesudahnya.
+            {query.trim() === ""
+              ? "Tarik baris untuk mengatur urutan. Urutan dipakai di form penilaian OJT."
+              : "Kosongkan pencarian untuk mengatur urutan."}{" "}
+            Sub-skill yang ditambah, diganti, atau diurutkan ulang di sini hanya berlaku untuk OJT yang dibuat sesudahnya.
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm text-slate-500">
             <thead className="border-b border-slate-200 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-400">
               <tr>
+                <th className="w-10 px-3 py-4" aria-label="Urutan" />
                 <th className="px-6 py-4">Sub-skill</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
@@ -121,13 +143,36 @@ export default function OjtSubskills() {
             <tbody className="divide-y divide-slate-100">
               {shown.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-10 text-center text-xs text-slate-400">
+                  <td colSpan={4} className="px-6 py-10 text-center text-xs text-slate-400">
                     {criterion.subskills.length === 0 ? "Belum ada sub-skill" : "Tidak ada hasil"}
                   </td>
                 </tr>
               ) : (
                 shown.map((sub) => (
-                  <tr key={sub.id} className="transition hover:bg-slate-50/50">
+                  <tr
+                    key={sub.id}
+                    draggable={canDrag}
+                    onDragStart={() => setDragId(sub.id)}
+                    onDragOver={(e) => {
+                      if (dragId === null) return;
+                      e.preventDefault();
+                      setOverId(sub.id);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragId !== null) move(dragId, sub.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setOverId(null);
+                    }}
+                    className={`transition hover:bg-slate-50/50 ${dragId === sub.id ? "opacity-40" : ""} ${
+                      overId === sub.id && dragId !== sub.id ? "bg-slate-100" : ""
+                    }`}
+                  >
+                    <td className={`px-3 py-4 text-slate-300 ${canDrag ? "cursor-grab" : "opacity-40"}`}>
+                      <HiOutlineBars3 className="h-5 w-5" aria-hidden="true" />
+                    </td>
                     <td className="px-6 py-4">
                       {editing?.id === sub.id ? (
                         <form onSubmit={saveName} className="flex gap-2">
