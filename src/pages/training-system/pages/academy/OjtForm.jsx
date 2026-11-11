@@ -155,7 +155,7 @@ export default function OjtForm() {
                 </p>
               ) : (
                 <select id="ojt-participant" value={participantId} onChange={(e) => setParticipantId(e.target.value)} className={inputCls}>
-                  <option value="">Pilih karyawan yang sudah selesai training</option>
+                  <option value="">Pilih karyawan peserta training</option>
                   {options.participants.map((p) => (
                     <option key={p.participant_id} value={p.participant_id}>
                       {p.full_name} · {p.training_name} · {RESULT_META[p.result_status]?.label ?? "Belum ada hasil"}
