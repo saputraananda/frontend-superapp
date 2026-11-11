@@ -69,7 +69,7 @@ export default function BatchForm() {
   }, []);
 
   const training = options?.trainings.find((t) => t.id === Number(form.training_id));
-  const readyTopics = useMemo(() => training?.topics.filter((t) => t.ready) ?? [], [training]);
+  const activeTopics = useMemo(() => training?.topics.filter((t) => t.is_active) ?? [], [training]);
   const outletName = useMemo(() => new Map(options?.outlets.map((o) => [o.id, o.name]) ?? []), [options]);
   const employeeById = useMemo(() => new Map(options?.employees.map((e) => [e.employee_id, e]) ?? []), [options]);
 
@@ -87,10 +87,10 @@ export default function BatchForm() {
 
   const changeTraining = (trainingId) => {
     const next = options.trainings.find((t) => t.id === Number(trainingId));
-    const ready = next?.topics.filter((t) => t.ready).map((t) => t.id) ?? [];
+    const active = next?.topics.filter((t) => t.is_active).map((t) => t.id) ?? [];
     setForm((prev) => ({ ...prev, training_id: trainingId }));
-    setDefaultTopics(ready);
-    setSelected((prev) => new Map([...prev.keys()].map((employeeId) => [employeeId, ready])));
+    setDefaultTopics(active);
+    setSelected((prev) => new Map([...prev.keys()].map((employeeId) => [employeeId, active])));
   };
 
   const toggleEmployee = (employeeId) =>
@@ -242,30 +242,27 @@ export default function BatchForm() {
         <section className={cardCls}>
           <h2 className="text-sm font-bold text-slate-800">Topik</h2>
           <p className="mb-3 text-xs text-slate-400">
-            Topik yang dipilih di sini diterapkan ke semua peserta. Topik per peserta bisa diubah di daftar peserta.
+            Topik yang dipilih di sini diterapkan ke semua peserta. Topik per peserta bisa diubah di daftar peserta. Topik tanpa
+            soal atau indikator tetap boleh dipilih; topik itu tidak muncul di tes atau penilaian.
           </p>
           <div className="flex flex-wrap gap-2">
-            {training.topics
-              .filter((t) => t.is_active)
-              .map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  disabled={!topic.ready}
-                  onClick={() => toggleDefaultTopic(topic.id)}
-                  aria-pressed={defaultTopics.includes(topic.id)}
-                  title={topic.ready ? undefined : "Soal pre atau post belum lengkap"}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40",
-                    defaultTopics.includes(topic.id)
-                      ? "border-amber-500 bg-amber-50 text-amber-800"
-                      : "border-slate-200 bg-white text-slate-500",
-                  )}
-                >
-                  {topic.name}
-                  {!topic.ready && " (belum lengkap)"}
-                </button>
-              ))}
+            {activeTopics.map((topic) => (
+              <button
+                key={topic.id}
+                type="button"
+                onClick={() => toggleDefaultTopic(topic.id)}
+                aria-pressed={defaultTopics.includes(topic.id)}
+                title={`Pre ${topic.pre_count} soal, Post ${topic.post_count} soal, Praktik ${topic.practice_count} indikator`}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-bold transition",
+                  defaultTopics.includes(topic.id)
+                    ? "border-amber-500 bg-amber-50 text-amber-800"
+                    : "border-slate-200 bg-white text-slate-500",
+                )}
+              >
+                {topic.name}
+              </button>
+            ))}
           </div>
         </section>
       )}
@@ -377,7 +374,7 @@ export default function BatchForm() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {readyTopics.map((topic) => (
+                  {activeTopics.map((topic) => (
                     <button
                       key={topic.id}
                       type="button"
@@ -391,7 +388,7 @@ export default function BatchForm() {
                       {topic.name}
                     </button>
                   ))}
-                  {!readyTopics.length && <span className="text-[11px] text-slate-400">Pilih training dulu</span>}
+                  {!activeTopics.length &&<span className="text-[11px] text-slate-400">Pilih training dulu</span>}
                 </div>
               </li>
             ))}
