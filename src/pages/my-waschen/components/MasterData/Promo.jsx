@@ -43,13 +43,34 @@ function StatusBadge({ isActive }) {
   );
 }
 
-function DiscountBadge({ type, value }) {
+// Input rupiah: tampil dengan pemisah ribuan (1.000.000), nilai yang disimpan tetap angka murni.
+function RupiahInput({ value, onChange, placeholder, disabled }) {
+  const digits = String(value ?? "").replace(/[^0-9]/g, "");
+  const shown = digits ? Number(digits).toLocaleString("id-ID") : "";
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">Rp</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        disabled={disabled}
+        placeholder={placeholder}
+        value={shown}
+        onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
+        className="w-full rounded-xl border pl-9 pr-3 py-2 tabular-nums outline-none focus:border-[#5f1340] disabled:bg-slate-50 disabled:text-slate-400"
+      />
+    </div>
+  );
+}
+
+function DiscountBadge({ type, value, max }) {
   if (type === "none") return <span className="text-slate-400 text-[11px]">Tanpa diskon</span>;
-  if (type === "percentage") return <span className="rounded-full bg-violet-50 border border-violet-200 px-2 py-0.5 text-[10px] font-bold text-violet-700">{value}%</span>;
+  if (type === "percentage") return <span className="rounded-full bg-violet-50 border border-violet-200 px-2 py-0.5 text-[10px] font-bold text-violet-700">{value}%{Number(max) > 0 ? ` · maks ${formatRupiah(max)}` : ""}</span>;
   return <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{formatRupiah(value)}</span>;
 }
 
-const EMPTY_FORM = { id: null, code: "", name: "", discount_type: "none", discount_value: 0, description: "", sort_order: 0, is_active: 1 };
+const EMPTY_FORM = { id: null, code: "", name: "", discount_type: "none", discount_value: "", max_discount: "", description: "", sort_order: "", is_active: 1 };
 
 export default function Promo() {
   const [data, setData] = useState([]);
@@ -93,7 +114,7 @@ export default function Promo() {
     if (!formData.code.trim() || !formData.name.trim()) { setFormError("Kode dan Nama promo wajib diisi"); return; }
     setSubmitting(true); setFormError("");
     try {
-      const payload = { ...formData, discount_value: Number(formData.discount_value) || 0 };
+      const payload = { ...formData, discount_value: Number(formData.discount_value) || 0, max_discount: Number(formData.max_discount) > 0 ? Number(formData.max_discount) : null, sort_order: Number(formData.sort_order) || 0 };
       if (formData.id) {
         await api(`/waschen/promos/${formData.id}`, { method: "PUT", body: JSON.stringify(payload) });
         showToast("Promo berhasil diperbarui");
@@ -126,7 +147,7 @@ export default function Promo() {
 
       {/* Hero Header */}
       <PageHero>
-
+
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Master Promo</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
@@ -182,13 +203,13 @@ export default function Promo() {
                   <td className="px-4 py-3.5 text-center text-slate-400">{idx + 1}</td>
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.code}</td>
                   <td className="px-4 py-3.5 font-semibold text-slate-800">{item.name}</td>
-                  <td className="px-4 py-3.5"><DiscountBadge type={item.discount_type} value={item.discount_value} /></td>
+                  <td className="px-4 py-3.5"><DiscountBadge type={item.discount_type} value={item.discount_value} max={item.max_discount} /></td>
                   <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.description || "—"}</td>
                   <td className="px-4 py-3.5 text-center font-mono text-slate-500">{item.sort_order}</td>
                   <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active} /></td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="inline-flex gap-1">
-                      <button type="button" onClick={() => { setFormData({ ...item, discount_value: Number(item.discount_value) }); setFormError(""); setModalOpen(true); }} className="rounded-lg border p-1.5 hover:border-amber-300 hover:bg-amber-50"><HiOutlinePencilSquare className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => { setFormData({ ...item, discount_value: Number(item.discount_value), max_discount: Number(item.max_discount) > 0 ? Number(item.max_discount) : "" }); setFormError(""); setModalOpen(true); }} className="rounded-lg border p-1.5 hover:border-amber-300 hover:bg-amber-50"><HiOutlinePencilSquare className="h-4 w-4" /></button>
                       <button type="button" onClick={() => setDeleteTarget(item)} className="rounded-lg border p-1.5 hover:border-rose-300 hover:bg-rose-50"><HiOutlineTrash className="h-4 w-4" /></button>
                     </div>
                   </td>
@@ -208,15 +229,18 @@ export default function Promo() {
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
               {formError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700">{formError}</div>}
-              <div><label className="block font-semibold mb-1">Kode Promo *</label><input type="text" value={formData.code} onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value.toUpperCase() }))} className="w-full rounded-xl border px-3 py-2 font-mono uppercase outline-none focus:border-[#5f1340]" required /></div>
-              <div><label className="block font-semibold mb-1">Nama Promo *</label><input type="text" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]" required /></div>
+              <div><label className="block font-semibold mb-1">Kode Promo *</label><input type="text" value={formData.code} placeholder="Contoh: DISKON_MEMBER" onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value.toUpperCase() }))} className="w-full rounded-xl border px-3 py-2 font-mono uppercase outline-none focus:border-[#5f1340]" required /></div>
+              <div><label className="block font-semibold mb-1">Nama Promo *</label><input type="text" value={formData.name} placeholder="Contoh: Diskon Member 90%" onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]" required /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block font-semibold mb-1">Tipe Diskon</label><select value={formData.discount_type} onChange={(e) => setFormData((p) => ({ ...p, discount_type: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]"><option value="none">Tanpa Diskon</option><option value="percentage">Persentase (%)</option><option value="nominal">Nominal (Rp)</option></select></div>
-                <div><label className="block font-semibold mb-1">Nilai Diskon</label><input type="number" min="0" step="0.01" disabled={formData.discount_type === "none"} value={formData.discount_value} onChange={(e) => setFormData((p) => ({ ...p, discount_value: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340] disabled:bg-slate-50 disabled:text-slate-400" /></div>
+                <div><label className="block font-semibold mb-1">Nilai Diskon</label>{formData.discount_type === "nominal" ? <RupiahInput placeholder="Contoh: 10.000" value={formData.discount_value} onChange={(v) => setFormData((p) => ({ ...p, discount_value: v }))} /> : <input type="number" min="0" step="0.01" placeholder={formData.discount_type === "percentage" ? "Contoh: 90 (artinya 90%)" : formData.discount_type === "nominal" ? "Contoh: 10000" : "-"} disabled={formData.discount_type === "none"} value={formData.discount_value} onChange={(e) => setFormData((p) => ({ ...p, discount_value: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340] disabled:bg-slate-50 disabled:text-slate-400" />}</div>
               </div>
-              <div><label className="block font-semibold mb-1">Deskripsi</label><textarea rows={2} value={formData.description} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]" /></div>
+              {formData.discount_type === "percentage" && (
+                <div><label className="block font-semibold mb-1">Maksimal Potongan (Rp)</label><RupiahInput placeholder="Kosongkan = tanpa batas" value={formData.max_discount} onChange={(v) => setFormData((p) => ({ ...p, max_discount: v }))} /><p className="mt-1 text-[10px] text-slate-400">Contoh: diskon 90% maksimal Rp 10.000. Potongan tidak akan melebihi angka ini.</p></div>
+              )}
+              <div><label className="block font-semibold mb-1">Deskripsi</label><textarea rows={2} placeholder="Contoh: Diskon 90% untuk member, maksimal Rp 10.000 per nota" value={formData.description} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]" /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block font-semibold mb-1">Urutan</label><input type="number" min="0" value={formData.sort_order} onChange={(e) => setFormData((p) => ({ ...p, sort_order: Number(e.target.value) }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]" /></div>
+                <div><label className="block font-semibold mb-1">Urutan</label><input type="number" min="0" placeholder="Contoh: 1 (angka kecil tampil lebih dulu)" value={formData.sort_order} onChange={(e) => setFormData((p) => ({ ...p, sort_order: e.target.value }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]" /></div>
                 <div><label className="block font-semibold mb-1">Status</label><select value={formData.is_active} onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))} className="w-full rounded-xl border px-3 py-2 outline-none focus:border-[#5f1340]"><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t">
