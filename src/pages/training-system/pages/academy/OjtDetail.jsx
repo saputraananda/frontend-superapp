@@ -85,6 +85,7 @@ export default function OjtDetail() {
                     <th className="px-6 py-4">Tanggal</th>
                     <th className="px-6 py-4 text-center">Nilai</th>
                     <th className="px-6 py-4">Penilai</th>
+                    <th className="px-6 py-4 text-center">Foto</th>
                     <th className="px-6 py-4 text-center">Rincian</th>
                   </tr>
                 </thead>
@@ -96,8 +97,9 @@ export default function OjtDetail() {
                         <td className="px-6 py-4 whitespace-nowrap">{fmtDate(day.date)}</td>
                         <td className="px-6 py-4 text-center font-bold text-slate-800">{day.scored ? fmt(day.average) : "Belum dinilai"}</td>
                         <td className="px-6 py-4">{day.assessor_name ?? "-"}</td>
+                        <td className="px-6 py-4 text-center">{day.photos.length || "-"}</td>
                         <td className="px-6 py-4 text-center">
-                          {day.scored && (
+                          {(day.scored || day.photos.length > 0) && (
                             <button
                               type="button"
                               onClick={() => setOpenDate(openDate === day.date ? null : day.date)}
@@ -112,8 +114,26 @@ export default function OjtDetail() {
                       </tr>
                       {openDate === day.date && (
                         <tr className="bg-slate-50/60">
-                          <td colSpan={5} className="px-6 py-4">
+                          <td colSpan={6} className="px-6 py-4">
                             <div className="space-y-3">
+                              {day.photos.length > 0 && (
+                                <div>
+                                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Foto peserta</p>
+                                  <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                                    {day.photos.map((photo, index) => (
+                                      <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" className="block">
+                                        <img
+                                          src={photo.url}
+                                          alt={`Foto ${index + 1}`}
+                                          loading="lazy"
+                                          className="aspect-square w-full rounded-xl border border-slate-200 object-cover"
+                                        />
+                                        <span className="mt-1 block truncate text-xs text-slate-400">{photo.taken_by_name ?? "-"}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               {[...new Set(day.scores.map((s) => s.criterion_name))].map((criterionName) => (
                                 <div key={criterionName}>
                                   <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">{criterionName}</p>
