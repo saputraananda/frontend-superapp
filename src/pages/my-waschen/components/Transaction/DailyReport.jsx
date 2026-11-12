@@ -292,7 +292,6 @@ function ShiftCard({ s, copied, onCopy, onEdit }) {
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-black leading-snug text-[#5f1340] sm:text-base">
               Shift {shiftLabel(s.shiftNumber)}
-              <span className="ml-1.5 text-xs font-bold text-slate-400">#{s.id}</span>
             </h2>
             <Badge tone={closed ? "slate" : "emerald"}>{closed ? `Ditutup${s.closeType ? ` · ${s.closeType}` : ""}` : "Sedang berjalan"}</Badge>
           </div>
