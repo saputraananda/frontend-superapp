@@ -8,7 +8,7 @@ import {
   HiOutlinePlus,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
-import { OJT_PHASE, cn, fmt, fmtDate, ghostBtnCls, useToast } from "./helpers";
+import { OJT_PHASE, cn, fmtDate, ghostBtnCls, useToast } from "./helpers";
 import { PageShell, Spinner } from "./ui";
 
 export function PhaseBadge({ phase }) {
@@ -52,7 +52,7 @@ export default function OjtList() {
     <PageShell
       icon={HiOutlineClipboardDocumentCheck}
       title="OJT"
-      subtitle="Karyawan yang sedang atau sudah on job training, beserta nilai dan kemajuannya"
+      subtitle="Karyawan yang sedang atau sudah on job training, dinilai per kriteria"
       toast={toast}
       action={
         <button
@@ -72,8 +72,6 @@ export default function OjtList() {
                 <th className="px-6 py-4">Karyawan</th>
                 <th className="px-6 py-4 text-center">Periode</th>
                 <th className="px-6 py-4 text-center">Penilaian</th>
-                <th className="px-6 py-4 text-center">Nilai OJT</th>
-                <th className="px-6 py-4 text-center">Kemajuan</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
               </tr>
@@ -81,13 +79,13 @@ export default function OjtList() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10">
+                  <td colSpan={5} className="px-6 py-10">
                     <Spinner />
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-xs text-slate-400">
+                  <td colSpan={5} className="px-6 py-10 text-center text-xs text-slate-400">
                     Belum ada OJT
                   </td>
                 </tr>
@@ -102,11 +100,7 @@ export default function OjtList() {
                       {fmtDate(row.start_date)} - {fmtDate(row.end_date)}
                       <span className="block text-xs text-slate-400">{row.days} hari</span>
                     </td>
-                    <td className="px-6 py-4 text-center">{row.scored_days} dari 2</td>
-                    <td className="px-6 py-4 text-center font-bold text-slate-800">{fmt(row.average)}</td>
-                    <td className="px-6 py-4 text-center">
-                      <ProgressBadge progress={row.progress} />
-                    </td>
+                    <td className="px-6 py-4 text-center">{row.scored_count} dari {row.total_count}</td>
                     <td className="px-6 py-4 text-center">
                       <PhaseBadge phase={row.phase} />
                     </td>
