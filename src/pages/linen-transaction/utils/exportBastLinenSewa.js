@@ -119,7 +119,7 @@ const ITEMS_HEAD = `<thead>
 export function renderBastHtml(bast, kopUrl) {
   const hospital = String(bast.hospital_name || '').trim();
   const room = String(bast.room_name || '').trim();
-  const place = !room || /seluruh|beberapa/i.test(room) ? hospital : `${hospital} ${room}`;
+  const place = !room || /seluruh|beberapa|multi/i.test(room) ? hospital : `${hospital} ${room}`;
   const hasGa = Boolean(String(bast.ga_head_name || '').trim());
   const pertama = [];
   if (bast.ga_head_name) pertama.push({ nama: bast.ga_head_name, jabatan: bast.ga_head_position });
