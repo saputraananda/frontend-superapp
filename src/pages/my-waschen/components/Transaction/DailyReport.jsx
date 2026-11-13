@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineClipboardDocumentList,
@@ -292,7 +292,6 @@ function ShiftCard({ s, copied, onCopy, onEdit }) {
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-black leading-snug text-[#5f1340] sm:text-base">
               Shift {shiftLabel(s.shiftNumber)}
-              <span className="ml-1.5 text-xs font-bold text-slate-400">#{s.id}</span>
             </h2>
             <Badge tone={closed ? "slate" : "emerald"}>{closed ? `Ditutup${s.closeType ? ` · ${s.closeType}` : ""}` : "Sedang berjalan"}</Badge>
           </div>
@@ -383,7 +382,6 @@ export default function DailyReport() {
   const [editForm, setEditForm] = useState(EMPTY_EDIT);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const autoOpen = useRef(true);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -402,7 +400,7 @@ export default function DailyReport() {
   const load = useCallback(async (silent = false) => {
     if (!silent) {
       setLoading(true);
-      autoOpen.current = true;
+      setOpenOutlets(new Set()); // semua card outlet tertutup setiap kali data dimuat ulang
     }
     try {
       const q = new URLSearchParams();
@@ -484,13 +482,6 @@ export default function DailyReport() {
   const groupsWithShift = useMemo(() => groups.filter((g) => g.shifts.length > 0), [groups]);
   const emptyGroups = groups.length - groupsWithShift.length;
   const shownGroups = showEmpty ? groups : groupsWithShift;
-
-  // Buka otomatis outlet pertama setelah data selesai dimuat
-  useEffect(() => {
-    if (loading || !autoOpen.current) return;
-    autoOpen.current = false;
-    setOpenOutlets(groupsWithShift.length ? new Set([String(groupsWithShift[0].id)]) : new Set());
-  }, [loading, groupsWithShift]);
 
   const toggleOutlet = (id) => setOpenOutlets((prev) => {
     const next = new Set(prev);

@@ -545,6 +545,7 @@ export default function BastLinenSewa() {
                 <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Tanggal</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Pengirim</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Penerima</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Ruangan</th>
                 <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Kirim</th>
                 <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Tarik</th>
                 <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Aksi</th>
@@ -552,10 +553,10 @@ export default function BastLinenSewa() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {!hospitalId && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">Pilih rumah sakit terlebih dahulu.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">Pilih rumah sakit terlebih dahulu.</td></tr>
               )}
               {hospitalId && history.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">Tidak ada data berita acara yang ditemukan.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">Tidak ada data berita acara yang ditemukan.</td></tr>
               )}
               {history.map((row, idx) => (
                 <tr key={row.id} onClick={() => startEdit(row.id)} className="cursor-pointer border-t border-slate-100 transition-colors hover:bg-slate-50">
@@ -564,6 +565,7 @@ export default function BastLinenSewa() {
                   <td className="px-4 py-3.5 text-center text-xs text-slate-500">{showDateTime(row.bast_date)}</td>
                   <td className="px-4 py-3.5 text-xs text-slate-700">{row.sender_name}</td>
                   <td className="px-4 py-3.5 text-xs text-slate-700">{row.receiver_name}</td>
+                  <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-700">{row.room_name || "Seluruh Unit"}</td>
                   <td className="px-4 py-3.5 text-center text-xs font-medium tabular-nums text-slate-700">{row.total_pengiriman}</td>
                   <td className="px-4 py-3.5 text-center text-xs font-medium tabular-nums text-slate-700">{row.total_penarikan}</td>
                   <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
