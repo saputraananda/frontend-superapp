@@ -40,7 +40,37 @@ function SortTh({ col, label, sortBy, sortDir, onSort }) {
   );
 }
 
-const EMPTY_FORM = { id: null, outlet_code: "", name: "", full_name: "", address: "", lat: "", lon: "" };
+function StatusBadge({ isActive }) {
+  const on = Number(isActive) === 1;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold select-none",
+        on ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-500",
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", on ? "bg-emerald-500" : "bg-slate-400")} />
+      {on ? "Aktif" : "Nonaktif"}
+    </span>
+  );
+}
+
+const EMPTY_FORM = { id: null, outlet_code: "", name: "", full_name: "", address: "", lat: "", lon: "", is_drop_point: 0, is_active: 1, requires_shift: 1 };
+
+/** Badge kebijakan shift outlet (mst_outlet.requires_shift; NULL dianggap wajib). */
+function ShiftBadge({ requiresShift }) {
+  const on = Number(requiresShift ?? 1) === 1;
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+        on ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-slate-100 text-slate-500"
+      )}
+    >
+      {on ? "Wajib Shift" : "Tanpa Shift"}
+    </span>
+  );
+}
 
 export default function Outlet() {
   const [data, setData] = useState([]);
@@ -105,7 +135,7 @@ export default function Outlet() {
         showToast("Outlet berhasil diperbarui");
       } else {
         await api("/waschen/outlets", { method: "POST", body: JSON.stringify(formData) });
-        showToast("Outlet berhasil ditambahkan");
+        showToast("Outlet berhasil ditambahkan. Tambahkan layanannya di Master Layanan.");
       }
       setModalOpen(false);
       loadData();
@@ -131,7 +161,11 @@ export default function Outlet() {
     }
   };
 
-  const stats = useMemo(() => ({ total: data.length }), [data]);
+  const stats = useMemo(() => ({
+    total: data.length,
+    active: data.filter((d) => Number(d.is_active ?? 1) === 1).length,
+    dropPoint: data.filter((d) => Number(d.is_drop_point) === 1).length,
+  }), [data]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 2xl:px-12 space-y-6 max-w-[1920px] mx-auto">
@@ -164,9 +198,19 @@ export default function Outlet() {
         
       </PageHero>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm max-w-xs">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Outlet</p>
-        <p className="text-2xl font-bold text-slate-800 mt-0.5">{stats.total}</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-3xl">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Outlet</p>
+          <p className="text-2xl font-bold text-slate-800 mt-0.5">{stats.total}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Outlet Aktif</p>
+          <p className="text-2xl font-bold text-emerald-600 mt-0.5">{stats.active}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Outlet Drop Point</p>
+          <p className="text-2xl font-bold text-sky-700 mt-0.5">{stats.dropPoint}</p>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -193,6 +237,8 @@ export default function Outlet() {
                 <SortTh col="full_name" label="Nama Lengkap" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3">Alamat</th>
                 <th className="px-4 py-3">Koordinat</th>
+                <th className="px-4 py-3 text-center">Shift</th>
+                <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
@@ -200,14 +246,14 @@ export default function Outlet() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={7} className="px-4 py-4">
+                    <td colSpan={9} className="px-4 py-4">
                       <div className="h-3.5 bg-slate-200 rounded animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data outlet
                   </td>
                 </tr>
@@ -220,6 +266,9 @@ export default function Outlet() {
                       <span className="inline-flex items-center gap-1.5">
                         <HiOutlineBuildingStorefront className="h-3.5 w-3.5 text-slate-400" />
                         {item.name}
+                        {Number(item.is_drop_point) === 1 && (
+                          <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">Drop Point</span>
+                        )}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-slate-600">{item.full_name}</td>
@@ -231,6 +280,8 @@ export default function Outlet() {
                         <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Belum diisi</span>
                       )}
                     </td>
+                    <td className="px-4 py-3.5 text-center"><ShiftBadge requiresShift={item.requires_shift} /></td>
+                    <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active ?? 1} /></td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="inline-flex gap-1">
                         <button
@@ -244,6 +295,9 @@ export default function Outlet() {
                               address: item.address || "",
                               lat: item.lat != null ? String(item.lat) : "",
                               lon: item.lon != null ? String(item.lon) : "",
+                              is_drop_point: Number(item.is_drop_point) === 1 ? 1 : 0,
+                              is_active: Number(item.is_active ?? 1) === 1 ? 1 : 0,
+                              requires_shift: Number(item.requires_shift ?? 1) === 1 ? 1 : 0,
                             });
                             setFormError("");
                             setModalOpen(true);
@@ -275,7 +329,7 @@ export default function Outlet() {
                   <HiOutlineXMark className="h-5 w-5 text-slate-400" />
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+              <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
                 {formError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700">{formError}</div>}
                 <div>
                   <label className="block font-semibold mb-1">Kode Outlet *</label>
@@ -342,6 +396,47 @@ export default function Outlet() {
                   </div>
                   <p className="mt-1 text-[10px] text-slate-400">Opsional. Dipakai Waschen Mobile untuk cek jarak absen; tanpa koordinat, absen di outlet ini ditolak.</p>
                 </div>
+                <div>
+                  <label className="block font-semibold mb-1">Status</label>
+                  <select
+                    value={formData.is_active}
+                    onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#5f1340]"
+                  >
+                    <option value={1}>Aktif</option>
+                    <option value={0}>Nonaktif</option>
+                  </select>
+                  <p className="mt-1 text-[10px] text-slate-400">Outlet nonaktif tidak bisa membuat nota baru di POS.</p>
+                </div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Number(formData.is_drop_point) === 1}
+                    onChange={(e) => setFormData((p) => ({ ...p, is_drop_point: e.target.checked ? 1 : 0 }))}
+                    className="mt-0.5 rounded border-slate-300 text-[#5f1340] focus:ring-[#5f1340]"
+                  />
+                  <span>
+                    <span className="block font-semibold text-slate-700">Outlet Drop Point</span>
+                    <span className="block text-[10px] text-slate-400">Outlet penerima cucian; item bisa didistribusikan ke outlet lain untuk produksi.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Number(formData.requires_shift ?? 1) === 1}
+                    onChange={(e) => setFormData((p) => ({ ...p, requires_shift: e.target.checked ? 1 : 0 }))}
+                    className="mt-0.5 rounded border-slate-300 text-[#5f1340] focus:ring-[#5f1340]"
+                  />
+                  <span>
+                    <span className="block font-semibold text-slate-700">Wajib Shift</span>
+                    <span className="block text-[10px] text-slate-400">Jika aktif, staf harus buka shift sebelum membuat nota. Matikan untuk outlet yang tidak memakai shift, misalnya drop point.</span>
+                  </span>
+                </label>
+                {!formData.id && (
+                  <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800">
+                    Outlet baru belum punya layanan. Tambahkan layanannya lewat menu <b>Master Layanan</b> (per outlet) sebelum outlet dipakai membuat nota.
+                  </p>
+                )}
                 <div className="flex justify-end gap-2 pt-3 border-t">
                   <button type="button" onClick={() => setModalOpen(false)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">
                     Batal

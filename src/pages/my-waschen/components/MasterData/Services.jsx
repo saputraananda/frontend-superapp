@@ -18,9 +18,11 @@ import {
   HiOutlineSparkles,
   HiOutlineArchiveBox,
   HiOutlineArrowDownTray,
+  HiOutlineBuildingStorefront,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import { exportServiceToExcel } from "./utils/exportServiceToExcel";
+import ServicesOutlet from "./ServicesOutlet";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 
@@ -79,7 +81,7 @@ function StatusBadge({ isActive }) {
 function SkeletonRow() {
   return (
     <tr className="border-t border-slate-100 animate-pulse">
-      {[16, 40, 24, 20, 28, 20, 24, 24, 24, 24].map((w, i) => (
+      {[16, 40, 24, 20, 28, 20, 24, 20, 24, 24, 24].map((w, i) => (
         <td key={i} className="px-4 py-4">
           <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
         </td>
@@ -351,6 +353,8 @@ const EMPTY_FORM = {
   is_active: 1,
   is_dc_required: 0,
   dc_price_add: "",
+  // null = belum dimuat (jangan dikirim, supaya outlet tidak terhapus tanpa sengaja)
+  outlet_ids: null,
 };
 
 export default function Services() {
@@ -366,6 +370,9 @@ export default function Services() {
   const [filterActive, setFilterActive] = useState("");
   const [sortBy, setSortBy] = useState("s.id");
   const [sortDir, setSortDir] = useState("asc");
+  // Halaman induk ("master") atau anak per outlet (id outlet)
+  const [outlets, setOutlets] = useState([]);
+  const [activeTab, setActiveTab] = useState("master");
 
   // Modal Form State
   const [modalOpen, setModalOpen] = useState(false);
@@ -403,6 +410,15 @@ export default function Services() {
     }
   };
 
+  const loadOutlets = async () => {
+    try {
+      const res = await api("/waschen/outlets?sortBy=id&sortDir=asc");
+      setOutlets(res.data || []);
+    } catch (err) {
+      console.error("loadOutlets error:", err);
+    }
+  };
+
   const loadInventoryCatalog = async () => {
     try {
       const res = await api("/waschen/inventory/items?isActive=1");
@@ -432,11 +448,14 @@ export default function Services() {
     }
   };
 
-  useLiveRefresh(() => loadData(true));
+  useLiveRefresh(() => {
+    if (activeTab === "master") loadData(true);
+  });
   useEffect(() => {
     loadCategories();
     loadUnits();
     loadInventoryCatalog();
+    loadOutlets();
   }, []);
 
   useEffect(() => {
@@ -454,7 +473,8 @@ export default function Services() {
   };
 
   const handleOpenAdd = () => {
-    setFormData(EMPTY_FORM);
+    // Layanan baru: default dicentang di semua outlet
+    setFormData({ ...EMPTY_FORM, outlet_ids: outlets.map((o) => Number(o.id)) });
     setBomLines([]);
     setFormError("");
     setModalOpen(true);
@@ -479,11 +499,15 @@ export default function Services() {
       is_active: item.is_active,
       is_dc_required: Number(item.is_dc_required) === 1 ? 1 : 0,
       dc_price_add: item.dc_price_add ?? "",
+      outlet_ids: null,
     });
     setBomLines([]);
     try {
       const res = await api(`/waschen/services/${item.id}`);
       const detail = res.data || {};
+      if (Array.isArray(detail.outlet_ids)) {
+        setFormData((p) => (p.id === item.id ? { ...p, outlet_ids: detail.outlet_ids.map(Number) } : p));
+      }
       setBomLines(
         (detail.inventory_items || []).map((row) => ({
           item_id: String(row.item_id),
@@ -547,6 +571,8 @@ export default function Services() {
       }));
 
     const payload = { ...formData, inventory_items };
+    // Daftar outlet belum termuat (edit) = jangan ubah ketersediaan outlet
+    if (!Array.isArray(formData.outlet_ids)) delete payload.outlet_ids;
 
     try {
       if (formData.id) {
@@ -585,6 +611,16 @@ export default function Services() {
       setDeleting(false);
     }
   };
+
+  const toggleFormOutlet = (outletId) =>
+    setFormData((p) => {
+      const ids = new Set(p.outlet_ids || []);
+      if (ids.has(outletId)) ids.delete(outletId);
+      else ids.add(outletId);
+      return { ...p, outlet_ids: [...ids] };
+    });
+
+  const activeOutlet = outlets.find((o) => String(o.id) === String(activeTab));
 
   const stats = useMemo(() => {
     const total = data.length;
@@ -632,7 +668,7 @@ export default function Services() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Katalog Layanan Laundry</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Kelola nama layanan, harga, durasi, dan item inventory (BOM)
+                Master layanan (induk) dipakai oleh tiap outlet. Atur ketersediaan, harga, dan durasi khusus per outlet di tab outlet.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 shrink-0">
@@ -658,6 +694,47 @@ export default function Services() {
         
       </PageHero>
 
+      {/* Tab: induk (master) + anak per outlet */}
+      <div className="-mx-1 overflow-x-auto pb-1">
+        <div className="flex min-w-max gap-2 px-1">
+          {[{ id: "master", name: "Master Layanan" }, ...outlets].map((o) => {
+            const isMaster = o.id === "master";
+            const active = String(activeTab) === String(o.id);
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setActiveTab(isMaster ? "master" : String(o.id))}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition whitespace-nowrap",
+                  active
+                    ? "border-[#5f1340] bg-[#5f1340] text-white shadow-md shadow-[#5f1340]/20"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-[#5f1340]/40 hover:text-[#5f1340]"
+                )}
+              >
+                {isMaster ? <HiOutlineShoppingBag className="h-4 w-4" /> : <HiOutlineBuildingStorefront className="h-4 w-4" />}
+                {o.name}
+                {!isMaster && Number(o.is_drop_point) === 1 && (
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold", active ? "bg-white/20 text-white" : "bg-sky-50 text-sky-700")}>
+                    Drop Point
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeTab !== "master" && activeOutlet && (
+        <ServicesOutlet
+          outlet={activeOutlet}
+          categories={categories}
+          units={units}
+          showToast={showToast}
+        />
+      )}
+
+      {activeTab === "master" && (<>
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
@@ -744,6 +821,7 @@ export default function Services() {
                 <SortTh col="price" label="Tarif" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="regular_duration_days" label="Durasi" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Min</th>
+                <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Outlet</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">BOM</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
@@ -754,7 +832,7 @@ export default function Services() {
                 Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data katalog layanan
                   </td>
                 </tr>
@@ -811,6 +889,24 @@ export default function Services() {
                     <td className="px-4 py-3.5 text-center font-medium tabular-nums">
                       {item.min_order_qty} {item.unit_symbol || item.unit}
                     </td>
+                    <td className="px-4 py-3.5 text-center whitespace-nowrap" title="Jumlah outlet yang memakai layanan ini">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          Number(item.outlet_count) > 0
+                            ? "border-[#5f1340]/20 bg-[#5f1340]/5 text-[#5f1340]"
+                            : "border-rose-200 bg-rose-50 text-rose-600"
+                        )}
+                      >
+                        <HiOutlineBuildingStorefront className="h-3 w-3" />
+                        {Number(item.outlet_count) || 0}/{outlets.length || "-"}
+                      </span>
+                      {Number(item.custom_outlet_count) > 0 && (
+                        <span className="block mt-0.5 text-[10px] font-semibold text-amber-700">
+                          {item.custom_outlet_count} custom
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <span
                         className={cn(
@@ -855,6 +951,7 @@ export default function Services() {
           </table>
         </div>
       </div>
+      </>)}
 
       {/* Modal Add / Edit */}
       {modalOpen && createPortal(
@@ -989,6 +1086,68 @@ export default function Services() {
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <HiOutlineBuildingStorefront className="h-4 w-4 text-[#5f1340]" />
+                      Tersedia di Outlet
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Harga &amp; durasi di atas jadi nilai default. Nilai khusus per outlet diatur di tab outlet.
+                    </p>
+                  </div>
+                  {Array.isArray(formData.outlet_ids) && outlets.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((p) => ({
+                          ...p,
+                          outlet_ids: p.outlet_ids.length === outlets.length ? [] : outlets.map((o) => Number(o.id)),
+                        }))
+                      }
+                      className="shrink-0 text-[11px] font-bold text-[#5f1340] hover:underline"
+                    >
+                      {formData.outlet_ids.length === outlets.length ? "Kosongkan" : "Pilih semua"}
+                    </button>
+                  )}
+                </div>
+                {!Array.isArray(formData.outlet_ids) ? (
+                  <p className="text-[11px] text-slate-400 italic py-1">Memuat outlet...</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {outlets.map((o) => {
+                      const checked = formData.outlet_ids.includes(Number(o.id));
+                      return (
+                        <label
+                          key={o.id}
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border px-2.5 py-2 cursor-pointer transition",
+                            checked ? "border-[#5f1340]/30 bg-white" : "border-slate-200 bg-slate-50 text-slate-400"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleFormOutlet(Number(o.id))}
+                            className="h-4 w-4 accent-[#5f1340]"
+                          />
+                          <span className="font-semibold">{o.name}</span>
+                          {Number(o.is_drop_point) === 1 && (
+                            <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">Drop Point</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {Array.isArray(formData.outlet_ids) && formData.outlet_ids.length === 0 && (
+                  <p className="text-[11px] font-semibold text-amber-700">
+                    Tidak ada outlet dipilih — layanan ini tidak akan muncul di POS mana pun.
+                  </p>
+                )}
               </div>
 
               <div>

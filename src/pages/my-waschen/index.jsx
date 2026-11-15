@@ -35,8 +35,6 @@ import {
   HiOutlineSun,
   HiOutlineCalculator,
   HiOutlineDocumentText,
-  HiOutlineFlag,
-  HiOutlinePresentationChartBar,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -167,32 +165,6 @@ const MENU_SECTIONS = [
         icon: HiOutlineBanknotes,
         label: "Petty Cash",
         description: "Approval pengajuan kas laci outlet",
-      },
-    ],
-  },
-  {
-    id: "event-b2b",
-    label: "Event B2B",
-    icon: HiOutlineFlag,
-    items: [
-      {
-        to: "/my-waschen/event",
-        icon: HiOutlinePresentationChartBar,
-        label: "Dashboard Event",
-        description: "Ringkasan nota & produksi event",
-        end: true,
-      },
-      {
-        to: "/my-waschen/event/customers",
-        icon: HiOutlineUserGroup,
-        label: "Data Customer Event",
-        description: "Pelanggan B2B outlet event",
-      },
-      {
-        to: "/my-waschen/event/transactions",
-        icon: HiOutlineClipboardDocumentList,
-        label: "Data Transaksi Event",
-        description: "Riwayat nota outlet event",
       },
     ],
   },

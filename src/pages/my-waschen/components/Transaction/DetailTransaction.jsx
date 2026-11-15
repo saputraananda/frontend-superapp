@@ -606,7 +606,7 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
 export default function DetailTransaction() {
   const { id } = useParams();
   const navigate = useNavigate();
-  // Dibuka dari menu lain (mis. Event B2B) -> kembali ke halaman asal
+  // Dibuka dari menu lain (mis. Drop Point) -> kembali ke halaman asal
   const location = useLocation();
   const backTo = location.state?.from || "/my-waschen/transactions";
   // Dibuka dari dalam aplikasi -> kembali via history agar filter/halaman/scroll asal dipulihkan
