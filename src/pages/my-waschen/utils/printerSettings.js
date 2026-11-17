@@ -140,8 +140,11 @@ export function mapDbTransactionToReceipt(payload) {
     : "—";
 
   const speed = String(order.speedName || order.speed_name || "").toLowerCase();
-  const isExpress = speed.includes("express") || speed.includes("kilat") || speed.includes("1x24")
-    || Number(order.speed_surcharge) > 0;
+  // speed_id 2 = Express; speed_surcharge lama sering tersimpan 0
+  const isExpress = Boolean(order.isExpress)
+    || Number(order.speedId ?? order.speed_id) === 2
+    || speed.includes("express") || speed.includes("kilat") || speed.includes("1x24")
+    || Number(order.speedSurcharge ?? order.speed_surcharge) > 0;
 
   const paid = Number(order.paidAmount ?? order.paid_amount) || 0;
   const grand = Number(order.grandTotal ?? order.grand_total) || 0;
@@ -187,7 +190,10 @@ export function mapDbTransactionToReceipt(payload) {
     perfume: order.parfumeName || order.parfume_name || "Tanpa parfum",
     isExpress,
     isDelivery: Boolean(order.isDelivery ?? order.is_delivery),
+    subtotal: Number(order.subtotal) || 0,
+    speedSurcharge: Number(order.speedSurcharge ?? order.speed_surcharge) || 0,
     discountAmount: Number(order.discountAmount ?? order.discount_amount) || 0,
+    promoName: order.promoName || order.discount_notes || "",
     grandTotal: grand,
     paidAmount: paid,
     changeAmount: Number(order.changeAmount ?? order.change_amount) || 0,

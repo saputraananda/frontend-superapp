@@ -152,11 +152,11 @@ export default function StatsCards({ companyId }) {
             {/* ═══════════════════════════════════════════════════════════════════ */}
             {/* Total Karyawan (Data Sementara) */}
             {/* ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 shadow-sm p-5">
+            <div className="bg-white rounded-2xl border-2 border-[var(--p-border,#E3CDEA)] shadow-[4px_4px_0_var(--p-shadow,#E8C9A8)] p-5">
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+                            <div className="h-8 w-8 rounded-lg bg-[#3FA77A] flex items-center justify-center shadow-sm">
                                 <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                                 </svg>
@@ -178,7 +178,7 @@ export default function StatsCards({ companyId }) {
                     ) : (
                         <>
                             <div className="flex items-baseline gap-1.5 flex-wrap">
-                                <span className="text-2xl lg:text-3xl font-bold text-slate-800">
+                                <span className="text-2xl lg:text-3xl font-bold text-[var(--p-ink,#3B1F2B)]">
                                     {employeeData.total.toLocaleString("id-ID")}
                                 </span>
                                 <span className="text-sm text-slate-500 font-medium">karyawan aktif</span>
@@ -198,7 +198,7 @@ export default function StatsCards({ companyId }) {
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-1 border-t border-emerald-100">
+                            <div className="flex items-center justify-between pt-1 border-t border-[var(--p-border,#E3CDEA)]">
                                 <p className="text-[10px] text-slate-500">
                                     <span className="font-semibold text-emerald-700">+{employeeData.new_this_month} Karyawan Bergabung Bulan Ini</span>
                                 </p>
@@ -212,11 +212,11 @@ export default function StatsCards({ companyId }) {
             {/* ═══════════════════════════════════════════════════════════════════ */}
             {/* Total Sales — DINAMIS dari Smartlink */}
             {/* ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200 shadow-sm p-5">
+            <div className="bg-white rounded-2xl border-2 border-[var(--p-border,#E3CDEA)] shadow-[4px_4px_0_var(--p-shadow,#E8C9A8)] p-5">
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center shadow-sm">
+                            <div className="h-8 w-8 rounded-lg bg-[var(--p-a1,#6B2D77)] flex items-center justify-center shadow-sm">
                                 <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
                                     <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
@@ -263,13 +263,13 @@ export default function StatsCards({ companyId }) {
                                 <div className="flex items-baseline justify-between min-w-0 gap-1">
                                     <div className="flex items-baseline gap-1 min-w-0 flex-1">
                                         <span className="text-xs text-slate-500 font-medium flex-shrink-0">Rp</span>
-                                        <span className="text-xl lg:text-2xl font-bold text-slate-800 truncate">
+                                        <span className="text-xl lg:text-2xl font-bold text-[var(--p-ink,#3B1F2B)] truncate">
                                             {formatNumber(salesData.actual_sales)}
                                         </span>
                                         <span className="text-xs text-slate-500 font-medium flex-shrink-0">{salesUnit}</span>
                                     </div>
                                     <div className="text-right flex-shrink-0">
-                                        <span className="text-base lg:text-lg font-bold text-blue-600">{salesData.percentage}%</span>
+                                        <span className="text-base lg:text-lg font-bold text-[var(--p-a1,#6B2D77)]">{salesData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
@@ -278,9 +278,9 @@ export default function StatsCards({ companyId }) {
                             </div>
 
                             <div className="space-y-1.5">
-                                <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
+                                <div className="relative w-full h-2.5 bg-[var(--p-track,#EADCEE)] rounded-full overflow-hidden">
                                     <div
-                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 via-cyan-400 to-cyan-500 rounded-full shadow-sm transition-all duration-1000 ease-out"
+                                        className="absolute top-0 left-0 h-full bg-[var(--p-a1,#6B2D77)] rounded-full transition-all duration-1000 ease-out"
                                         style={{ width: `${Math.min(salesData.percentage, 100)}%` }}
                                     >
                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
@@ -289,7 +289,7 @@ export default function StatsCards({ companyId }) {
 
                                 <div className="flex items-center justify-between">
                                     <p className="text-[10px] text-slate-600">
-                                        Sisa <span className="font-bold text-blue-600">Rp {formatNumber(salesRemaining)}</span> {salesUnit} lagi! 💰
+                                        Sisa <span className="font-bold text-[var(--p-a1,#6B2D77)]">Rp {formatNumber(salesRemaining)}</span> {salesUnit} lagi! 💰
                                     </p>
                                 </div>
                             </div>
@@ -301,11 +301,11 @@ export default function StatsCards({ companyId }) {
             {/* ═══════════════════════════════════════════════════════════════════ */}
             {/* Total Customer — DINAMIS dari Smartlink */}
             {/* ═══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 shadow-sm p-5">
+            <div className="bg-white rounded-2xl border-2 border-[var(--p-border,#E3CDEA)] shadow-[4px_4px_0_var(--p-shadow,#E8C9A8)] p-5">
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
+                            <div className="h-8 w-8 rounded-lg bg-[var(--p-a2,#F57C00)] flex items-center justify-center shadow-sm">
                                 <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M4 3a1 1 0 00-1 1v12a1 1 0 001 1h5v-4h2v4h5a1 1 0 001-1V4a1 1 0 00-1-1H4zm6 4h2v2h2v2h-2v2h-2v-2H8V9h2V7z" />
                                 </svg>
@@ -329,13 +329,13 @@ export default function StatsCards({ companyId }) {
                             <div className="space-y-1">
                                 <div className="flex items-baseline justify-between min-w-0 gap-1">
                                     <div className="flex items-baseline gap-1 min-w-0 flex-1 flex-wrap">
-                                        <span className="text-xl lg:text-2xl font-bold text-slate-800">
+                                        <span className="text-xl lg:text-2xl font-bold text-[var(--p-ink,#3B1F2B)]">
                                             {customerData.actual_customer.toLocaleString('id-ID')}
                                         </span>
                                         <span className="text-xs text-slate-500 font-medium">{isIkm ? "RS aktif" : "pelanggan aktif"}</span>
                                     </div>
                                     <div className="text-right flex-shrink-0">
-                                        <span className="text-base lg:text-lg font-bold text-amber-600">{customerData.percentage}%</span>
+                                        <span className="text-base lg:text-lg font-bold text-[var(--p-a2,#F57C00)]">{customerData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
@@ -344,9 +344,9 @@ export default function StatsCards({ companyId }) {
                             </div>
 
                             <div className="space-y-1.5">
-                                <div className="relative w-full h-2.5 bg-gradient-to-r from-slate-200 to-slate-100 rounded-full overflow-hidden shadow-inner">
+                                <div className="relative w-full h-2.5 bg-[var(--p-track,#EADCEE)] rounded-full overflow-hidden">
                                     <div
-                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 rounded-full shadow-sm transition-all duration-1000 ease-out"
+                                        className="absolute top-0 left-0 h-full bg-[var(--p-a2,#F57C00)] rounded-full transition-all duration-1000 ease-out"
                                         style={{ width: `${Math.min(customerData.percentage, 100)}%` }}
                                     >
                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
@@ -355,7 +355,7 @@ export default function StatsCards({ companyId }) {
 
                                 <div className="flex items-center justify-between">
                                     <p className="text-[10px] text-slate-600">
-                                        Sisa <span className="font-bold text-orange-600">{(customerData.target_customer - customerData.actual_customer).toLocaleString('id-ID')}</span> lagi! 🎯
+                                        Sisa <span className="font-bold text-[var(--p-a2d,#C25E00)]">{(customerData.target_customer - customerData.actual_customer).toLocaleString('id-ID')}</span> lagi! 🎯
                                     </p>
                                 </div>
                             </div>

@@ -5,7 +5,7 @@ export default function BadgeMaintenance() {
     return (
         <div
             role="status"
-            className="flex items-center gap-3 overflow-hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3"
+            className="flex items-center gap-3 overflow-hidden rounded-2xl border-2 border-[var(--p-creamb,#F1D9BC)] bg-[var(--p-cream,#FFF4E8)] shadow-[4px_4px_0_var(--p-shadow,#E8C9A8)] px-4 py-3"
         >
             <style>{`
                 @keyframes badge-marquee {
@@ -23,7 +23,7 @@ export default function BadgeMaintenance() {
                 }
             `}</style>
 
-            <svg className="h-5 w-5 shrink-0 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 shrink-0 text-[var(--p-a2,#F57C00)]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M22.7 19l-9.1-15.7c-.7-1.2-2.5-1.2-3.2 0L1.3 19c-.7 1.2.2 2.7 1.6 2.7h18.2c1.4 0 2.3-1.5 1.6-2.7zM12 18c-.7 0-1.2-.6-1.2-1.2s.6-1.2 1.2-1.2 1.2.6 1.2 1.2S12.7 18 12 18zm1-4h-2V9h2v5z" />
             </svg>
 
@@ -34,7 +34,7 @@ export default function BadgeMaintenance() {
                         <span
                             key={i}
                             aria-hidden={i === 1 || undefined}
-                            className="whitespace-nowrap pr-16 text-sm font-medium text-rose-700"
+                            className="whitespace-nowrap pr-16 text-sm font-medium text-[var(--p-a2d,#8A4500)]"
                         >
                             {MESSAGE}
                         </span>

@@ -5,7 +5,6 @@ import HeaderLayout from "../../layouts/HeaderLayout";
 
 // Import komponen
 import ApplicationsSection from "./components/ApplicationsSection";
-import PersonalTasksCard from "./components/PersonalTasksCard";
 import DailyTasksCard from "./components/DailyTasksCard";
 import StatsCards from "./components/StatsCards";
 // import WeatherWidget from "./components/WeatherWidget";
@@ -13,7 +12,25 @@ import YouTubeSlider from "./components/YouTubeSlider";
 import AloraChatBot from "./components/AloraChatBot";
 import AppShortcutsCard from "./components/AppShortcutsCard";
 import BadgeMaintenance from "./components/BadgeMaintenance";
+
+// Kartu yang belum di-restyle satu per satu: ikut palet login (border lavender + bayangan krem).
+const SOFT_CSS = `.soft-card > *:first-child{border:2px solid var(--p-border,#E3CDEA) !important;border-radius:16px !important;box-shadow:4px 4px 0 var(--p-shadow,#E8C9A8) !important}`;
 // import BirthdayPortalTheme from "./components/BirthdayPortalTheme";
+
+// Palet warna portal: Biru Langit & Jingga (variabel CSS --p-* dipakai kartu, header, dan background).
+const PORTAL_PALETTE_STYLE = {
+  "--p-bg": "#EEF4FB",
+  "--p-tint": "#E3EEFA",
+  "--p-border": "#C5D9F0",
+  "--p-shadow": "#F6D3AE",
+  "--p-cream": "#FFF6EA",
+  "--p-creamb": "#F6DDBD",
+  "--p-a1": "#2563EB",
+  "--p-a2": "#F97316",
+  "--p-a2d": "#9A4A0B",
+  "--p-track": "#D9E6F6",
+  "--p-ink": "#172B4D",
+};
 
 export default function Portal({ user, onLogout }) {
   const [apps, setApps] = useState([]);
@@ -82,7 +99,9 @@ export default function Portal({ user, onLogout }) {
   }
 
   return (
-    <HeaderLayout user={user} jobTitle={getJobTitle()} onLogout={onLogout}>
+    <div style={PORTAL_PALETTE_STYLE}>
+    <HeaderLayout user={user} jobTitle={getJobTitle()} onLogout={onLogout} themed>
+      <style>{SOFT_CSS}</style>
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 space-y-6">
         {/* <BirthdayPortalTheme /> */}
 
@@ -97,19 +116,19 @@ export default function Portal({ user, onLogout }) {
           setSearchQuery={setSearchQuery}
         />
 
-        <YouTubeSlider />
-        <AppShortcutsCard />
+        <div className="soft-card"><YouTubeSlider /></div>
+        <div className="soft-card"><AppShortcutsCard /></div>
 
         {/* Tasks Section — full width, dibagi 2 (disembunyikan untuk role employee) */}
         {!isEmployeeRole && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <PersonalTasksCard />
-            <DailyTasksCard />
+          <div className="grid grid-cols-1 gap-6">
+            <div className="soft-card"><DailyTasksCard /></div>
           </div>
         )}
 
       </div>
       <AloraChatBot />
     </HeaderLayout>
+    </div>
   );
 }

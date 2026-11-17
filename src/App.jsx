@@ -16,7 +16,6 @@ import MasterReligion from "./pages/master-data-superapp/components/MasterReligi
 import MasterSatuan from "./pages/master-data-superapp/components/MasterSatuan";
 import MasterVendor from "./pages/master-data-superapp/components/MasterVendor";
 import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
 import Profile from "./pages/profile";
 import Dashboard from "./pages/dashboard-sales";
@@ -170,9 +169,6 @@ import PayrollWaschen from "./pages/my-waschen/components/HRIS/Payroll";
 import PaySlipWaschen from "./pages/my-waschen/components/HRIS/PaySlipWaschen";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
-import EventDashboardWaschen from "./pages/my-waschen/components/EventB2B/EventDashboard";
-import EventCustomerWaschen from "./pages/my-waschen/components/EventB2B/EventCustomer";
-import EventTransactionWaschen from "./pages/my-waschen/components/EventB2B/EventTransaction";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
@@ -315,12 +311,6 @@ export default function App() {
         <Route
           path="/login"
           element={user ? <Navigate to="/portal" /> : <Login onLogin={handleLogin} />}
-        />
-
-        {/* ── Register ── */}
-        <Route
-          path="/register"
-          element={user ? <Navigate to="/portal" /> : <Register />}
         />
 
         {/* ── Halaman Utama ── */}
@@ -745,9 +735,13 @@ export default function App() {
           <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
           <Route path="/my-waschen/transactions" element={<HistoryTransactionPage />} />
           <Route path="/my-waschen/transactions/:id" element={<DetailTransactionPage />} />
-          <Route path="/my-waschen/event" element={<EventDashboardWaschen />} />
-          <Route path="/my-waschen/event/customers" element={<EventCustomerWaschen />} />
-          <Route path="/my-waschen/event/transactions" element={<EventTransactionWaschen />} />
+          {/* URL lama menu Drop Point / Event B2B — drop point kini outlet biasa, pakai menu umum */}
+          <Route path="/my-waschen/drop-point" element={<Navigate to="/my-waschen" replace />} />
+          <Route path="/my-waschen/drop-point/customers" element={<Navigate to="/my-waschen/customers" replace />} />
+          <Route path="/my-waschen/drop-point/transactions" element={<Navigate to="/my-waschen/transactions" replace />} />
+          <Route path="/my-waschen/event" element={<Navigate to="/my-waschen" replace />} />
+          <Route path="/my-waschen/event/customers" element={<Navigate to="/my-waschen/customers" replace />} />
+          <Route path="/my-waschen/event/transactions" element={<Navigate to="/my-waschen/transactions" replace />} />
           <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
           <Route path="/my-waschen/cash-deposit" element={<CashDepositPage />} />
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />

@@ -102,12 +102,12 @@ function WorkBadge({ pct }) {
   );
 }
 
-/** Penanda nota outlet event (Event B2B), berisi nama event. */
-function EventBadge({ row }) {
-  if (!row.isEvent) return null;
+/** Penanda nota di outlet drop point (mst_outlet.is_drop_point), berisi nama outlet. */
+function DropPointBadge({ row }) {
+  if (!row.isDropPoint) return null;
   return (
     <span className="mt-1 inline-flex rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-700">
-      {row.outletName || "Event"}
+      {row.outletName || "Drop Point"}
     </span>
   );
 }
@@ -132,7 +132,7 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
               Delivery
             </span>
           ) : null}
-          <EventBadge row={row} />
+          <DropPointBadge row={row} />
         </div>
         <WorkBadge pct={row.workStatus} />
       </div>
@@ -201,21 +201,15 @@ function TransactionMobileCard({ row, printingId, onOpen, onPay, onPrint, onDele
   );
 }
 
-/**
- * eventOnly: dipakai menu Event B2B — hanya nota outlet event, dropdown outlet = daftar event,
- * dan tombol kembali di detail nota mengarah ke `detailFrom`.
- */
 export default function HistoryTransaction({
   outlets = [],
   workStatuses = [],
   onChanged,
-  eventOnly = false,
   title = "Riwayat Transaksi",
   allOutletsLabel = "Semua Outlet",
-  detailFrom = null,
 }) {
   const navigate = useNavigate();
-  const memoryKey = eventOnly ? "history-event" : "history";
+  const memoryKey = "history";
   const saved = useSavedPage(memoryKey);
   const cutoff = useCutoffPeriod(saved.cutoff);
   const [rows, setRows] = useState([]);
@@ -249,7 +243,7 @@ export default function HistoryTransaction({
   const reqIdRef = useRef(0);
 
   // Filter berubah → kembali ke halaman 1 (bukan saat mount / pemulihan dari halaman detail)
-  const filterKey = JSON.stringify([eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, pageSize]);
+  const filterKey = JSON.stringify([search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, pageSize]);
   const prevFilterKey = useRef(filterKey);
   useEffect(() => {
     if (prevFilterKey.current === filterKey) return;
@@ -259,7 +253,7 @@ export default function HistoryTransaction({
 
   const openDetail = (id) => {
     rememberPage(memoryKey, { search, outletId, paymentStatus, workTab, page, pageSize, cutoff: cutoff.snapshot() });
-    navigate(`/my-waschen/transactions/${id}`, detailFrom ? { state: { from: detailFrom } } : undefined);
+    navigate(`/my-waschen/transactions/${id}`);
   };
   useRestoreScroll(saved.scroll, !loading, rows.length);
 
@@ -270,7 +264,6 @@ export default function HistoryTransaction({
     try {
       const qs = new URLSearchParams({ listType: "active", page: String(page), pageSize: String(pageSize) });
       if (workTab !== "Semua") qs.set("workTab", workTab);
-      if (eventOnly) qs.set("eventOnly", "1");
       if (search.trim()) qs.set("search", search.trim());
       if (outletId) qs.set("outletId", outletId);
       if (cutoff.dateFrom) qs.set("dateFrom", cutoff.dateFrom);
@@ -289,7 +282,7 @@ export default function HistoryTransaction({
     } finally {
       if (!silent && reqId === reqIdRef.current) setLoading(false);
     }
-  }, [eventOnly, search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, page, pageSize]);
+  }, [search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -537,7 +530,7 @@ export default function HistoryTransaction({
                         Delivery
                       </span>
                     ) : null}
-                    <EventBadge row={row} />
+                    <DropPointBadge row={row} />
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-slate-700">{fmtDateTime(row.orderDate) || "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-slate-700">{fmtDateTime(settledDate(row)) || "—"}</td>
