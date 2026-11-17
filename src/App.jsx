@@ -16,7 +16,6 @@ import MasterReligion from "./pages/master-data-superapp/components/MasterReligi
 import MasterSatuan from "./pages/master-data-superapp/components/MasterSatuan";
 import MasterVendor from "./pages/master-data-superapp/components/MasterVendor";
 import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
 import Profile from "./pages/profile";
 import Dashboard from "./pages/dashboard-sales";
@@ -312,12 +311,6 @@ export default function App() {
         <Route
           path="/login"
           element={user ? <Navigate to="/portal" /> : <Login onLogin={handleLogin} />}
-        />
-
-        {/* ── Register ── */}
-        <Route
-          path="/register"
-          element={user ? <Navigate to="/portal" /> : <Register />}
         />
 
         {/* ── Halaman Utama ── */}
