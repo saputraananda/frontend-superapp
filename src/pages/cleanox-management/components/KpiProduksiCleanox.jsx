@@ -30,6 +30,7 @@ import {
     HiOutlineMinusCircle,
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
+import KpiKeseluruhanCleanox from "./KpiKeseluruhanCleanox";
 
 function cn(...classes) {
     return classes.filter(Boolean).join(" ");
@@ -1026,6 +1027,11 @@ export default function KpiProduksiPage() {
 
     const fetchSummary = useCallback(async (start, end, outlet, source, mode) => {
         if (!start || !end) return;
+        if (source === "all") {
+            setLoading(false);
+            setDataLoading(false);
+            return;
+        }
         try {
             setDataLoading(true);
             setError("");
@@ -1104,8 +1110,11 @@ export default function KpiProduksiPage() {
                 params.set("service_mode", serviceMode || "home_service");
             }
 
+            if (dataSource === "all") params.delete("data_source");
+            const exportPath = dataSource === "all" ? "/kpi/all/export-excel" : "/kpi/export-excel";
+
             const token = localStorage.getItem("cleanox_token");
-            const res = await fetch(`${BASE_URL}/kpi/export-excel?${params.toString()}`, {
+            const res = await fetch(`${BASE_URL}${exportPath}?${params.toString()}`, {
                 credentials: "include",
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -1120,7 +1129,10 @@ export default function KpiProduksiPage() {
             const a = document.createElement("a");
             a.href = url;
             const cleanLabel = dataSource === "waschen" ? "Waschen" : serviceMode === "take_home" ? "Only_TakeHome" : "Only_HomeService";
-            a.download = `KPI_Produksi_Cleanox_${cleanLabel}_${dateStart}_${dateEnd}.xlsx`;
+            a.download =
+                dataSource === "all"
+                    ? `KPI_Keseluruhan_Cleanox_${dateStart}_${dateEnd}.xlsx`
+                    : `KPI_Produksi_Cleanox_${cleanLabel}_${dateStart}_${dateEnd}.xlsx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1163,7 +1175,9 @@ export default function KpiProduksiPage() {
                                     KPI Produksi Cleanox
                                 </h1>
                                 <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                                    {dataSource === "only"
+                                    {dataSource === "all"
+                                        ? "Pantau KPI gabungan By Waschen, Home Service, dan Take Home per worker terhadap target 208 jam."
+                                        : dataSource === "only"
                                         ? "Pantau kinerja produksi Cleanox Only — filter Home Service / Take Home berdasarkan tahapan Pickup, Cuci & Jemur, Packing, dan Pengantaran."
                                         : "Pantau kinerja produksi Cleanox by Waschen berdasarkan tahapan Pickup, Cuci & Jemur, Packing, dan Pengantaran."}
                                 </p>
@@ -1197,6 +1211,18 @@ export default function KpiProduksiPage() {
                         )}
                     >
                         Cleanox Only
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDataSourceChange("all")}
+                        className={cn(
+                            "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all border",
+                            dataSource === "all"
+                                ? "bg-[#1b3459] text-white border-[#1b3459] shadow-sm"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+                        )}
+                    >
+                        KPI Keseluruhan
                     </button>
                 </div>
 
@@ -1339,6 +1365,10 @@ export default function KpiProduksiPage() {
                         </div>
                     </div>
                 </section>
+                {dataSource === "all" ? (
+                    <KpiKeseluruhanCleanox dateStart={dateStart} dateEnd={dateEnd} />
+                ) : (
+                <>
                 {/* Overall Stats */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -1969,6 +1999,8 @@ export default function KpiProduksiPage() {
                         </div>
                     )}
                 </section>
+                </>
+                )}
             </div>
 
             {/* Detail Modal */}

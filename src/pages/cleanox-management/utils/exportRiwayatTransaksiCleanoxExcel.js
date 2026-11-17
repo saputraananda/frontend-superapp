@@ -1,5 +1,6 @@
 import XLSXStyle from "xlsx-js-style";
 import { saveAs } from "file-saver";
+import { getCompensationNarrative, getPaymentRemark } from "./paymentRemark";
 
 const C = {
 	headerBg: "1b3459",
@@ -115,7 +116,7 @@ function isNonTunaiReconKategori(kategori) {
 		.trim()
 		.toUpperCase();
 	if (!k || k === "-" || isTunaiKategori(k)) return false;
-	if (k === "COLLABORATION") return false;
+	if (k === "COLLABORATION" || k === "COMPENSATION") return false;
 	return true;
 }
 
@@ -189,8 +190,8 @@ export function exportRiwayatTransaksiCleanoxExcel({
 	includeRekonsiliasi = false,
 }) {
 	const list = records || [];
-	const leftCols = 6;
-	const totalCols = includeRekonsiliasi ? 11 : 6;
+	const leftCols = 10;
+	const totalCols = includeRekonsiliasi ? 15 : 10;
 	const periodStr = activePeriod
 		? `${fmtDateLabel(activePeriod.startDate)} s.d. ${fmtDateLabel(activePeriod.endDate)}`
 		: "–";
@@ -212,8 +213,30 @@ export function exportRiwayatTransaksiCleanoxExcel({
 	wsData.push([cell(exportedAt, metaStyle), ...emptyMeta]);
 	wsData.push(emptySpacer);
 
-	const leftHeaders = ["No", dateHeader, "NO NOTA", "NAMA", "KATEGORI", "NOMINAL"];
-	const headerRow = leftHeaders.map((h) => cell(h, headerStyle));
+	const groupStartCol = 8; // kolom A-H digabung vertikal baris 6+7; judul grup mulai dari kolom ini
+	const leftHeaders = [
+		"No",
+		dateHeader,
+		"NO NOTA",
+		"NAMA",
+		"KATEGORI",
+		"NOMINAL",
+		"REMARK",
+		"KRONOLOGI COMPENSATION",
+		"NOTA",
+		"CABANG",
+	];
+
+	// Header kolom A-H ditaruh di baris 6 lalu digabung ke baris 7; judul "Detail Nota Complain" di atas dua kolom komplain.
+	const whiteCell = empty({ fill: { fgColor: { rgb: C.whiteBg } } });
+	wsData.push([
+		...leftHeaders.slice(0, groupStartCol).map((h) => cell(h, headerStyle)),
+		cell("Detail Nota Complain", headerStyle),
+		empty(headerStyle),
+		...(includeRekonsiliasi ? Array.from({ length: 5 }, () => whiteCell) : []),
+	]);
+
+	const headerRow = leftHeaders.map((h, i) => (i < groupStartCol ? empty(headerStyle) : cell(h, headerStyle)));
 	if (includeRekonsiliasi) {
 		headerRow.push(empty({ fill: { fgColor: { rgb: C.whiteBg } } }));
 		for (const h of ["REKONSILIASI", "DATA TUNAI", "DATA NON TUNAI", "GAP"]) {
@@ -251,6 +274,10 @@ export function exportRiwayatTransaksiCleanoxExcel({
 				cell(r.customer_name || "-", cs),
 				cell(r.kategori || "-", csCenter),
 				cell(amount, csCurrency),
+					cell(getPaymentRemark(r), csCenter),
+					cell(getCompensationNarrative(r), cs),
+					cell(r.compensation_complaint_nota || "", cs),
+					cell(r.compensation_complaint_outlet || "", cs),
 			];
 		} else {
 			row = Array.from({ length: leftCols }, () => blank);
@@ -281,6 +308,8 @@ export function exportRiwayatTransaksiCleanoxExcel({
 		{ s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } },
 		{ s: { r: 3, c: 0 }, e: { r: 3, c: totalCols - 1 } },
 		{ s: { r: 4, c: 0 }, e: { r: 4, c: totalCols - 1 } },
+		...Array.from({ length: groupStartCol }, (_, c) => ({ s: { r: 5, c }, e: { r: 6, c } })),
+		{ s: { r: 5, c: groupStartCol }, e: { r: 5, c: groupStartCol + 1 } },
 	];
 	ws["!cols"] = [
 		{ wch: 5 },
@@ -299,7 +328,9 @@ export function exportRiwayatTransaksiCleanoxExcel({
 			{ wch: 12 },
 		);
 	}
-	ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 24 }];
+	// Lebar kolom REMARK, KRONOLOGI, dan data komplain disisipkan setelah NOMINAL (sebelum pemisah rekonsiliasi).
+	ws["!cols"].splice(6, 0, { wch: 12 }, { wch: 50 }, { wch: 22 }, { wch: 18 });
+	ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 20 }, { hpt: 24 }];
 
 	const wb = XLSXStyle.utils.book_new();
 	const start = activePeriod?.startDate || "start";
