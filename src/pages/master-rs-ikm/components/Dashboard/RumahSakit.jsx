@@ -14,6 +14,7 @@ import {
 	HiOutlineXMark,
 	HiOutlineArchiveBox,
 	HiOutlineStar,
+	HiOutlineMagnifyingGlass,
 } from "react-icons/hi2";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -131,6 +132,7 @@ const EMPTY_FORM = {
 	password_to_valet: "",
 	billing_by_kg: false,
 	allow_express: false,
+	require_unit_signature: false,
 	price_per_kg: "",
 	express_price_per_kg: "",
 	kg_agreement: "",
@@ -244,6 +246,7 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 			password_to_valet: initial.password_to_valet ?? "",
 			billing_by_kg: Boolean(Number(initial.billing_by_kg)),
 			allow_express: Boolean(Number(initial.allow_express)),
+			require_unit_signature: Boolean(Number(initial.require_unit_signature)),
 			price_per_kg: toPriceInput(initial.price_per_kg),
 			express_price_per_kg: toPriceInput(initial.express_price_per_kg),
 			kg_agreement: initial.kg_agreement != null && initial.kg_agreement !== "" ? String(Number(initial.kg_agreement)) : "",
@@ -569,6 +572,20 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 							</label>
 						</div>
 					</div>
+					<div>
+						<label className={labelCls}>Wajib TTD per Unit</label>
+						<label className="flex items-center gap-2 min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 bg-white cursor-pointer select-none">
+							<input
+								type="checkbox"
+								checked={Boolean(form.require_unit_signature)}
+								onChange={(e) => setForm((f) => ({ ...f, require_unit_signature: e.target.checked }))}
+								className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+							/>
+							<span className="text-sm text-slate-700">
+								Aktifkan — tiap ruangan yang menurunkan linen kotor wajib TTD Valet + Perawat Unit (pickup &amp; delivery) sebelum TTD Tim Linen RS. Gudang Linen dikecualikan; hanya berlaku untuk formulir baru.
+							</span>
+						</label>
+					</div>
 
 					{Boolean(form.billing_by_kg) && (
 						<div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3.5 space-y-3">
@@ -838,6 +855,9 @@ function HospitalForm({ initial, onSubmit, onClose, loading, onRefresh }) {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────
+// Peta disembunyikan sementara. Ubah ke true untuk menampilkannya lagi.
+const SHOW_MAP = false;
+
 export default function RumahSakitPage() {
 	const [hospitals, setHospitals] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -876,6 +896,12 @@ export default function RumahSakitPage() {
 	// Map states
 	const [mapSearch, setMapSearch] = useState("");
 	const [mapTarget, setMapTarget] = useState(null);
+
+		// Filter tabel
+		const [tableSearch, setTableSearch] = useState("");
+		const [companyFilter, setCompanyFilter] = useState("all");
+		const [roomFilter, setRoomFilter] = useState("all"); // all | with | none
+		const [sortBy, setSortBy] = useState("name"); // name | rooms
 
 	const showToast = (message, type = "success") => setToast({ message, type });
 	const closeToast = () => setToast(null);
@@ -957,6 +983,36 @@ export default function RumahSakitPage() {
 			h.hospital_name.toLowerCase().includes(mapSearch.toLowerCase())
 	);
 
+	const companyOptions = [...new Set(hospitals.map((h) => (h.company_name || "").trim()).filter(Boolean))]
+		.sort((a, b) => a.localeCompare(b, "id"));
+
+	const tableRows = (() => {
+		const q = tableSearch.trim().toLowerCase();
+		const rows = hospitals.filter((h) => {
+			const roomCount = h.rooms?.length || 0;
+			if (companyFilter !== "all" && (h.company_name || "").trim() !== companyFilter) return false;
+			if (roomFilter === "with" && roomCount === 0) return false;
+			if (roomFilter === "none" && roomCount > 0) return false;
+			if (!q) return true;
+			return [h.hospital_name, h.hospital_id, h.company_name, h.address]
+				.some((v) => String(v || "").toLowerCase().includes(q));
+		});
+		rows.sort((a, b) =>
+			sortBy === "rooms"
+				? (b.rooms?.length || 0) - (a.rooms?.length || 0) || String(a.hospital_name).localeCompare(String(b.hospital_name), "id")
+				: String(a.hospital_name).localeCompare(String(b.hospital_name), "id")
+		);
+		return rows;
+	})();
+
+	const hasActiveFilter = tableSearch.trim() !== "" || companyFilter !== "all" || roomFilter !== "all" || sortBy !== "name";
+	const resetTableFilters = () => {
+		setTableSearch("");
+		setCompanyFilter("all");
+		setRoomFilter("all");
+		setSortBy("name");
+	};
+
 	const filteredCars = hospitals
 		.filter((h) => h.latitude !== null && h.longitude !== null)
 		.slice(0, 15)
@@ -1002,7 +1058,8 @@ export default function RumahSakitPage() {
 				</div>
 			</div>
 
-			{/* Map */}
+			{/* Map (disembunyikan sementara; ubah SHOW_MAP jadi true untuk menampilkan lagi) */}
+			{SHOW_MAP && (
 			<div className="px-4 pt-4 pb-2">
 				<div className="rounded-2xl overflow-hidden shadow-md border border-slate-200" style={{ height: 420, position: "relative", zIndex: 0 }}>
 
@@ -1106,15 +1163,80 @@ export default function RumahSakitPage() {
 				)}
 
 			</div>
+			)}
 
 			{/* Table */}
-			<div className="flex-1 px-4 pb-6 pt-2">
+			<div className="flex-1 px-4 pb-6 pt-4">
+				{/* Toolbar: cari & filter */}
+				<div className="mb-3 flex flex-wrap items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+					<div className="relative min-w-[220px] flex-1">
+						<HiOutlineMagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+						<input
+							type="text"
+							value={tableSearch}
+							onChange={(e) => setTableSearch(e.target.value)}
+							placeholder="Cari nama RS, Hospital ID, perusahaan, atau alamat..."
+							className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-8 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-100"
+						/>
+						{tableSearch && (
+							<button
+								type="button"
+								onClick={() => setTableSearch("")}
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500"
+								title="Hapus pencarian"
+							>
+								<HiOutlineXMark className="h-4 w-4" />
+							</button>
+						)}
+					</div>
+					<select
+						value={companyFilter}
+						onChange={(e) => setCompanyFilter(e.target.value)}
+						className="max-w-[220px] cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-red-300 focus:ring-4 focus:ring-red-100"
+					>
+						<option value="all">Semua Perusahaan</option>
+						{companyOptions.map((c) => (
+							<option key={c} value={c}>{c}</option>
+						))}
+					</select>
+					<select
+						value={roomFilter}
+						onChange={(e) => setRoomFilter(e.target.value)}
+						className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-red-300 focus:ring-4 focus:ring-red-100"
+					>
+						<option value="all">Semua Ruangan</option>
+						<option value="with">Sudah ada ruangan</option>
+						<option value="none">Belum ada ruangan</option>
+					</select>
+					<select
+						value={sortBy}
+						onChange={(e) => setSortBy(e.target.value)}
+						className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-red-300 focus:ring-4 focus:ring-red-100"
+					>
+						<option value="name">Urutkan: Nama A-Z</option>
+						<option value="rooms">Urutkan: Ruangan terbanyak</option>
+					</select>
+					{hasActiveFilter && (
+						<button
+							type="button"
+							onClick={resetTableFilters}
+							className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+						>
+							<HiOutlineXMark className="h-4 w-4" />
+							Reset
+						</button>
+					)}
+					<span className="ml-auto whitespace-nowrap text-xs font-semibold text-slate-400">
+						{loading ? "" : `${tableRows.length} dari ${hospitals.length} rumah sakit`}
+					</span>
+				</div>
+
 				<div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm">
 							<thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
 								<tr>
-									<th className="px-4 py-3 text-center">#</th>
+									<th className="px-4 py-3 text-center">No</th>
 									<th className="px-4 py-3 text-left">Nama Rumah Sakit</th>
 									<th className="px-4 py-3 text-left">Hospital ID</th>
 									<th className="hidden sm:table-cell px-4 py-3 text-left">Ruangan</th>
@@ -1144,9 +1266,31 @@ export default function RumahSakitPage() {
 											</button>
 										</td>
 									</tr>
+								) : tableRows.length === 0 ? (
+									<tr>
+										<td colSpan={7} className="py-12 text-center text-slate-400">
+											Tidak ada rumah sakit yang cocok dengan pencarian/filter.{" "}
+											<button
+												type="button"
+												onClick={resetTableFilters}
+												className="text-red-600 font-semibold hover:underline"
+											>
+												Reset filter
+											</button>
+										</td>
+									</tr>
 								) : (
-									hospitals.map((h, idx) => (
-										<tr key={h.id} className="hover:bg-slate-50 transition-colors">
+									tableRows.map((h, idx) => (
+										<tr
+											key={h.id}
+											onClick={() => {
+												setDetailTab("data");
+												setDetailModal(h);
+												setShowDetailRooms(false);
+											}}
+											className="cursor-pointer hover:bg-slate-50 transition-colors"
+											title="Klik untuk melihat detail"
+										>
 											<td className="px-4 py-3 text-center text-slate-400 font-mono text-xs">{idx + 1}</td>
 											<td className="px-4 py-3">
 												<div className="flex items-center gap-2.5">
@@ -1171,7 +1315,7 @@ export default function RumahSakitPage() {
 												{h.address || <span className="text-slate-300">—</span>}
 											</td>
 
-											<td className="px-4 py-3">
+											<td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
 												<div className="flex items-center justify-center gap-1.5">
 													<button
 														type="button"
@@ -1339,6 +1483,12 @@ export default function RumahSakitPage() {
 										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Layanan Express</label>
 										<div className="text-xs font-semibold text-slate-700">
 											{Number(detailModal.allow_express) === 1 ? "Aktif" : "Tidak aktif"}
+										</div>
+									</div>
+									<div>
+										<label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Wajib TTD per Unit</label>
+										<div className="text-xs font-semibold text-slate-700">
+											{Number(detailModal.require_unit_signature) === 1 ? "Aktif" : "Tidak aktif"}
 										</div>
 									</div>
 									{Number(detailModal.billing_by_kg) === 1 && (

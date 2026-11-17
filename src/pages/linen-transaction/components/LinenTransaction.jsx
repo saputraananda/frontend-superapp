@@ -383,6 +383,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [masterLinens, setMasterLinens] = useState([]);
 
   // Signature States for Verification Indicators
+  // TTD Serah Terima per Unit (dari LMS): { required, rooms: [...] }
+  const [unitSign, setUnitSign] = useState({ required: false, rooms: [] });
   const [sigValetPickup, setSigValetPickup] = useState(null);
   const [sigHospitalPickup, setSigHospitalPickup] = useState(null);
   const [sigAssistantPickup, setSigAssistantPickup] = useState(null);
@@ -512,7 +514,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       try {
         const res = await api(`/ikm/linen-transactions/${transactionId}`);
         if (res.success) {
-          const { header, details, auditLogs, kurangKirimDeliveries } = res.data;
+          const { header, details, auditLogs, kurangKirimDeliveries, unitSign: unitSignData } = res.data;
+          setUnitSign(unitSignData || { required: false, rooms: [] });
           setHospitalId(header.hospital_id || "");
           setFormNumber(header.form_number || "");
           setUserPickup(header.user_pickup || "");
@@ -1622,6 +1625,49 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                   )}
                 </div>
               )}
+
+                {/* ── TTD Serah Terima per Unit (ruangan) ─────────────────────── */}
+                {mode !== "create" && unitSign.rooms.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600">TTD Serah Terima per Unit</span>
+                      <span className="text-[11px] text-slate-400">{unitSign.rooms.length} ruangan</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {unitSign.rooms.map((r) => (
+                        <div key={r.room_id} className="rounded-xl border border-slate-200 p-3 space-y-2">
+                          <p className="text-sm font-bold text-slate-800">{r.room_name}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              ["Pickup (Kotor)", r.nurse_name_pickup, r.signature_valet_pickup, r.signature_nurse_pickup, r.signed_pickup_at],
+                              ["Delivery (Bersih)", r.nurse_name_delivery, r.signature_valet_delivery, r.signature_nurse_delivery, r.signed_delivery_at],
+                            ].map(([label, nurse, sigValet, sigNurse, at]) => (
+                              <div key={label} className={`rounded-lg border p-2 space-y-1.5 ${sigNurse && sigValet ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
+                                <p className="text-[10px] font-bold uppercase text-slate-500">{label}</p>
+                                {sigNurse && sigValet ? (
+                                  <>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      {[["Valet", sigValet], ["Perawat", sigNurse]].map(([who, sig]) => (
+                                        <div key={who} className="flex flex-col items-center rounded border border-slate-200 bg-white p-1">
+                                          <span className="text-[9px] font-bold uppercase text-slate-400">{who}</span>
+                                          <img src={getSignatureUrl(sig)} alt={`TTD ${who}`} className="h-9 object-contain" />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <p className="text-[11px] font-semibold text-slate-700 truncate">{nurse}</p>
+                                    {at && <p className="text-[10px] text-slate-400">{new Date(at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
+                                  </>
+                                ) : (
+                                  <p className="text-[11px] italic text-slate-400">Belum TTD</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── SECTION 5: Riwayat Audit ─────────────────────────────── */}
                 {mode !== "create" && auditLogs.length > 0 && (
