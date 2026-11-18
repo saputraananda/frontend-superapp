@@ -7,10 +7,12 @@ import {
   HiOutlineArrowDownTray, HiOutlinePhoto,
   HiOutlineArrowsUpDown, HiOutlineChevronUp, HiOutlineChevronDown,
   HiOutlineMagnifyingGlass, HiOutlineClock, HiOutlineCheckCircle,
-  HiOutlineEye, HiOutlinePrinter,
+  HiOutlineEye, HiOutlinePrinter, HiOutlineChartBar,
 } from "react-icons/hi2";
 import { api, apiUpload } from "../../../lib/api";
 import { exportLinenReportExcel } from "../utils/exportLinenReportExcel";
+import LinenReportDashboard from "./LinenReportDashboard";
+import { TabBar } from "./DashboardParts";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -897,7 +899,40 @@ function printLinenReport(row) {
   win.onload = () => win.print();
 }
 
+const LINEN_TABS = [
+  { key: "detail", label: "Detail", icon: HiOutlineClipboardDocumentList },
+  { key: "dashboard", label: "Dashboard", icon: HiOutlineChartBar },
+];
+
+// Wrapper: tab Detail & tab Dashboard. Kedua tab tetap ter-mount setelah dibuka
+// agar filter/halaman tidak reset saat pindah tab.
 export default function LinenReport() {
+  const [tab, setTab] = useState("detail");
+  const [dashboardVisited, setDashboardVisited] = useState(false);
+
+  const handleTab = (key) => {
+    setTab(key);
+    if (key === "dashboard") setDashboardVisited(true);
+  };
+
+  const tabBar = <TabBar tabs={LINEN_TABS} active={tab} onChange={handleTab} />;
+
+  return (
+    <>
+      <div className={tab === "detail" ? "" : "hidden"}>
+        <LinenDetailTab tabBar={tabBar} />
+      </div>
+      {dashboardVisited && (
+        <div className={tab === "dashboard" ? "" : "hidden"}>
+          <LinenReportDashboard tabBar={tabBar} active={tab === "dashboard"} />
+        </div>
+      )}
+    </>
+  );
+}
+
+// Tab Detail (halaman Linen Report sebelumnya)
+function LinenDetailTab({ tabBar }) {
   const [records, setRecords] = useState([]);
   const [areas, setAreas] = useState([]);
   const [hospitals, setHospitals] = useState([]);
@@ -1126,6 +1161,8 @@ export default function LinenReport() {
               </button>
             </div>
           </section>
+
+          {tabBar}
 
           {/* Filters */}
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
