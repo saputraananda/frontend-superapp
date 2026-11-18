@@ -61,10 +61,10 @@ export default function TargetCleanox() {
       setError("");
       const [targetRes, outletRes] = await Promise.all([
         api("/target-cleanox"),
-        api("/outlets"),
+        api("/waschen/outlets?sortBy=name&sortDir=asc"), // master outlet = My Waschen
       ]);
       setTargets(targetRes.targets || []);
-      setOutlets(outletRes.outlets || []);
+      setOutlets(outletRes.data || []);
     } catch (err) {
       setError(err.message || "Gagal memuat data target Cleanox");
     } finally {
