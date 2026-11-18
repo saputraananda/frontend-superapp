@@ -930,7 +930,7 @@ export default function EmployeeWaschen() {
 
     // Fetch outlets — WAJIB dari My Waschen (myWaschen.mst_outlet): id-nya yang disimpan ke
     // mst_role.outlet_id. Jangan pakai "/outlets" (DB utama SuperApp, id-nya berbeda:
-    // di sana id 6 = Drop Point Mu Gung Hwa, di My Waschen id 6 = Event Haji).
+    // di sana id 6 = Drop Point Transyogi (dulu "Mu Gung Hwa"), di My Waschen id 6 = Event Haji, id 7 = Transyogi).
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
