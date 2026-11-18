@@ -13,6 +13,9 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportRiwayatTransaksiCleanoxExcel } from "../utils/exportRiwayatTransaksiCleanoxExcel";
+import CompensationBadge from "./CompensationBadge";
+import PaymentStatusBadge from "./PaymentStatusBadge";
+import { getPaymentRemark } from "../utils/paymentRemark";
 
 function cn(...classes) {
 	return classes.filter(Boolean).join(" ");
@@ -667,6 +670,9 @@ export default function RiwayatTransaksiCleanox() {
 										Pembayaran
 									</th>
 									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+										Remark
+									</th>
+									<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
 										Bukti
 									</th>
 									<th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -677,13 +683,13 @@ export default function RiwayatTransaksiCleanox() {
 							<tbody className="divide-y divide-slate-100">
 								{loading ? (
 									<tr>
-										<td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
+										<td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
 											Memuat riwayat transaksi...
 										</td>
 									</tr>
 								) : records.length === 0 ? (
 									<tr>
-										<td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
+										<td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
 											Belum ada transaksi POS pada periode/filter ini.
 										</td>
 									</tr>
@@ -701,9 +707,21 @@ export default function RiwayatTransaksiCleanox() {
 												{formatDate(row.service_date)}
 											</td>
 											<td className="whitespace-nowrap px-4 py-3">
-												<span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-													{row.kategori || "-"}
-												</span>
+												{row.kategori === "COMPENSATION" ? (
+													<div className="flex flex-col items-start gap-0.5">
+														<CompensationBadge />
+														{row.compensation_complaint_nota && (
+															<span className="text-[10px] text-slate-500">
+																{row.compensation_complaint_name} · Nota {row.compensation_complaint_nota} ·{" "}
+																{row.compensation_complaint_outlet || "-"}
+															</span>
+														)}
+													</div>
+												) : (
+													<span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+														{row.kategori || "-"}
+													</span>
+												)}
 											</td>
 											<td className="whitespace-nowrap px-4 py-3">
 												<span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -711,16 +729,16 @@ export default function RiwayatTransaksiCleanox() {
 												</span>
 											</td>
 											<td className="whitespace-nowrap px-4 py-3">
-												<span
-													className={cn(
-														"inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-														row.payment_status === "lunas"
-															? "border-emerald-200 bg-emerald-50 text-emerald-700"
-															: "border-amber-200 bg-amber-50 text-amber-700",
-													)}
-												>
-													{row.payment_status === "lunas" ? "Lunas" : "Belum lunas"}
-												</span>
+												<PaymentStatusBadge status={row.payment_status} />
+											</td>
+											<td className="whitespace-nowrap px-4 py-3">
+												{getPaymentRemark(row) ? (
+													<span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+														{getPaymentRemark(row)}
+													</span>
+												) : (
+													<span className="text-xs text-slate-300">-</span>
+												)}
 											</td>
 											<td className="px-4 py-3">
 												{(row.payment_proofs || []).length === 0 ? (

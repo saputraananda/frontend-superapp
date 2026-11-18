@@ -34,8 +34,7 @@ import {
   HiOutlineClipboardDocumentCheck,
   HiOutlineSun,
   HiOutlineCalculator,
-  HiOutlineFlag,
-  HiOutlinePresentationChartBar,
+  HiOutlineDocumentText,
 } from "react-icons/hi2";
 
 function cn(...classes) {
@@ -111,6 +110,12 @@ const MENU_SECTIONS = [
         label: "Payroll",
         description: "Rekap data penggajian per karyawan",
       },
+      {
+        to: "/my-waschen/hris/slip-gaji",
+        icon: HiOutlineDocumentText,
+        label: "Slip Gaji",
+        description: "Upload & riwayat slip gaji karyawan",
+      },
     ],
   },
   {
@@ -150,36 +155,16 @@ const MENU_SECTIONS = [
         description: "Pantau & koreksi saldo shift frontliner",
       },
       {
+        to: "/my-waschen/cash-deposit",
+        icon: HiOutlineBanknotes,
+        label: "Setoran Tunai",
+        description: "Bukti setoran tunai closing per outlet",
+      },
+      {
         to: "/my-waschen/petty-cash",
         icon: HiOutlineBanknotes,
         label: "Petty Cash",
         description: "Approval pengajuan kas laci outlet",
-      },
-    ],
-  },
-  {
-    id: "event-b2b",
-    label: "Event B2B",
-    icon: HiOutlineFlag,
-    items: [
-      {
-        to: "/my-waschen/event",
-        icon: HiOutlinePresentationChartBar,
-        label: "Dashboard Event",
-        description: "Ringkasan nota & produksi event",
-        end: true,
-      },
-      {
-        to: "/my-waschen/event/customers",
-        icon: HiOutlineUserGroup,
-        label: "Data Customer Event",
-        description: "Pelanggan B2B outlet event",
-      },
-      {
-        to: "/my-waschen/event/transactions",
-        icon: HiOutlineClipboardDocumentList,
-        label: "Data Transaksi Event",
-        description: "Riwayat nota outlet event",
       },
     ],
   },

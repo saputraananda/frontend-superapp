@@ -1,23 +1,15 @@
 import { PERHATIAN_ITEMS } from './printerSettings.js';
+import { formatEmployeeName } from './FormatName.js';
+import { getCustomerTrackingQrValue } from './customerTrackingUrl.js';
+import { WIB_TZ, addWibDays, toWibDateKey } from './wib.js';
 
 export { PERHATIAN_ITEMS };
-
-export function formatEmployeeName(name) {
-  if (!name) return 'Kasir';
-  return String(name)
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
-
-const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export function rupiah(n) {
   return `Rp${Number(n || 0).toLocaleString('id-ID')}`;
 }
 
-/** Format tanggal nota: "Kamis, 27/08/26 14:03" */
+/** Format tanggal nota: "Kamis, 27/08/26 14:03" — selalu Asia/Jakarta */
 export function formatNotaDateTime(value, addDays = 0) {
   if (!value && addDays === 0) return '-';
 
@@ -25,7 +17,6 @@ export function formatNotaDateTime(value, addDays = 0) {
   if (value instanceof Date) {
     d = value;
   } else if (typeof value === 'string') {
-    // Sudah format nota lama / teks estimasi bebas
     if (/^\s*[A-Za-zÀ-ÿ]+,/.test(value) || value.includes('Jam') || value.includes('Hari')) {
       if (addDays === 0) return value;
     }
@@ -38,19 +29,36 @@ export function formatNotaDateTime(value, addDays = 0) {
   if (!d || Number.isNaN(d.getTime())) {
     d = new Date();
   }
-  if (addDays) d = new Date(d.getTime() + addDays * 24 * 60 * 60 * 1000);
 
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${HARI[d.getDay()]}, ${dd}/${mm}/${yy} ${hh}:${mi}`;
+  if (addDays) {
+    const key = toWibDateKey(d);
+    const shifted = addWibDays(key, addDays);
+    // noon WIB agar tidak geser hari
+    d = new Date(`${shifted}T12:00:00+07:00`);
+  }
+
+  const parts = new Intl.DateTimeFormat('id-ID', {
+    timeZone: WIB_TZ,
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '';
+  const weekday = get('weekday');
+  const cap = weekday ? weekday.charAt(0).toUpperCase() + weekday.slice(1) : '';
+  return `${cap}, ${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')}`;
 }
 
 export function getQrValue(receipt) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/dashboard?trackingNo=${encodeURIComponent(receipt?.id || '')}`;
+  // Arahkan ke Waschen Customer /tracking — bukan origin POS
+  const url = getCustomerTrackingQrValue(receipt);
+  if (url) return url;
+  // Fallback aman: hanya nomor nota (bukan URL POS yang salah)
+  return String(receipt?.id || '').trim();
 }
 
 export function getRemaining(receipt) {
@@ -166,9 +174,8 @@ export function getCashierStamp(receipt) {
   return `${when} ${name}`.trim();
 }
 
+/** Nomor urut nota di outlet pada hari itu: "#1", "#2", dst. */
 export function getRackOrMeta(receipt) {
-  if (receipt?.rackNo != null && receipt.rackNo !== '') return String(receipt.rackNo);
-  if (receipt?.queueNo != null && receipt.queueNo !== '') return String(receipt.queueNo);
-  const total = Math.round(countTotalBarang(receipt?.items || []));
-  return total > 0 ? String(total) : '';
+  const n = Number(receipt?.queueNo);
+  return Number.isFinite(n) && n > 0 ? `#${Math.round(n)}` : '';
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, assetUrl } from "../lib/api";
 import EmployeeMood, { MOOD_OPTIONS } from "../pages/portal/components/EmployeeMood";
 
-export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
+export default function HeaderLayout({ user, jobTitle, onLogout, children, themed = false }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [logoIndex, setLogoIndex] = useState(0);
@@ -75,8 +75,8 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
   };
 
   return (
-    <div className="min-h-screen bg-indigo-50">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
+    <div className={`min-h-screen ${themed ? "bg-[var(--p-bg,#F6F0F7)]" : "bg-indigo-50"}`}>
+      <header className={`sticky top-0 z-20 border-b bg-white ${themed ? "border-[var(--p-border,#E3CDEA)] border-b-2" : "border-slate-200 shadow-sm"}`}>
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
 
           {/* Desktop */}
@@ -88,7 +88,7 @@ export default function HeaderLayout({ user, jobTitle, onLogout, children }) {
                 className={`h-16 w-36 lg:h-20 lg:w-44 object-contain transition-opacity duration-300 ${logoVisible ? "opacity-100" : "opacity-0"}`}
               />
               <div>
-                <h1 className="text-base lg:text-lg font-bold text-slate-800">Alora Group Indonesia</h1>
+                <h1 className={`text-base lg:text-lg font-bold ${themed ? "text-[var(--p-ink,#3B1F2B)]" : "text-slate-800"}`}>Alora Group Indonesia</h1>
                 <p className="text-xs text-slate-500">Semua layanan dalam satu dashboard</p>
               </div>
             </div>

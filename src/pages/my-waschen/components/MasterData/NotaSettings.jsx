@@ -14,6 +14,7 @@ import { useThermalPrinter } from "../../context/ThermalPrinterContext";
 import {
   DEFAULT_CUSTOMER_SETTINGS,
   DEFAULT_INTERNAL_SETTINGS,
+  FIELD_LABELS,
   fetchLatestReceiptFromDb,
   fetchPrinterSettings,
   savePrinterSettings,

@@ -58,6 +58,20 @@ const TYPE_FILTERS = [
   { key: "cuti", label: "Cuti" },
 ];
 
+const LOG_META = {
+  diajukan: { label: "Diajukan", dot: "bg-amber-400" },
+  disetujui: { label: "Disetujui", dot: "bg-emerald-500" },
+  ditolak: { label: "Ditolak", dot: "bg-rose-500" },
+  dianulir: { label: "Persetujuan dianulir", dot: "bg-rose-500" },
+};
+
+function fmtLogTime(v) {
+  if (!v) return "-";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 export default function Perizinan() {
   const cutoff = useCutoffPeriod();
   const { dateFrom: startDate, dateTo: endDate } = cutoff;
@@ -76,6 +90,17 @@ export default function Perizinan() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [photoView, setPhotoView] = useState(null);
+  const [detail, setDetail] = useState(null); // { row, loading, data, error }
+
+  const openDetail = async (row) => {
+    setDetail({ row, loading: true, data: null, error: "" });
+    try {
+      const res = await api(`/waschen/hris/leaves/${row.leave_id}/log`);
+      setDetail({ row, loading: false, data: res.data, error: "" });
+    } catch (err) {
+      setDetail({ row, loading: false, data: null, error: err.message || "Gagal memuat rincian" });
+    }
+  };
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -161,13 +186,18 @@ export default function Perizinan() {
 
   const reject = async () => {
     if (!rejectRow) return;
+    const isAnulir = rejectRow.status === "disetujui";
+    if (isAnulir && !rejectNote.trim()) {
+      showToast("error", "Isi alasan anulir");
+      return;
+    }
     setSubmitting(true);
     try {
       await api(`/waschen/hris/leaves/${rejectRow.leave_id}/reject`, {
         method: "PATCH",
         body: JSON.stringify({ rejection_note: rejectNote }),
       });
-      showToast("success", "Perizinan ditolak");
+      showToast("success", isAnulir ? "Persetujuan dianulir, perizinan ditolak" : "Perizinan ditolak");
       setRejectRow(null);
       setRejectNote("");
       load();
@@ -313,7 +343,7 @@ export default function Perizinan() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {sorted.map((r, idx) => (
-                <tr key={r.leave_id} className="hover:bg-slate-50/80">
+                <tr key={r.leave_id} onClick={() => openDetail(r)} className="cursor-pointer hover:bg-slate-50/80">
                   <td className="px-4 py-3.5 text-center text-slate-400">{idx + 1}</td>
                   <td className="px-4 py-3.5">
                     <p className="font-semibold text-slate-800">{fmtEmployeeName(r.employee_name)}</p>
@@ -326,17 +356,21 @@ export default function Perizinan() {
                   <td className="px-4 py-3.5 text-slate-600">{fmtDateShort(r.start_date)}</td>
                   <td className="px-4 py-3.5 text-slate-600">{fmtDateShort(r.end_date)}</td>
                   <td className="px-4 py-3.5 text-slate-600 max-w-xs truncate" title={r.reason}>{r.reason}</td>
-                  <td className="px-4 py-3.5 text-center">
+                  <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                     <PhotoThumb url={r.doctor_note_url} label="Surat dokter" onView={setPhotoView} />
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", leaveStatusBadge(r.status))}>{capitalizeStatus(r.status)}</span>
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                     {r.status === "pengajuan" ? (
                       <div className="flex justify-center gap-1">
                         <button type="button" disabled={submitting} title="Setujui" onClick={() => approve(r.leave_id)} className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"><HiOutlineCheckCircle className="h-4 w-4" /></button>
                         <button type="button" disabled={submitting} title="Tolak" onClick={() => setRejectRow(r)} className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50"><HiOutlineXMark className="h-4 w-4" /></button>
+                      </div>
+                    ) : r.status === "disetujui" ? (
+                      <div className="flex justify-center">
+                        <button type="button" disabled={submitting} title="Anulir (batalkan persetujuan)" onClick={() => setRejectRow(r)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2 py-1 text-[10px] font-bold text-rose-600 hover:bg-rose-50"><HiOutlineXMark className="h-3.5 w-3.5" />Anulir</button>
                       </div>
                     ) : <span className="text-slate-300">—</span>}
                   </td>
@@ -351,16 +385,81 @@ export default function Perizinan() {
 
       <PhotoViewerModal open={Boolean(photoView)} url={photoView?.url} label={photoView?.label} onClose={() => setPhotoView(null)} />
 
+      {detail && createPortal(
+        <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setDetail(null)}>
+          <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
+              <h3 className="font-bold text-sm">Rincian Perizinan</h3>
+              <button type="button" onClick={() => setDetail(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-4 text-xs">
+              {(() => {
+                const l = detail.data?.leave || detail.row;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{fmtEmployeeName(l.employee_name)}</p>
+                        {l.employee_code && <p className="text-[10px] text-slate-400">{l.employee_code}</p>}
+                      </div>
+                      <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold", leaveStatusBadge(l.status))}>{capitalizeStatus(l.status)}</span>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                      <div><dt className="text-[10px] font-bold uppercase text-slate-400">Tipe</dt><dd className="mt-0.5"><span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", leaveTypeBadge(l.leave_type))}>{leaveTypeLabel(l.leave_type)}</span></dd></div>
+                      <div><dt className="text-[10px] font-bold uppercase text-slate-400">Durasi</dt><dd className="mt-0.5 text-slate-700">{leaveDurationLabel(l.duration_type)}</dd></div>
+                      <div><dt className="text-[10px] font-bold uppercase text-slate-400">Mulai</dt><dd className="mt-0.5 text-slate-700">{fmtDateShort(l.start_date)}</dd></div>
+                      <div><dt className="text-[10px] font-bold uppercase text-slate-400">Selesai</dt><dd className="mt-0.5 text-slate-700">{fmtDateShort(l.end_date)}</dd></div>
+                      <div className="col-span-2"><dt className="text-[10px] font-bold uppercase text-slate-400">Alasan</dt><dd className="mt-0.5 text-slate-700 break-words">{l.reason || "-"}</dd></div>
+                      {l.status === "ditolak" && l.rejection_note && (
+                        <div className="col-span-2"><dt className="text-[10px] font-bold uppercase text-rose-500">Alasan penolakan</dt><dd className="mt-0.5 text-rose-700 break-words">{l.rejection_note}</dd></div>
+                      )}
+                      {l.doctor_note_url && (
+                        <div className="col-span-2"><dt className="text-[10px] font-bold uppercase text-slate-400">Lampiran</dt><dd className="mt-1"><PhotoThumb url={l.doctor_note_url} label="Surat dokter" onView={setPhotoView} /></dd></div>
+                      )}
+                    </dl>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Log Aktivitas</p>
+                {detail.loading ? (
+                  <p className="text-slate-400">Memuat…</p>
+                ) : detail.error ? (
+                  <p className="text-rose-600">{detail.error}</p>
+                ) : (
+                  <ol className="relative space-y-4 border-l border-slate-200 pl-4">
+                    {(detail.data?.events || []).map((ev, i) => {
+                      const meta = LOG_META[ev.type] || LOG_META.diajukan;
+                      return (
+                        <li key={i} className="relative">
+                          <span className={cn("absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white", meta.dot)} />
+                          <p className="font-semibold text-slate-800">{meta.label}{ev.actor ? <> oleh <span className="text-[#5f1340]">{fmtEmployeeName(ev.actor)}</span></> : ev.tracked ? "" : <span className="font-normal text-slate-400"> (pelaku tidak tercatat)</span>}</p>
+                          <p className="text-[10px] text-slate-400">{fmtLogTime(ev.at)}</p>
+                          {ev.note && <p className="mt-1 rounded-lg bg-slate-50 px-2.5 py-1.5 text-slate-600 break-words">{ev.note}</p>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>, document.body)}
+
       {rejectRow && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setRejectRow(null)}>
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
-              <h3 className="font-bold text-sm">Tolak Perizinan</h3>
+              <h3 className="font-bold text-sm">{rejectRow.status === "disetujui" ? "Anulir Perizinan" : "Tolak Perizinan"}</h3>
               <button type="button" onClick={() => setRejectRow(null)}><HiOutlineXMark className="h-5 w-5 text-slate-400" /></button>
             </div>
             <div className="p-5 space-y-3 text-xs">
               <p className="text-slate-600">Karyawan: <strong className="text-slate-800">{fmtEmployeeName(rejectRow.employee_name)}</strong></p>
-              <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} rows={3} placeholder="Alasan penolakan..." className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#5f1340]" />
+              {rejectRow.status === "disetujui" && (
+                <p className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-amber-700">Perizinan ini sudah disetujui. Status akan diubah menjadi Ditolak dan karyawan diberi tahu.</p>
+              )}
+              <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} rows={3} placeholder={rejectRow.status === "disetujui" ? "Alasan anulir (wajib)..." : "Alasan penolakan..."} className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#5f1340]" />
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onClick={() => setRejectRow(null)} className="rounded-xl border px-4 py-2 font-semibold text-slate-600">Batal</button>
                 <button type="button" disabled={submitting} onClick={reject} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Tolak</button>

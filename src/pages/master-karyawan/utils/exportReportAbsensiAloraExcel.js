@@ -109,6 +109,10 @@ function lateLabel(row) {
 		const typeLabel = row.late_compensation_type === "replace_off" ? "RO" : "Lembur";
 		return `Ditutup (${hours}j ${typeLabel})`;
 	}
+	if (row.late_compensation_type === "pending_overtime") {
+		const hours = row.late_compensation_hours || (row.late_minutes ? Math.round((Number(row.late_minutes) / 60) * 100) / 100 : 0);
+		return `Perlu Potong Lembur (${hours}j)`;
+	}
 	if (row.late_category === "planned") return "Terlambat Terencana";
 	if (row.late_category === "unexpected") return "Tidak Terencana";
 	const hasLate =
@@ -321,7 +325,7 @@ export function exportReportAbsensiAloraExcel({
 	]);
 
 	// —— Sheet 2: Total Lembur (grouped headers) ——
-	const LEMBUR_COLS = 12;
+	const LEMBUR_COLS = 11;
 	const lemburMeta = buildMetaHeader(LEMBUR_COLS, {
 		title: "Total Lembur & RO per Karyawan (periode cutoff)",
 		...metaCommon,
@@ -342,7 +346,6 @@ export function exportReportAbsensiAloraExcel({
 		cell("Lembur", styleLemburGroup),
 		empty(styleLemburGroup),
 		empty(styleLemburGroup),
-		empty(styleLemburGroup),
 		cell("RO", styleRoGroup),
 		empty(styleRoGroup),
 		empty(styleRoGroup),
@@ -356,7 +359,6 @@ export function exportReportAbsensiAloraExcel({
 		cell("Jumlah Pengajuan Lembur", headerStyle),
 		cell("Total Jam Lembur", headerStyle),
 		cell("Total Lembur Dipakai", headerStyle),
-		cell("Saldo Lembur", headerStyle),
 		cell("Total WOD", headerStyle),
 		cell("Total RO Dipakai", headerStyle),
 		cell("Saldo RO", headerStyle),
@@ -365,8 +367,8 @@ export function exportReportAbsensiAloraExcel({
 
 	const lemburMerges = [
 		...lemburMeta.merges,
-		{ s: { r: groupRowIdx, c: 4 }, e: { r: groupRowIdx, c: 7 } },
-		{ s: { r: groupRowIdx, c: 8 }, e: { r: groupRowIdx, c: 10 } },
+		{ s: { r: groupRowIdx, c: 4 }, e: { r: groupRowIdx, c: 6 } },
+		{ s: { r: groupRowIdx, c: 7 }, e: { r: groupRowIdx, c: 9 } },
 	];
 
 	lemburSummary.forEach((r, idx) => {
@@ -381,7 +383,6 @@ export function exportReportAbsensiAloraExcel({
 			cell(Number(r.lembur_count) || 0, csCenter),
 			cell(hoursNumLabel(r.total_lembur_hours), csCenter),
 			cell(hoursNumLabel(r.izin_overtime_hours), csCenter),
-			cell(hoursNumLabel(r.overtime_balance_hours), csCenter),
 			cell(hoursNumLabel(r.total_ro_earned_hours), csCenter),
 			cell(hoursNumLabel(r.izin_ro_hours), csCenter),
 			cell(hoursNumLabel(r.replace_off_hours), csCenter),
@@ -393,7 +394,7 @@ export function exportReportAbsensiAloraExcel({
 		lemburData.push([
 			cell("Tidak ada data lembur/RO/izin funding pada periode ini", cs),
 			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
-			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
+			empty(cs), empty(cs), empty(cs), empty(cs), empty(cs),
 		]);
 	}
 	const wsLembur = sheetFromAoa(
@@ -401,7 +402,7 @@ export function exportReportAbsensiAloraExcel({
 		lemburMerges,
 		[
 			{ wch: 5 }, { wch: 12 }, { wch: 25 }, { wch: 18 },
-			{ wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+			{ wch: 14 }, { wch: 14 }, { wch: 14 },
 			{ wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
 		],
 		{ [groupRowIdx]: 22, [subRowIdx]: 28 },

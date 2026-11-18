@@ -10,13 +10,11 @@ import MasterDepartment from "./pages/master-data-superapp/components/MasterDepa
 import MasterEducationLevel from "./pages/master-data-superapp/components/MasterEducationLevel";
 import MasterEmployeeStatus from "./pages/master-data-superapp/components/MasterEmployeeStatus";
 import MasterJobLevel from "./pages/master-data-superapp/components/MasterJobLevel";
-import MasterOutlet from "./pages/master-data-superapp/components/MasterOutlet";
 import MasterPosition from "./pages/master-data-superapp/components/MasterPosition";
 import MasterReligion from "./pages/master-data-superapp/components/MasterReligion";
 import MasterSatuan from "./pages/master-data-superapp/components/MasterSatuan";
 import MasterVendor from "./pages/master-data-superapp/components/MasterVendor";
 import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
 import Portal from "./pages/portal";
 import Profile from "./pages/profile";
 import Dashboard from "./pages/dashboard-sales";
@@ -33,6 +31,7 @@ import LemburRoAlora from "./pages/master-karyawan/components/LemburRoAlora";
 import ReportAbsensiAlora from "./pages/master-karyawan/components/ReportAbsensiAlora";
 import AnnualLeaveAlora from "./pages/master-karyawan/components/AnnualLeaveAlora";
 import PayslipAlora from "./pages/master-karyawan/components/PayslipAlora";
+import PayrollAlora from "./pages/master-karyawan/components/PayrollAlora";
 import ReportBugarAlora from "./pages/master-karyawan/components/ReportBugarAlora";
 import PengumumanAlora from "./pages/master-karyawan/components/PengumumanAlora";
 import HariLiburAlora from "./pages/master-karyawan/components/HariLiburAlora";
@@ -68,7 +67,6 @@ import MasterUnit from "./pages/master-rs-ikm/components/MasterData/MasterUnit";
 import MasterLinenCategory from "./pages/master-rs-ikm/components/MasterData/MasterLinenCategory";
 import MasterVendorIKM from "./pages/master-rs-ikm/components/MasterData/MasterVendor";
 import MasterRoomsIKM from "./pages/master-rs-ikm/components/MasterData/MasterRoomsIKM";
-import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
 import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
 import PerizinanIKM from "./pages/absensi-ikm/components/PerizinanIKM";
@@ -156,6 +154,7 @@ import HistoryTransactionPage from "./pages/my-waschen/components/Transaction/Hi
 import DetailTransactionPage from "./pages/my-waschen/components/Transaction/DetailTransaction";
 import PettyCashPage from "./pages/my-waschen/components/Transaction/PettyCash";
 import DailyReportPage from "./pages/my-waschen/components/Transaction/DailyReport";
+import CashDepositPage from "./pages/my-waschen/components/Transaction/CashDeposit";
 import NotaSettings from "./pages/my-waschen/components/MasterData/NotaSettings";
 import InventoryPage from "./pages/my-waschen/components/Inventory/InventoryPage";
 import DashboardInventory from "./pages/my-waschen/components/Inventory/DashboardInventory";
@@ -165,15 +164,26 @@ import KasbonWaschen from "./pages/my-waschen/components/HRIS/Kasbon";
 import OvertimeWaschen from "./pages/my-waschen/components/HRIS/Overtime";
 import JadwalLiburWaschen from "./pages/my-waschen/components/HRIS/JadwalLibur";
 import PayrollWaschen from "./pages/my-waschen/components/HRIS/Payroll";
+import PaySlipWaschen from "./pages/my-waschen/components/HRIS/PaySlipWaschen";
 import DayOffPolicyMaster from "./pages/my-waschen/components/MasterData/DayOffPolicy";
 import MasterAbsenShift from "./pages/my-waschen/components/MasterData/MasterAbsenShift";
-import EventDashboardWaschen from "./pages/my-waschen/components/EventB2B/EventDashboard";
-import EventCustomerWaschen from "./pages/my-waschen/components/EventB2B/EventCustomer";
-import EventTransactionWaschen from "./pages/my-waschen/components/EventB2B/EventTransaction";
 import TrainingManagementSystem from "./pages/training-system";
 import DashboardTraining from "./pages/training-system/pages/DashboardTraining";
 import RequestTraining from "./pages/training-system/pages/RequestTraining";
 import FormRequestTraining from "./pages/training-system/components/FormRequestTraining";
+import TrainingMaster from "./pages/training-system/pages/academy/TrainingMaster";
+import TrainingForm from "./pages/training-system/pages/academy/TrainingForm";
+import SkillMatrixMaster from "./pages/training-system/pages/academy/SkillMatrixMaster";
+import LoManagement from "./pages/training-system/pages/academy/LoManagement";
+import BatchList from "./pages/training-system/pages/academy/BatchList";
+import BatchForm from "./pages/training-system/pages/academy/BatchForm";
+import BatchDetail from "./pages/training-system/pages/academy/BatchDetail";
+import AcademyDashboard from "./pages/training-system/pages/academy/AcademyDashboard";
+import OjtList from "./pages/training-system/pages/academy/OjtList";
+import OjtForm from "./pages/training-system/pages/academy/OjtForm";
+import OjtDetail from "./pages/training-system/pages/academy/OjtDetail";
+import OjtCriteria from "./pages/training-system/pages/academy/OjtCriteria";
+import OjtSubskills from "./pages/training-system/pages/academy/OjtSubskills";
 
 // Project Management V2 Imports
 import ProjectManagementV2 from "./pages/project-management-v2";
@@ -284,7 +294,8 @@ export default function App() {
           <Route path="master-education-level" element={<MasterEducationLevel />} />
           <Route path="master-employee-status" element={<MasterEmployeeStatus />} />
           <Route path="master-job-level" element={<MasterJobLevel />} />
-          <Route path="master-outlet" element={<MasterOutlet />} />
+          {/* Master Outlet pindah ke My Waschen > Master Outlet (sumber tunggal myWaschen.mst_outlet) */}
+          <Route path="master-outlet" element={<Navigate to="/my-waschen/master/outlets" replace />} />
           <Route path="master-position" element={<MasterPosition />} />
           <Route path="master-religion" element={<MasterReligion />} />
           <Route path="master-satuan" element={<MasterSatuan />} />
@@ -299,12 +310,6 @@ export default function App() {
         <Route
           path="/login"
           element={user ? <Navigate to="/portal" /> : <Login onLogin={handleLogin} />}
-        />
-
-        {/* ── Register ── */}
-        <Route
-          path="/register"
-          element={user ? <Navigate to="/portal" /> : <Register />}
         />
 
         {/* ── Halaman Utama ── */}
@@ -378,6 +383,7 @@ export default function App() {
           <Route path="/master-karyawan/report-absensi" element={<ReportAbsensiAlora />} />
           <Route path="/master-karyawan/annual-leave" element={<AnnualLeaveAlora />} />
           <Route path="/master-karyawan/slip-gaji" element={<PayslipAlora />} />
+          <Route path="/master-karyawan/payroll" element={<PayrollAlora />} />
           <Route path="/master-karyawan/report-bugar" element={<ReportBugarAlora />} />
         </Route>
 
@@ -461,15 +467,8 @@ export default function App() {
           <Route path="/master-data-ikm/rooms" element={<MasterRoomsIKM />} />
         </Route>
 
-        {/* ── Target Waschen ── */}
-        <Route
-          path="/target-waschen"
-          element={
-            <ProtectedRoute user={user} allowedRoles={appRoles["/target-waschen"]}>
-              <TargetWaschen user={user} onLogout={handleLogout} />
-            </ProtectedRoute>
-          }
-        />
+        {/* Target Waschen pindah ke My Waschen > Master Outlet (tab Outlet & Target Sales / Target Customer) */}
+        <Route path="/target-waschen/*" element={<Navigate to="/my-waschen/master/outlets" replace />} />
 
         {/* ── IKM Suite (with sidebar) ── */}
         <Route
@@ -706,6 +705,7 @@ export default function App() {
           <Route path="/my-waschen/hris/overtime" element={<OvertimeWaschen />} />
           <Route path="/my-waschen/hris/jadwal-libur" element={<JadwalLiburWaschen />} />
           <Route path="/my-waschen/hris/payroll" element={<PayrollWaschen />} />
+          <Route path="/my-waschen/hris/slip-gaji" element={<PaySlipWaschen />} />
           <Route path="/my-waschen/master/category-services" element={<CategoryServices />} />
           <Route path="/my-waschen/master/services" element={<ServicesMaster />} />
           <Route path="/my-waschen/master/service-speeds" element={<ServiceSpeed />} />
@@ -727,10 +727,15 @@ export default function App() {
           <Route path="/my-waschen/master/outlets" element={<OutletWaschenMaster />} />
           <Route path="/my-waschen/transactions" element={<HistoryTransactionPage />} />
           <Route path="/my-waschen/transactions/:id" element={<DetailTransactionPage />} />
-          <Route path="/my-waschen/event" element={<EventDashboardWaschen />} />
-          <Route path="/my-waschen/event/customers" element={<EventCustomerWaschen />} />
-          <Route path="/my-waschen/event/transactions" element={<EventTransactionWaschen />} />
+          {/* URL lama menu Drop Point / Event B2B — drop point kini outlet biasa, pakai menu umum */}
+          <Route path="/my-waschen/drop-point" element={<Navigate to="/my-waschen" replace />} />
+          <Route path="/my-waschen/drop-point/customers" element={<Navigate to="/my-waschen/customers" replace />} />
+          <Route path="/my-waschen/drop-point/transactions" element={<Navigate to="/my-waschen/transactions" replace />} />
+          <Route path="/my-waschen/event" element={<Navigate to="/my-waschen" replace />} />
+          <Route path="/my-waschen/event/customers" element={<Navigate to="/my-waschen/customers" replace />} />
+          <Route path="/my-waschen/event/transactions" element={<Navigate to="/my-waschen/transactions" replace />} />
           <Route path="/my-waschen/daily-report" element={<DailyReportPage />} />
+          <Route path="/my-waschen/cash-deposit" element={<CashDepositPage />} />
           <Route path="/my-waschen/petty-cash" element={<PettyCashPage />} />
           <Route path="/my-waschen/master/nota-settings" element={<NotaSettings />} />
           <Route path="/my-waschen/master/day-off-policy" element={<DayOffPolicyMaster />} />
@@ -750,6 +755,21 @@ export default function App() {
           <Route path="/training-management-system" element={<DashboardTraining />} />
           <Route path="/training-management-system/request" element={<RequestTraining />} />
           <Route path="/training-management-system/request/form" element={<FormRequestTraining />} />
+          <Route path="/training-management-system/academy/trainings" element={<TrainingMaster />} />
+          <Route path="/training-management-system/academy/trainings/:id" element={<TrainingForm />} />
+          <Route path="/training-management-system/academy/skill-matrix" element={<SkillMatrixMaster />} />
+          <Route path="/training-management-system/academy/lo" element={<LoManagement />} />
+          <Route path="/training-management-system/academy/dashboard" element={<AcademyDashboard />} />
+          <Route path="/training-management-system/academy/batches" element={<BatchList />} />
+          <Route path="/training-management-system/academy/batches/new" element={<BatchForm />} />
+          <Route path="/training-management-system/academy/batches/:id" element={<BatchDetail />} />
+          <Route path="/training-management-system/academy/batches/:id/edit" element={<BatchForm />} />
+          <Route path="/training-management-system/academy/ojt" element={<OjtList />} />
+          <Route path="/training-management-system/academy/ojt/new" element={<OjtForm />} />
+          <Route path="/training-management-system/academy/ojt/:id" element={<OjtDetail />} />
+          <Route path="/training-management-system/academy/ojt/:id/edit" element={<OjtForm />} />
+          <Route path="/training-management-system/academy/kriteria-ojt" element={<OjtCriteria />} />
+          <Route path="/training-management-system/academy/kriteria-ojt/:id" element={<OjtSubskills />} />
 
         </Route>
 

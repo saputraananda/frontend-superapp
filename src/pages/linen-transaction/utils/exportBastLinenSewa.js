@@ -119,7 +119,7 @@ const ITEMS_HEAD = `<thead>
 export function renderBastHtml(bast, kopUrl) {
   const hospital = String(bast.hospital_name || '').trim();
   const room = String(bast.room_name || '').trim();
-  const place = !room || /seluruh|beberapa/i.test(room) ? hospital : `${hospital} ${room}`;
+  const headerUnit = room && !/seluruh|beberapa|multi/i.test(room) ? room : '';
   const hasGa = Boolean(String(bast.ga_head_name || '').trim());
   const pertama = [];
   if (bast.ga_head_name) pertama.push({ nama: bast.ga_head_name, jabatan: bast.ga_head_position });
@@ -130,7 +130,7 @@ export function renderBastHtml(bast, kopUrl) {
       <div>${label}</div>
       ${role ? `<div class="role">${role}</div>` : '<div class="role">&nbsp;</div>'}
       <div class="sign">${signatureImage(src)}</div>
-      <div class="who">${esc(name || '')}</div>
+      ${String(name || '').trim() ? `<div class="who">${esc(name)}</div>` : '<div class="who-blank"></div>'}
       <div>${esc(position || '')}</div>
     </div>
   `;
@@ -172,9 +172,11 @@ export function renderBastHtml(bast, kopUrl) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(d);
   }
-  const generalSubtitle = `SERAH TERIMA LINEN SEWA ${place}`.replace(/\s+/g, ' ').trim();
+  // Judul selalu hanya nama rumah sakit. Kalau BAST hanya untuk satu unit, nama unit ditulis di bawah judul ("UNIT ...").
   const unitSubtitle = `SERAH TERIMA LINEN SEWA ${hospital}`.replace(/\s+/g, ' ').trim();
-  const pages = [page(generalSubtitle, '', linenRows(bast.details))];
+  const onlyGroup = groups.size === 1 ? [...groups.keys()][0] : '';
+  const singleUnit = headerUnit || (onlyGroup && onlyGroup !== 'Tanpa Unit' ? onlyGroup : '');
+  const pages = [page(unitSubtitle, singleUnit ? `UNIT ${singleUnit}` : '', linenRows(bast.details))];
   if (groups.size > 1) {
     [...groups.entries()]
       .sort((a, b) => a[0].localeCompare(b[0], 'id'))
@@ -230,6 +232,8 @@ export function renderBastHtml(bast, kopUrl) {
     .sign { height: 78px; display: flex; align-items: flex-end; justify-content: center; }
     .sign img { max-height: 72px; max-width: 150px; object-fit: contain; }
     .who { margin-top: 2px; font-weight: 700; text-decoration: underline; }
+    /* Nama kosong: sediakan garis panjang untuk diisi manual dengan pulpen */
+    .who-blank { margin: 2px auto 0; width: 92%; height: 1.4em; border-bottom: 1px solid #000; }
   </style>
 </head>
 <body>${pages.join('')}

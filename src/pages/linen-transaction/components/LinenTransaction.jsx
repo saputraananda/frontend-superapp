@@ -17,6 +17,7 @@ import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
 import exportSuratJalanKurangKirim from "../utils/exportSuratJalanKurangKirimLinen";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
 import HospitalSearchSelect from "./HospitalSearchSelect";
+import RoomStatusSelect from "./RoomStatusSelect";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -382,6 +383,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
   const [masterLinens, setMasterLinens] = useState([]);
 
   // Signature States for Verification Indicators
+  // TTD Serah Terima per Unit (dari LMS): { required, rooms: [...] }
+  const [unitSign, setUnitSign] = useState({ required: false, rooms: [] });
   const [sigValetPickup, setSigValetPickup] = useState(null);
   const [sigHospitalPickup, setSigHospitalPickup] = useState(null);
   const [sigAssistantPickup, setSigAssistantPickup] = useState(null);
@@ -511,7 +514,8 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
       try {
         const res = await api(`/ikm/linen-transactions/${transactionId}`);
         if (res.success) {
-          const { header, details, auditLogs, kurangKirimDeliveries } = res.data;
+          const { header, details, auditLogs, kurangKirimDeliveries, unitSign: unitSignData } = res.data;
+          setUnitSign(unitSignData || { required: false, rooms: [] });
           setHospitalId(header.hospital_id || "");
           setFormNumber(header.form_number || "");
           setUserPickup(header.user_pickup || "");
@@ -604,6 +608,19 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
     if (isNullRoomId(targetRoomId)) return isNullRoomId(detailRoomId);
     return Number(detailRoomId) === Number(targetRoomId);
   };
+
+  // Total linen kotor per ruangan di transaksi ini. Badge tetap tampil walau sudah dikirim bersih / transaksi SELESAI,
+  // supaya kelihatan ruangan mana saja yang terlibat.
+  const roomPendingDelivery = useMemo(() => {
+    const map = {};
+    if (mode === "create") return map;
+    details.forEach((d) => {
+      if (isNullRoomId(d.room_id)) return;
+      const kotor = Number(d.qty_kotor || 0);
+      if (kotor > 0) map[d.room_id] = (map[d.room_id] || 0) + kotor;
+    });
+    return map;
+  }, [details, mode]);
 
   const handleQtyChange = (hospitalLinenId, field, value) => {
     const targetRoomId = selectedRoomId || null;
@@ -1249,19 +1266,15 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-slate-500">Filter Ruangan:</span>
-                              <select
+                              <RoomStatusSelect
                                 value={selectedRoomId}
-                                onChange={(e) => {
-                                  setSelectedRoomId(e.target.value);
+                                onChange={(id) => {
+                                  setSelectedRoomId(id);
                                   setShowAllLinens(false);
                                 }}
-                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500/20 font-medium text-slate-700 cursor-pointer"
-                              >
-                                <option value="">Semua Ruangan</option>
-                                {rooms.map(room => (
-                                  <option key={room.id} value={room.id}>{room.room_name}</option>
-                                ))}
-                              </select>
+                                rooms={rooms}
+                                roomStatus={roomPendingDelivery}
+                              />
                             </div>
                             {selectedRoomId && roomHasLinenStandard && (
                               <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
@@ -1392,7 +1405,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                           : selisih < 0 ? "text-blue-600"
                                             : "text-slate-400"
                                     )}>
-                                      {selisih === null ? "—" : selisih === 0 ? "0" : selisih > 0 ? `+${selisih}` : selisih}
+                                      {selisih === null ? "—" : Math.abs(selisih)}
                                     </td>
                                     <td className="px-2 py-2">
                                       <input
@@ -1612,6 +1625,49 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                   )}
                 </div>
               )}
+
+                {/* ── TTD Serah Terima per Unit (ruangan) ─────────────────────── */}
+                {mode !== "create" && unitSign.rooms.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600">TTD Serah Terima per Unit</span>
+                      <span className="text-[11px] text-slate-400">{unitSign.rooms.length} ruangan</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {unitSign.rooms.map((r) => (
+                        <div key={r.room_id} className="rounded-xl border border-slate-200 p-3 space-y-2">
+                          <p className="text-sm font-bold text-slate-800">{r.room_name}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              ["Pickup (Kotor)", r.nurse_name_pickup, r.signature_valet_pickup, r.signature_nurse_pickup, r.signed_pickup_at],
+                              ["Delivery (Bersih)", r.nurse_name_delivery, r.signature_valet_delivery, r.signature_nurse_delivery, r.signed_delivery_at],
+                            ].map(([label, nurse, sigValet, sigNurse, at]) => (
+                              <div key={label} className={`rounded-lg border p-2 space-y-1.5 ${sigNurse && sigValet ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
+                                <p className="text-[10px] font-bold uppercase text-slate-500">{label}</p>
+                                {sigNurse && sigValet ? (
+                                  <>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      {[["Valet", sigValet], ["Perawat", sigNurse]].map(([who, sig]) => (
+                                        <div key={who} className="flex flex-col items-center rounded border border-slate-200 bg-white p-1">
+                                          <span className="text-[9px] font-bold uppercase text-slate-400">{who}</span>
+                                          <img src={getSignatureUrl(sig)} alt={`TTD ${who}`} className="h-9 object-contain" />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <p className="text-[11px] font-semibold text-slate-700 truncate">{nurse}</p>
+                                    {at && <p className="text-[10px] text-slate-400">{new Date(at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
+                                  </>
+                                ) : (
+                                  <p className="text-[11px] italic text-slate-400">Belum TTD</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── SECTION 5: Riwayat Audit ─────────────────────────────── */}
                 {mode !== "create" && auditLogs.length > 0 && (

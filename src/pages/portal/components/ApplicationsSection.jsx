@@ -221,14 +221,14 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <div className="bg-white rounded-2xl border-2 border-[var(--p-border,#E3CDEA)] shadow-[4px_4px_0_var(--p-shadow,#E8C9A8)] p-5">
       {/* Header statis — tanpa toggle */}
       <div className="flex items-center gap-2.5 mb-5">
-        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-blue-100">
-          <HiOutlineSquares2X2 className="h-4 w-4 text-blue-600" />
+        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-[var(--p-tint,#F3EAF6)]">
+          <HiOutlineSquares2X2 className="h-4 w-4 text-[var(--p-a1,#6B2D77)]" />
         </div>
-        <h2 className="text-base font-bold text-slate-800">Menu Untuk Kamu</h2>
-        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
+        <h2 className="text-base font-bold text-[var(--p-ink,#3B1F2B)]">Menu Untuk Kamu</h2>
+        <span className="rounded-full bg-[var(--p-tint,#F3EAF6)] px-2 py-0.5 text-xs font-semibold text-[var(--p-a1,#6B2D77)]">
           {apps.length}
         </span>
       </div>
@@ -240,7 +240,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Cari layanan atau menu..."
-          className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 pl-11 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+          className="w-full rounded-xl border-2 border-[var(--p-border,#E3CDEA)] bg-white px-4 py-2.5 pl-11 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-4 focus:ring-[var(--p-border,#E3CDEA)] focus:border-[var(--p-a1,#6B2D77)] transition-all"
         />
         <svg className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -259,7 +259,7 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
               key={app.id}
               href={resolveAppHref(app)}
               onClick={() => handleAppClick(app)}
-              className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200"
+              className="group flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--p-bg,#F6F0F7)] transition-colors border border-transparent hover:border-[var(--p-border,#E3CDEA)]"
             >
               <div className="relative flex-shrink-0">
                 <div
@@ -272,13 +272,13 @@ export default function ApplicationsSection({ apps, searchQuery, setSearchQuery 
                 {(app.name.toLowerCase().includes("project management 2.0") ||
                   app.name.toLowerCase().includes("project-management-v2") ||
                   app.name.toLowerCase().includes("pm 2.0")) && (
-                    <span className="absolute -top-1 -left-0 bg-red-600 text-white text-[7px] font-bold px-2 py-0.5 shadow-md whitespace-nowrap -rotate-12 uppercase tracking-wider origin-bottom-left">
+                    <span className="absolute -top-1 -left-0 bg-[var(--p-a2,#F57C00)] text-white text-[7px] font-bold px-2 py-0.5 shadow-md whitespace-nowrap -rotate-12 uppercase tracking-wider origin-bottom-left">
                       New
                     </span>
                   )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-slate-800 truncate">{app.name}</h3>
+                <h3 className="text-sm font-semibold text-[var(--p-ink,#3B1F2B)] truncate">{app.name}</h3>
                 <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{app.description}</p>
                 {app.is_active !== 1 && (
                   <span className="inline-block mt-2 rounded-full border px-2 py-0.5 text-[10px] font-medium text-rose-700 bg-rose-50 border-rose-200">

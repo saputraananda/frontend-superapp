@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../../lib/api";
 import {
   autoFillCutoffEnd,
   currentCutoffPeriod,
@@ -7,6 +8,20 @@ import {
   monthLabel,
   MONTH_OPTIONS,
 } from "../utils/cutoffPeriod";
+
+// Tahun cutoff yang punya data di database, dimuat sekali lalu dipakai ulang semua halaman.
+let dbYearsPromise = null;
+function loadDbYears() {
+  if (!dbYearsPromise) {
+    dbYearsPromise = api("/waschen/cutoff-years")
+      .then((res) => (Array.isArray(res.years) ? res.years.map(Number).filter((y) => y > 0) : []))
+      .catch(() => {
+        dbYearsPromise = null;
+        return [];
+      });
+  }
+  return dbYearsPromise;
+}
 
 /** `restore` (opsional): hasil `snapshot` sebelumnya, untuk memulihkan periode saat kembali dari halaman detail. */
 export default function useCutoffPeriod(restore = null) {
@@ -24,7 +39,18 @@ export default function useCutoffPeriod(restore = null) {
   const [dateTo, setDateTo] = useState(restore?.dateTo ?? initialRange.dateTo);
   const savedRange = useRef(null);
 
-  const years = useMemo(() => cutoffYearOptions(), []);
+  const [dbYears, setDbYears] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    loadDbYears().then((ys) => { if (!cancelled) setDbYears(ys); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Dari database; tahun terpilih tetap ada agar dropdown tidak kosong. Fallback statis hanya bila DB gagal dimuat.
+  const years = useMemo(() => {
+    const base = dbYears.length ? dbYears : cutoffYearOptions();
+    return [...new Set([...base, Number(selectedYear)].filter((y) => y > 0))].sort((a, b) => b - a);
+  }, [dbYears, selectedYear]);
 
   const leaveToday = useCallback(() => {
     setTodayOnly(false);

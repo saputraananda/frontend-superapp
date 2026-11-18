@@ -14,6 +14,8 @@ import { api } from "../../../lib/api";
 import CleanoxDashboardFilterBar from "./dashboard/CleanoxDashboardFilterBar";
 import CleanoxByWaschenTab from "./dashboard/CleanoxByWaschenTab";
 import { PhotoThumb, PaymentProofViewerModal } from "./PaymentProofViewer";
+import CompensationBadge from "./CompensationBadge";
+import PaymentStatusBadge from "./PaymentStatusBadge";
 import {
 	buildPendapatanParams,
 	fmtIDR,
@@ -21,6 +23,7 @@ import {
 } from "../utils/dashboardFilters";
 import { exportRiwayatTransaksiCleanoxExcel } from "../utils/exportRiwayatTransaksiCleanoxExcel";
 import { exportTotalPendapatanCleanoxExcel } from "../utils/exportTotalPendapatanCleanoxExcel";
+import { getPaymentRemark } from "../utils/paymentRemark";
 
 function Card({ className = "", children }) {
 	return (
@@ -210,7 +213,7 @@ export default function PendapatanCleanox() {
 				const qs = new URLSearchParams({
 					startDate: meta.dateStart,
 					endDate: end,
-					payment_status: "lunas",
+					payment_status: "terbayar",
 					service_mode: filters.serviceMode || "all",
 					date_by: "omzet",
 					source: "unified",
@@ -1025,7 +1028,7 @@ export default function PendapatanCleanox() {
 								<Card className="overflow-hidden">
 									<div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
 										<div>
-											<h2 className="text-base font-bold text-slate-800">Rincian Transaksi Lunas (Cleanox Only)</h2>
+											<h2 className="text-base font-bold text-slate-800">Rincian Transaksi Terbayar (Cleanox Only)</h2>
 											<p className="mt-0.5 text-xs text-slate-500">
 												Smartlink &amp; POS lunas pada periode cutoff (26 s.d 25). Tanggal omzet = pelunasan
 												POS jika ada, else tanggal layanan; Smartlink = tanggal layanan.
@@ -1100,6 +1103,9 @@ export default function PendapatanCleanox() {
 														Pembayaran
 													</th>
 													<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+														Remark
+													</th>
+													<th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
 														Bukti
 													</th>
 													<th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -1110,14 +1116,14 @@ export default function PendapatanCleanox() {
 											<tbody className="divide-y divide-slate-100">
 												{lunasLoading ? (
 													<tr>
-														<td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
-															Memuat transaksi lunas...
+														<td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-400">
+															Memuat transaksi terbayar...
 														</td>
 													</tr>
 												) : lunasRows.length === 0 ? (
 													<tr>
-														<td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
-															Tidak ada transaksi lunas pada periode ini.
+														<td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-400">
+															Tidak ada transaksi terbayar pada periode ini.
 														</td>
 													</tr>
 												) : (
@@ -1158,7 +1164,7 @@ export default function PendapatanCleanox() {
 																	{formatDate(omzetDisplay)}
 																</td>
 																<td className="whitespace-nowrap px-4 py-3 text-slate-600">
-																	{row.kategori || "-"}
+																	{row.kategori === "COMPENSATION" ? <CompensationBadge /> : row.kategori || "-"}
 																	{row.split_total > 1 && (
 																		<span className="ml-1.5 inline-flex rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
 																			Split {row.split_index}/{row.split_total}
@@ -1167,9 +1173,16 @@ export default function PendapatanCleanox() {
 																</td>
 																<td className="whitespace-nowrap px-4 py-3 text-slate-600">{row.status}</td>
 																<td className="whitespace-nowrap px-4 py-3">
-																	<span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-																		Lunas
-																	</span>
+																	<PaymentStatusBadge status={row.payment_status} />
+																</td>
+																<td className="whitespace-nowrap px-4 py-3">
+																	{getPaymentRemark(row) ? (
+																		<span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+																			{getPaymentRemark(row)}
+																		</span>
+																	) : (
+																		<span className="text-xs text-slate-300">-</span>
+																	)}
 																</td>
 																<td className="px-4 py-3">
 																	<div className="flex flex-wrap gap-1.5">

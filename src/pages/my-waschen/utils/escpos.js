@@ -1,13 +1,8 @@
-/**
- * STANDAR PATEN — lihat agent/NotaThermal-STANDAR.md. Mirror: my-waschen-new/src/utils/escpos.js
- */
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QRCodeCanvas } from 'qrcode.react';
 import { buildNotaModel, NOTA_DASH, NOTA_WIDTH, wrapNotaText } from './notaModel.js';
-
-export const PRINT_WIDTH = 384;
-export const QR_PRINT_SIZE = 200;
+import { buildMergeNotaModel } from './mergeNotaModel.js';
 
 const encoder = new TextEncoder();
 
@@ -61,6 +56,15 @@ const SIZE_HUGE = cmd(0x1d, 0x21, 0x11);
 const SIZE_NORMAL = cmd(0x1d, 0x21, 0x00);
 const FEED_BEFORE_CUT = concat(cmd(0x1b, 0x64, 0x08), cmd(0x0a, 0x0a));
 const CUT = cmd(0x1d, 0x56, 0x00);
+
+/** Lebar cetak 58mm ~ 384 dots (203dpi) — harus kelipatan 8 */
+const PRINT_WIDTH = 384;
+/**
+ * QR side-by-side di 58mm (~384 dots).
+ * Tanpa includeMargin agar modul memenuhi kotak (tidak terlihat kecil).
+ * ~200 = besar + masih ada ruang teks kanan (~170 dots).
+ */
+const QR_PRINT_SIZE = 200;
 
 function resetStyle() {
   return concat(SIZE_NORMAL, BOLD_OFF, ALIGN_LEFT);
@@ -351,4 +355,11 @@ export async function buildEscPosDualNota(receipt, customerSettings, internalSet
   const internal = await buildEscPosNota(receipt, internalSettings, 'internal');
   const customer = await buildEscPosNota(receipt, customerSettings, 'customer');
   return concat(internal, customer);
+}
+
+/** Cetak struk pelunasan gabungan (merged nota) ke thermal 58mm */
+export async function buildEscPosMergeNota(batchData, options = {}) {
+  if (!batchData) return INIT;
+  const segments = await renderModel(buildMergeNotaModel(batchData, options));
+  return concat(...segments);
 }
