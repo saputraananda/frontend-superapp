@@ -470,7 +470,10 @@ function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
 }
 
 function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewPhoto }) {
-  const photo = item.photo_url ? waschenUploadUrl(item.photo_url) : null;
+  // Foto kondisi item (bisa >1); fallback foto tunggal lama
+  const photos = (Array.isArray(item.photos) && item.photos.length ? item.photos : item.photo_url ? [{ photo_url: item.photo_url }] : [])
+    .map((p) => waschenUploadUrl(p.photo_url))
+    .filter(Boolean);
   const methodCode = item.laundry_method_code || (Number(item.laundry_method_id) === 2 ? "DC" : "WC");
   const methodName = item.laundry_method_name || (Number(item.laundry_method_id) === 2 ? "Dry Clean" : "Wet Clean");
   const workers = uniqueWorkers(item.workers);
@@ -480,7 +483,7 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
     ["Bahan", item.material],
     ["Ukuran", item.size],
   ].filter(([, v]) => hasText(v));
-  const photoCount = (item.workers || []).reduce((s, w) => s + (w.photos?.length || 0), 0) + (photo ? 1 : 0);
+  const photoCount = (item.workers || []).reduce((s, w) => s + (w.photos?.length || 0), 0) + photos.length;
 
   return (
     <li className={cn("rounded-xl border bg-white transition-shadow", open ? "border-[#5f1340]/30 shadow-md" : "border-slate-200 hover:border-slate-300 hover:shadow-sm")}>
@@ -558,12 +561,28 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
 
       {open && (
         <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 px-3 py-3 sm:px-4">
+          <div>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Foto item {photos.length > 0 && <span className="tabular-nums">· {photos.length}</span>}
+            </p>
+            {photos.length ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photos.map((url, i) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => onViewPhoto({ url, label: `${item.service_name || "Foto item"} (${i + 1}/${photos.length})` })}
+                    className="shrink-0"
+                  >
+                    <img src={url} alt={`${item.service_name || "Item"} ${i + 1}`} className="h-20 w-20 rounded-xl border border-slate-200 bg-slate-100 object-cover transition hover:ring-2 hover:ring-[#5f1340]/40" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-400">Belum ada foto item</p>
+            )}
+          </div>
           <div className="flex gap-3">
-            {photo ? (
-              <button type="button" onClick={() => onViewPhoto({ url: photo, label: item.service_name || "Foto item" })} className="shrink-0">
-                <img src={photo} alt={item.service_name || "Item"} className="h-20 w-20 rounded-xl border border-slate-200 bg-slate-100 object-cover transition hover:ring-2 hover:ring-[#5f1340]/40" />
-              </button>
-            ) : null}
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap gap-1.5">
                 <Chip>{methodName}</Chip>
