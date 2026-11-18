@@ -85,7 +85,7 @@ export default function OjtForm() {
       .catch((err) => showToast(err.message, "error"));
   }, [id, editing, showToast]);
 
-  const criteriaLocked = Boolean(ojt?.days_detail.some((d) => d.scored));
+  const criteriaLocked = Boolean(ojt?.criteria.some((c) => c.days_detail.some((d) => d.scored || d.photos.length > 0)));
 
   const criteriaItems = useMemo(() => {
     if (!options) return [];
