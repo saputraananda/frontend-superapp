@@ -264,12 +264,32 @@ function scopeTargets(data) {
     return targets;
 }
 
-function AllocationSplit({ classIds, classOptions, targets, value, onChange, totalNominal }) {
+const qtyKey = (companyId, outletId) => `${companyId}:${outletId || 0}`;
+const stripQty = (s) => String(s || "").replace(/[^\d.,]/g, "").replace(",", ".");
+const fmtQty = (n) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(Number(n) || 0);
+const r2 = (n) => Math.round(n * 100) / 100;
+
+// Qty per outlet (bukan per klasifikasi). Hanya muncul bila jumlah pengajuan > 1.
+function AllocationSplit({ classIds, classOptions, targets, value, onChange, totalNominal,
+    qtyValue = {}, onQtyChange, prQty = 0 }) {
     if (targets.length <= 1 || !classIds.length) return null;
     const classes = classIds.map(id => {
         const opt = classOptions.find(c => String(c.id) === String(id));
         return { id: String(id), name: opt?.classification_name || "Klasifikasi" };
     });
+    const showQty = prQty > 1 && !!onQtyChange;
+    const qtyBeside = showQty && classes.length === 1;
+    const qtySum = r2(targets.reduce((s, t) => s + (Number(qtyValue[qtyKey(t.company_id, t.outlet_id)]) || 0), 0));
+    const qtyInput = (t) => (
+        <div className="relative w-24 shrink-0">
+            <input
+                className="w-full rounded-lg border border-slate-200 bg-white py-1 px-2 text-right text-xs tabular-nums outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                inputMode="decimal"
+                value={qtyValue[qtyKey(t.company_id, t.outlet_id)] ?? ""}
+                onChange={e => onQtyChange({ ...qtyValue, [qtyKey(t.company_id, t.outlet_id)]: stripQty(e.target.value) })}
+                placeholder="Jumlah" />
+        </div>
+    );
     const sum = classes.reduce((s, c) => s + targets.reduce((s2, t) => (
         s2 + (Number(stripRupiah(value[allocKey(c.id, t.company_id, t.outlet_id)] || "")) || 0)
     ), 0), 0);
@@ -286,6 +306,7 @@ function AllocationSplit({ classIds, classOptions, targets, value, onChange, tot
                         return (
                             <div key={k} className="flex items-center gap-2 border-t border-slate-100 bg-white px-2.5 py-1.5 first:border-t-0">
                                 <span className="min-w-0 flex-1 truncate text-xs text-slate-600">{t.label}</span>
+                                {qtyBeside && qtyInput(t)}
                                 <div className="relative w-32 shrink-0">
                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">Rp</span>
                                     <input
@@ -300,6 +321,33 @@ function AllocationSplit({ classIds, classOptions, targets, value, onChange, tot
                     })}
                 </div>
             ))}
+            {showQty && !qtyBeside && (
+                <div>
+                    <p className="bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600">Qty per outlet</p>
+                    {targets.map(t => (
+                        <div key={qtyKey(t.company_id, t.outlet_id)} className="flex items-center gap-2 border-t border-slate-100 bg-white px-2.5 py-1.5 first:border-t-0">
+                            <span className="min-w-0 flex-1 truncate text-xs text-slate-600">{t.label}</span>
+                            {qtyInput(t)}
+                        </div>
+                    ))}
+                </div>
+            )}
+            {showQty && (
+                <div className="flex items-center justify-between border-t border-slate-100 bg-white px-2.5 py-1.5 text-[11px]">
+                    <span className="text-slate-500">Total qty</span>
+                    <span className={cn("font-semibold tabular-nums",
+                        qtySum > 0 && qtySum === r2(prQty) ? "text-emerald-600" : "text-slate-700")}>
+                        {fmtQty(qtySum)} / {fmtQty(prQty)}
+                    </span>
+                </div>
+            )}
+            {showQty && qtySum !== r2(prQty) && (
+                <p className="border-t border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                    {qtySum < r2(prQty)
+                        ? `Kurang ${fmtQty(r2(prQty) - qtySum)} dari jumlah pengajuan (${fmtQty(prQty)}).`
+                        : `Lebih ${fmtQty(qtySum - r2(prQty))} dari jumlah pengajuan (${fmtQty(prQty)}).`}
+                </p>
+            )}
             <div className="flex items-center justify-between border-t border-slate-100 bg-white px-2.5 py-1.5 text-[11px]">
                 <span className="text-slate-500">Total alokasi</span>
                 <span className={cn("font-semibold tabular-nums",
@@ -471,6 +519,7 @@ export default function PengajuanDetailModal({
     const [payClassification, setPayClass] = useState([]); // array of id (string) — multi klasifikasi
     const [payClassSplits, setPayClassSplits] = useState({}); // { [id]: nominal terformat }
     const [payAlloc, setPayAlloc] = useState({}); // { "class:company:outlet": nominal terformat }
+    const [payQty, setPayQty] = useState({}); // { "company:outlet": qty } — qty per outlet
     const [payNote, setPayNote] = useState("");
     const [payFiles, setPayFiles] = useState([]); // multi-file array
     const [payMethod, setPayMethod] = useState(""); // 'cash' | 'kredit'
@@ -536,7 +585,7 @@ export default function PengajuanDetailModal({
             setGaInvoiceFile(null);
             setClassificationList([]);
             setFinOpen(false); setFinNote("");
-            setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayNote(""); setPayFiles([]);
+            setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayQty({}); setPayNote(""); setPayFiles([]);
             setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt("");
             setCompleteOpen(false); setInvoiceFile(null);
             setEditPayOpen(false);
@@ -736,12 +785,25 @@ export default function PengajuanDetailModal({
             nominal: Number(stripRupiah(payAlloc[allocKey(cid, t.company_id, t.outlet_id)] || "")) || 0,
         })));
     };
+    // Qty per outlet — hanya bila >1 outlet dan jumlah pengajuan > 1
+    const prQty = Number(data?.ga_qty) || Number(data?.qty) || 0;
+    const qtyActive = payTargets.length > 1 && prQty > 1;
+    const buildQtyPayload = () => !qtyActive ? [] : payTargets.map(t => ({
+        company_id: t.company_id,
+        outlet_id: t.outlet_id,
+        qty: Number(payQty[qtyKey(t.company_id, t.outlet_id)]) || 0,
+    }));
     const allocationMismatch = () => {
         if (payTargets.length <= 1) return "";
         const nom = Number(stripRupiah(payNominalBayar)) || 0;
-        if (!nom || !payClassification.length) return "";
-        const sum = buildAllocationPayload().reduce((s, r) => s + (r.nominal || 0), 0);
-        if (sum !== nom) return "Total alokasi harus sama dengan nominal bayar";
+        if (nom && payClassification.length) {
+            const sum = buildAllocationPayload().reduce((s, r) => s + (r.nominal || 0), 0);
+            if (sum !== nom) return "Total alokasi harus sama dengan nominal bayar";
+        }
+        if (qtyActive && payClassification.length) {
+            const qsum = r2(buildQtyPayload().reduce((s, r) => s + r.qty, 0));
+            if (qsum !== r2(prQty)) return `Total qty outlet harus sama dengan jumlah pengajuan (${fmtQty(prQty)})`;
+        }
         return "";
     };
 
@@ -758,6 +820,7 @@ export default function PengajuanDetailModal({
             fd.append("classification_ids", JSON.stringify(payClassification));
             fd.append("classification_splits", JSON.stringify(buildSplitPayload()));
             if (payTargets.length > 1) fd.append("allocations", JSON.stringify(buildAllocationPayload()));
+            if (qtyActive) fd.append("allocation_qty", JSON.stringify(buildQtyPayload()));
             fd.append("payment_method", payMethod);
             if (payMethod === "kredit") {
                 fd.append("termin_value", payTerminValue);
@@ -808,6 +871,7 @@ export default function PengajuanDetailModal({
                     classification_ids: payClassification.map(Number),
                     classification_splits: buildSplitPayload(),
                     allocations: payTargets.length > 1 ? buildAllocationPayload() : [],
+                    allocation_qty: buildQtyPayload(),
                 })
             });
             showToast("success", "Info pembayaran berhasil diperbarui");
@@ -1363,6 +1427,11 @@ export default function PengajuanDetailModal({
                                                              .filter(a => a.nominal)
                                                              .map(a => [allocKey(a.classification_id, a.company_id, a.outlet_id), formatRupiah(String(a.nominal))])
                                                      ));
+                                                     setPayQty(Object.fromEntries(
+                                                         (data.allocations || [])
+                                                             .filter(a => a.qty != null)
+                                                             .map(a => [qtyKey(a.company_id, a.outlet_id), String(Number(a.qty))])
+                                                     ));
                                                      setPayMethod(data.payment_method || "");
                                                      api("/pengajuan/classifications").then(r => setClassificationList(r.data || [])).catch(() => {});
                                                  }} className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold hover:underline">
@@ -1427,10 +1496,13 @@ export default function PengajuanDetailModal({
                                                          targets={payTargets}
                                                          value={payAlloc}
                                                          onChange={setPayAlloc}
+                                                         qtyValue={payQty}
+                                                         onQtyChange={setPayQty}
+                                                         prQty={prQty}
                                                          totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
                                                  </div>
                                                  <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
-                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayMethod(""); }}
+                                                     <button onClick={() => { setEditPayOpen(false); setPayNB(""); setPayAdminFee(""); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayQty({}); setPayMethod(""); }}
                                                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" disabled={acting}>
                                                          Batal
                                                      </button>
@@ -1478,7 +1550,10 @@ export default function PengajuanDetailModal({
                                                          <div className="mt-1.5 space-y-0.5">
                                                              {data.allocations.map(a => (
                                                                  <div key={allocKey(a.classification_id, a.company_id, a.outlet_id)} className="flex justify-between gap-2 text-[11px] text-slate-600">
-                                                                     <span className="min-w-0 truncate">{a.classification_name} · {a.outlet_name || a.company_name}</span>
+                                                                     <span className="min-w-0 truncate">
+                                                                         {a.classification_name} · {a.outlet_name || a.company_name}
+                                                                         {a.qty != null && <span className="ml-1 font-semibold text-cyan-700">· Qty {fmtQty(a.qty)}</span>}
+                                                                     </span>
                                                                      <span className="shrink-0 tabular-nums font-semibold">{formatRp(a.nominal)}</span>
                                                                  </div>
                                                              ))}
@@ -1923,6 +1998,9 @@ export default function PengajuanDetailModal({
                                                 targets={payTargets}
                                                 value={payAlloc}
                                                 onChange={setPayAlloc}
+                                                qtyValue={payQty}
+                                                onQtyChange={setPayQty}
+                                                prQty={prQty}
                                                 totalNominal={Number(stripRupiah(payNominalBayar)) || 0} />
                                         </div>
                                         {payMethod === "kredit" && (
@@ -2040,7 +2118,7 @@ export default function PengajuanDetailModal({
                                         </div>
                                     </div>
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
+                                        <button onClick={() => { setPayOpen(false); setPayClass([]); setPayClassSplits({}); setPayAlloc({}); setPayQty({}); setPayNote(""); setPayFiles([]); setPayMethod(""); setPayTV(""); setPayTU(""); setPayNB(""); setPayAdminFee(""); setPayPaidAt(""); setClassificationList([]); }}
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
@@ -2211,6 +2289,7 @@ export default function PengajuanDetailModal({
                                     setPayNB("");
                                     setPayAdminFee("");
                                     setPayAlloc({});
+                                    setPayQty({});
                                     api("/pengajuan/classifications").then(r => {
                                         const list = r.data || [];
                                         setClassificationList(list);
