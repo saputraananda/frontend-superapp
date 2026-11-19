@@ -115,7 +115,12 @@ export default function NotaSettings() {
     setSaving(true);
     try {
       await savePrinterSettings(outletId, customer, internal);
-      showToast("success", "Pengaturan nota berhasil disimpan");
+      showToast(
+        "success",
+        Number(outletId) === 0
+          ? "Pengaturan Global disimpan & diterapkan ke semua outlet"
+          : "Pengaturan nota outlet berhasil disimpan"
+      );
     } catch (err) {
       showToast("error", err.message || "Gagal menyimpan");
     } finally {
@@ -220,6 +225,11 @@ export default function NotaSettings() {
                   </option>
                 ))}
               </select>
+              {Number(outletId) === 0 && (
+                <span className="mt-1.5 block text-[11px] text-slate-500">
+                  Menyimpan Default Global akan menyamakan pengaturan nota di semua outlet.
+                </span>
+              )}
             </label>
 
             <div className="flex rounded-xl border border-slate-200 p-1 bg-slate-50">
