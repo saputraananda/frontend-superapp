@@ -179,6 +179,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters, extraFilte
   wsData.push(COLS.map(h => cell(h, headerStyle)));
 
   // Data rows
+  const rowHeights = {}; // { [indeks baris sheet]: { hpt } } — baris outlet multi-baris
   records.forEach((row, idx) => {
     const isAlt = idx % 2 === 1;
     const cs = makeCellStyle(isAlt);
@@ -198,20 +199,50 @@ export function exportPengajuanExcel({ records, periodLabel, filters, extraFilte
       ? `${row.termin_value} ${row.termin_unit}`
       : "-";
 
+    // >1 outlet dengan qty: satu baris per outlet ke bawah ("Outlet A — 2")
+    // Outlet, Qty, Total Estimasi & Nominal Bayar disusun sejajar, satu baris per outlet.
+    const fmtN = (n) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(n);
+    let outletQty = Array.isArray(row.outlet_qty) && row.outlet_qty.length > 1 ? row.outlet_qty : null;
+    if (!outletQty && typeof row.outlet_name === "string" && row.outlet_name.includes(", ")) {
+      // belum ada alokasi tersimpan → pecah daftar outlet jadi baris ke bawah
+      outletQty = row.outlet_name.split(", ").map(n => ({ outlet_name: n, qty: null, nominal: null }));
+    }
+    const wrapStyle = (base) => ({ ...base, alignment: { ...base.alignment, wrapText: true, vertical: "center" } });
+    const lines = (fn) => outletQty.map(fn).join("\n");
+    const hasQty = outletQty?.some(o => o.qty != null);
+    const hasNominal = outletQty?.some(o => o.nominal != null);
+    const outletCell = outletQty
+      ? cell(lines(o => o.outlet_name || "-"), wrapStyle(cs))
+      : cell(Number(row.company_id) === 5 && !row.outlet_name ? "Seluruh Outlet" : (row.outlet_name || "-"), cs);
+    const kategoriCell = outletQty && outletQty.every(o => o.company_name)
+      ? cell(lines(o => o.company_name), wrapStyle(cs))
+      : cell(row.company_name || "-", cs);
+    const qtyCell = outletQty && hasQty
+      ? cell(lines(o => (o.qty != null ? fmtN(o.qty) : "-")), wrapStyle(csC))
+      : numCell(finalQty, csC);
+    const totalEstStyle = { ...csR, font: { bold: true, sz: 10, color: { rgb: C.emerald }, name: "Calibri" } };
+    const totalEstCell = outletQty && hasQty
+      ? cell(lines(o => (o.qty != null ? fmtRp((Number(row.estimasi_harga) || 0) * o.qty) : "-")), wrapStyle(totalEstStyle))
+      : cell(fmtRp(totalEst), totalEstStyle);
+    const nominalCell = outletQty && hasNominal
+      ? cell(lines(o => (o.nominal != null ? fmtRp(o.nominal) : "-")), wrapStyle(csR))
+      : cell(row.nominal_bayar ? fmtRp(row.nominal_bayar) : "-", csR);
+    if (outletQty) rowHeights[wsData.length] = { hpt: Math.max(18, outletQty.length * 15 + 4) };
+
     wsData.push([
       cell(idx + 1, { ...csC, font: { sz: 10, color: { rgb: C.textGray }, name: "Calibri" } }),
       cell(row.pr_code || "-", cs),
       cell(row.type === "reimburse" ? "Reimburse" : "Pengajuan", csC),
       cell(toTitleCase(row.pengaju_name), cs),
       cell(toTitleCase(row.department_name), cs),
-      cell(row.company_name || "-", cs),
-      cell(Number(row.company_id) === 5 && !row.outlet_name ? "Seluruh Outlet" : (row.outlet_name || "-"), cs),
+      kategoriCell,
+      outletCell,
       cell(toTitleCase(row.nama_barang), cs),
       cell(row.ga_merk || row.merk || "-", cs),
-      numCell(finalQty, csC),
+      qtyCell,
       cell(row.satuan_name || "-", csC),
       cell(fmtRp(row.estimasi_harga), csR),
-      cell(fmtRp(totalEst), { ...csR, font: { bold: true, sz: 10, color: { rgb: C.emerald }, name: "Calibri" } }),
+      totalEstCell,
       cell(row.alasan_pembelian || "-", cs),
       cell(STATUS_LABELS[row.status] || String(row.status), csC),
       cell(fmtDate(row.tanggal_pengajuan), csC),
@@ -219,7 +250,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters, extraFilte
       cell(row.vendor_mode || "-", csC),
       cell(row.payment_method ? (row.payment_method === "kredit" ? "Kredit" : "Cash") : "-", csC),
       cell(row.classification_name || "-", csC),
-      cell(row.nominal_bayar ? fmtRp(row.nominal_bayar) : "-", csR),
+      nominalCell,
       cell(row.admin_fee ? fmtRp(row.admin_fee) : "-", csR),
       cell((Number(row.nominal_bayar) || Number(row.admin_fee)) ? fmtRp((Number(row.nominal_bayar) || 0) + (Number(row.admin_fee) || 0)) : "-", csR),
       cell(terminDisplay, csC),
@@ -269,7 +300,7 @@ export function exportPengajuanExcel({ records, periodLabel, filters, extraFilte
     { s: { r: 3, c: 0 }, e: { r: 3, c: TOTAL_COLS - 1 } },
   ];
   ws["!cols"] = [
-    { wch: 5 }, { wch: 18 }, { wch: 11 }, { wch: 22 }, { wch: 20 }, { wch: 22 }, { wch: 16 },
+    { wch: 5 }, { wch: 18 }, { wch: 11 }, { wch: 22 }, { wch: 20 }, { wch: 22 }, { wch: 26 },
     { wch: 24 }, { wch: 14 }, { wch: 7 }, { wch: 8 }, { wch: 16 }, { wch: 16 },
     { wch: 30 }, { wch: 16 }, { wch: 14 },
     { wch: 20 }, { wch: 10 },
@@ -277,7 +308,9 @@ export function exportPengajuanExcel({ records, periodLabel, filters, extraFilte
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
     { wch: 10 }, { wch: 10 },
   ];
-  ws["!rows"] = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 26 }];
+  const sheetRows = [{ hpt: 32 }, { hpt: 18 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 26 }];
+  Object.entries(rowHeights).forEach(([i, h]) => { sheetRows[Number(i)] = h; });
+  ws["!rows"] = Array.from(sheetRows, r => r || {});
 
   // ══════════════════════════════════════════════════════════════════════════
   // SHEET 2: Aging Summary (hanya kredit)
