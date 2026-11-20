@@ -481,6 +481,7 @@ export default function PengajuanDetailModal({
     const [preview, setPreview] = useState(null); // { kind, name, src, downloadUrl }
     const [spvNote, setSpvNote] = useState("");
     const [spvNoteOpen, setSpvNoteOpen] = useState(false);
+    const [spvRequiresGa, setSpvRequiresGa] = useState("1"); // "1" = butuh approval GA, "0" = skip GA
 
     // GA review state
     const [gaOpen, setGaOpen] = useState(false);
@@ -613,6 +614,8 @@ export default function PengajuanDetailModal({
     if (!open) return null;
 
     const canApproveSpv = !readOnly && myJobLevel === 3 && status === 1 && data?.department_id === myDeptId;
+    // SPV menentukan butuh approval GA atau tidak (pengajuan biasa yang belum diset skip GA oleh Finance)
+    const canChooseGa = canApproveSpv && !isReimburse && !data?.is_routine && Number(data?.requires_ga) !== 0;
     const canApproveBod = !readOnly && !isReimburse && (myJobLevel === 1 || myJobLevel === 2) && status === 2;
     const canReject = !readOnly && (
         (myJobLevel === 3 && status === 1 && data?.department_id === myDeptId)
@@ -634,11 +637,12 @@ export default function PengajuanDetailModal({
     const canRejectPayment = !readOnly && myIsFinance && status === 5;
     const canComplete = !readOnly && !isReimburse && status === 6 && (data?.employee_id === myEmployeeId || myIsGA);
 
-    const doApprove = async () => {
+    const doApprove = async (opts) => {
         setActing(true);
         try {
             const body = {};
             if (spvNote.trim()) body.spv_note = spvNote.trim();
+            if (opts?.requiresGa === "0" || opts?.requiresGa === "1") body.requires_ga = opts.requiresGa;
             await api(`/pengajuan/${prId}/approve`, { method: "POST", body: JSON.stringify(body) });
             showToast("success", "Pengajuan disetujui");
             onChanged?.();
@@ -2228,6 +2232,21 @@ export default function PengajuanDetailModal({
                                 <div className="rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
                                     <p className="text-sm font-bold text-emerald-700">Approve Supervisor</p>
                                     <p className="text-[11px] text-slate-500">Tambahkan catatan jika diperlukan (opsional).</p>
+                                    {canChooseGa && (
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Approval GA</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <label className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${spvRequiresGa === "1" ? "border-emerald-400 bg-white ring-2 ring-emerald-200" : "border-slate-200 bg-white/60"}`}>
+                                                    <input type="radio" name="spv_requires_ga" value="1" checked={spvRequiresGa === "1"} onChange={() => setSpvRequiresGa("1")} className="mt-0.5" />
+                                                    <span><span className="font-semibold text-slate-700">Butuh approval GA</span><span className="block text-[11px] text-slate-400">Review GA → SPV Finance</span></span>
+                                                </label>
+                                                <label className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${spvRequiresGa === "0" ? "border-cyan-400 bg-white ring-2 ring-cyan-200" : "border-slate-200 bg-white/60"}`}>
+                                                    <input type="radio" name="spv_requires_ga" value="0" checked={spvRequiresGa === "0"} onChange={() => setSpvRequiresGa("0")} className="mt-0.5" />
+                                                    <span><span className="font-semibold text-slate-700">Tanpa approval GA</span><span className="block text-[11px] text-slate-400">Skip GA → langsung SPV Finance</span></span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div>
                                         <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Catatan Supervisor</label>
                                         <textarea rows={3} value={spvNote} onChange={e => setSpvNote(e.target.value)}
@@ -2239,7 +2258,7 @@ export default function PengajuanDetailModal({
                                             className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">
                                             Batal
                                         </button>
-                                        <button onClick={() => { doApprove(); setSpvNoteOpen(false); }} disabled={acting}
+                                        <button onClick={() => { doApprove({ requiresGa: canChooseGa ? spvRequiresGa : undefined }); setSpvNoteOpen(false); }} disabled={acting}
                                             className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition">
                                             {acting ? "Memproses..." : "Approve"}
                                         </button>
@@ -2323,7 +2342,7 @@ export default function PengajuanDetailModal({
                                 </button>
                             )}
                             {canApproveSpv && (
-                                <button onClick={() => setSpvNoteOpen(true)}
+                                <button onClick={() => { setSpvRequiresGa("1"); setSpvNoteOpen(true); }}
                                     className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">
                                     Approve Supervisor
                                 </button>
