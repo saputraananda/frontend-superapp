@@ -422,10 +422,16 @@ export default function PengajuanBarang() {
         } catch (err) { showToast("error", err.message); }
     };
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (!data.length) return showToast("error", "Tidak ada data untuk diexport");
+        // Qty per outlet (pengajuan >1 outlet) — gagal ambil tidak menghalangi export
+        let records = data;
+        try {
+            const r = await api(`/pengajuan/outlet-qty?ids=${data.map(d => d.pr_id).join(",")}`);
+            records = data.map(d => ({ ...d, outlet_qty: r.data?.[d.pr_id] || [] }));
+        } catch { /* export tetap jalan tanpa qty outlet */ }
         exportPengajuanExcel({
-            records: data,
+            records,
             periodLabel:
                 dateMode === "all"    ? "Semua Periode"
               : dateMode === "single" ? formatDate(singleDate)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineBuildingStorefront,
@@ -13,10 +13,16 @@ import {
   HiOutlineChevronUp,
   HiOutlineChevronDown,
   HiOutlineArrowsUpDown,
+  HiOutlineChartBar,
+  HiOutlineSparkles,
+  HiOutlineUserGroup,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
+import OutletTargetPanel from "./target/OutletTargetPanel";
+import TargetCustomerTab from "./target/TargetCustomerTab";
+import { billingPeriod, fmtRupiah, periodShort } from "./target/targetUtils";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -85,11 +91,48 @@ export default function Outlet() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
+  const [tab, setTab] = useState("outlet"); // outlet | customer
+  const [modalTab, setModalTab] = useState("detail"); // detail | target (satu modal untuk data outlet & target)
+  const [monthTargets, setMonthTargets] = useState({}); // outlet_id → target efektif bulan berjalan
+  const billing = billingPeriod();
 
-  const showToast = (message, type = "success") => {
+  /** Buka modal outlet (satu modal, dua tab). tab: "detail" | "target" */
+  const openOutlet = (item, tab = "detail") => {
+    setFormData({
+      id: item.id,
+      outlet_code: item.outlet_code || "",
+      name: item.name || "",
+      full_name: item.full_name || "",
+      address: item.address || "",
+      lat: item.lat != null ? String(item.lat) : "",
+      lon: item.lon != null ? String(item.lon) : "",
+      is_drop_point: Number(item.is_drop_point) === 1 ? 1 : 0,
+      is_active: Number(item.is_active ?? 1) === 1 ? 1 : 0,
+      requires_shift: Number(item.requires_shift ?? 1) === 1 ? 1 : 0,
+    });
+    setFormError("");
+    setModalTab(tab);
+    setModalOpen(true);
+  };
+
+  const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
+
+  // Target sales bulan berjalan (tersimpan / otomatis ikut bulan sebelumnya)
+  const loadMonthTargets = useCallback(async () => {
+    try {
+      const res = await api(`/waschen/targets/sales?tahun=${billing.tahun}&bulan=${billing.bulan}`);
+      setMonthTargets(Object.fromEntries((res.data || []).map((t) => [Number(t.outlet_id), t])));
+    } catch {
+      setMonthTargets({});
+    }
+  }, [billing.tahun, billing.bulan]);
+
+  useEffect(() => {
+    loadMonthTargets();
+  }, [loadMonthTargets]);
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -180,14 +223,16 @@ export default function Outlet() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Master Outlet</h1>
             <p className="mt-3 text-sm leading-6 text-white/75">
-              Kelola daftar cabang / outlet Waschen
+              Kelola daftar cabang / outlet Waschen beserta target sales & customer
             </p>
           </div>
+          {tab === "outlet" && (
           <button
             type="button"
             onClick={() => {
               setFormData(EMPTY_FORM);
               setFormError("");
+              setModalTab("detail");
               setModalOpen(true);
             }}
             className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-[#5f1340] shadow-md hover:bg-pink-50"
@@ -195,9 +240,34 @@ export default function Outlet() {
             <HiOutlinePlus className="h-4 w-4" />
             Tambah Outlet
           </button>
-        
+          )}
+
       </PageHero>
 
+      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm w-full sm:w-fit">
+        {[
+          { key: "outlet", label: "Outlet & Target Sales", icon: HiOutlineChartBar },
+          { key: "customer", label: "Target Customer", icon: HiOutlineUserGroup },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={cn(
+              "inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition",
+              tab === key ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "customer" ? (
+        <TargetCustomerTab showToast={showToast} />
+      ) : (
+      <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-3xl">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Outlet</p>
@@ -233,10 +303,9 @@ export default function Outlet() {
               <tr>
                 <th className="px-4 py-3 w-12 text-center">No</th>
                 <SortTh col="outlet_code" label="Kode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <SortTh col="name" label="Nama" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="full_name" label="Nama Lengkap" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3">Alamat</th>
-                <th className="px-4 py-3">Koordinat</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Target {periodShort(billing.tahun, billing.bulan)}</th>
                 <th className="px-4 py-3 text-center">Shift</th>
                 <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
@@ -246,63 +315,63 @@ export default function Outlet() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={9} className="px-4 py-4">
+                    <td colSpan={8} className="px-4 py-4">
                       <div className="h-3.5 bg-slate-200 rounded animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data outlet
                   </td>
                 </tr>
               ) : (
                 data.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80">
+                  <tr
+                    key={item.id}
+                    className="cursor-pointer hover:bg-slate-50/80"
+                    onClick={() => openOutlet(item, "target")}
+                    title="Klik untuk melihat & mengatur target sales outlet ini"
+                  >
                     <td className="px-4 py-3.5 text-center text-slate-400">{idx + 1}</td>
                     <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.outlet_code}</td>
                     <td className="px-4 py-3.5 font-semibold text-slate-800">
                       <span className="inline-flex items-center gap-1.5">
-                        <HiOutlineBuildingStorefront className="h-3.5 w-3.5 text-slate-400" />
-                        {item.name}
+                        <HiOutlineBuildingStorefront className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        {item.full_name || item.name}
                         {Number(item.is_drop_point) === 1 && (
                           <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">Drop Point</span>
                         )}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-600">{item.full_name}</td>
                     <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.address || "—"}</td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {item.lat != null && item.lon != null ? (
-                        <span className="font-mono text-slate-600">{Number(item.lat).toFixed(6)}, {Number(item.lon).toFixed(6)}</span>
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                      {monthTargets[item.id] ? (
+                        <span className="inline-flex flex-col items-end">
+                          <span className={cn("font-bold tabular-nums", monthTargets[item.id].is_auto ? "text-slate-500" : "text-slate-900")}>
+                            {fmtRupiah(monthTargets[item.id].nominal)}
+                          </span>
+                          {monthTargets[item.id].is_auto && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700" title="Belum diset — mengikuti target bulan sebelumnya">
+                              <HiOutlineSparkles className="h-2.5 w-2.5" />
+                              Otomatis · ikut {periodShort(monthTargets[item.id].source_tahun, monthTargets[item.id].source_bulan)}
+                            </span>
+                          )}
+                        </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Belum diisi</span>
+                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Belum ada</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-center"><ShiftBadge requiresShift={item.requires_shift} /></td>
                     <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active ?? 1} /></td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex gap-1">
                         <button
                           type="button"
-                          onClick={() => {
-                            setFormData({
-                              id: item.id,
-                              outlet_code: item.outlet_code || "",
-                              name: item.name || "",
-                              full_name: item.full_name || "",
-                              address: item.address || "",
-                              lat: item.lat != null ? String(item.lat) : "",
-                              lon: item.lon != null ? String(item.lon) : "",
-                              is_drop_point: Number(item.is_drop_point) === 1 ? 1 : 0,
-                              is_active: Number(item.is_active ?? 1) === 1 ? 1 : 0,
-                              requires_shift: Number(item.requires_shift ?? 1) === 1 ? 1 : 0,
-                            });
-                            setFormError("");
-                            setModalOpen(true);
-                          }}
+                          onClick={() => openOutlet(item, "detail")}
                           className="rounded-lg border p-1.5 hover:border-amber-300 hover:bg-amber-50"
+                          title="Edit data outlet"
                         >
                           <HiOutlinePencilSquare className="h-4 w-4" />
                         </button>
@@ -318,18 +387,54 @@ export default function Outlet() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {modalOpen &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border overflow-hidden">
-              <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
-                <h3 className="font-bold text-sm">{formData.id ? "Edit Outlet" : "Tambah Outlet"}</h3>
-                <button type="button" onClick={() => setModalOpen(false)}>
-                  <HiOutlineXMark className="h-5 w-5 text-slate-400" />
-                </button>
+          <div data-modal-root className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => !submitting && setModalOpen(false)}>
+            <div
+              className={cn("flex max-h-[92vh] w-full flex-col rounded-2xl bg-white shadow-2xl border overflow-hidden", formData.id ? "max-w-3xl" : "max-w-md")}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 border-b bg-slate-50/50 px-5 pt-4">
+                <div className="flex items-start justify-between gap-3 pb-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-bold text-sm text-slate-800">{formData.id ? formData.full_name || formData.name || "Outlet" : "Tambah Outlet"}</h3>
+                    {formData.id && <p className="mt-0.5 text-[11px] text-slate-400">{formData.outlet_code} · data outlet & target sales</p>}
+                  </div>
+                  <button type="button" onClick={() => setModalOpen(false)} className="shrink-0 rounded-lg p-1 hover:bg-slate-100">
+                    <HiOutlineXMark className="h-5 w-5 text-slate-400" />
+                  </button>
+                </div>
+                {formData.id && (
+                  <div className="-mb-px flex gap-1">
+                    {[
+                      { key: "target", label: "Target Sales", icon: HiOutlineChartBar },
+                      { key: "detail", label: "Data Outlet", icon: HiOutlineBuildingStorefront },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setModalTab(key)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-bold transition",
+                          modalTab === key ? "border-[#5f1340] text-[#5f1340]" : "border-transparent text-slate-400 hover:text-slate-600",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
+              {formData.id && modalTab === "target" ? (
+                <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                  <OutletTargetPanel outlet={formData} onSaved={loadMonthTargets} />
+                </div>
+              ) : (
+              <form onSubmit={handleSubmit} className="min-h-0 flex-1 p-5 space-y-4 text-xs overflow-y-auto">
                 {formError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-700">{formError}</div>}
                 <div>
                   <label className="block font-semibold mb-1">Kode Outlet *</label>
@@ -447,6 +552,7 @@ export default function Outlet() {
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </div>,
           document.body,

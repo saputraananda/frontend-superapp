@@ -928,12 +928,14 @@ export default function EmployeeWaschen() {
         return () => clearTimeout(timer);
     }, [searchInput]);
 
-    // Fetch outlets
+    // Fetch outlets — WAJIB dari My Waschen (myWaschen.mst_outlet): id-nya yang disimpan ke
+    // mst_role.outlet_id. Jangan pakai "/outlets" (DB utama SuperApp, id-nya berbeda:
+    // di sana id 6 = Drop Point Transyogi (dulu "Mu Gung Hwa"), di My Waschen id 6 = Event Haji, id 7 = Transyogi).
     useEffect(() => {
         const fetchOutlets = async () => {
             try {
-                const res = await api("/outlets");
-                setOutlets(res.outlets || []);
+                const res = await api("/waschen/outlets?sortBy=name&sortDir=asc");
+                setOutlets(res.data || []);
             } catch (err) {
                 console.error("Gagal mengambil data outlet:", err);
             }

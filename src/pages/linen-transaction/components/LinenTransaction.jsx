@@ -11,6 +11,7 @@ import {
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
+import exportSerahTerimaLinenPDF from "../utils/exportSerahTerimaLinenPDF";
 import { exportRekapCuciLinenSewa } from "../utils/exportRekapCuciLinenSewa";
 import { exportSewaLinen } from "../utils/exportSewaLinen";
 import { exportRekapKgLinen } from "../utils/exportRekapKgLinen";
@@ -2076,6 +2077,22 @@ export default function LinenTransaction() {
     }
   };
 
+  const [downloadingPdfId, setDownloadingPdfId] = useState(null);
+  const handleDownloadPdf = async (rowId) => {
+    setDownloadingPdfId(rowId);
+    try {
+      const res = await api(`/ikm/linen-transactions/${rowId}`);
+      if (!res.success) throw new Error(res.message || "Gagal memuat rincian transaksi");
+      if (!exportSerahTerimaLinenPDF(res.data)) {
+        showToast("error", "Gagal membuka PDF. Izinkan pop-up browser.");
+      }
+    } catch (err) {
+      showToast("error", "Gagal mengunduh PDF: " + err.message);
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
+
   // Filters State
   const defaultCutoff = getDefaultCutoffSelection();
   const [periodMode, setPeriodMode] = useState("cutoff");
@@ -2658,6 +2675,19 @@ export default function LinenTransaction() {
                                 <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                               ) : (
                                 <HiOutlineArrowDownTray className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={downloadingPdfId === row.id}
+                              onClick={() => handleDownloadPdf(row.id)}
+                              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-rose-300 hover:text-rose-600 transition disabled:opacity-50"
+                              title="Cetak PDF"
+                            >
+                              {downloadingPdfId === row.id ? (
+                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-rose-500 border-t-transparent" />
+                              ) : (
+                                <HiOutlinePrinter className="h-3.5 w-3.5" />
                               )}
                             </button>
                             <button

@@ -10,7 +10,6 @@ import MasterDepartment from "./pages/master-data-superapp/components/MasterDepa
 import MasterEducationLevel from "./pages/master-data-superapp/components/MasterEducationLevel";
 import MasterEmployeeStatus from "./pages/master-data-superapp/components/MasterEmployeeStatus";
 import MasterJobLevel from "./pages/master-data-superapp/components/MasterJobLevel";
-import MasterOutlet from "./pages/master-data-superapp/components/MasterOutlet";
 import MasterPosition from "./pages/master-data-superapp/components/MasterPosition";
 import MasterReligion from "./pages/master-data-superapp/components/MasterReligion";
 import MasterSatuan from "./pages/master-data-superapp/components/MasterSatuan";
@@ -68,7 +67,6 @@ import MasterUnit from "./pages/master-rs-ikm/components/MasterData/MasterUnit";
 import MasterLinenCategory from "./pages/master-rs-ikm/components/MasterData/MasterLinenCategory";
 import MasterVendorIKM from "./pages/master-rs-ikm/components/MasterData/MasterVendor";
 import MasterRoomsIKM from "./pages/master-rs-ikm/components/MasterData/MasterRoomsIKM";
-import TargetWaschen from "./pages/target-waschen";
 import AbsensiIKM from "./pages/absensi-ikm";
 import AbsensiPage from "./pages/absensi-ikm/components/Absensi";
 import PerizinanIKM from "./pages/absensi-ikm/components/PerizinanIKM";
@@ -296,7 +294,8 @@ export default function App() {
           <Route path="master-education-level" element={<MasterEducationLevel />} />
           <Route path="master-employee-status" element={<MasterEmployeeStatus />} />
           <Route path="master-job-level" element={<MasterJobLevel />} />
-          <Route path="master-outlet" element={<MasterOutlet />} />
+          {/* Master Outlet pindah ke My Waschen > Master Outlet (sumber tunggal myWaschen.mst_outlet) */}
+          <Route path="master-outlet" element={<Navigate to="/my-waschen/master/outlets" replace />} />
           <Route path="master-position" element={<MasterPosition />} />
           <Route path="master-religion" element={<MasterReligion />} />
           <Route path="master-satuan" element={<MasterSatuan />} />
@@ -468,15 +467,8 @@ export default function App() {
           <Route path="/master-data-ikm/rooms" element={<MasterRoomsIKM />} />
         </Route>
 
-        {/* ── Target Waschen ── */}
-        <Route
-          path="/target-waschen"
-          element={
-            <ProtectedRoute user={user} allowedRoles={appRoles["/target-waschen"]}>
-              <TargetWaschen user={user} onLogout={handleLogout} />
-            </ProtectedRoute>
-          }
-        />
+        {/* Target Waschen pindah ke My Waschen > Master Outlet (tab Outlet & Target Sales / Target Customer) */}
+        <Route path="/target-waschen/*" element={<Navigate to="/my-waschen/master/outlets" replace />} />
 
         {/* ── IKM Suite (with sidebar) ── */}
         <Route

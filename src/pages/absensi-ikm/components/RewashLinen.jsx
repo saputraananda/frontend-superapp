@@ -7,10 +7,15 @@ import {
   HiOutlineExclamationTriangle, HiOutlineClipboardDocumentList,
   HiOutlineArrowsUpDown, HiOutlineChevronUp, HiOutlineChevronDown,
   HiOutlineMagnifyingGlass, HiOutlineCheckCircle, HiOutlineClock,
-  HiOutlineEye, HiOutlineRectangleGroup, HiOutlineArrowDownTray,
+  HiOutlineEye, HiOutlineRectangleGroup, HiOutlineArrowDownTray, HiOutlineChartBar,
 } from "react-icons/hi2";
 import { api } from "../../../lib/api";
 import { exportRewashExcel } from "../utils/exportRewashExcel";
+import {
+  fmtDate, toDateInput, PERIOD_MONTHS, getCutoffRange, getDefaultCutoffSelection,
+} from "../utils/rewashPeriod";
+import RewashDashboard from "./RewashDashboard";
+import { TabBar } from "./DashboardParts";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -22,13 +27,6 @@ function getCurrentUser() {
     const u = p?.user ?? p;
     return { name: u?.employee?.full_name || u?.name || "", id: u?.employee?.employee_id };
   } catch { return {}; }
-}
-
-function fmtDate(v) {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (isNaN(d)) return v;
-  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
 }
 
 function fmtDateTime(v) {
@@ -47,38 +45,6 @@ function fmtDateTime(v) {
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function toDateInput(date) {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return "";
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-const PERIOD_MONTHS = [
-  { value: 1, label: "Januari" }, { value: 2, label: "Februari" },
-  { value: 3, label: "Maret" }, { value: 4, label: "April" },
-  { value: 5, label: "Mei" }, { value: 6, label: "Juni" },
-  { value: 7, label: "Juli" }, { value: 8, label: "Agustus" },
-  { value: 9, label: "September" }, { value: 10, label: "Oktober" },
-  { value: 11, label: "November" }, { value: 12, label: "Desember" },
-];
-
-// Rewash: periode cutoff = 1 bulan kalender penuh (tgl 1 s.d. akhir bulan)
-function getCutoffRange(month, year) {
-  return {
-    startDate: toDateInput(new Date(year, month - 1, 1)),
-    endDate: toDateInput(new Date(year, month, 0)),
-  };
-}
-
-function getDefaultCutoffSelection(now = new Date()) {
-  const cutoffMonth = now.getMonth() + 1;
-  const cutoffYear = now.getFullYear();
-  return { cutoffMonth, cutoffYear, ...getCutoffRange(cutoffMonth, cutoffYear) };
 }
 
 function generatePages(current, total) {
@@ -925,8 +891,41 @@ function DetailModal({ open, onClose, group, onRefresh, hospitals }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── TabBar ───────────────────────────────────────────────────────────────────
+const REWASH_TABS = [
+  { key: "detail", label: "Detail", icon: HiOutlineClipboardDocumentList },
+  { key: "dashboard", label: "Dashboard", icon: HiOutlineChartBar },
+];
+
+// ─── Wrapper: tab Detail & tab Dashboard ─────────────────────────────────────
 export default function RewashLinen() {
+  const [tab, setTab] = useState("detail");
+  const [dashboardVisited, setDashboardVisited] = useState(false);
+
+  const handleTab = (key) => {
+    setTab(key);
+    if (key === "dashboard") setDashboardVisited(true);
+  };
+
+  const tabBar = <TabBar tabs={REWASH_TABS} active={tab} onChange={handleTab} />;
+
+  // Kedua tab tetap ter-mount setelah dibuka agar filter/halaman tidak reset saat pindah tab.
+  return (
+    <>
+      <div className={tab === "detail" ? "" : "hidden"}>
+        <RewashDetailTab tabBar={tabBar} />
+      </div>
+      {dashboardVisited && (
+        <div className={tab === "dashboard" ? "" : "hidden"}>
+          <RewashDashboard tabBar={tabBar} active={tab === "dashboard"} />
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Tab Detail ───────────────────────────────────────────────────────────────
+function RewashDetailTab({ tabBar }) {
   const [records, setRecords] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 0, totalQty: 0 });
@@ -1155,6 +1154,8 @@ export default function RewashLinen() {
               </button>
             </div>
           </section>
+
+          {tabBar}
 
           {/* Filters */}
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
