@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../lib/api";
+import { currentCutoffPeriod, cutoffRange } from "../utils/cutoffPeriod";
 import {
   HiOutlineSparkles,
   HiOutlineUserGroup,
@@ -99,8 +100,11 @@ function cleanPhoneNumber(phone) {
 
 export default function CrossSellWaschenCleanox() {
   const today = new Date();
-  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // 1-12
+  const initialPeriod = currentCutoffPeriod(today);
+  const [selectedYear, setSelectedYear] = useState(initialPeriod.year);
+  const [selectedMonth, setSelectedMonth] = useState(initialPeriod.month); // 1-12
+  const periodRange = cutoffRange(selectedYear, selectedMonth);
+  const periodRangeLabel = `${formatDateIndo(periodRange.dateFrom)} - ${formatDateIndo(periodRange.dateTo)}`;
   const [activeTab, setActiveTab] = useState("input"); // 'input' | 'data' | 'kpi' | 'staff'
 
   // Master Staff & Target Data
@@ -698,6 +702,7 @@ export default function CrossSellWaschenCleanox() {
               <span className="text-sm font-bold text-white tracking-wide">
                 {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
               </span>
+              <span className="block text-[10px] font-medium text-white/70">{periodRangeLabel}</span>
             </div>
             <button
               type="button"
@@ -1093,7 +1098,7 @@ export default function CrossSellWaschenCleanox() {
                   Data Rekomendasi Cross-Sell
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Menampilkan {recommendations.length} rekomendasi pada {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+                  Menampilkan {recommendations.length} rekomendasi pada {MONTH_NAMES[selectedMonth - 1]} {selectedYear} ({periodRangeLabel})
                 </p>
               </div>
 
@@ -1452,7 +1457,7 @@ export default function CrossSellWaschenCleanox() {
                   KPI per Staff Waschen · {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Pencapaian rekomendasi staff terhadap target bulanan
+                  Pencapaian rekomendasi staff terhadap target periode cut off
                 </p>
               </div>
 
