@@ -196,6 +196,8 @@ function detailsFromEntries(entries) {
 export default function BastLinenSewa() {
   const [hospitals, setHospitals] = useState([]);
   const [hospitalId, setHospitalId] = useState("");
+  // Filter daftar terpisah dari RS form: kosong = semua RS
+  const [filterHospitalId, setFilterHospitalId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [rooms, setRooms] = useState([]);
@@ -245,8 +247,8 @@ export default function BastLinenSewa() {
   }, []);
 
   const loadHistory = useCallback(async (hid) => {
-    if (!hid) { setHistory([]); return; }
-    const q = new URLSearchParams({ hospital_id: String(hid) });
+    const q = new URLSearchParams();
+    if (hid) q.set("hospital_id", String(hid));
     if (startDate) q.set("start_date", startDate);
     if (endDate) q.set("end_date", endDate);
     const res = await api(`/ikm/bast-linen-sewa?${q}`);
@@ -273,9 +275,8 @@ export default function BastLinenSewa() {
   }, []);
 
   useEffect(() => {
-    if (!hospitalId) return;
-    loadHistory(hospitalId).catch((err) => showToast("error", err.message));
-  }, [hospitalId, loadHistory]);
+    loadHistory(filterHospitalId).catch((err) => showToast("error", err.message));
+  }, [filterHospitalId, loadHistory]);
 
 
   useEffect(() => {
@@ -417,8 +418,8 @@ export default function BastLinenSewa() {
       showToast("success", res.message || "BAST tersimpan");
       await resetForm(true);
       setActiveTab("history");
-      await loadHistory(hospitalId);
-      await loadLinens(hospitalId, "", null);
+      setHospitalId(filterHospitalId);
+      await loadHistory(filterHospitalId);
     } catch (err) {
       showToast("error", err.message);
     } finally {
@@ -433,8 +434,8 @@ export default function BastLinenSewa() {
       showToast("success", res.message || "BAST dihapus");
       setDeleteId(null);
       if (editingId === deleteId) await resetForm(true);
-      await loadHistory(hospitalId);
-      await loadLinens(hospitalId, roomId, editingId === deleteId ? null : editingId);
+      await loadHistory(filterHospitalId);
+      if (activeTab === "form") await loadLinens(hospitalId, roomId, editingId === deleteId ? null : editingId);
     } catch (err) {
       showToast("error", err.message);
     }
@@ -454,7 +455,7 @@ export default function BastLinenSewa() {
   }
   const rsStockLabel = selectedRoom ? `Stok di ${selectedRoom.room_name}` : "Stok di RS";
   const hospitalName = hospitals.find((item) => String(item.id) === String(hospitalId))?.hospital_name || "";
-  const closeForm = () => { resetForm(true); setActiveTab("history"); };
+  const closeForm = () => { resetForm(true); setActiveTab("history"); setHospitalId(filterHospitalId); };
 
   useEffect(() => {
     if (!senderName || senderId || !employees.length) return;
@@ -488,8 +489,9 @@ export default function BastLinenSewa() {
           <button
             type="button"
             onClick={() => {
-              if (!hospitalId) return showToast("error", "Pilih rumah sakit");
+              if (!filterHospitalId) return showToast("error", "Pilih rumah sakit di filter terlebih dahulu");
               resetForm(true);
+              setHospitalId(filterHospitalId);
               setActiveTab("form");
             }}
             className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/25 bg-white/15 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
@@ -508,11 +510,10 @@ export default function BastLinenSewa() {
           <div className="text-sm text-slate-600">
             <span className="mb-1 block text-xs font-semibold text-slate-500">Rumah Sakit</span>
             <HospitalSearchSelect
-              value={hospitalId}
+              value={filterHospitalId}
               hospitals={hospitals}
-              allowClear={false}
-              placeholder="Pilih rumah sakit"
-              onChange={(id) => { setHospitalId(id); setRoomId(""); setLinenSearch(""); if (activeTab === "form") closeForm(); }}
+              placeholder="Semua rumah sakit"
+              onChange={(id) => { setFilterHospitalId(id); setHospitalId(id); setRoomId(""); setLinenSearch(""); }}
             />
           </div>
           <label className="text-sm text-slate-600">
@@ -543,6 +544,7 @@ export default function BastLinenSewa() {
                 <th className="w-16 whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">No</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Nomor</th>
                 <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Tanggal</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Rumah Sakit</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Pengirim</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Penerima</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Ruangan</th>
@@ -552,17 +554,15 @@ export default function BastLinenSewa() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {!hospitalId && (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">Pilih rumah sakit terlebih dahulu.</td></tr>
-              )}
-              {hospitalId && history.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">Tidak ada data berita acara yang ditemukan.</td></tr>
+              {history.length === 0 && (
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-400">Tidak ada data berita acara yang ditemukan.</td></tr>
               )}
               {history.map((row, idx) => (
                 <tr key={row.id} onClick={() => startEdit(row.id)} className="cursor-pointer border-t border-slate-100 transition-colors hover:bg-slate-50">
                   <td className="px-4 py-3.5 text-center text-xs font-medium tabular-nums text-slate-400">{idx + 1}</td>
                   <td className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold text-slate-700">{row.bast_number}</td>
                   <td className="px-4 py-3.5 text-center text-xs text-slate-500">{showDateTime(row.bast_date)}</td>
+                  <td className="px-4 py-3.5 text-xs font-medium text-slate-700">{row.hospital_name || "-"}</td>
                   <td className="px-4 py-3.5 text-xs text-slate-700">{row.sender_name}</td>
                   <td className="px-4 py-3.5 text-xs text-slate-700">{row.receiver_name}</td>
                   <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-700">{row.room_name || "Seluruh Unit"}</td>

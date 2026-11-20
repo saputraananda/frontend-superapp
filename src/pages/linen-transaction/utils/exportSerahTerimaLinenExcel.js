@@ -1,502 +1,306 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import { BASE_URL } from "../../../lib/api";
+import { buildSerahTerimaExportData, signatureStages, toTitleCase } from "./serahTerimaLinenExportData";
+
+// Struktur mengikuti LMS (Ringkasan Global + satu sheet per unit/ruangan + TTD per tahap),
+// gaya (font, ukuran, warna) mengikuti export SuperApp.
+
+const darkBlue = "FF1E3A5F";
+const lightBlue = "FFEBF3FC";
+const grayBorder = "FFCBD5E1";
+const orangeBg = "FFFFF7ED";
+const emeraldBg = "FFF0FDF4";
+const amberBg = "FFFFFBEB";
+const slate50 = "FFF8FAFC";
+
+const thinBorder = {
+  top: { style: "thin", color: { argb: grayBorder } },
+  left: { style: "thin", color: { argb: grayBorder } },
+  bottom: { style: "thin", color: { argb: grayBorder } },
+  right: { style: "thin", color: { argb: grayBorder } },
+};
+const thickBottom = { ...thinBorder, bottom: { style: "medium", color: { argb: darkBlue } } };
+const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 
 function fmtDateTime(v) {
   if (!v) return "-";
   const d = new Date(v);
   if (isNaN(d)) return String(v);
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(d);
 }
 
-function fmtKg(v) {
-  if (v === null || v === undefined || v === "") return "-";
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "-";
-  return `${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`;
+const num = (v) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+const fmtKg = (v) => (num(v) === null ? "-" : `${num(v).toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`);
+const fmtRp = (v) => (num(v) === null ? "-" : `Rp ${num(v).toLocaleString("id-ID", { maximumFractionDigits: 2 })}`);
+
+function styleMetaLabel(cell) {
+  cell.font = { bold: true, size: 10, color: { argb: "FF475569" } };
+  cell.alignment = { vertical: "middle", horizontal: "left" };
+}
+function styleMetaValue(cell) {
+  cell.font = { size: 10, color: { argb: "FF0F172A" } };
+  cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
 }
 
-function toNumber(v) {
-  if (v === null || v === undefined || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function fmtRp(v) {
-  const n = toNumber(v);
-  if (n === null) return "-";
-  return `Rp ${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })}`;
-}
-
-function buildProxySigUrl(sig) {
-  if (!sig) return null;
-  if (
-    sig.startsWith("data:") ||
-    sig.startsWith("http://") ||
-    sig.startsWith("https://") ||
-    sig.startsWith("blob:")
-  ) {
-    return sig;
-  }
-  const filename = sig.split("/").pop();
-  const base = (BASE_URL || "").replace(/\/$/, "");
-  return `${base}/ikm/linen-transactions/signature-proxy?name=${encodeURIComponent(filename)}`;
-}
-
-async function fetchImageBuffer(url) {
+async function fetchImage(url) {
   if (!url) return null;
   try {
     const res = await fetch(url, { credentials: "include", mode: "cors" });
     if (!res.ok) return null;
     const blob = await res.blob();
-    const buffer = await blob.arrayBuffer();
-    let extension = "png";
     const mime = (blob.type || "").toLowerCase();
-    if (mime.includes("png")) extension = "png";
-    else if (mime.includes("gif")) extension = "gif";
-    else if (mime.includes("jpg") || mime.includes("jpeg")) extension = "jpeg";
-    return { buffer, extension };
+    if (!mime.startsWith("image/")) return null;
+    const extension = mime.includes("gif") ? "gif" : mime.includes("jp") ? "jpeg" : "png";
+    return { buffer: await blob.arrayBuffer(), extension };
   } catch (err) {
     console.warn("Gagal fetch gambar tanda tangan:", url, err);
     return null;
   }
 }
 
-function styleMetaLabel(cell) {
-  cell.font = { bold: true, size: 10, color: { argb: "FF475569" } };
-  cell.alignment = { vertical: "middle", horizontal: "left" };
-}
+// Kolom: A No | B Nama Item | C Kepemilikan | D Kotor | E Bersih | F Selisih | G Catatan
+const COLS = 7;
 
-function styleMetaValue(cell) {
-  cell.font = { size: 10, color: { argb: "FF0F172A" } };
-  cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-}
-
-export async function exportSerahTerimaLinenExcel(transactionData) {
-  if (!transactionData || !transactionData.header) {
-    throw new Error("Data transaksi tidak valid untuk diekspor");
-  }
-
-  const { header, details = [] } = transactionData;
-
-  const workbook = new ExcelJS.Workbook();
-  const ws = workbook.addWorksheet("Serah Terima Linen");
+function writeSheet(workbook, ws, { tx, title, unitName, items, stages, images, showKg }) {
   ws.views = [{ showGridLines: false }];
+  ws.columns = [{ width: 7 }, { width: 34 }, { width: 15 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 30 }];
 
-  // Lebar kolom: A cukup untuk label meta, bukan hanya nomor urut
-  ws.columns = [
-    { width: 24 },
-    { width: 28 },
-    { width: 16 },
-    { width: 15 },
-    { width: 24 },
-    { width: 15 },
-    { width: 24 },
-  ];
-
-  const darkBlue = "FF1E3A5F";
-  const lightBlue = "FFEBF3FC";
-  const grayBorder = "FFCBD5E1";
-  const orangeBg = "FFFFF7ED";
-  const emeraldBg = "FFF0FDF4";
-  const amberBg = "FFFFFBEB";
-
-  const thinBorder = {
-    top: { style: "thin", color: { argb: grayBorder } },
-    left: { style: "thin", color: { argb: grayBorder } },
-    bottom: { style: "thin", color: { argb: grayBorder } },
-    right: { style: "thin", color: { argb: grayBorder } },
-  };
-
-  const thickBottom = {
-    top: { style: "thin", color: { argb: grayBorder } },
-    left: { style: "thin", color: { argb: grayBorder } },
-    bottom: { style: "medium", color: { argb: darkBlue } },
-    right: { style: "thin", color: { argb: grayBorder } },
-  };
-
-  // ── Judul ────────────────────────────────────────────────────────────────
-  const titleRow = ws.addRow(["FORMULIR SERAH TERIMA LINEN RUMAH SAKIT"]);
+  // ── Judul ──
+  const titleRow = ws.addRow([title]);
   ws.mergeCells(`A${titleRow.number}:G${titleRow.number}`);
   titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: darkBlue } };
   titleRow.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
   titleRow.height = 26;
 
-  const subTitleRow = ws.addRow([`Nomor Surat: ${header.form_number || "-"}`]);
+  const subTitleRow = ws.addRow([`Nomor Surat: ${tx.form_number || "-"}`]);
   ws.mergeCells(`A${subTitleRow.number}:G${subTitleRow.number}`);
   subTitleRow.getCell(1).font = { size: 10, bold: true, color: { argb: "FF334155" } };
   subTitleRow.getCell(1).alignment = { horizontal: "center" };
 
   ws.addRow([]);
 
-  // ── Metadata (2 kolom) ───────────────────────────────────────────────────
+  // ── Metadata: label A:B, nilai C:D, label E:F, nilai G ──
   const addMetaPair = (leftLabel, leftValue, rightLabel, rightValue) => {
-    const row = ws.addRow([
-      leftLabel,
-      leftValue,
-      "",
-      "",
-      rightLabel || "",
-      rightValue || "",
-      "",
-    ]);
-    ws.mergeCells(`B${row.number}:D${row.number}`);
+    const row = ws.addRow([leftLabel, "", leftValue, "", rightLabel || "", "", rightValue || ""]);
+    ws.mergeCells(`A${row.number}:B${row.number}`);
     if (rightLabel) {
-      ws.mergeCells(`F${row.number}:G${row.number}`);
+      ws.mergeCells(`C${row.number}:D${row.number}`);
+      ws.mergeCells(`E${row.number}:F${row.number}`);
+      styleMetaLabel(row.getCell(5));
+      styleMetaValue(row.getCell(7));
     } else {
-      ws.mergeCells(`B${row.number}:G${row.number}`);
+      ws.mergeCells(`C${row.number}:G${row.number}`);
     }
     row.height = 20;
     styleMetaLabel(row.getCell(1));
-    styleMetaValue(row.getCell(2));
-    if (rightLabel) {
-      styleMetaLabel(row.getCell(5));
-      styleMetaValue(row.getCell(6));
-    }
+    styleMetaValue(row.getCell(3));
     return row;
   };
 
-  addMetaPair(
-    "Rumah Sakit",
-    header.hospital_name || "-",
-    "Status",
-    header.status || "PROSES"
-  );
-  addMetaPair(
-    "Tanggal Pickup",
-    fmtDateTime(header.pickup_date),
-    "Tanggal Pengantaran",
-    fmtDateTime(header.delivery_date)
-  );
-  addMetaPair(
-    "Petugas IKM (Pickup)",
-    header.pickup_by_name || "-",
-    "Petugas IKM (Delivery)",
-    header.delivery_by_name || "-"
-  );
-
-  const notesStr = [
-    header.notes_pickup ? `Pickup: ${header.notes_pickup}` : "",
-    header.notes_delivery ? `Delivery: ${header.notes_delivery}` : "",
-  ]
+  addMetaPair("Rumah Sakit", tx.hospital_name || "-", "Unit / Ruangan", unitName || "Semua Unit");
+  addMetaPair("Tanggal Pickup", fmtDateTime(tx.pickup_date), "Tanggal Pengantaran", fmtDateTime(tx.delivery_date));
+  addMetaPair("Petugas IKM (Pickup)", toTitleCase(tx.pickup_name) || "-", "Petugas IKM (Delivery)", toTitleCase(tx.delivery_name) || "-");
+  addMetaPair("Status", tx.status || "PROSES");
+  const notesStr = [tx.notes_pickup ? `Pickup: ${tx.notes_pickup}` : "", tx.notes_delivery ? `Delivery: ${tx.notes_delivery}` : ""]
     .filter(Boolean)
     .join(" | ");
-
-  const notesRow = ws.addRow(["Catatan", notesStr || "-", "", "", "", "", ""]);
-  ws.mergeCells(`B${notesRow.number}:G${notesRow.number}`);
-  notesRow.height = 20;
-  styleMetaLabel(notesRow.getCell(1));
-  styleMetaValue(notesRow.getCell(2));
+  addMetaPair("Catatan", notesStr || "-");
 
   ws.addRow([]);
 
-  // ── Kilogram & Express ───────────────────────────────────────────────────
-  const isExpress = Number(header.is_express) === 1;
-  const kgSectionTitle = ws.addRow(["KETERANGAN KILOGRAM & EXPRESS"]);
-  ws.mergeCells(`A${kgSectionTitle.number}:G${kgSectionTitle.number}`);
-  kgSectionTitle.getCell(1).font = { bold: true, size: 10, color: { argb: darkBlue } };
-  kgSectionTitle.getCell(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: amberBg },
-  };
-  kgSectionTitle.getCell(1).alignment = { vertical: "middle" };
-  kgSectionTitle.height = 22;
-  for (let c = 1; c <= 7; c++) {
-    kgSectionTitle.getCell(c).fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: amberBg },
-    };
-    kgSectionTitle.getCell(c).border = thinBorder;
-  }
-
-  const kgRow1 = ws.addRow([
-    "Perhitungan Valet bersama RS",
-    fmtKg(header.total_kg_valet),
-    "",
-    "",
-    "Layanan Express",
-    isExpress ? "Ya (Express)" : "Tidak",
-    "",
-  ]);
-  ws.mergeCells(`B${kgRow1.number}:D${kgRow1.number}`);
-  ws.mergeCells(`F${kgRow1.number}:G${kgRow1.number}`);
-  kgRow1.height = 20;
-  styleMetaLabel(kgRow1.getCell(1));
-  styleMetaValue(kgRow1.getCell(2));
-  styleMetaLabel(kgRow1.getCell(5));
-  styleMetaValue(kgRow1.getCell(6));
-  kgRow1.getCell(6).font = {
-    bold: true,
-    size: 10,
-    color: { argb: isExpress ? "FFB45309" : "FF0F172A" },
-  };
-
-  const isBillingKg = Number(header.billing_by_kg) === 1;
-  const kgRow2 = ws.addRow([
-    "Perhitungan Admin IKM",
-    fmtKg(header.total_kg_admin),
-    "",
-    "",
-    isBillingKg ? "Kg Perjanjian" : "",
-    isBillingKg ? fmtKg(header.kg_agreement) : "",
-    "",
-  ]);
-  ws.mergeCells(`B${kgRow2.number}:D${kgRow2.number}`);
-  ws.mergeCells(`F${kgRow2.number}:G${kgRow2.number}`);
-  kgRow2.height = 20;
-  styleMetaLabel(kgRow2.getCell(1));
-  styleMetaValue(kgRow2.getCell(2));
-  if (isBillingKg) {
-    styleMetaLabel(kgRow2.getCell(5));
-    styleMetaValue(kgRow2.getCell(6));
-
-    // Kg ditagihkan = kg aktual (valet, atau admin jika lebih besar) + kg perjanjian
-    const kgTotalRow = ws.addRow([
-      "Total Kg Ditagihkan",
-      fmtKg(header.kg_total),
-      "",
-      "",
-      "",
-      "",
-      "",
-    ]);
-    ws.mergeCells(`B${kgTotalRow.number}:D${kgTotalRow.number}`);
-    kgTotalRow.height = 20;
-    styleMetaLabel(kgTotalRow.getCell(1));
-    styleMetaValue(kgTotalRow.getCell(2));
-    kgTotalRow.getCell(2).font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
-  }
-
-  // ── Tarif per kg (express punya harga khusus, bukan kelipatan tarif reguler) ─
-  if (isBillingKg) {
-    const regularPrice = toNumber(header.price_per_kg);
-    // Express default 2x harga reguler, kecuali RS punya tarif khusus
-    const customExpressPrice = toNumber(header.express_price_per_kg);
-    const expressPrice =
-      customExpressPrice != null
-        ? customExpressPrice
-        : regularPrice != null
-          ? regularPrice * 2
-          : null;
-    const unitPrice = isExpress ? expressPrice : regularPrice;
-    const billedKg = toNumber(header.kg_total);
-
-    const priceRow = ws.addRow([
-      isExpress ? "Tarif Express per Kg" : "Tarif Reguler per Kg",
-      fmtRp(unitPrice),
-      "",
-      "",
-      "Estimasi Biaya",
-      unitPrice != null && billedKg != null ? fmtRp(unitPrice * billedKg) : "-",
-      "",
-    ]);
-    ws.mergeCells(`B${priceRow.number}:D${priceRow.number}`);
-    ws.mergeCells(`F${priceRow.number}:G${priceRow.number}`);
-    priceRow.height = 20;
-    styleMetaLabel(priceRow.getCell(1));
-    styleMetaValue(priceRow.getCell(2));
-    styleMetaLabel(priceRow.getCell(5));
-    styleMetaValue(priceRow.getCell(6));
-    priceRow.getCell(6).font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
-  }
-
-  // Selisih kg jika keduanya terisi
-  const kgValet = header.total_kg_valet !== null && header.total_kg_valet !== undefined && header.total_kg_valet !== ""
-    ? Number(header.total_kg_valet)
-    : null;
-  const kgAdmin = header.total_kg_admin !== null && header.total_kg_admin !== undefined && header.total_kg_admin !== ""
-    ? Number(header.total_kg_admin)
-    : null;
-  if (kgValet !== null && Number.isFinite(kgValet) && kgAdmin !== null && Number.isFinite(kgAdmin)) {
-    const diff = kgAdmin - kgValet;
-    const diffRow = ws.addRow([
-      "Selisih Kg (Admin − Valet)",
-      `${diff.toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`,
-      "",
-      "",
-      "",
-      "",
-      "",
-    ]);
-    ws.mergeCells(`B${diffRow.number}:D${diffRow.number}`);
-    diffRow.height = 20;
-    styleMetaLabel(diffRow.getCell(1));
-    styleMetaValue(diffRow.getCell(2));
-    if (diff !== 0) {
-      diffRow.getCell(2).font = { bold: true, size: 10, color: { argb: "FFBE123C" } };
+  // ── Kilogram & Express (hanya ringkasan global) ──
+  if (showKg) {
+    const isExpress = Number(tx.is_express) === 1;
+    const isBillingKg = Number(tx.billing_by_kg) === 1;
+    const sec = ws.addRow(["KETERANGAN KILOGRAM & EXPRESS"]);
+    ws.mergeCells(`A${sec.number}:G${sec.number}`);
+    sec.getCell(1).font = { bold: true, size: 10, color: { argb: darkBlue } };
+    sec.getCell(1).alignment = { vertical: "middle" };
+    sec.height = 22;
+    for (let c = 1; c <= COLS; c++) {
+      sec.getCell(c).fill = fill(amberBg);
+      sec.getCell(c).border = thinBorder;
     }
+
+    const r1 = addMetaPair("Perhitungan Valet bersama RS", fmtKg(tx.total_kg_valet), "Layanan Express", isExpress ? "Ya (Express)" : "Tidak");
+    r1.getCell(7).font = { bold: true, size: 10, color: { argb: isExpress ? "FFB45309" : "FF0F172A" } };
+    if (isBillingKg) {
+      addMetaPair("Perhitungan Admin IKM", fmtKg(tx.total_kg_admin), "Kg Perjanjian", fmtKg(tx.kg_agreement));
+      const regular = num(tx.price_per_kg);
+      const custom = num(tx.express_price_per_kg);
+      const expressPrice = custom != null ? custom : regular != null ? regular * 2 : null;
+      const unitPrice = isExpress ? expressPrice : regular;
+      const billedKg = num(tx.kg_total);
+      const r3 = addMetaPair("Total Kg Ditagihkan", fmtKg(tx.kg_total), "Estimasi Biaya",
+        unitPrice != null && billedKg != null ? fmtRp(unitPrice * billedKg) : "-");
+      r3.getCell(3).font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
+      r3.getCell(7).font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
+      addMetaPair(isExpress ? "Tarif Express per Kg" : "Tarif Reguler per Kg", fmtRp(unitPrice));
+    } else {
+      addMetaPair("Perhitungan Admin IKM", fmtKg(tx.total_kg_admin));
+    }
+    const kgValet = num(tx.total_kg_valet);
+    const kgAdmin = num(tx.total_kg_admin);
+    if (kgValet !== null && kgAdmin !== null) {
+      const diff = kgAdmin - kgValet;
+      const r = addMetaPair("Selisih Kg (Admin − Valet)", `${diff.toLocaleString("id-ID", { maximumFractionDigits: 2 })} Kg`);
+      if (diff !== 0) r.getCell(3).font = { bold: true, size: 10, color: { argb: "FFBE123C" } };
+    }
+    ws.addRow([]);
   }
 
-  ws.addRow([]);
-
-  // ── Tabel detail ─────────────────────────────────────────────────────────
-  const headerRow = ws.addRow([
-    "No",
-    "Nama Item Linen",
-    "Kepemilikan",
-    "Qty Kotor (Pcs)",
-    "Qty Bersih (Pcs)",
-    "Selisih",
-    "Catatan",
-  ]);
+  // ── Tabel item ──
+  const headerRow = ws.addRow(["No", "Nama Item Linen", "Kepemilikan", "Qty Kotor (Pcs)", "Qty Bersih (Pcs)", "Selisih", "Catatan"]);
   headerRow.height = 24;
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: darkBlue } };
+    cell.fill = fill(darkBlue);
     cell.border = thinBorder;
     cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
   });
 
   let totalKotor = 0;
   let totalBersih = 0;
-  let totalSelisih = 0;
   let hasBersih = false;
-
-  details.forEach((d, idx) => {
-    const kotor = Number(d.qty_kotor || 0);
-    const bersih =
-      d.qty_bersih !== null && d.qty_bersih !== "" ? Number(d.qty_bersih) : null;
-    const selisih = bersih !== null ? kotor - bersih : null;
-
+  items.forEach((d, idx) => {
+    const kotor = d.qty_kotor || 0;
+    const bersih = d.qty_bersih;
     totalKotor += kotor;
     if (bersih !== null) {
       totalBersih += bersih;
       hasBersih = true;
     }
-    if (selisih !== null) totalSelisih += selisih;
-
-    const row = ws.addRow([
-      idx + 1,
-      d.linen_display_name || `Linen #${d.hospital_linen_id}`,
-      d.ownership_type === "SEWA" ? "Sewa" : "Rumah Sakit",
-      kotor,
-      bersih !== null ? bersih : "-",
-      selisih !== null ? selisih : "-",
-      d.notes || "",
-    ]);
-
+    const row = ws.addRow([idx + 1, d.linen_name, d.ownership, kotor, bersih ?? "-", bersih !== null ? kotor - bersih : "-", d.notes || ""]);
     row.height = 20;
-    row.getCell(4).fill = { type: "pattern", pattern: "solid", fgColor: { argb: orangeBg } };
-    row.getCell(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: emeraldBg } };
-
-    row.eachCell((cell) => {
+    row.eachCell({ includeEmpty: true }, (cell, col) => {
+      if (col > COLS) return;
       cell.border = thinBorder;
       cell.font = { size: 9.5, color: { argb: "FF0F172A" } };
-      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.alignment = { horizontal: col === 2 || col === 7 ? "left" : "center", vertical: "middle", wrapText: true };
     });
+    row.getCell(4).fill = fill(orangeBg);
+    row.getCell(5).fill = fill(emeraldBg);
   });
 
-  const totalRow = ws.addRow([
-    "TOTAL",
-    "",
-    "",
-    totalKotor,
-    hasBersih ? totalBersih : "-",
-    hasBersih ? totalSelisih : "-",
-    "",
-  ]);
+  const totalRow = ws.addRow(["TOTAL", "", "", totalKotor, hasBersih ? totalBersih : "-", hasBersih ? totalKotor - totalBersih : "-", ""]);
   ws.mergeCells(`A${totalRow.number}:C${totalRow.number}`);
   totalRow.height = 22;
-  totalRow.eachCell((cell) => {
+  totalRow.eachCell({ includeEmpty: true }, (cell, col) => {
+    if (col > COLS) return;
     cell.font = { bold: true, size: 10, color: { argb: "FF0F172A" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: lightBlue } };
+    cell.fill = fill(lightBlue);
     cell.border = thickBottom;
     cell.alignment = { horizontal: "center", vertical: "middle" };
   });
 
   ws.addRow([]);
 
-  // ── Tanda tangan ─────────────────────────────────────────────────────────
+  // ── Tanda tangan ──
   const sigTitleRow = ws.addRow(["DOKUMENTASI TANDA TANGAN SERAH TERIMA"]);
   ws.mergeCells(`A${sigTitleRow.number}:G${sigTitleRow.number}`);
   sigTitleRow.getCell(1).font = { bold: true, size: 11, color: { argb: darkBlue } };
   sigTitleRow.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
   sigTitleRow.height = 22;
 
-  ws.addRow([]);
+  stages.forEach((stage, stageIdx) => {
+    if (stageIdx > 0) ws.addRow([]).height = 10;
+    const isPickup = stage.kind === "pickup";
+    // 2 kolom: A:C | D:G, 3 kolom: A:B | C:E | F:G
+    const spans = stage.cols.length === 3 ? [[1, 2], [3, 5], [6, 7]] : [[1, 3], [4, 7]];
+    const L = (c) => String.fromCharCode(64 + c);
+    const mergeSpans = (rowNum, rowEnd = rowNum) => spans.forEach(([a, b]) => ws.mergeCells(`${L(a)}${rowNum}:${L(b)}${rowEnd}`));
+    const borderRows = (from, to) => {
+      for (let r = from; r <= to; r++) for (let c = 1; c <= COLS; c++) ws.getCell(r, c).border = thinBorder;
+    };
 
-  const sigHeaders = ws.addRow([
-    "PENERIMAAN LINEN KOTOR (PICKUP)",
-    "",
-    "",
-    "",
-    "PENGIRIMAN LINEN BERSIH (DELIVERY)",
-    "",
-    "",
-  ]);
-  ws.mergeCells(`A${sigHeaders.number}:C${sigHeaders.number}`);
-  ws.mergeCells(`E${sigHeaders.number}:G${sigHeaders.number}`);
-  sigHeaders.getCell(1).font = { bold: true, size: 9.5, color: { argb: "FF9A3412" } };
-  sigHeaders.getCell(1).alignment = { horizontal: "center" };
-  sigHeaders.getCell(5).font = { bold: true, size: 9.5, color: { argb: "FF047857" } };
-  sigHeaders.getCell(5).alignment = { horizontal: "center" };
+    const sec = ws.addRow([stage.title]);
+    ws.mergeCells(`A${sec.number}:G${sec.number}`);
+    sec.getCell(1).font = { bold: true, size: 9.5, color: { argb: isPickup ? "FF9A3412" : "FF047857" } };
+    sec.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
+    sec.getCell(1).fill = fill(isPickup ? orangeBg : emeraldBg);
+    sec.height = 22;
+    borderRows(sec.number, sec.number);
 
-  const sigRoles = ws.addRow([
-    "Petugas IKM (Pickup)",
-    "Petugas RS (Kotor)",
-    "Perawat RS (Kotor)",
-    "",
-    "Petugas IKM (Delivery)",
-    "Petugas RS (Bersih)",
-    "Perawat RS (Bersih)",
-  ]);
-  sigRoles.eachCell((cell) => {
-    cell.font = { bold: true, size: 8.5, color: { argb: "FF475569" } };
-    cell.alignment = { horizontal: "center", wrapText: true };
+    const labels = ws.addRow([]);
+    labels.height = 20;
+    mergeSpans(labels.number);
+    stage.cols.forEach((col, i) => {
+      const cell = labels.getCell(spans[i][0]);
+      cell.value = col.label;
+      cell.font = { bold: true, size: 8.5, color: { argb: "FF475569" } };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = fill(slate50);
+    });
+    borderRows(labels.number, labels.number);
+
+    const imgStart = labels.number + 1;
+    const imgEnd = imgStart + 4;
+    for (let r = imgStart; r <= imgEnd; r++) ws.getRow(r).height = 14;
+    mergeSpans(imgStart, imgEnd);
+    borderRows(imgStart, imgEnd);
+    stage.cols.forEach((col, i) => {
+      const [a, b] = spans[i];
+      const img = stage.pending ? null : images.get(col.sig);
+      if (img) {
+        ws.addImage(workbook.addImage(img), {
+          tl: { col: a - 1 + 0.1, row: imgStart - 1 + 0.1 },
+          br: { col: b - 0.1, row: imgEnd - 0.1 },
+          editAs: "oneCell",
+        });
+      } else {
+        const cell = ws.getCell(imgStart, a);
+        cell.value = stage.pending ? `(${stage.pending})` : "(Belum Tanda Tangan)";
+        cell.font = { italic: true, size: 8, color: { argb: "FF94A3B8" } };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+      }
+    });
+
+    const names = ws.getRow(imgEnd + 1);
+    names.height = 22;
+    mergeSpans(names.number);
+    stage.cols.forEach((col, i) => {
+      const cell = names.getCell(spans[i][0]);
+      cell.value = `(${toTitleCase(col.name) || "—"})`;
+      cell.font = { bold: true, size: 9, color: { argb: "FF1E293B" } };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    });
+    borderRows(names.number, names.number);
   });
-  sigRoles.height = 28;
+}
 
-  const sigImgRow = ws.addRow([]);
-  sigImgRow.height = 72;
+export async function exportSerahTerimaLinenExcel(transactionData) {
+  const { tx, global, rooms } = buildSerahTerimaExportData(transactionData);
 
-  const sigNames = ws.addRow([
-    header.pickup_by_name || "-",
-    header.hospital_staff_pickup || "-",
-    header.hospital_assistant_pickup || "-",
-    "",
-    header.delivery_by_name || "-",
-    header.hospital_staff_delivery || "-",
-    header.hospital_assistant_delivery || "-",
-  ]);
-  sigNames.eachCell((cell) => {
-    cell.font = { size: 9, color: { argb: "FF1E293B" } };
-    cell.alignment = { horizontal: "center", wrapText: true };
-  });
-
-  const sigColumns = [
-    { name: header.signature_valet_pickup, col: 1 },
-    { name: header.signature_hospital_pickup, col: 2 },
-    { name: header.signature_assistant_pickup, col: 3 },
-    { name: header.signature_valet_delivery, col: 5 },
-    { name: header.signature_hospital_delivery, col: 6 },
-    { name: header.signature_assistant_delivery, col: 7 },
+  const sheets = [
+    { name: "Ringkasan Global", unitName: null, items: global, stages: signatureStages(tx, null), showKg: true },
+    ...rooms.map((room) => ({ name: room.name, unitName: room.name, items: room.items, stages: signatureStages(tx, room.unit), showKg: false })),
   ];
 
-  for (const item of sigColumns) {
-    if (!item.name) continue;
-    const url = buildProxySigUrl(item.name);
-    const img = await fetchImageBuffer(url);
-    if (!img) continue;
-    const imgId = workbook.addImage(img);
-    ws.addImage(imgId, {
-      tl: { col: item.col - 1 + 0.15, row: sigImgRow.number - 1 + 0.1 },
-      ext: { width: 110, height: 70 },
-      editAs: "oneCell",
+  // Ambil semua gambar TTD sekali (bisa dipakai ulang antar sheet)
+  const urls = [...new Set(sheets.flatMap((s) => s.stages.flatMap((st) => st.cols.map((c) => c.sig))).filter(Boolean))];
+  const fetched = await Promise.all(urls.map(fetchImage));
+  const images = new Map(urls.map((u, i) => [u, fetched[i]]));
+
+  const workbook = new ExcelJS.Workbook();
+  const usedNames = new Set();
+  for (const sheet of sheets) {
+    // Nama sheet Excel maks 31 karakter, tanpa : \ / ? * [ ] dan harus unik
+    const base = sheet.name.replace(/[:\\/?*[\]]/g, "-").replace(/\s+/g, " ").trim().substring(0, 28) || "Tanpa Ruangan";
+    let name = base;
+    for (let n = 2; usedNames.has(name.toLowerCase()); n++) name = `${base} ${n}`;
+    usedNames.add(name.toLowerCase());
+    writeSheet(workbook, workbook.addWorksheet(name), {
+      tx,
+      title: "FORMULIR SERAH TERIMA LINEN RUMAH SAKIT",
+      unitName: sheet.unitName,
+      items: sheet.items,
+      stages: sheet.stages,
+      images,
+      showKg: sheet.showKg,
     });
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  const filename = `Serah_Terima_Linen_${header.form_number || header.id}.xlsx`;
-  saveAs(blob, filename);
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  saveAs(blob, `Serah_Terima_Linen_${tx.form_number || tx.id}.xlsx`);
 }
