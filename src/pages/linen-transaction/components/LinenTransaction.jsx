@@ -707,6 +707,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
           hospital_linen_id: l.hospital_linen_id,
           linen_display_name: l.linen_display_name,
           ownership_type: l.ownership_type,
+          is_commercial: Number(l.is_commercial) === 1,
           room_id: Number(selectedRoomId),
           qty_kotor: existing ? existing.qty_kotor : "",
           qty_bersih: existing ? (existing.qty_bersih ?? "") : "",
@@ -727,6 +728,7 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
         hospital_linen_id: l.hospital_linen_id,
         linen_display_name: l.linen_display_name,
         ownership_type: l.ownership_type,
+        is_commercial: Number(l.is_commercial) === 1,
         room_id: null,
         qty_kotor: existing ? existing.qty_kotor : "",
         qty_bersih: existing ? (existing.qty_bersih ?? "") : "",
@@ -1366,6 +1368,11 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
                                       )}>
                                         {detail.ownership_type === "SEWA" ? "Sewa" : "RS"}
                                       </span>
+                                      {detail.is_commercial && (
+                                        <span className="ml-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase bg-amber-50 text-amber-700 border-amber-200">
+                                          Komersil
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="px-2 py-2">
                                       <input
