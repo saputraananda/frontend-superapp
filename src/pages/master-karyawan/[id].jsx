@@ -371,6 +371,97 @@ function Panel({ title, children }) {
   );
 }
 
+// ── PIN Karyawan (waschen.mst_employee_pin, 4 digit unik) ─────────────────
+function PinPanel({ employeeId }) {
+  const [pin, setPin] = useState(null);
+  const [value, setValue] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null); // { ok, text }
+
+  useEffect(() => {
+    let alive = true;
+    api(`/hr/employees/${employeeId}/pin`)
+      .then((res) => { if (alive) setPin(res?.data?.pin ?? null); })
+      .catch(() => { });
+    return () => { alive = false; };
+  }, [employeeId]);
+
+  const save = async (next) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await api(`/hr/employees/${employeeId}/pin`, {
+        method: "PUT",
+        body: JSON.stringify({ pin: next }),
+      });
+      setPin(res?.data?.pin ?? null);
+      setValue("");
+      setMsg({ ok: true, text: res?.message || "Tersimpan" });
+    } catch (e) {
+      setMsg({ ok: false, text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const valid = /^\d{4}$/.test(value);
+
+  return (
+    <Panel title="PIN Karyawan">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="sm:w-48">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">PIN saat ini</p>
+          <button
+            type="button"
+            onClick={() => pin && setShow((v) => !v)}
+            className="h-[42px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-left text-sm font-mono font-bold tracking-[0.3em] text-slate-800"
+            title={pin ? "Klik untuk tampilkan / sembunyikan" : undefined}
+          >
+            {pin ? (show ? pin : "••••") : <span className="tracking-normal font-sans font-medium text-slate-400">Belum ada</span>}
+          </button>
+        </div>
+        <div className="sm:w-48">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">PIN baru</p>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            value={value}
+            onChange={(e) => { setValue(e.target.value.replace(/\D/g, "").slice(0, 4)); setMsg(null); }}
+            placeholder="4 digit"
+            className={cn(inputCls(msg && !msg.ok), "font-mono tracking-[0.3em]")}
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!valid || busy}
+            onClick={() => save(value)}
+            className="h-[42px] rounded-lg bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Simpan
+          </button>
+          {pin && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => { if (window.confirm("Hapus PIN karyawan ini?")) save(null); }}
+              className="h-[42px] rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 disabled:opacity-40"
+            >
+              Hapus
+            </button>
+          )}
+        </div>
+      </div>
+      <p className={cn("mt-2 text-[11px]", msg ? (msg.ok ? "text-emerald-600" : "text-rose-500") : "text-slate-400")}>
+        {msg ? msg.text : "4 digit angka, unik untuk tiap karyawan."}
+      </p>
+    </Panel>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -1225,6 +1316,7 @@ export default function EmployeeDetail() {
                           </Field>
                         </div>
                       </Panel>
+                      <PinPanel employeeId={id} />
                       <Panel title="Riwayat Pendidikan">
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                           <Field label="Pendidikan Terakhir">
