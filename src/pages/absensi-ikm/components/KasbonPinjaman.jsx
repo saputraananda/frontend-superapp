@@ -42,11 +42,10 @@ function fmtDate(v) {
 
 function fmtDateTime(v) {
   if (!v) return "-";
-  // MySQL datetime "YYYY-MM-DD HH:MM:SS" has no timezone info.
-  // The server stores UTC, so we append "Z" to force UTC interpretation
-  // so the browser auto-converts to local time (WIB = UTC+7).
+  // MySQL datetime "YYYY-MM-DD HH:MM:SS" tidak membawa zona waktu; database menyimpan WIB.
+  // Tandai sebagai WIB (+07:00) supaya tampil apa adanya di browser mana pun (dulu "Z" → tampil +7 jam).
   const normalized = typeof v === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(v)
-    ? v.replace(" ", "T") + "Z"
+    ? v.replace(" ", "T") + "+07:00"
     : v;
   const d = new Date(normalized);
   if (isNaN(d)) return v;
