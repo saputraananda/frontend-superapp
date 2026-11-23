@@ -328,6 +328,37 @@ function ProgressPhotos({ photos, onView }) {
   );
 }
 
+/** Ceklis jenis pakaian kiloan oleh Tim Setrika / Tim Packing: ✓ sesuai, ✗ tidak sesuai (jumlah ditemukan) */
+function KgCheckList({ checks }) {
+  if (!checks?.length) return null;
+  const wrong = checks.filter((c) => !c.is_match);
+  return (
+    <details className="group mt-1.5 overflow-hidden rounded-lg border border-slate-200 bg-white" open={wrong.length > 0}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-[11px] font-bold text-slate-700">
+        <span>Ceklis jenis pakaian</span>
+        <span className="flex items-center gap-1.5 tabular-nums">
+          <span className="text-emerald-600">{checks.length - wrong.length} ✓</span>
+          {wrong.length > 0 && <span className="text-red-600">{wrong.length} ✗</span>}
+          <HiOutlineChevronDown className="h-3.5 w-3.5 text-slate-400 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className="divide-y divide-slate-100 border-t border-slate-100">
+        {checks.map((c, i) => (
+          <div key={i} className={cn("flex items-center justify-between gap-2 px-2.5 py-1 text-[11px]", !c.is_match && "bg-red-50")}>
+            <span className={cn("flex items-center gap-1.5", c.is_match ? "text-slate-700" : "font-semibold text-red-800")}>
+              <span className={cn("font-black", c.is_match ? "text-emerald-600" : "text-red-600")}>{c.is_match ? "✓" : "✗"}</span>
+              {c.item_name}
+            </span>
+            <span className={cn("tabular-nums font-bold", c.is_match ? "text-slate-600" : "text-red-700")}>
+              {c.is_match ? `${c.expected_qty} pcs` : `ditemukan ${c.actual_qty} dari ${c.expected_qty} pcs`}
+            </span>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function ItemProgressTimeline({ workers, onViewPhoto }) {
   if (!workers?.length) {
     return (
@@ -372,7 +403,8 @@ function ItemProgressTimeline({ workers, onViewPhoto }) {
               )}
               <span className="ml-auto text-[10px] text-slate-400 tabular-nums">{fmtDate(w.completed_at)}</span>
             </div>
-            {hasText(w.notes) && <p className="mt-0.5 text-[11px] text-slate-500">{w.notes}</p>}
+            {hasText(w.notes) && <p className="mt-0.5 whitespace-pre-line text-[11px] text-slate-500">{w.notes}</p>}
+            <KgCheckList checks={w.kg_checks} />
             <ProgressPhotos photos={w.photos} onView={onViewPhoto} />
           </li>
         );
@@ -381,15 +413,22 @@ function ItemProgressTimeline({ workers, onViewPhoto }) {
   );
 }
 
+// Nama tahap kiloan sama dengan Waschen Mobile
+const KILOAN_STAGE_LABELS = { frontliner: "Frontliner", washing: "Tim Cuci", ironing: "Tim Setrika", packing: "Tim Packing" };
+
 /** Pemantauan kiloan: jumlah per plastik tiap tahap + rincian jenis pakaian per plastik */
 function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
   if (!bagHistory.length && !kgItems.length) return null;
   const bagNos = [...new Set([...bagHistory.flatMap((h) => h.bags.map((b) => Number(b.bag_no))), ...kgItems.map((k) => Number(k.bag_no))])].sort((a, b) => a - b);
   const qtyOf = (h, no) => h.bags.find((b) => Number(b.bag_no) === no)?.qty_pcs;
+  const stageTotal = (h) => h.bags.reduce((s, b) => s + Number(b.qty_pcs || 0), 0);
   const fl = bagHistory.find((h) => h.stage === "frontliner");
 
   return (
     <div className="space-y-2">
+      {bagHistory.length > 0 && (
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Riwayat quantity</p>
+      )}
       {bagHistory.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-xs">
@@ -406,22 +445,24 @@ function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
               {bagHistory.map((h) => (
                 <tr key={h.stage}>
                   <td className="px-2.5 py-1.5">
-                    <p className="font-semibold text-slate-800">{h.stage_label}</p>
+                    <p className="font-semibold text-slate-800">{KILOAN_STAGE_LABELS[h.stage] || h.stage_label}</p>
                     <p className="text-[10px] text-slate-400">{fmtEmployeeName(h.employee_name)} · {fmtDate(h.completed_at)}</p>
                   </td>
-                  {bagNos.map((no) => {
-                    const q = qtyOf(h, no);
-                    const ref = fl && h !== fl ? qtyOf(fl, no) : undefined;
-                    const mismatch = ref != null && q != null && Number(q) !== Number(ref);
+                  {/* Sama dengan Waschen Mobile: hanya Frontliner yang menghitung per plastik, tahap lain total saja */}
+                  {bagNos.map((no) => (
+                    <td key={no} className="px-2 py-1.5 text-center font-bold tabular-nums text-slate-800">
+                      {h.stage === "frontliner" ? (qtyOf(h, no) ?? "—") : "—"}
+                    </td>
+                  ))}
+                  {(() => {
+                    const total = stageTotal(h);
+                    const mismatch = fl && h !== fl && total !== stageTotal(fl);
                     return (
-                      <td key={no} className={cn("px-2 py-1.5 text-center font-bold tabular-nums", mismatch ? "text-amber-600" : "text-slate-800")} title={mismatch ? `Beda dengan frontliner (${ref})` : undefined}>
-                        {q ?? "—"}
+                      <td className={cn("px-2 py-1.5 text-center font-bold tabular-nums", mismatch ? "text-amber-600" : "text-[#5f1340]")} title={mismatch ? `Beda dengan Frontliner (${stageTotal(fl)})` : undefined}>
+                        {total}
                       </td>
                     );
-                  })}
-                  <td className="px-2 py-1.5 text-center font-bold tabular-nums text-[#5f1340]">
-                    {h.bags.reduce((s, b) => s + Number(b.qty_pcs || 0), 0)}
-                  </td>
+                  })()}
                 </tr>
               ))}
             </tbody>
@@ -434,7 +475,7 @@ function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
           <p className="text-[11px] font-semibold text-slate-500">
             Jenis pakaian
             {kgItems[0]?.source_label
-              ? ` — dirinci ${kgItems[0].source_label}${kgItems[0].source_employee_name ? ` (${fmtEmployeeName(kgItems[0].source_employee_name)})` : ""}`
+              ? ` — dirinci ${KILOAN_STAGE_LABELS[kgItems[0].source_stage] || kgItems[0].source_label}${kgItems[0].source_employee_name ? ` (${fmtEmployeeName(kgItems[0].source_employee_name)})` : ""}`
               : ""}
           </p>
           <div className="grid gap-1.5 sm:grid-cols-2">
