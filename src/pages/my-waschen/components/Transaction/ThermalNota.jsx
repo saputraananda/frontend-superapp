@@ -17,6 +17,8 @@ import {
   mapDbTransactionToReceipt,
   mapTxnToThermalReceipt,
 } from "../../utils/printerSettings.js";
+import { buildEscPosNota80, getNotaPaperSize, setNotaPaperSize } from "../../utils/escpos80.js";
+import { isPrinterConnected, writeToThermalPrinter } from "../../utils/thermalPrinter.js";
 
 export { mapDbTransactionToReceipt, mapTxnToThermalReceipt };
 
@@ -35,6 +37,13 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
   const [printingVariant, setPrintingVariant] = useState(null);
   const [printError, setPrintError] = useState("");
   const [printSuccess, setPrintSuccess] = useState("");
+  // Ukuran kertas: "58" (bawaan, alur lama) atau "80" (escpos80.js). Diingat per perangkat.
+  const [paper, setPaper] = useState(getNotaPaperSize);
+  const is80 = paper === "80";
+  const choosePaper = (size) => {
+    setPaper(size);
+    setNotaPaperSize(size);
+  };
 
   const resolvedOutletId = outletId || createdOrderReceipt?.outletId || 0;
   const fetchKey = createdOrderReceipt ? `${receiptKey}-${resolvedOutletId}` : null;
@@ -107,9 +116,14 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
     setPrintingVariant(variant);
     try {
       const variantSettings = variant === "internal" ? settings.internal : settings.customer;
-      await printNota(createdOrderReceipt, variantSettings, variant);
+      if (is80) {
+        if (!isPrinterConnected()) throw new Error("Printer belum terhubung");
+        await writeToThermalPrinter(await buildEscPosNota80(createdOrderReceipt, variantSettings, variant));
+      } else {
+        await printNota(createdOrderReceipt, variantSettings, variant);
+      }
       setPrintSuccess(
-        `Nota ${variant === "internal" ? "Internal" : "Customer"} berhasil dikirim ke printer`
+        `Nota ${variant === "internal" ? "Internal" : "Customer"} ${paper}mm berhasil dikirim ke printer`
       );
     } catch (err) {
       setPrintError(err.message || "Gagal mencetak nota");
@@ -136,7 +150,7 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
                 <HiOutlinePrinter className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-bold text-slate-800 truncate">Preview & Cetak Nota</h3>
+                <h3 className="text-sm font-bold text-slate-800 truncate">Preview & Cetak Nota {paper}mm</h3>
                 <p className="text-[10px] text-slate-500">Pilih nota Internal atau Customer untuk dicetak</p>
               </div>
             </div>
@@ -149,14 +163,34 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
             </button>
           </div>
 
+          <div className="shrink-0 px-4 py-2.5 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ukuran kertas</span>
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 gap-1">
+              {["58", "80"].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => choosePaper(size)}
+                  disabled={Boolean(printingVariant)}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors disabled:cursor-not-allowed",
+                    paper === size ? "bg-[#5f1340] text-white shadow-sm" : "text-slate-600 hover:bg-white"
+                  )}
+                >
+                  {size} mm
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-[#ece9e4] py-5 px-4 sm:px-6">
             {loadingSettings ? (
               <div className="flex justify-center py-16">
                 <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#5f1340] border-t-transparent" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-3xl mx-auto justify-items-center">
-                <div className="w-full max-w-[280px] flex flex-col items-center gap-2">
+              <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-4 mx-auto justify-items-center", is80 ? "max-w-4xl" : "max-w-3xl")}>
+                <div className={cn("w-full flex flex-col items-center gap-2", is80 ? "max-w-[420px]" : "max-w-[280px]")}>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#5f1340] bg-white/80 px-2.5 py-1 rounded-lg border border-[#5f1340]/15">
                     Nota Internal
                   </span>
@@ -164,9 +198,10 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
                     receipt={createdOrderReceipt}
                     settings={settings.internal}
                     variant="internal"
+                    paper={paper}
                   />
                 </div>
-                <div className="w-full max-w-[280px] flex flex-col items-center gap-2">
+                <div className={cn("w-full flex flex-col items-center gap-2", is80 ? "max-w-[420px]" : "max-w-[280px]")}>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200">
                     Nota Customer
                   </span>
@@ -174,6 +209,7 @@ export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0
                     receipt={createdOrderReceipt}
                     settings={settings.customer}
                     variant="customer"
+                    paper={paper}
                   />
                 </div>
               </div>
