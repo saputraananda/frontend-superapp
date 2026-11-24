@@ -97,6 +97,7 @@ const ROLE_META = {
     "Ironing Staff": { label: "Ironing Staff", cls: "border-purple-300 bg-purple-50 text-purple-700", dot: "bg-purple-500" },
     "Packing Staff": { label: "Packing Staff", cls: "border-amber-300 bg-amber-50 text-amber-700", dot: "bg-amber-500" },
     "Delivery Staff": { label: "Delivery Staff", cls: "border-emerald-300 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+    "Daily Worker": { label: "Daily Worker", cls: "border-rose-300 bg-rose-50 text-rose-700", dot: "bg-rose-500" },
 };
 
 function RoleBadge({ role }) {
@@ -165,28 +166,45 @@ function FloatingDropdown({
     panelClassName = "p-1",
 }) {
     const triggerRef = useRef(null);
+    const panelRef = useRef(null);
     const [pos, setPos] = useState(null);
 
     // Layout effect: posisi dihitung sebelum paint, jadi pos lama tak sempat berkedip saat dibuka ulang.
+    // Bila ruang di bawah tidak cukup (baris dekat bawah layar), panel dibuka ke atas;
+    // tinggi dibatasi ruang yang tersedia dan isinya bisa di-scroll.
     useLayoutEffect(() => {
         if (!open) return undefined;
+        const GAP = 6;
+        const EDGE = 8;
         const place = () => {
             const r = triggerRef.current?.getBoundingClientRect();
             if (!r) return;
             const left = align === "right" ? r.right - width : r.left;
+            const natural = panelRef.current?.scrollHeight || 0;
+            const below = window.innerHeight - r.bottom - GAP - EDGE;
+            const above = r.top - GAP - EDGE;
+            const want = Math.min(natural || Infinity, maxHeight || Infinity);
+            const up = natural > 0 && want > below && above > below;
+            const room = Math.max(120, up ? above : below);
+            const height = Math.min(want, room);
             setPos({
-                top: r.bottom + 6,
-                left: Math.max(8, Math.min(left, window.innerWidth - width - 8)),
+                top: up ? r.top - GAP - (Number.isFinite(height) ? height : room) : r.bottom + GAP,
+                left: Math.max(EDGE, Math.min(left, window.innerWidth - width - EDGE)),
+                maxHeight: Math.min(maxHeight || Infinity, room),
+                up,
             });
         };
         place();
+        // Ukur ulang setelah panel ter-render (tinggi isi baru diketahui)
+        const raf = requestAnimationFrame(place);
         window.addEventListener("scroll", place, true);
         window.addEventListener("resize", place);
         return () => {
+            cancelAnimationFrame(raf);
             window.removeEventListener("scroll", place, true);
             window.removeEventListener("resize", place);
         };
-    }, [open, align, width]);
+    }, [open, align, width, maxHeight]);
 
     return (
         <div className="relative inline-block">
@@ -214,15 +232,16 @@ function FloatingDropdown({
                         }}
                     />
                     <div
+                        ref={panelRef}
                         style={{
                             top: pos.top,
                             left: pos.left,
                             width,
-                            maxHeight: maxHeight || undefined,
+                            maxHeight: Number.isFinite(pos.maxHeight) ? pos.maxHeight : undefined,
                         }}
                         className={cn(
-                            "fixed rounded-lg border border-[#e0e0e0] bg-white shadow-lg z-[100] animate-in fade-in slide-in-from-top-1 duration-100",
-                            maxHeight && "overflow-y-auto",
+                            "fixed overflow-y-auto overscroll-contain rounded-lg border border-[#e0e0e0] bg-white shadow-lg z-[100] animate-in fade-in duration-100",
+                            pos.up ? "slide-in-from-bottom-1" : "slide-in-from-top-1",
                             panelClassName,
                         )}
                         onClick={(e) => e.stopPropagation()}

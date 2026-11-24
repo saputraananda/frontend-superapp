@@ -130,7 +130,7 @@ function DepositDetail({ s, onViewProof }) {
       </div>
       <div className="space-y-1.5">
         <Row label="Ditutup oleh">{fmtEmployeeName(s.closedByName)} · {fmtDateTime(s.closedAt)}</Row>
-        <Row label="Cash sistem (masuk)">{fmtIDR(s.systemCashRevenue)}</Row>
+        <Row label="Revenue tunai (masuk)">{fmtIDR(s.revenueTunai)}</Row>
         <Row label="Cash seharusnya">{fmtIDR(s.expectedCash)}</Row>
         <Row label="Cash aktual saat close">{s.actualCash != null ? fmtIDR(s.actualCash) : "—"}</Row>
         {uploaded && <Row label="Diupload oleh">{fmtEmployeeName(d.uploadedByName)} · {fmtDateTime(d.uploadedAt)}</Row>}

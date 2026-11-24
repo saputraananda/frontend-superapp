@@ -19,6 +19,8 @@ import {
   HiOutlineBanknotes,
   HiOutlineChartBarSquare,
   HiOutlineCreditCard,
+  HiOutlineDevicePhoneMobile,
+  HiOutlineWallet,
   HiOutlineExclamationTriangle,
   HiOutlineShoppingBag,
   HiOutlineUserGroup,
@@ -64,11 +66,17 @@ function ChartTooltip({ active, payload, label, valueFormatter = fmtNum }) {
   );
 }
 
+/** "35% dari total" — porsi metode bayar terhadap revenue total. */
+const pctOf = (part, total) => {
+  const t = Number(total) || 0;
+  return t > 0 ? `${Math.round(((Number(part) || 0) / t) * 100)}% dari total` : "0% dari total";
+};
+
 function StatCard({ icon: Icon, label, value, sub, tone = "from-[#5f1340] to-[#3d0728]" }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
           <p className="mt-1 text-xl font-bold text-slate-800 truncate">{value}</p>
           {sub && <p className="mt-1 text-[11px] text-slate-500">{sub}</p>}
@@ -359,8 +367,10 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatCard icon={HiOutlineBanknotes} label="Revenue Periode" value={fmtIDR(summary.total_revenue)} sub={`${fmtNum(summary.revenue_orders || summary.total_orders)} nota dibayar`} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard icon={HiOutlineBanknotes} label="Revenue Periode" value={fmtIDR(summary.total_revenue)} sub={`${fmtNum(summary.revenue_orders || 0)} nota dibayar`} />
+            <StatCard icon={HiOutlineWallet} label="Revenue Tunai" value={fmtIDR(summary.total_revenue_tunai)} sub={pctOf(summary.total_revenue_tunai, summary.total_revenue)} tone="from-amber-500 to-orange-600" />
+            <StatCard icon={HiOutlineDevicePhoneMobile} label="Revenue Non Tunai" value={fmtIDR(summary.total_revenue_non_tunai)} sub={pctOf(summary.total_revenue_non_tunai, summary.total_revenue) + " · QRIS, transfer, debit, saldo"} tone="from-indigo-500 to-blue-700" />
             <StatCard icon={HiOutlineShoppingBag} label="Rata-rata Revenue" value={fmtIDR(summary.avg_order_value)} sub={`Diskon ${fmtIDR(summary.total_discount)}`} tone="from-violet-600 to-purple-700" />
             <StatCard icon={HiOutlineUserGroup} label="Pelanggan Aktif" value={fmtNum(summary.active_customers)} sub={`Total ${fmtNum(summary.total_customers)} pelanggan`} tone="from-sky-600 to-blue-700" />
             <StatCard icon={HiOutlineCreditCard} label="Saldo Deposit" value={fmtIDR(summary.total_deposit_balance)} sub={`${fmtNum(summary.customers_with_membership)} pakai membership`} tone="from-emerald-600 to-teal-700" />

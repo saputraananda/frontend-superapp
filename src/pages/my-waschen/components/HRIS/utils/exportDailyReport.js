@@ -47,8 +47,9 @@ function buildShiftSheet(s, { dateLabel }) {
   const lines = [
     `Shift ${shiftLabel(s)} #${s.id} · Status ${s.status || "-"}${s.closeType ? ` · ${s.closeType}` : ""} · ${dateLabel}`,
     `Dibuka: ${fmtDateTime(s.openedAt)} oleh ${person(s.openerName)}   |   Ditutup: ${s.closedAt ? `${fmtDateTime(s.closedAt)} oleh ${person(s.closedByName)}` : "-"}`,
-    `Cash Modal Open: ${idr(s.initialCash)}   |   Petty Open: ${idr(s.initialPettyCash)}   |   Cash Aktual Close: ${idrOrDash(s.actualCash)}   |   Revenue: ${idrOrDash(s.declaredRevenue)}`,
-    `Expected Cash: ${idr(s.expectedCash)}   |   Selisih: ${idr(s.difference)}   |   Petty Aktual Close: ${idrOrDash(s.actualPettyCash)}   |   System Revenue: ${idr(s.systemCashRevenue)}`,
+    `Cash Modal Open: ${idr(s.initialCash)}   |   Petty Open: ${idr(s.initialPettyCash)}   |   Cash Aktual Close: ${idrOrDash(s.actualCash)}   |   Revenue Dilaporkan: ${idrOrDash(s.declaredRevenue)}`,
+    `Expected Cash: ${idr(s.expectedCash)}   |   Selisih: ${idr(s.difference)}   |   Petty Aktual Close: ${idrOrDash(s.actualPettyCash)}`,
+    `Revenue Tunai: ${idr(s.revenueTunai)}   |   Revenue Non Tunai: ${idr(s.revenueNonTunai)}   |   Revenue Total: ${idr(s.revenueTotal)}`,
     `Setoran Tunai: ${depositText(s.deposit)}`,
     ...(s.openImbalanceReason ? [`Alasan imbalance open: ${s.openImbalanceReason}`] : []),
     ...(s.closingNotes ? [`Catatan closing: ${s.closingNotes}`] : []),
@@ -102,7 +103,7 @@ function buildSummarySheet(shifts, { dateLabel, filters }) {
   ];
   const H = [
     "No", "Outlet", "Shift", "Status", "Dibuka Oleh", "Buka", "Tutup", "Cash Modal Open", "Petty Open",
-    "Cash Aktual Close", "Expected Cash", "Selisih", "System Revenue", "Revenue", "Jumlah Nota", "Total Nota Dibayar", "Setoran Tunai",
+    "Cash Aktual Close", "Expected Cash", "Selisih", "Revenue Tunai", "Revenue Non Tunai", "Revenue Total", "Revenue Dilaporkan", "Jumlah Nota", "Total Nota Dibayar", "Setoran Tunai",
   ];
   const rows = shifts.map((s, i) => {
     const alt = i % 2 === 1;
@@ -122,7 +123,9 @@ function buildSummarySheet(shifts, { dateLabel, filters }) {
       s.actualCash != null ? cell(num(s.actualCash), moneyStyle(alt)) : cell("-", cc),
       cell(num(s.expectedCash), moneyStyle(alt)),
       cell(diff, moneyStyle(alt, diff === 0 ? C.textDark : C.lateText, diff !== 0)),
-      cell(num(s.systemCashRevenue), moneyStyle(alt)),
+      cell(num(s.revenueTunai), moneyStyle(alt)),
+      cell(num(s.revenueNonTunai), moneyStyle(alt)),
+      cell(num(s.revenueTotal), moneyStyle(alt, C.textDark, true)),
       s.declaredRevenue != null ? cell(num(s.declaredRevenue), moneyStyle(alt, C.okText, true)) : cell("-", cc),
       cell(nota.length, numStyle(alt)),
       cell(nota.reduce((sum, t) => sum + num(t.paidHere), 0), moneyStyle(alt, C.textDark, true)),
@@ -143,13 +146,15 @@ function buildSummarySheet(shifts, { dateLabel, filters }) {
       cell(sumBy((s) => num(s.actualCash)), moneyTotal),
       cell(sumBy((s) => num(s.expectedCash)), moneyTotal),
       cell(sumBy((s) => num(s.difference)), moneyTotal),
-      cell(sumBy((s) => num(s.systemCashRevenue)), moneyTotal),
+      cell(sumBy((s) => num(s.revenueTunai)), moneyTotal),
+      cell(sumBy((s) => num(s.revenueNonTunai)), moneyTotal),
+      cell(sumBy((s) => num(s.revenueTotal)), moneyTotal),
       cell(sumBy((s) => num(s.declaredRevenue)), moneyTotal),
       cell(sumBy((s) => (s.transactions || []).length), totalStyle),
       cell(sumBy((s) => (s.transactions || []).reduce((a, t) => a + num(t.paidHere), 0)), moneyTotal),
       cell("", totalStyle),
     ] : undefined,
-    widths: [5, 30, 14, 16, 26, 20, 20, 17, 15, 17, 16, 15, 17, 16, 12, 19, 40],
+    widths: [5, 30, 14, 16, 26, 20, 20, 17, 15, 17, 16, 15, 16, 17, 17, 18, 12, 19, 40],
   });
 }
 
