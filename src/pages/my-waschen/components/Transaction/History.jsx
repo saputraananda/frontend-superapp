@@ -17,7 +17,7 @@ function cn(...classes) {
 
 const TABS = [
   { id: "history", label: "Riwayat Transaksi", icon: HiOutlineClipboardDocumentList, accent: "text-[#5f1340]" },
-  { id: "refund", label: "Request Refund", icon: HiOutlineArrowPathRoundedSquare, accent: "text-sky-600" },
+  { id: "refund", label: "Request Refund & Deposit", icon: HiOutlineArrowPathRoundedSquare, accent: "text-sky-600" },
   { id: "delete", label: "Request Delete", icon: HiOutlineTrash, accent: "text-rose-600" },
 ];
 
