@@ -27,7 +27,7 @@ import {
   HiOutlineArrowsPointingIn,
   HiOutlineXMark,
 } from "react-icons/hi2";
-import { api, waschenUploadUrl } from "../../../../lib/api";
+import { api, waschenPosUploadUrl, waschenUploadUrl } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import PageHero from "../PageHero";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
@@ -511,9 +511,9 @@ function KiloanBagMonitor({ bagHistory = [], kgItems = [] }) {
 }
 
 function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewPhoto }) {
-  // Foto kondisi item (bisa >1); fallback foto tunggal lama
+  // Foto kondisi item (bisa >1) diunggah frontliner lewat POS → dilayani pos.mywaschen.com; fallback foto tunggal lama
   const photos = (Array.isArray(item.photos) && item.photos.length ? item.photos : item.photo_url ? [{ photo_url: item.photo_url }] : [])
-    .map((p) => waschenUploadUrl(p.photo_url))
+    .map((p) => waschenPosUploadUrl(p.photo_url))
     .filter(Boolean);
   const methodCode = item.laundry_method_code || (Number(item.laundry_method_id) === 2 ? "DC" : "WC");
   const methodName = item.laundry_method_name || (Number(item.laundry_method_id) === 2 ? "Dry Clean" : "Wet Clean");
