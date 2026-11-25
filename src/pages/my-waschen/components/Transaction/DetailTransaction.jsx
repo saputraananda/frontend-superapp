@@ -6,6 +6,7 @@ import {
   HiOutlineTicket,
   HiOutlineArrowLeft,
   HiOutlineCheckCircle,
+  HiOutlineXMark,
   HiOutlineExclamationTriangle,
   HiOutlineArrowPath,
   HiOutlinePrinter,
@@ -25,7 +26,6 @@ import {
   HiOutlineChatBubbleLeftEllipsis,
   HiOutlineArrowsPointingOut,
   HiOutlineArrowsPointingIn,
-  HiOutlineXMark,
 } from "react-icons/hi2";
 import { api, waschenPosUploadUrl, waschenUploadUrl } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -856,17 +856,18 @@ export default function DetailTransaction() {
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
       {loading && !data ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-3">
+        <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="space-y-3 lg:order-2">
             <div className="h-28 animate-pulse rounded-2xl bg-slate-200" />
             <div className="h-64 animate-pulse rounded-2xl bg-slate-200" />
           </div>
-          <div className="h-96 animate-pulse rounded-2xl bg-slate-200" />
+          <div className="h-96 animate-pulse rounded-2xl bg-slate-200 lg:order-1" />
         </div>
       ) : order ? (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* ── Kolom utama ── */}
-          <div className="min-w-0 space-y-4">
+        /* Desktop: rincian nota di kiri, item di kanan; HP: item tetap di atas */
+        <div className="grid items-start gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          {/* ── Kolom utama (item) ── */}
+          <div className="min-w-0 space-y-4 lg:order-2">
             <FlowStepper items={items} workStatus={order.workStatus} activeFilter={stepFilter} onFilter={setStepFilter} cancelled={cancelled} />
 
             <Card
@@ -934,8 +935,8 @@ export default function DetailTransaction() {
             </Card>
           </div>
 
-          {/* ── Sidebar ── */}
-          <aside className="space-y-4 lg:sticky lg:top-4">
+          {/* ── Sidebar (rincian nota) ── */}
+          <aside className="space-y-4 lg:order-1 lg:sticky lg:top-4">
             {/* QR */}
             <Card bodyClassName="p-0">
               <button
