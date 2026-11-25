@@ -2609,7 +2609,8 @@ export default function LinenTransaction() {
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Pengantaran</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Kotor</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Bersih</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Linen Kurang Kirim</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Kurang Kirim</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Lebih Kirim</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
@@ -2617,21 +2618,23 @@ export default function LinenTransaction() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, idx) => (
                     <tr key={idx} className="border-t border-slate-100 animate-pulse">
-                      {Array.from({ length: 9 }).map((_, i) => (
+                      {Array.from({ length: 10 }).map((_, i) => (
                         <td key={i} className="px-4 py-3.5"><div className="h-3.5 rounded bg-slate-200 w-full" /></td>
                       ))}
                     </tr>
                   ))
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">
+                    <td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-400">
                       Tidak ada data transaksi linen yang ditemukan.
                     </td>
                   </tr>
                 ) : (
                   data.map((row, idx) => {
                     const number = (page - 1) * limit + idx + 1;
-                    const hasKurang = row.kurang_kirim !== 0;
+                    // null = formulir belum selesai (belum dihitung, sama seperti LMS Kurang Kirim)
+                    const kurang = row.kurang_kirim == null ? null : Number(row.kurang_kirim);
+                    const lebih = row.lebih_kirim == null ? null : Number(row.lebih_kirim);
                     return (
                       <tr
                         key={row.id}
@@ -2651,9 +2654,15 @@ export default function LinenTransaction() {
                         <td className="px-4 py-3.5 text-center text-xs font-medium text-slate-700 tabular-nums">{row.total_bersih}</td>
                         <td className={cn(
                           "px-4 py-3.5 text-center text-xs font-bold tabular-nums",
-                          hasKurang ? "text-rose-600 bg-rose-50/30" : "text-slate-400"
+                          kurang > 0 ? "text-rose-600 bg-rose-50/30" : "text-slate-400"
                         )}>
-                          {row.kurang_kirim}
+                          {kurang == null ? "—" : kurang}
+                        </td>
+                        <td className={cn(
+                          "px-4 py-3.5 text-center text-xs font-bold tabular-nums",
+                          lebih > 0 ? "text-blue-600 bg-blue-50/30" : "text-slate-400"
+                        )}>
+                          {lebih == null ? "—" : lebih}
                         </td>
 
                         {/* Aksi options */}
