@@ -8,10 +8,10 @@ import {
 	HiOutlineClipboardDocumentList,
 	HiOutlineExclamationTriangle,
 	HiOutlineMagnifyingGlass,
-	HiOutlinePhoto,
 	HiOutlineXMark,
 } from "react-icons/hi2";
-import { api, BASE_URL } from "../../../lib/api";
+import { api } from "../../../lib/api";
+import { AuthenticatedImage } from "./AuthenticatedImage";
 import { exportRiwayatTransaksiCleanoxExcel } from "../utils/exportRiwayatTransaksiCleanoxExcel";
 import CompensationBadge from "./CompensationBadge";
 import PaymentStatusBadge from "./PaymentStatusBadge";
@@ -23,67 +23,6 @@ function cn(...classes) {
 
 function clamp(value, min, max) {
 	return Math.min(Math.max(value, min), max);
-}
-
-function AuthenticatedImage({ path, alt, className, onClick, iconSize = "h-5 w-5", objectFit = "cover" }) {
-	const [src, setSrc] = useState(null);
-	const [error, setError] = useState(false);
-
-	useEffect(() => {
-		let objectUrl = null;
-		let cancelled = false;
-
-		(async () => {
-			if (!path) {
-				setSrc(null);
-				setError(true);
-				return;
-			}
-			try {
-				setError(false);
-				const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
-				const res = await fetch(url, { credentials: "include" });
-				if (!res.ok) throw new Error("Gagal memuat foto");
-				const blob = await res.blob();
-				objectUrl = URL.createObjectURL(blob);
-				if (!cancelled) setSrc(objectUrl);
-			} catch {
-				if (!cancelled) {
-					setSrc(null);
-					setError(true);
-				}
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-			if (objectUrl) URL.revokeObjectURL(objectUrl);
-		};
-	}, [path]);
-
-	const imgCls = objectFit === "contain" ? "h-full w-full object-contain" : "h-full w-full object-cover";
-
-	if (error || !src) {
-		return (
-			<div className={cn("flex items-center justify-center bg-slate-100 text-slate-400", className)}>
-				<HiOutlinePhoto className={cn("opacity-50", iconSize)} />
-			</div>
-		);
-	}
-
-	if (onClick) {
-		return (
-			<button type="button" onClick={onClick} className={cn("block overflow-hidden p-0", className)}>
-				<img src={src} alt={alt} className={imgCls} />
-			</button>
-		);
-	}
-
-	return (
-		<div className={cn("overflow-hidden", className)}>
-			<img src={src} alt={alt} className={imgCls} />
-		</div>
-	);
 }
 
 function PhotoThumb({ path, label, onOpen, className = "h-10 w-10" }) {

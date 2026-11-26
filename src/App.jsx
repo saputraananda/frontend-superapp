@@ -173,6 +173,8 @@ import RequestTraining from "./pages/training-system/pages/RequestTraining";
 import FormRequestTraining from "./pages/training-system/components/FormRequestTraining";
 import TrainingMaster from "./pages/training-system/pages/academy/TrainingMaster";
 import TrainingForm from "./pages/training-system/pages/academy/TrainingForm";
+import TrainingTypeList from "./pages/training-system/pages/academy/TrainingTypeList";
+import TopicList from "./pages/training-system/pages/academy/TopicList";
 import SkillMatrixMaster from "./pages/training-system/pages/academy/SkillMatrixMaster";
 import LoManagement from "./pages/training-system/pages/academy/LoManagement";
 import BatchList from "./pages/training-system/pages/academy/BatchList";
@@ -180,9 +182,12 @@ import BatchForm from "./pages/training-system/pages/academy/BatchForm";
 import BatchDetail from "./pages/training-system/pages/academy/BatchDetail";
 import AcademyDashboard from "./pages/training-system/pages/academy/AcademyDashboard";
 import OjtList from "./pages/training-system/pages/academy/OjtList";
-import OjtForm from "./pages/training-system/pages/academy/OjtForm";
+import MasterSikap from "./pages/training-system/pages/academy/MasterSikap";
+import OjtMaster from "./pages/training-system/pages/academy/OjtMaster";
+import OjtTypeList from "./pages/training-system/pages/academy/OjtTypeList";
+import OjtBatchForm from "./pages/training-system/pages/academy/OjtBatchForm";
+import OjtBatchDetail from "./pages/training-system/pages/academy/OjtBatchDetail";
 import OjtDetail from "./pages/training-system/pages/academy/OjtDetail";
-import OjtCriteria from "./pages/training-system/pages/academy/OjtCriteria";
 import OjtSubskills from "./pages/training-system/pages/academy/OjtSubskills";
 
 // Project Management V2 Imports
@@ -755,21 +760,32 @@ export default function App() {
           <Route path="/training-management-system" element={<DashboardTraining />} />
           <Route path="/training-management-system/request" element={<RequestTraining />} />
           <Route path="/training-management-system/request/form" element={<FormRequestTraining />} />
-          <Route path="/training-management-system/academy/trainings" element={<TrainingMaster />} />
+          <Route path="/training-management-system/academy/trainings" element={<TrainingMaster mode="training" />} />
+          <Route path="/training-management-system/academy/trainings/master/:masterId" element={<TrainingTypeList mode="training" />} />
           <Route path="/training-management-system/academy/trainings/:id" element={<TrainingForm />} />
+          <Route path="/training-management-system/academy/topics" element={<TrainingMaster mode="topic" />} />
+          <Route path="/training-management-system/academy/topics/master/:masterId" element={<TrainingTypeList mode="topic" />} />
+          <Route path="/training-management-system/academy/topics/jenis/:trainingId" element={<TopicList />} />
           <Route path="/training-management-system/academy/skill-matrix" element={<SkillMatrixMaster />} />
           <Route path="/training-management-system/academy/lo" element={<LoManagement />} />
           <Route path="/training-management-system/academy/dashboard" element={<AcademyDashboard />} />
-          <Route path="/training-management-system/academy/batches" element={<BatchList />} />
+          <Route path="/training-management-system/academy/batches" element={<TrainingMaster mode="batch" />} />
+          <Route path="/training-management-system/academy/batches/master/:masterId" element={<TrainingTypeList mode="batch" />} />
+          <Route path="/training-management-system/academy/batches/type/:trainingId" element={<BatchList />} />
           <Route path="/training-management-system/academy/batches/new" element={<BatchForm />} />
           <Route path="/training-management-system/academy/batches/:id" element={<BatchDetail />} />
           <Route path="/training-management-system/academy/batches/:id/edit" element={<BatchForm />} />
-          <Route path="/training-management-system/academy/ojt" element={<OjtList />} />
-          <Route path="/training-management-system/academy/ojt/new" element={<OjtForm />} />
+          <Route path="/training-management-system/academy/ojt" element={<OjtMaster mode="batch" />} />
+          <Route path="/training-management-system/academy/ojt/master/:masterId" element={<OjtTypeList mode="batch" />} />
+          <Route path="/training-management-system/academy/ojt/type/:typeId" element={<OjtList />} />
+          <Route path="/training-management-system/academy/ojt/batch/new" element={<OjtBatchForm />} />
+          <Route path="/training-management-system/academy/ojt/batch/:id" element={<OjtBatchDetail />} />
+          <Route path="/training-management-system/academy/ojt/batch/:id/edit" element={<OjtBatchForm />} />
           <Route path="/training-management-system/academy/ojt/:id" element={<OjtDetail />} />
-          <Route path="/training-management-system/academy/ojt/:id/edit" element={<OjtForm />} />
-          <Route path="/training-management-system/academy/kriteria-ojt" element={<OjtCriteria />} />
-          <Route path="/training-management-system/academy/kriteria-ojt/:id" element={<OjtSubskills />} />
+          <Route path="/training-management-system/academy/master-sikap" element={<MasterSikap />} />
+          <Route path="/training-management-system/academy/ojt-master" element={<OjtMaster mode="master" />} />
+          <Route path="/training-management-system/academy/ojt-master/master/:masterId" element={<OjtTypeList mode="master" />} />
+          <Route path="/training-management-system/academy/ojt-master/jenis/:id" element={<OjtSubskills />} />
 
         </Route>
 

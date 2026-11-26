@@ -9,6 +9,7 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
+import { resolveImageSrc } from "../utils/resolveImageSrc";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -105,42 +106,9 @@ function SessionBadge({ session }) {
 }
 
 function AuthenticatedImage({ path, alt, className, onClick, iconSize = "h-5 w-5", objectFit = "cover" }) {
-  const [src, setSrc] = useState(null);
-  const [error, setError] = useState(false);
+  const [failedPath, setFailedPath] = useState(null);
 
-  useEffect(() => {
-    let objectUrl = null;
-    let cancelled = false;
-
-    (async () => {
-      if (!path) {
-        setSrc(null);
-        setError(true);
-        return;
-      }
-      try {
-        setError(false);
-        const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
-        const res = await fetch(url, { credentials: "include" });
-        if (!res.ok) throw new Error("Gagal memuat foto");
-        const blob = await res.blob();
-        objectUrl = URL.createObjectURL(blob);
-        if (!cancelled) setSrc(objectUrl);
-      } catch {
-        if (!cancelled) {
-          setSrc(null);
-          setError(true);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [path]);
-
-  if (error || !src) {
+  if (!path || failedPath === path) {
     return (
       <div className={cn("flex items-center justify-center bg-slate-100 text-slate-300", className)}>
         <HiOutlinePhoto className={iconSize} />
@@ -150,9 +118,10 @@ function AuthenticatedImage({ path, alt, className, onClick, iconSize = "h-5 w-5
 
   return (
     <img
-      src={src}
+      src={resolveImageSrc(path)}
       alt={alt}
       onClick={onClick}
+      onError={() => setFailedPath(path)}
       className={cn(objectFit === "contain" ? "object-contain" : "object-cover", className)}
     />
   );
