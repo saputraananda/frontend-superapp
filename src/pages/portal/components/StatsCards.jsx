@@ -115,15 +115,12 @@ export default function StatsCards({ companyId }) {
     const salesRemaining = Math.max(0, salesData.target_bulanan - salesData.actual_sales);
 
     /**
-     * Nominal rupiah → { num, unit }. Waschen: rupiah penuh (< 1 jt tanpa satuan, lalu Juta / Miliar,
-     * maks 2 desimal). IKM: nilainya sudah dalam miliar.
+     * Nominal rupiah → { num, unit }. Waschen: rupiah penuh tanpa singkatan (mis. 1.130.000).
+     * IKM: nilainya sudah dalam miliar.
      */
     const money = (value) => {
         const v = Number(value) || 0;
         if (isIkm) return { num: formatNumber(v), unit: "Miliar" };
-        const short = (n) => n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
-        if (Math.abs(v) >= 1e9) return { num: short(v / 1e9), unit: "Miliar" };
-        if (Math.abs(v) >= 1e6) return { num: short(v / 1e6), unit: "Juta" };
         return { num: Math.round(v).toLocaleString("id-ID"), unit: "" };
     };
     const actualMoney = money(salesData.actual_sales);
