@@ -395,7 +395,12 @@ function ItemProgressTimeline({ workers, onViewPhoto }) {
                   {fmtQty(w.qty)} {String(w.unit || "").toLowerCase()}
                 </span>
               )}
-              {w.qc_status && (
+              {w.status === "skipped" && (
+                <Chip className="border-amber-200 bg-amber-50 text-amber-800" title="Tahap ini dilewati — item langsung di-QC tahap berikutnya">
+                  Dilewati
+                </Chip>
+              )}
+              {w.qc_status && w.status !== "skipped" && (
                 <Chip className={w.qc_status === "aman" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-800"}>
                   QC {w.qc_status}
                   {w.qc_decision ? ` · ${w.qc_decision}` : ""}
