@@ -14,6 +14,7 @@ export default function SkillMatrixMaster() {
   const [positionName, setPositionName] = useState("");
   const [roleKey, setRoleKey] = useState("");
   const [roles, setRoles] = useState([]);
+  const [sources, setSources] = useState({ topics: [], criteria: [] });
   const [saving, setSaving] = useState(false);
 
   const withKeys = useCallback(
@@ -48,6 +49,9 @@ export default function SkillMatrixMaster() {
       .finally(() => setLoading(false));
     api("/academy/skill/roles")
       .then((res) => setRoles(res.data))
+      .catch((err) => showToast(err.message, "error"));
+    api("/academy/skill/sources")
+      .then(setSources)
       .catch((err) => showToast(err.message, "error"));
   }, [load, selectPosition, showToast]);
 
@@ -105,8 +109,29 @@ export default function SkillMatrixMaster() {
   const addCategory = () =>
     setCategories((prev) => [
       ...prev,
-      { _key: nextKey.current++, name: "", weight: "", indicators: [{ _key: nextKey.current++, name: "" }] },
+      {
+        _key: nextKey.current++,
+        kind: "TOPIK",
+        topic_id: null,
+        sikap_criterion_id: null,
+        name: "",
+        weight: "",
+        indicators: [{ _key: nextKey.current++, name: "" }],
+      },
     ]);
+
+  // Topik dikelompokkan per master dan jenis. Yang nonaktif hanya tampil bila sedang dipilih kategori itu.
+  const topicGroups = (current) => {
+    const groups = new Map();
+    for (const t of sources.topics) {
+      if (!t.is_active && t.id !== current) continue;
+      const label = `${t.master_name} › ${t.jenis_name}`;
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(t);
+    }
+    return [...groups];
+  };
+  const changeKind = (key, kind) => patchCategory(key, { kind, topic_id: null, sikap_criterion_id: null });
 
   const save = async () => {
     setSaving(true);
@@ -211,13 +236,57 @@ export default function SkillMatrixMaster() {
               {categories.map((category) => (
                 <div key={category._key} className="space-y-3 rounded-xl border border-slate-200 p-3">
                   <div className="flex items-center gap-2">
-                    <input
-                      value={category.name}
-                      onChange={(e) => patchCategory(category._key, { name: e.target.value })}
-                      placeholder="Nama kategori"
-                      aria-label="Nama kategori"
-                      className={inputCls}
-                    />
+                    <div className="w-28 shrink-0">
+                      <select
+                        value={category.kind ?? ""}
+                        onChange={(e) => changeKind(category._key, e.target.value)}
+                        aria-label="Jenis kategori"
+                        className={inputCls}
+                      >
+                        {!category.kind && <option value="">Pilih jenis</option>}
+                        <option value="TOPIK">Topik</option>
+                        <option value="SIKAP">Sikap</option>
+                      </select>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {category.kind === "SIKAP" ? (
+                        <select
+                          value={category.sikap_criterion_id ?? ""}
+                          onChange={(e) =>
+                            patchCategory(category._key, { sikap_criterion_id: e.target.value ? Number(e.target.value) : null })
+                          }
+                          aria-label="Kriteria sikap"
+                          className={inputCls}
+                        >
+                          <option value="">Pilih kriteria</option>
+                          {sources.criteria
+                            .filter((c) => c.is_active || c.id === category.sikap_criterion_id)
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        <select
+                          value={category.topic_id ?? ""}
+                          onChange={(e) => patchCategory(category._key, { topic_id: e.target.value ? Number(e.target.value) : null })}
+                          aria-label="Topik"
+                          className={inputCls}
+                        >
+                          <option value="">Pilih topik</option>
+                          {topicGroups(category.topic_id).map(([label, rows]) => (
+                            <optgroup key={label} label={label}>
+                              {rows.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                     <div className="relative w-24 shrink-0">
                       <input
                         type="number"

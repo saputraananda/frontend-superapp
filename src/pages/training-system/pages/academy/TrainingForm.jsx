@@ -41,14 +41,42 @@ function SectionTitle({ title, hint }) {
   );
 }
 
-function TopicSelect({ value, onChange, topics, label }) {
+// placeholder: untuk baris Sikap lama yang topiknya kosong; memilihnya mengembalikan null.
+function TopicSelect({ value, onChange, topics, label, placeholder }) {
   return (
-    <select value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} className={inputCls}>
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+      aria-label={label}
+      className={inputCls}
+    >
+      {placeholder && <option value="">{placeholder}</option>}
       {topics
         .filter((t) => t.is_active || t.id === value)
         .map((t) => (
           <option key={t.id} value={t.id}>
             {t.name}
+          </option>
+        ))}
+    </select>
+  );
+}
+
+// Kriteria nonaktif hanya tampil bila baris itu sudah memakainya; baris lama tanpa kriteria menampilkan opsi kosong.
+function SikapSelect({ value, onChange, criteria }) {
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+      aria-label="Kriteria sikap"
+      className={inputCls}
+    >
+      <option value="">Pilih kriteria</option>
+      {criteria
+        .filter((c) => c.is_active || c.id === value)
+        .map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
           </option>
         ))}
     </select>
@@ -196,6 +224,7 @@ export default function TrainingForm() {
 
   const [training, setTraining] = useState(null);
   const [content, setContent] = useState(null);
+  const [sikapCriteria, setSikapCriteria] = useState([]);
   const [phase, setPhase] = useState("PRE");
   const [topicName, setTopicName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -213,7 +242,8 @@ export default function TrainingForm() {
 
   const loadAll = useCallback(async () => {
     try {
-      const data = await loadDetail();
+      const [data, criteria] = await Promise.all([loadDetail(), api("/academy/sikap-criteria")]);
+      setSikapCriteria(criteria.data);
       setCopiedFromPre(false);
       setTrainingName(data.name);
       setContent({
@@ -236,6 +266,7 @@ export default function TrainingForm() {
 
   const activeTopics = training?.topics.filter((t) => t.is_active) ?? [];
   const firstTopicId = activeTopics[0]?.id;
+  const firstCriterionId = sikapCriteria.find((c) => c.is_active)?.id;
 
   const patchRow = (list, key, fields) =>
     setContent((prev) => ({
@@ -361,7 +392,13 @@ export default function TrainingForm() {
   const backButton = (
     <button
       type="button"
-      onClick={() => navigate("/training-management-system/academy/trainings")}
+      onClick={() =>
+        navigate(
+          training
+            ? `/training-management-system/academy/trainings/master/${training.master_id}`
+            : "/training-management-system/academy/trainings",
+        )
+      }
       className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-amber-700 shadow-lg shadow-amber-500/20 transition hover:bg-slate-50"
     >
       <HiOutlineArrowLeft className="h-4 w-4" /> Kembali
@@ -383,7 +420,7 @@ export default function TrainingForm() {
     <PageShell
       icon={HiOutlineBookOpen}
       title={training.name}
-      subtitle={`Versi ${training.version.version_no}`}
+      subtitle={`${training.master_name} · Versi ${training.version.version_no}`}
       action={backButton}
       toast={toast}
     >
@@ -605,12 +642,17 @@ export default function TrainingForm() {
       <section className={cardCls}>
         <SectionTitle
           title="Penilaian Mentor"
-          hint={`Skala 1 sampai 4. Bobot Praktik ${content.practice_weight}% dan Sikap ${content.attitude_weight}%. Indikator Sikap berlaku untuk semua peserta`}
+          hint={`Skala 1 sampai 4. Bobot Praktik ${content.practice_weight}% dan Sikap ${content.attitude_weight}%. Kriteria Sikap dari Master Sikap dan dikaitkan ke topik; semua peserta tetap dinilai semua indikator Sikap`}
         />
         {!firstTopicId ? (
           <p className="text-xs text-slate-400">Tambahkan topik dulu sebelum menulis indikator</p>
         ) : (
           <div className="space-y-2">
+            {!firstCriterionId && (
+              <p className="text-xs text-slate-400">
+                Master Sikap masih kosong; tambahkan kriteria di menu Master Sikap untuk menulis indikator Sikap
+              </p>
+            )}
             {content.indicators.map((row) => (
               <div key={row._key} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <select
@@ -618,7 +660,8 @@ export default function TrainingForm() {
                   onChange={(e) =>
                     patchRow("indicators", row._key, {
                       category: e.target.value,
-                      topic_id: e.target.value === "SIKAP" ? null : (row.topic_id ?? firstTopicId),
+                      topic_id: row.topic_id ?? firstTopicId,
+                      sikap_criterion_id: e.target.value === "SIKAP" ? (row.sikap_criterion_id ?? firstCriterionId ?? null) : null,
                     })
                   }
                   aria-label="Kategori indikator"
@@ -627,17 +670,23 @@ export default function TrainingForm() {
                   <option value="PRAKTIK">Praktik</option>
                   <option value="SIKAP">Sikap</option>
                 </select>
-                <div className="sm:w-48 sm:shrink-0">
-                  {row.category === "SIKAP" ? (
-                    <p className={cn(inputCls, "bg-slate-50 text-slate-400")}>Semua topik</p>
-                  ) : (
-                    <TopicSelect
-                      value={row.topic_id ?? firstTopicId}
-                      onChange={(topic_id) => patchRow("indicators", row._key, { topic_id })}
-                      topics={training.topics}
-                      label="Topik indikator"
+                {row.category === "SIKAP" && (
+                  <div className="sm:w-56 sm:shrink-0">
+                    <SikapSelect
+                      value={row.sikap_criterion_id}
+                      onChange={(sikap_criterion_id) => patchRow("indicators", row._key, { sikap_criterion_id })}
+                      criteria={sikapCriteria}
                     />
-                  )}
+                  </div>
+                )}
+                <div className="sm:w-48 sm:shrink-0">
+                  <TopicSelect
+                    value={row.topic_id}
+                    onChange={(topic_id) => patchRow("indicators", row._key, { topic_id })}
+                    topics={training.topics}
+                    label="Topik indikator"
+                    placeholder={row.category === "SIKAP" ? "Pilih topik" : undefined}
+                  />
                 </div>
                 <input
                   value={row.indicator_text}
