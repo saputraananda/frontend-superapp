@@ -10,6 +10,7 @@ import {
   HiOutlineXCircle,
   HiOutlineChevronRight,
   HiOutlineBuildingStorefront,
+  HiOutlineUser,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -27,6 +28,9 @@ import {
   fmtIDR,
   parseDeleteReason,
 } from "./deleteRequestShared";
+
+/** "ANANDA PRATHAMA SAPUTRA" → "Ananda Prathama Saputra" */
+const formatPersonName = (n) => String(n || "").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 
 const FILTERS = [
   { id: "all", label: "Semua" },
@@ -259,6 +263,10 @@ export default function RequestDeleteTransaction({ onChanged }) {
                         <HiOutlineBuildingStorefront className="h-3 w-3 shrink-0" />
                         {r.branch || r.outletName || "—"}
                       </p>
+                      <p className="flex items-center gap-1 truncate text-[10px] text-slate-500">
+                        <HiOutlineUser className="h-3 w-3 shrink-0" />
+                        Diajukan oleh {r.deleteRequestedByName ? formatPersonName(r.deleteRequestedByName) : "—"}
+                      </p>
                     </div>
                     <div className="shrink-0 text-right">
                       <PaymentCell row={r} />
@@ -301,6 +309,10 @@ export default function RequestDeleteTransaction({ onChanged }) {
                         <p className="mt-1 flex items-center gap-1 text-[10px] text-slate-500">
                           <HiOutlineBuildingStorefront className="h-3 w-3 shrink-0" />
                           <span className="truncate">{r.branch || r.outletName || "—"}</span>
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-500">
+                          <HiOutlineUser className="h-3 w-3 shrink-0" />
+                          <span className="truncate">Diajukan oleh <span className="font-semibold text-slate-700">{r.deleteRequestedByName ? formatPersonName(r.deleteRequestedByName) : "—"}</span></span>
                         </p>
                       </td>
                       <td className="min-w-[14rem] max-w-[20rem] px-4 py-3.5">
