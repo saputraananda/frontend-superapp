@@ -331,12 +331,26 @@ function ShiftCard({ s, copied, onCopy, onEdit }) {
         </div>
       </section>
 
-      {/* Pendapatan & petty cash */}
+      {/* Revenue = uang masuk dari pembayaran nota di shift ini (DP/Lunas/Pelunasan), bukan nota outstanding */}
       <section>
-        <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Pendapatan & petty cash</h3>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-          <Tile label="Revenue (dilaporkan)" value={s.declaredRevenue != null ? fmtIDR(s.declaredRevenue) : "—"} tone="soft" />
-          <Tile label="Revenue sistem (semua metode)" value={fmtIDR(s.systemCashRevenue)} tone="soft" />
+        <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Revenue (pembayaran masuk)</h3>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3">
+          <Tile label="Revenue tunai" value={fmtIDR(s.revenueTunai)} tone="soft" />
+          <Tile label="Revenue non tunai" value={fmtIDR(s.revenueNonTunai)} hint="QRIS, transfer, debit, potong saldo" tone="soft" />
+          <Tile label="Revenue total" value={fmtIDR(s.revenueTotal)} tone="brand" />
+        </div>
+        {closed && s.declaredRevenue != null && Math.round(n(s.declaredRevenue)) !== Math.round(n(s.revenueTotal)) && (
+          <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            Revenue yang dilaporkan saat closing <strong>{fmtIDR(s.declaredRevenue)}</strong> berbeda dengan pembayaran tercatat{" "}
+            <strong>{fmtIDR(s.revenueTotal)}</strong>.
+          </p>
+        )}
+      </section>
+
+      {/* Petty cash */}
+      <section>
+        <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Petty cash</h3>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           <Tile label="Petty cash awal" value={fmtIDR(s.initialPettyCash)} tone="soft" />
           <Tile label="Petty cash akhir" value={s.actualPettyCash != null ? fmtIDR(s.actualPettyCash) : "—"} tone="soft" />
         </div>

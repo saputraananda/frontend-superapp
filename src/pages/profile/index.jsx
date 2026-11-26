@@ -228,7 +228,6 @@ export default function Profile() {
   const validate = () => {
     const errs = {};
     if (!formData.full_name?.trim()) errs.full_name = "Nama lengkap wajib diisi.";
-    if (!formData.employee_code?.trim()) errs.employee_code = "Nomor Induk Karyawan wajib diisi.";
     if (!formData.company_id) errs.company_id = "Perusahaan wajib diisi.";
     if (!formData.job_level_id) errs.job_level_id = "Jabatan wajib diisi.";
     if (formData.phone_number && !/^08[0-9]{7,11}$/.test(formData.phone_number))
@@ -705,8 +704,7 @@ export default function Profile() {
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
 
                           <Field
-                            label="Nomor Induk Karyawan"
-                            required
+                            label="Nomor Induk Karyawan (Opsional)"
                             hint="Format: Kode Perusahaan + Tahun Masuk + No Urut"
                             error={fieldErrors.employee_code}
                           >

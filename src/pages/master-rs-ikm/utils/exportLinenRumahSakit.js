@@ -37,7 +37,9 @@ export default function exportLinenRumahSakit({ items, hospitalName }) {
     const ownerLabel = a.ownership_type === "MILIK_RS" ? "Milik RS" : a.ownership_type === "SEWA" ? "Sewa" : a.ownership_type;
     const washLabel  = a.washing_price_type === "KG"
       ? `${Number(a.washing_price || 0).toLocaleString("id-ID")}/Kg`
-      : Number(a.washing_price || 0).toLocaleString("id-ID");
+      : a.washing_price_type === "M2"
+        ? `${Number(a.washing_price || 0).toLocaleString("id-ID")}/m²`
+        : Number(a.washing_price || 0).toLocaleString("id-ID");
     const rentLabel  = Number(a.rental_price || 0).toLocaleString("id-ID");
 
     const nameParts = [

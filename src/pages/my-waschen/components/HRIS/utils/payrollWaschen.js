@@ -27,7 +27,18 @@ const DAY_STATUS_LABEL = {
   belum_berjalan: "Belum Berjalan",
   belum_bergabung: "Belum Bergabung",
   sudah_keluar: "Sudah Keluar",
+  tidak_bekerja: "Tidak Bekerja",
 };
+
+const WORK_STAGE_LABEL = {
+  frontliner: "QC Frontliner", washing: "Cuci", ironing: "Setrika", packing: "Packing",
+  delivery: "Antar", handover: "Serah Terima",
+};
+const fmtQty = (n) => (Number(n) || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+const fmtWorkQty = (kg, units = {}) => [
+  kg ? `${fmtQty(kg)} kg` : "",
+  ...Object.entries(units || {}).map(([u, q]) => (q ? `${fmtQty(q)} ${u}` : "")),
+].filter(Boolean).join(" · ") || "-";
 
 const LEAVE_TYPE_LABEL = { izin: "Izin", sakit: "Sakit", cuti: "Cuti" };
 
@@ -96,6 +107,8 @@ function dailyRows(details, withName) {
       x.off_but_present ? "Masuk di hari libur" : "",
       x.outside_home ? "Di luar outlet asal" : "",
       x.no_checkout ? "Belum Out" : "",
+      x.nota_count ? `${x.nota_count} nota dibuat` : "",
+      x.qc_count ? `${x.qc_count} item dikerjakan` : "",
       x.note || "",
     ].filter(Boolean).join(" · ");
     out.push([
@@ -265,6 +278,45 @@ function backupRows(details, withName) {
 const BACKUP_HEAD = ["Tanggal", "Hari", "Menggantikan", "Alasan Libur Rekan"];
 const BACKUP_W = [13, 9, 28, 40];
 
+// Pengerjaan Daily Worker: satu baris per nota dibuat / item yang di-QC, urut tanggal & jam
+function workRows(details, withName) {
+  const out = [];
+  details.filter((d) => d.is_daily_worker).forEach((d) => {
+    const list = [
+      ...(d.work_notas || []).map((n) => ({
+        date: n.date, time: n.time, job: `Buat Nota${n.is_delivery ? " (Delivery)" : ""}`, order_no: n.order_no,
+        item: n.items.map((i) => i.service_name).join(", ") || "-", kg: n.kg, qty: fmtWorkQty(n.kg, n.units), note: "",
+      })),
+      ...(d.work_qc || []).map((p) => ({
+        date: p.date, time: p.time, job: WORK_STAGE_LABEL[p.stage] || p.stage, order_no: p.order_no, item: p.service_name,
+        kg: p.is_kg ? p.qty : 0, qty: p.is_kg ? `${fmtQty(p.qty)} kg` : `${fmtQty(p.qty)} ${p.unit || ""}`.trim(),
+        note: [p.qc_status === "temuan" ? "Temuan" : "", p.status === "hold" ? "Hold" : "", p.status === "returned" ? "Dikembalikan" : ""]
+          .filter(Boolean).join(" · "),
+      })),
+    ].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+    list.forEach((r) => {
+      const alt = out.length % 2 === 1;
+      const cc = cellStyle(alt, "center");
+      out.push([
+        cell(out.length + 1, numStyle(alt)),
+        ...(withName ? [cell(d.employee_code || "-", cc), cell(nameOf(d), cellStyle(alt))] : []),
+        cell(fmtDate(r.date), cc),
+        cell(fmtDay(r.date), cc),
+        cell(r.time || "-", cc),
+        cell(r.job, cellStyle(alt)),
+        cell(r.order_no || "-", cc),
+        cell(r.item, cellStyle(alt)),
+        cell(r.kg || "", { ...numStyle(alt), numFmt: "0.##" }),
+        cell(r.qty, cellStyle(alt)),
+        cell(r.note, cellStyle(alt)),
+      ]);
+    });
+  });
+  return out;
+}
+const WORK_HEAD = ["Tanggal", "Hari", "Jam", "Pekerjaan", "No. Nota", "Item", "Kg", "Qty", "Catatan"];
+const WORK_W = [13, 9, 8, 18, 22, 36, 8, 18, 20];
+
 function sheetOf(title, lines, head, widths, rows, withName) {
   const headers = ["No", ...(withName ? ["Kode", "Nama Karyawan"] : []), ...head];
   return buildSheet({
@@ -348,6 +400,7 @@ function rekapTotal(rows) {
 /* ── Ringkasan satu karyawan (Komponen | Nilai | Keterangan) ── */
 
 function summarySheet(d, lines) {
+  if (d.is_daily_worker) return dailySummarySheet(d, lines);
   const items = [
     ["Identitas", ""],
     ["Nama", nameOf(d)],
@@ -396,6 +449,36 @@ function summarySheet(d, lines) {
     ["Bayar Langsung (tidak potong gaji)", d.direct_total || 0, "Termin kasbon/pinjaman dengan metode bayar langsung"],
     ["Total Potong Gaji Periode Ini", d.deduction_total],
   ];
+  return summaryTable(d, lines, items);
+}
+
+// Daily Worker: tanpa gaji tetap / libur / kasbon → ringkasan = jam kerja + pengerjaan
+function dailySummarySheet(d, lines) {
+  const w = d.work || { nota: { count: 0, kg: 0, units: {} }, qc: { total: 0, kg: 0, stages: {} }, active_days: 0 };
+  const items = [
+    ["Identitas", ""],
+    ["Nama", nameOf(d)],
+    ["Kode Karyawan", d.employee_code || "-"],
+    ["Posisi", "Daily Worker", "Pekerja lepas — tanpa gaji tetap, jadwal libur, maupun kasbon"],
+    ["Outlet Asal", placeLabel(d.home_outlet)],
+    ["Jam Kerja", ""],
+    ["Jumlah Hadir", `${d.hadir} hari`, "Hari tanpa absen = tidak bekerja"],
+    ["Durasi Kerja", fmtDur(d.work_minutes), `Rata-rata ${fmtDur(d.avg_work_minutes)} per hari`],
+    ["Belum Check-out", `${d.incomplete_checkout} kali`, "Tidak dihitung ke durasi kerja"],
+    ["Jumlah Terlambat", `${d.late.count} kali`, d.late.count ? `Total ${d.late.minutes} menit · jam masuk 08:00` : "Tepat waktu · jam masuk 08:00"],
+    ["Lembur Disetujui", `${d.overtime.approved_count} kali · ${fmtDur(d.overtime.approved_minutes)}`],
+    ["Lokasi Absen", d.locations.map((l) => `${placeLabel(l)} (${l.count}x)`).join(", ") || "-"],
+    ["Pengerjaan", ""],
+    ["Nota Dibuat", `${w.nota.count} nota`, fmtWorkQty(w.nota.kg, w.nota.units)],
+    ["Item Dikerjakan (QC)", `${w.qc.total} item`, w.qc.kg ? `${fmtQty(w.qc.kg)} kg kiloan` : ""],
+    ...Object.entries(w.qc.stages).filter(([, s]) => s.count > 0)
+      .map(([k, s]) => [`  ${WORK_STAGE_LABEL[k] || k}`, `${s.count} item`, fmtWorkQty(s.kg, s.units)]),
+    ["Hari Ada Pengerjaan", `${w.active_days} hari`],
+  ];
+  return summaryTable(d, lines, items);
+}
+
+function summaryTable(d, lines, items) {
   let alt = false;
   const rows = items.map(([k, v, note = ""]) => {
     if (v === "" && !note) {
@@ -437,6 +520,15 @@ export function exportPayrollEmployeeExcel({ detail, startDate, endDate, periodL
     exportedAtText(),
   ];
   const one = [detail];
+  if (detail.is_daily_worker) {
+    saveWorkbook([
+      { name: "Ringkasan", ws: summarySheet(detail, lines) },
+      { name: "Pengerjaan", ws: sheetOf("Pengerjaan (Nota & QC)", lines, WORK_HEAD, WORK_W, workRows(one, false), false) },
+      { name: "Absensi Harian", ws: sheetOf("Absensi Harian", lines, DAILY_HEAD, DAILY_W, dailyRows(one, false), false) },
+      { name: "Lembur", ws: sheetOf("Lembur", lines, OT_HEAD, OT_W, overtimeRows(one, false), false) },
+    ], `Payroll_${slug(nameOf(detail))}_${rangeSlug(startDate, endDate)}.xlsx`);
+    return;
+  }
   saveWorkbook([
     { name: "Ringkasan", ws: summarySheet(detail, lines) },
     { name: "Absensi Harian", ws: sheetOf("Absensi Harian", lines, DAILY_HEAD, DAILY_W, dailyRows(one, false), false) },
@@ -473,5 +565,8 @@ export function exportPayrollAllExcel({ details = [], startDate, endDate, period
     { name: "Kasbon & Pinjaman", ws: sheetOf("Kasbon & Pinjaman Semua Karyawan", lines, LOAN_HEAD, LOAN_W, loanRows(details, true), true) },
     { name: "Jadwal Termin", ws: sheetOf("Jadwal Termin Semua Karyawan", lines, INST_HEAD, INST_W, installmentRows(details, true), true) },
     { name: "Backup", ws: sheetOf("Backup Semua Karyawan", lines, BACKUP_HEAD, BACKUP_W, backupRows(details, true), true) },
+    ...(details.some((d) => d.is_daily_worker)
+      ? [{ name: "Pengerjaan Daily Worker", ws: sheetOf("Pengerjaan Daily Worker (Nota & QC)", lines, WORK_HEAD, WORK_W, workRows(details, true), true) }]
+      : []),
   ], `Payroll_Waschen_${rangeSlug(startDate, endDate)}.xlsx`);
 }

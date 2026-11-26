@@ -264,7 +264,8 @@ export default function RequestRefundTransaction({ onChanged }) {
               <tr>
                 <th className="px-4 py-3 font-semibold">Nota</th>
                 <th className="px-4 py-3 font-semibold">Pelanggan</th>
-                <th className="px-4 py-3 font-semibold">Pengajuan</th>
+                <th className="px-4 py-3 font-semibold">Jenis</th>
+                <th className="px-4 py-3 font-semibold text-right">Nominal</th>
                 <th className="px-4 py-3 font-semibold">Alasan</th>
                 <th className="px-4 py-3 font-semibold">Dibayar</th>
                 <th className="px-4 py-3 font-semibold text-center">Aksi</th>
@@ -272,10 +273,10 @@ export default function RequestRefundTransaction({ onChanged }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="py-12 text-center text-slate-400">Memuat...</td></tr>
+                <tr><td colSpan={7} className="py-12 text-center text-slate-400">Memuat...</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <HiOutlineExclamationTriangle className="mx-auto mb-2 h-8 w-8 text-slate-300" />
                     <p className="font-semibold">Tidak ada pengajuan refund</p>
                     <p className="mt-1 text-[11px]">Pengajuan dikirim frontliner dari aksi Refund di Riwayat POS</p>
@@ -303,8 +304,10 @@ export default function RequestRefundTransaction({ onChanged }) {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span title={TYPE_HINT[r.refundType]} className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", TYPE_STYLE[r.refundType])}>{r.refundType}</span>
-                      <p className="mt-1 text-base font-bold text-sky-700">{fmtIDR(r.amount)}</p>
-                      {r.source === "Hapus Nota" && <p className="text-[10px] font-semibold text-rose-600">dari Hapus Nota</p>}
+                      {r.source === "Hapus Nota" && <p className="mt-1 text-[10px] font-semibold text-rose-600">dari Hapus Nota</p>}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <p className="text-base font-bold text-sky-700 tabular-nums">{fmtIDR(r.amount)}</p>
                     </td>
                     <td className="px-4 py-3 min-w-[12rem] max-w-[18rem]">
                       <p className="text-slate-700 break-words line-clamp-2">{r.reason || "—"}</p>

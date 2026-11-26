@@ -216,6 +216,16 @@ export default function HistoryTransaction({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState(saved.search ?? "");
+  // Ketik cari → tunggu sebentar baru tanya server
+  const [debouncedSearch, setDebouncedSearch] = useState((saved.search ?? "").trim());
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(id);
+  }, [search]);
+  // Default semua periode (tetap ringan: server berpaginasi). Cari = selalu semua periode.
+  const [allPeriods, setAllPeriods] = useState(saved.allPeriods ?? true);
+  const searchAllPeriods = Boolean(debouncedSearch);
+  const useDateFilter = !allPeriods && !searchAllPeriods;
   const [outletId, setOutletId] = useState(saved.outletId ?? "");
   const [paymentStatus, setPaymentStatus] = useState(saved.paymentStatus ?? "Semua");
   const [workTab, setWorkTab] = useState(saved.workTab ?? "Semua");
@@ -243,7 +253,7 @@ export default function HistoryTransaction({
   const reqIdRef = useRef(0);
 
   // Filter berubah → kembali ke halaman 1 (bukan saat mount / pemulihan dari halaman detail)
-  const filterKey = JSON.stringify([search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, pageSize]);
+  const filterKey = JSON.stringify([debouncedSearch, outletId, useDateFilter && cutoff.dateFrom, useDateFilter && cutoff.dateTo, paymentStatus, workTab, pageSize]);
   const prevFilterKey = useRef(filterKey);
   useEffect(() => {
     if (prevFilterKey.current === filterKey) return;
@@ -252,7 +262,7 @@ export default function HistoryTransaction({
   }, [filterKey]);
 
   const openDetail = (id) => {
-    rememberPage(memoryKey, { search, outletId, paymentStatus, workTab, page, pageSize, cutoff: cutoff.snapshot() });
+    rememberPage(memoryKey, { search, allPeriods, outletId, paymentStatus, workTab, page, pageSize, cutoff: cutoff.snapshot() });
     navigate(`/my-waschen/transactions/${id}`);
   };
   useRestoreScroll(saved.scroll, !loading, rows.length);
@@ -264,10 +274,10 @@ export default function HistoryTransaction({
     try {
       const qs = new URLSearchParams({ listType: "active", page: String(page), pageSize: String(pageSize) });
       if (workTab !== "Semua") qs.set("workTab", workTab);
-      if (search.trim()) qs.set("search", search.trim());
+      if (debouncedSearch) qs.set("search", debouncedSearch);
       if (outletId) qs.set("outletId", outletId);
-      if (cutoff.dateFrom) qs.set("dateFrom", cutoff.dateFrom);
-      if (cutoff.dateTo) qs.set("dateTo", cutoff.dateTo);
+      if (useDateFilter && cutoff.dateFrom) qs.set("dateFrom", cutoff.dateFrom);
+      if (useDateFilter && cutoff.dateTo) qs.set("dateTo", cutoff.dateTo);
       if (paymentStatus && paymentStatus !== "Semua") qs.set("paymentStatus", paymentStatus);
       const res = await api(`/waschen/transactions?${qs}`);
       if (reqId !== reqIdRef.current) return; // respons usang (filter/halaman sudah berganti)
@@ -282,7 +292,7 @@ export default function HistoryTransaction({
     } finally {
       if (!silent && reqId === reqIdRef.current) setLoading(false);
     }
-  }, [search, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, page, pageSize]);
+  }, [debouncedSearch, useDateFilter, outletId, cutoff.dateFrom, cutoff.dateTo, paymentStatus, workTab, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -464,7 +474,19 @@ export default function HistoryTransaction({
             Refresh
           </button>
         </div>
-        <CutoffPeriodFilter cutoff={cutoff} variant="compact" />
+        <CutoffPeriodFilter
+          cutoff={cutoff}
+          variant="compact"
+          allowAll
+          showAll={allPeriods}
+          onShowAllChange={setAllPeriods}
+          allLabel="Semua Periode"
+        />
+        {searchAllPeriods && !allPeriods && (
+          <p className="rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800">
+            Pencarian mencakup semua periode — filter tanggal diabaikan selama mencari.
+          </p>
+        )}
       </div>
 
       <div className="px-3 sm:px-5 py-2.5 border-b border-slate-100 -mx-0 overflow-x-auto scrollbar-thin">

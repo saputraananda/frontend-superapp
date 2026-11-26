@@ -60,7 +60,35 @@ const DAY_UI = {
   belum_berjalan: { label: "Belum berjalan", cls: "border-slate-200 bg-white text-slate-400", row: "text-slate-400" },
   belum_bergabung: { label: "Belum bergabung", cls: "border-slate-200 bg-slate-50 text-slate-400", row: "text-slate-400" },
   sudah_keluar: { label: "Sudah keluar", cls: "border-slate-200 bg-slate-50 text-slate-400", row: "text-slate-400" },
+  tidak_bekerja: { label: "Tidak bekerja", cls: "border-slate-200 bg-slate-50 text-slate-500", row: "text-slate-400" },
 };
+
+/* ── Pengerjaan Daily Worker (nota dibuat + QC semua tahap) ── */
+const WORK_STAGE_LABEL = {
+  frontliner: "Frontliner",
+  washing: "Cuci",
+  ironing: "Setrika",
+  packing: "Packing",
+  delivery: "Antar",
+  handover: "Serah Terima",
+};
+const WORK_STAGE_TONE = {
+  frontliner: "border-blue-200 bg-blue-50 text-blue-700",
+  washing: "border-teal-200 bg-teal-50 text-teal-700",
+  ironing: "border-purple-200 bg-purple-50 text-purple-700",
+  packing: "border-amber-200 bg-amber-50 text-amber-800",
+  delivery: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  handover: "border-emerald-200 bg-emerald-50 text-emerald-700",
+};
+const fmtQtyNum = (n) => (Number(n) || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+/** { kg, units:{Pcs:3} } → "12,5 kg · 3 Pcs" */
+function fmtWorkQty(kg, units = {}) {
+  const parts = [];
+  if (kg) parts.push(`${fmtQtyNum(kg)} kg`);
+  Object.entries(units || {}).forEach(([u, q]) => { if (q) parts.push(`${fmtQtyNum(q)} ${u}`); });
+  return parts.join(" · ") || "—";
+}
+const workQtyLine = (p) => (p.qty ? `${fmtQtyNum(p.qty)} ${p.is_kg ? "kg" : p.unit || ""}`.trim() : "—");
 
 const LEAVE_LABEL = { izin: "Izin", sakit: "Sakit", cuti: "Cuti" };
 const LEAVE_DURATION = { full_day: "Full day", half_day_morning: "½ hari pagi", half_day_afternoon: "½ hari sore" };
@@ -180,6 +208,7 @@ function Kpi({ label, value, hint, icon: Icon, tone = "slate" }) {
 /* ───────────────────────── modal detail ───────────────────────── */
 
 const TABS = [
+  { id: "pengerjaan", label: "Pengerjaan", dailyOnly: true },
   { id: "harian", label: "Absensi Harian" },
   { id: "lembur", label: "Lembur" },
   { id: "izin", label: "Perizinan & Libur" },
@@ -247,6 +276,8 @@ function DailyTab({ d }) {
               x.early_minutes ? `Pulang cepat ${fmtDur(x.early_minutes)}` : "",
               x.off_but_present ? "Masuk di hari libur" : "",
               x.no_checkout ? "Belum Out" : "",
+              x.nota_count ? `${x.nota_count} nota dibuat` : "",
+              x.qc_count ? `${x.qc_count} item dikerjakan` : "",
               x.note || "",
             ].filter(Boolean);
             return (
@@ -282,6 +313,102 @@ function DailyTab({ d }) {
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Pengerjaan Daily Worker: ringkasan per tahap + rincian per hari (nota & QC). */
+function WorkTab({ d }) {
+  const w = d.work;
+  const days = useMemo(() => {
+    const map = new Map();
+    const at = (date) => {
+      if (!map.has(date)) map.set(date, { date, notas: [], qc: [] });
+      return map.get(date);
+    };
+    (d.work_notas || []).forEach((n) => at(n.date).notas.push(n));
+    (d.work_qc || []).forEach((p) => at(p.date).qc.push(p));
+    return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+  }, [d.work_notas, d.work_qc]);
+
+  if (!w) return <Empty>Data pengerjaan hanya untuk Daily Worker</Empty>;
+  const stages = Object.entries(w.qc.stages).filter(([, s]) => s.count > 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="rounded-xl border border-[#5f1340]/20 bg-[#5f1340]/5 px-3 py-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#5f1340]/70">Nota Dibuat</p>
+          <p className="text-lg font-bold tabular-nums text-[#5f1340]">{w.nota.count}</p>
+          <p className="text-[10px] font-semibold text-slate-500">{fmtWorkQty(w.nota.kg, w.nota.units)}</p>
+        </div>
+        {stages.length === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">QC / Pengerjaan</p>
+            <p className="text-lg font-bold text-slate-300">0</p>
+          </div>
+        )}
+        {stages.map(([key, s]) => (
+          <div key={key} className={cn("rounded-xl border px-3 py-2.5", WORK_STAGE_TONE[key] || "border-slate-200 bg-white text-slate-700")}>
+            <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{WORK_STAGE_LABEL[key] || key}</p>
+            <p className="text-lg font-bold tabular-nums">{s.count} <span className="text-[11px] font-semibold">item</span></p>
+            <p className="text-[10px] font-semibold opacity-80">{fmtWorkQty(s.kg, s.units)}</p>
+          </div>
+        ))}
+      </div>
+
+      {days.length === 0 ? <Empty>Belum ada nota maupun QC di periode ini</Empty> : days.map((day) => (
+        <div key={day.date} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+            <p className="text-xs font-bold text-slate-700">
+              {fmtDateShort(day.date)} <span className="ml-1 text-[10px] font-semibold text-slate-400">{dayName(day.date)}</span>
+            </p>
+            <p className="text-[10px] font-semibold text-slate-500">{day.notas.length} nota · {day.qc.length} item dikerjakan</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-1.5 w-16">Jam</th>
+                  <th className="px-3 py-1.5 w-32">Pekerjaan</th>
+                  <th className="px-3 py-1.5">Nota</th>
+                  <th className="px-3 py-1.5">Item</th>
+                  <th className="px-3 py-1.5 text-right">Qty</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[
+                  ...day.notas.map((n) => ({ key: `n${n.id}`, time: n.time, nota: n })),
+                  ...day.qc.map((p) => ({ key: `q${p.id}`, time: p.time, qc: p })),
+                ].sort((a, b) => String(a.time).localeCompare(String(b.time))).map((r) => (
+                  <tr key={r.key}>
+                    <td className="px-3 py-1.5 font-semibold tabular-nums text-slate-600">{r.time || "—"}</td>
+                    <td className="px-3 py-1.5">
+                      {r.nota ? (
+                        <span className="inline-flex rounded-full border border-[#5f1340]/20 bg-[#5f1340]/5 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">
+                          Buat Nota{r.nota.is_delivery ? " (Delivery)" : ""}
+                        </span>
+                      ) : (
+                        <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", WORK_STAGE_TONE[r.qc.stage] || "border-slate-200 bg-slate-50 text-slate-600")}>
+                          {WORK_STAGE_LABEL[r.qc.stage] || r.qc.stage}
+                        </span>
+                      )}
+                      {r.qc?.qc_status === "temuan" && <span className="ml-1 text-[10px] font-bold text-amber-600">Temuan</span>}
+                    </td>
+                    <td className="px-3 py-1.5 font-mono text-[11px] text-slate-600">{(r.nota || r.qc).order_no}</td>
+                    <td className="px-3 py-1.5 text-slate-700">
+                      {r.nota ? r.nota.items.map((i) => i.service_name).join(", ") || "—" : r.qc.service_name}
+                    </td>
+                    <td className="px-3 py-1.5 text-right font-semibold tabular-nums text-slate-700 whitespace-nowrap">
+                      {r.nota ? fmtWorkQty(r.nota.kg, r.nota.units) : workQtyLine(r.qc)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -554,7 +681,7 @@ function BackupTab({ d }) {
 export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, onClose, hideLoans = false }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState("harian");
+  const [tab, setTab] = useState(employee.is_daily_worker ? "pengerjaan" : "harian");
   const [exporting, setExporting] = useState(false);
 
   useScrollLock(true);
@@ -563,7 +690,11 @@ export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, 
     let cancelled = false;
     const q = new URLSearchParams({ startDate, endDate });
     api(`/waschen/hris/payroll/${employee.employee_id}?${q}`)
-      .then((res) => { if (!cancelled) setDetail(res.data); })
+      .then((res) => {
+        if (cancelled) return;
+        setDetail(res.data);
+        if (res.data?.is_daily_worker && !employee.is_daily_worker) setTab("pengerjaan");
+      })
       .catch((err) => { if (!cancelled) setError(err.message || "Gagal memuat detail"); });
     return () => { cancelled = true; };
   }, [employee.employee_id, startDate, endDate]);
@@ -587,8 +718,15 @@ export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, 
   };
 
   const d = detail || employee;
-  const tabs = hideLoans ? TABS.filter((t) => t.id !== "kasbon") : TABS;
+  const isDaily = Boolean(d.is_daily_worker);
+  // Daily Worker: tanpa kasbon/perizinan; ada tab Pengerjaan
+  const tabs = TABS.filter((t) => {
+    if (t.dailyOnly) return isDaily;
+    if (isDaily && (t.id === "kasbon" || t.id === "izin")) return false;
+    return !(hideLoans && t.id === "kasbon");
+  });
   const counts = detail ? {
+    pengerjaan: (detail.work_notas?.length || 0) + (detail.work_qc?.length || 0),
     lembur: detail.overtime_list.length,
     izin: detail.leave_list.length + detail.off_list.length,
     kasbon: detail.kasbon_list.length + detail.pinjaman_list.length,
@@ -637,9 +775,14 @@ export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, 
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&>*]:min-w-[8.5rem] [&>*]:flex-1">
             <Stat label="Hadir" value={`${d.hadir} hari`} icon={HiOutlineCheckCircle}
               accent={d.no_info_days ? "orange" : "emerald"}
-              sub={d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"} />
-            <Stat label="Off" value={`${d.off} hari`} icon={HiOutlineCalendarDays} accent="sky"
-              sub={d.off_pending ? `${d.off_pending} menunggu persetujuan` : `${d.backup}x jadi backup`} />
+              sub={isDaily ? "Daily Worker · masuk saat dibutuhkan" : d.no_info_days ? `${d.no_info_days} hari tanpa keterangan` : "Lengkap"} />
+            {isDaily ? (
+              <Stat label="Nota Dibuat" value={`${d.work?.nota.count || 0} nota`} icon={HiOutlineTableCells} accent="brand"
+                sub={fmtWorkQty(d.work?.nota.kg, d.work?.nota.units)} />
+            ) : (
+              <Stat label="Off" value={`${d.off} hari`} icon={HiOutlineCalendarDays} accent="sky"
+                sub={d.off_pending ? `${d.off_pending} menunggu persetujuan` : `${d.backup}x jadi backup`} />
+            )}
             <Stat label="Durasi Kerja" value={fmtDur(d.work_minutes)} icon={HiOutlineClock} accent="slate"
               sub={`Rata-rata ${fmtDur(d.avg_work_minutes)}/hari${d.incomplete_checkout ? ` · ${d.incomplete_checkout} belum check-out` : ""}`} />
             <Stat label="Terlambat" value={`${d.late.count}x`} icon={HiOutlineExclamationTriangle}
@@ -651,7 +794,10 @@ export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, 
               ].filter(Boolean).join(" · ")} />
             <Stat label="Lembur" value={fmtDur(d.overtime.approved_minutes)} icon={HiOutlineBolt} accent="amber"
               sub={`${d.overtime.approved_count}x disetujui${d.overtime.pending_count ? ` · ${d.overtime.pending_count} menunggu` : ""}`} />
-            {hideLoans ? (
+            {isDaily ? (
+              <Stat label="Item Dikerjakan" value={`${d.work?.qc.total || 0} item`} icon={HiOutlineCheckCircle} accent="brand"
+                sub={d.work?.qc.kg ? `${fmtQtyNum(d.work.qc.kg)} kg kiloan · semua tahap` : "QC semua tahap"} />
+            ) : hideLoans ? (
               <Stat label="Perizinan" value={`${fmtDays(d.leave.total_days)} hari`} icon={HiOutlineTableCells} accent="brand"
                 sub={`Izin ${fmtDays(d.leave.izin)} · Sakit ${fmtDays(d.leave.sakit)} · Cuti ${fmtDays(d.leave.cuti)}`} />
             ) : (
@@ -684,6 +830,7 @@ export function PayrollDetailModal({ employee, startDate, endDate, periodLabel, 
             </div>
           ) : (
             <>
+              {tab === "pengerjaan" && <WorkTab d={detail} />}
               {tab === "harian" && <DailyTab d={detail} />}
               {tab === "lembur" && <OvertimeTab d={detail} />}
               {tab === "izin" && <LeaveTab d={detail} />}
@@ -753,6 +900,7 @@ export default function Payroll() {
     hadir: (r) => r.hadir,
     off: (r) => r.off,
     work_minutes: (r) => r.work_minutes,
+    pengerjaan: (r) => (r.work ? r.work.qc.total + r.work.nota.count : -1),
     backup: (r) => r.backup,
     overtime: (r) => r.overtime.approved_minutes,
     leave: (r) => r.leave.total_days,
@@ -781,7 +929,10 @@ export default function Payroll() {
     otEmp: t.otEmp + (r.overtime.approved_count > 0 ? 1 : 0),
     lateEmp: t.lateEmp + (r.late.count > 0 ? 1 : 0),
     deductEmp: t.deductEmp + (r.deduction_total > 0 ? 1 : 0),
-  }), { hadir: 0, noInfo: 0, off: 0, work: 0, backup: 0, otMin: 0, otCount: 0, leave: 0, late: 0, lateMin: 0, kasbon: 0, pinjaman: 0, outstanding: 0, direct: 0, noInfoEmp: 0, otEmp: 0, lateEmp: 0, deductEmp: 0 }), [filtered]);
+    dailyEmp: t.dailyEmp + (r.is_daily_worker ? 1 : 0),
+    nota: t.nota + (r.work?.nota.count || 0),
+    qc: t.qc + (r.work?.qc.total || 0),
+  }), { hadir: 0, noInfo: 0, off: 0, work: 0, backup: 0, otMin: 0, otCount: 0, leave: 0, late: 0, lateMin: 0, kasbon: 0, pinjaman: 0, outstanding: 0, direct: 0, noInfoEmp: 0, otEmp: 0, lateEmp: 0, deductEmp: 0, dailyEmp: 0, nota: 0, qc: 0 }), [filtered]);
   const nEmp = filtered.length;
   const avgHadir = nEmp ? Math.round((totals.hadir / nEmp) * 10) / 10 : 0;
   const avgLateMin = totals.late ? Math.round(totals.lateMin / totals.late) : 0;
@@ -931,6 +1082,8 @@ export default function Payroll() {
             <li><b>Pulang cepat</b>: Frontliner check-out sebelum jam selesai shift (Pagi 17:00 / Siang 20:00); tidak dihitung bila izin ½ hari siang.</li>
             <li><b>Kasbon / Pinjaman</b>: potong gaji = termin jatuh tempo di periode + tunggakan termin sebelumnya yang belum lunas.
               Metode <i>bayar langsung</i> ditampilkan terpisah, tidak memotong gaji.</li>
+            <li><b>Daily Worker</b>: tanpa gaji tetap, libur, maupun kasbon; hari tanpa absen = tidak bekerja (bukan tanpa ket.).
+              <b> Pengerjaan</b> = nota yang dia buat + item yang dia QC di semua tahap (kg untuk kiloan).</li>
           </ul>
         )}
 
@@ -973,9 +1126,17 @@ export default function Payroll() {
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
                     <span>Kerja {fmtDur(r.work_minutes)}</span>
                     <span>Lembur {fmtDur(r.overtime.approved_minutes)}</span>
-                    <span>Izin {fmtDays(r.leave.total_days)} hari</span>
-                    <span className="font-semibold text-[#5f1340]">Potong gaji {fmtIDR(r.deduction_total)}</span>
-                    {r.direct_total > 0 && <span className="font-semibold text-sky-700">Langsung {fmtIDR(r.direct_total)}</span>}
+                    {r.work ? (
+                      <span className="font-semibold text-[#5f1340]">
+                        {r.work.nota.count} nota · {r.work.qc.total} item{r.work.qc.kg ? ` · ${fmtQtyNum(r.work.qc.kg)} kg` : ""}
+                      </span>
+                    ) : (
+                      <>
+                        <span>Izin {fmtDays(r.leave.total_days)} hari</span>
+                        <span className="font-semibold text-[#5f1340]">Potong gaji {fmtIDR(r.deduction_total)}</span>
+                        {r.direct_total > 0 && <span className="font-semibold text-sky-700">Langsung {fmtIDR(r.direct_total)}</span>}
+                      </>
+                    )}
                   </div>
                 </button>
               ))}
@@ -983,7 +1144,7 @@ export default function Payroll() {
 
             {/* Desktop */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[1500px] border-separate border-spacing-0 text-left text-xs">
+              <table className="w-full min-w-[1650px] border-separate border-spacing-0 text-left text-xs">
                 <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&_th]:border-b [&_th]:border-slate-200 [&_th]:bg-slate-50">
                   <tr>
                     <th className="sticky left-0 z-20 w-14 min-w-[3.5rem] px-4 py-3 text-center font-semibold">No</th>
@@ -992,6 +1153,7 @@ export default function Payroll() {
                     <SortTh col="hadir" label="Jumlah Hadir" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="off" label="Jumlah Off" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="work_minutes" label="Durasi Kerja" sort={sort} onSort={toggleSort} />
+                    <SortTh col="pengerjaan" label="Pengerjaan" sort={sort} onSort={toggleSort} />
                     <th className="min-w-[170px] px-4 py-3 font-semibold">Lokasi</th>
                     <SortTh col="backup" label="Jumlah Backup" sort={sort} onSort={toggleSort} align="center" />
                     <SortTh col="overtime" label="Lembur" sort={sort} onSort={toggleSort} />
@@ -1033,6 +1195,15 @@ export default function Payroll() {
                         <p className="whitespace-nowrap font-semibold text-slate-700">{fmtDur(r.work_minutes)}</p>
                         <Sub>rata² {fmtDur(r.avg_work_minutes)}/hari</Sub>
                         {r.incomplete_checkout > 0 && <Sub tone="amber">{r.incomplete_checkout} belum check-out</Sub>}
+                      </td>
+                      <td className="min-w-[150px] px-4 py-3">
+                        {r.work ? (
+                          <>
+                            <p className="whitespace-nowrap font-semibold text-slate-700">{r.work.nota.count} nota · {r.work.qc.total} item</p>
+                            {r.work.qc.kg > 0 && <Sub>{fmtQtyNum(r.work.qc.kg)} kg kiloan dikerjakan</Sub>}
+                            {r.work.nota.kg > 0 && <Sub>nota {fmtQtyNum(r.work.nota.kg)} kg</Sub>}
+                          </>
+                        ) : <span className="text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-3"><LocationChips row={r} /></td>
                       <td className="text-center"><Num value={r.backup} tone="brand" /></td>
@@ -1104,6 +1275,7 @@ export default function Payroll() {
                     <td className="px-4 py-3 text-center">{totals.hadir}</td>
                     <td className="px-4 py-3 text-center">{totals.off}</td>
                     <td className="px-4 py-3">{fmtDur(totals.work)}</td>
+                    <td className="px-4 py-3">{totals.dailyEmp ? `${totals.nota} nota · ${totals.qc} item` : "—"}</td>
                     <td className="px-4 py-3"><HiOutlineMapPin className="inline h-3.5 w-3.5 text-slate-400" /></td>
                     <td className="px-4 py-3 text-center">{totals.backup}</td>
                     <td className="px-4 py-3">{fmtDur(totals.otMin)}</td>

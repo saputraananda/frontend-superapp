@@ -25,6 +25,7 @@ export const WASCHEN_ROLE_OPTIONS = [
   { value: "Ironing Staff", label: "Ironing Staff" },
   { value: "Packing Staff", label: "Packing Staff" },
   { value: "Delivery Staff", label: "Delivery Staff" },
+  { value: "Daily Worker", label: "Daily Worker" },
 ];
 
 export function fmtDateShort(v) {

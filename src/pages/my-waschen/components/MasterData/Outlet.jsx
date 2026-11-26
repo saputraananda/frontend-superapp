@@ -61,7 +61,7 @@ function StatusBadge({ isActive }) {
   );
 }
 
-const EMPTY_FORM = { id: null, outlet_code: "", name: "", full_name: "", address: "", lat: "", lon: "", is_drop_point: 0, is_active: 1, requires_shift: 1 };
+const EMPTY_FORM = { id: null, outlet_code: "", name: "", full_name: "", address: "", lat: "", lon: "", is_drop_point: 0, is_event: 0, is_active: 1, requires_shift: 1 };
 
 /** Badge kebijakan shift outlet (mst_outlet.requires_shift; NULL dianggap wajib). */
 function ShiftBadge({ requiresShift }) {
@@ -107,6 +107,7 @@ export default function Outlet() {
       lat: item.lat != null ? String(item.lat) : "",
       lon: item.lon != null ? String(item.lon) : "",
       is_drop_point: Number(item.is_drop_point) === 1 ? 1 : 0,
+      is_event: Number(item.is_event) === 1 ? 1 : 0,
       is_active: Number(item.is_active ?? 1) === 1 ? 1 : 0,
       requires_shift: Number(item.requires_shift ?? 1) === 1 ? 1 : 0,
     });
@@ -343,6 +344,9 @@ export default function Outlet() {
                         {Number(item.is_drop_point) === 1 && (
                           <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">Drop Point</span>
                         )}
+                        {Number(item.is_event) === 1 && (
+                          <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Event</span>
+                        )}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.address || "—"}</td>
@@ -523,6 +527,18 @@ export default function Outlet() {
                   <span>
                     <span className="block font-semibold text-slate-700">Outlet Drop Point</span>
                     <span className="block text-[10px] text-slate-400">Outlet penerima cucian; item bisa didistribusikan ke outlet lain untuk produksi.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Number(formData.is_event) === 1}
+                    onChange={(e) => setFormData((p) => ({ ...p, is_event: e.target.checked ? 1 : 0 }))}
+                    className="mt-0.5 rounded border-slate-300 text-[#5f1340] focus:ring-[#5f1340]"
+                  />
+                  <span>
+                    <span className="block font-semibold text-slate-700">Outlet Event</span>
+                    <span className="block text-[10px] text-slate-400">Stand event: bisa dipilih seluruh karyawan Waschen di pilihan outlet POS selama outlet aktif.</span>
                   </span>
                 </label>
                 <label className="flex items-start gap-2 cursor-pointer">

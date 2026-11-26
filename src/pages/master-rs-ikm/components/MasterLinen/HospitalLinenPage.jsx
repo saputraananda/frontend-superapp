@@ -668,7 +668,7 @@ export default function HospitalLinenPage({ hospitalId }) {
                     </td>
                     <td className="px-2 py-3 text-slate-600 text-xs">{a.unit_name || a.unit}</td>
                     <td className="px-2 py-3 text-slate-600 text-xs">{a.grammage ? `${a.grammage}g` : <span className="text-slate-300">—</span>}</td>
-                    <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{a.washing_price_type === "KG" ? `${formatRupiah(a.washing_price)}/Kg` : formatRupiah(a.washing_price)}</td>
+                    <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{a.washing_price_type === "KG" ? `${formatRupiah(a.washing_price)}/Kg` : a.washing_price_type === "M2" ? `${formatRupiah(a.washing_price)}/m²` : formatRupiah(a.washing_price)}</td>
                     <td className="px-2 py-3 text-slate-800 font-semibold text-xs whitespace-nowrap">{formatRupiah(a.rental_price)}</td>
                     <td className="px-2 py-3 text-slate-600 font-medium text-center">{a.stock_in_ikm ?? 0}</td>
                     <td className="px-2 py-3 text-slate-600 font-medium text-center">{a.stock_in_rs ?? 0}</td>
@@ -795,6 +795,7 @@ export default function HospitalLinenPage({ hospitalId }) {
                     <select className={inputCls} value={form.washing_price_type} onChange={(e) => setForm({ ...form, washing_price_type: e.target.value })}>
                       <option value="PCS">Per Pcs</option>
                       <option value="KG">Per Kg</option>
+                      <option value="M2">Per m² (P × L)</option>
                     </select>
                   </Field>
                   <Field label="Harga Cuci" error={errors.washing_price}>

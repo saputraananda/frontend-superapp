@@ -64,14 +64,28 @@ export function assetUrl(p) {
   return `${BASE_URL}/${clean}`;
 }
 
+/** Origin server POS (pos.mywaschen.com) — file yang diunggah lewat POS dilayani dari sini. */
+const posOrigin = () =>
+  (import.meta.env.VITE_WASCHEN_POS_PUBLIC_BASE_URL || "https://pos.mywaschen.com").replace(/\/$/, "");
+
+/**
+ * URL upload POS (/uploads/...), mis. foto kondisi item yang diambil frontliner saat membuat nota.
+ * Beda dengan waschenUploadUrl (upload Waschen Mobile / app.mywaschen.com, mis. foto QC progres).
+ */
+export function waschenPosUploadUrl(p) {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  const clean = String(p).replace(/^\/+/, "");
+  return `${posOrigin()}/${clean}`;
+}
+
 /** Lampiran komplain: {WASCHEN_POS_PUBLIC_BASE_URL}/uploads/assets/... */
 export function complaintFileUrl(p) {
   if (!p) return null;
   if (/^https?:\/\//i.test(p)) return p;
   let clean = String(p).replace(/^\/+/, "");
   if (!clean.startsWith("assets/")) clean = `assets/${clean}`;
-  const origin = (import.meta.env.VITE_WASCHEN_POS_PUBLIC_BASE_URL || "https://pos.mywaschen.com").replace(/\/$/, "");
-  return `${origin}/uploads/${clean}`;
+  return `${posOrigin()}/uploads/${clean}`;
 }
 
 /**

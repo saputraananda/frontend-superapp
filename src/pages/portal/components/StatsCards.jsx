@@ -112,8 +112,20 @@ export default function StatsCards({ companyId }) {
             maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
         });
 
-    const salesUnit = isIkm ? "Miliar" : "Juta";
-    const salesRemaining = salesData.target_bulanan - salesData.actual_sales;
+    const salesRemaining = Math.max(0, salesData.target_bulanan - salesData.actual_sales);
+
+    /**
+     * Nominal rupiah → { num, unit }. Waschen: rupiah penuh tanpa singkatan (mis. 1.130.000).
+     * IKM: nilainya sudah dalam miliar.
+     */
+    const money = (value) => {
+        const v = Number(value) || 0;
+        if (isIkm) return { num: formatNumber(v), unit: "Miliar" };
+        return { num: Math.round(v).toLocaleString("id-ID"), unit: "" };
+    };
+    const actualMoney = money(salesData.actual_sales);
+    const targetMoney = money(salesData.target_bulanan);
+    const remainingMoney = money(salesRemaining);
 
     // Fetch customer data
     useEffect(() => {
@@ -264,16 +276,18 @@ export default function StatsCards({ companyId }) {
                                     <div className="flex items-baseline gap-1 min-w-0 flex-1">
                                         <span className="text-xs text-slate-500 font-medium flex-shrink-0">Rp</span>
                                         <span className="text-xl lg:text-2xl font-bold text-[var(--p-ink,#3B1F2B)] truncate">
-                                            {formatNumber(salesData.actual_sales)}
+                                            {actualMoney.num}
                                         </span>
-                                        <span className="text-xs text-slate-500 font-medium flex-shrink-0">{salesUnit}</span>
+                                        {actualMoney.unit && (
+                                            <span className="text-xs text-slate-500 font-medium flex-shrink-0">{actualMoney.unit}</span>
+                                        )}
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <span className="text-base lg:text-lg font-bold text-[var(--p-a1,#6B2D77)]">{salesData.percentage}%</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-slate-500">
-                                    Target {thisTime}: <span className="font-semibold text-slate-700">Rp {formatNumber(salesData.target_bulanan)}</span> {salesUnit}
+                                    Target {thisTime}: <span className="font-semibold text-slate-700">Rp {targetMoney.num}{targetMoney.unit && ` ${targetMoney.unit}`}</span>
                                 </p>
                             </div>
 
@@ -289,7 +303,7 @@ export default function StatsCards({ companyId }) {
 
                                 <div className="flex items-center justify-between">
                                     <p className="text-[10px] text-slate-600">
-                                        Sisa <span className="font-bold text-[var(--p-a1,#6B2D77)]">Rp {formatNumber(salesRemaining)}</span> {salesUnit} lagi! 💰
+                                        Sisa <span className="font-bold text-[var(--p-a1,#6B2D77)]">Rp {remainingMoney.num}{remainingMoney.unit && ` ${remainingMoney.unit}`}</span> lagi! 💰
                                     </p>
                                 </div>
                             </div>

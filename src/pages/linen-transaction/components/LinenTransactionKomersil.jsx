@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   HiOutlineFunnel, HiOutlineXMark,
@@ -7,7 +7,7 @@ import {
   HiOutlineExclamationTriangle, HiOutlineCheckCircle, HiOutlineDocumentText,
   HiOutlinePencilSquare, HiOutlineTrash, HiOutlinePlus, HiOutlineClock,
   HiOutlineUser, HiOutlineArrowDownTray, HiOutlineChevronDown,
-  HiOutlineTruck, HiOutlinePrinter
+  HiOutlineTruck, HiOutlinePrinter, HiOutlineLink, HiOutlineInformationCircle
 } from "react-icons/hi2";
 import { api, BASE_URL } from "../../../lib/api";
 import { exportSerahTerimaLinenExcel } from "../utils/exportSerahTerimaLinenExcel";
@@ -15,6 +15,7 @@ import { exportRekapCuciLinenKomersil } from "../utils/exportRekapCuciLinenKomer
 import exportSuratJalanKurangKirimKomersil from "../utils/exportSerahTerimaLinenKomersilExcel";
 import EmployeeSearchSelect from "./EmployeeSearchSelect";
 import HospitalSearchSelect from "./HospitalSearchSelect";
+import { signatureUrl } from "../utils/serahTerimaLinenExportData";
 
 function cn(...c) { return c.filter(Boolean).join(" "); }
 
@@ -1690,6 +1691,225 @@ function FormModal({ open, mode, transactionId, hospitals, onClose, onSubmitSucc
 }
 
 // ─── Delete Confirmation Modal (React Portal) ────────────────────────────────
+// Formulir Linen Komersil berinduk (dibuat otomatis dari Serah Terima Linen).
+// Baris, qty kotor, TTD dan status mengikuti formulir induk; di sini hanya qty bersih, P × L (tipe M2),
+// catatan dan express. Hitungan per washing_price_type: PCS = qty, KG = grammage × qty / 1000, M2 = P × L.
+
+const KOMERSIL_TYPE_LABEL = { PCS: "Per Pcs", KG: "Per Kg", M2: "Per m²" };
+const childNum = (v) => (v === "" || v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
+const childFmt = (v) => Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+
+function komersilMeasureOf(r) {
+  const qty = childNum(r.bersih) ?? (Number(r.kotor) || 0);
+  if (r.type === "KG") return { value: (Number(r.grammage) || 0) * qty / 1000, unit: "Kg" };
+  if (r.type === "M2") {
+    const p = childNum(r.length);
+    const l = childNum(r.width);
+    return { value: p && l ? Math.round(p * l * 100) / 100 : 0, unit: "m²" };
+  }
+  return { value: qty, unit: "Pcs" };
+}
+
+function ChildSig({ label, sig, name }) {
+  const src = signatureUrl(sig);
+  return (
+    <div className="flex flex-col items-center rounded-xl border border-slate-200 bg-white p-2">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+      <div className="flex h-14 w-full items-center justify-center">
+        {src ? <img src={src} alt={label} className="max-h-12 max-w-full object-contain" /> : <span className="text-[10px] italic text-slate-300">Belum TTD</span>}
+      </div>
+      <span className="text-[11px] font-semibold text-slate-700">{name || "—"}</span>
+    </div>
+  );
+}
+
+function KomersilChildModal({ transactionId, onClose, onSaved, onError }) {
+  const [data, setData] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [isExpress, setIsExpress] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // onError dari induk bisa berubah tiap render; jangan memicu muat ulang (isian bisa hilang)
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  useEffect(() => {
+    let alive = true;
+    api(`/ikm/linen-transactions-komersil/${transactionId}`)
+      .then((res) => {
+        if (!alive || !res.success) return;
+        const { header, details } = res.data;
+        setData(res.data);
+        setIsExpress(Number(header.is_express) === 1);
+        setRows((details || []).map((d) => ({
+          id: d.id,
+          room: d.room_name || "Tanpa Ruangan",
+          name: d.linen_display_name || d.item_name,
+          type: d.washing_price_type || "PCS",
+          grammage: d.grammage,
+          kotor: Number(d.qty_kotor) || 0,
+          bersih: d.qty_bersih ?? "",
+          length: d.length_cm ?? "",
+          width: d.width_cm ?? "",
+          notes: d.notes || "",
+        })));
+      })
+      .catch((err) => onErrorRef.current(err.message || "Gagal memuat formulir komersil"));
+    return () => { alive = false; };
+  }, [transactionId]);
+
+  const setRow = (id, field, value) => setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+
+  const totals = useMemo(() => {
+    const t = { Pcs: 0, Kg: 0, "m²": 0, kotor: 0, bersih: 0 };
+    for (const r of rows) {
+      const m = komersilMeasureOf(r);
+      t[m.unit] += m.value;
+      t.kotor += r.kotor;
+      t.bersih += childNum(r.bersih) || 0;
+    }
+    return t;
+  }, [rows]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await api(`/ikm/linen-transactions-komersil/${transactionId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          is_express: isExpress ? 1 : 0,
+          details: rows.map((r) => ({ id: r.id, qty_bersih: r.bersih, length_cm: r.length, width_cm: r.width, notes: r.notes })),
+        }),
+      });
+      onSaved(res.message || "Formulir linen komersil tersimpan");
+    } catch (err) {
+      onError(err.message || "Gagal menyimpan formulir linen komersil");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const h = data?.header;
+  const input = "w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100";
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex shrink-0 items-start justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Formulir Linen Komersil {h ? `· ${h.form_number}` : ""}</h3>
+            {h && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                <HiOutlineLink className="h-3.5 w-3.5" /> Induk <b className="text-slate-700">{h.parent_form_number}</b> · {h.hospital_name} ·
+                <span className={h.status === "SELESAI" ? "font-semibold text-emerald-600" : "font-semibold text-indigo-600"}>{h.status === "SELESAI" ? "Selesai" : "Proses"}</span>
+              </p>
+            )}
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            <HiOutlineXMark className="h-5 w-5" />
+          </button>
+        </div>
+
+        {!data ? (
+          <p className="py-16 text-center text-sm text-slate-400">Memuat formulir…</p>
+        ) : (
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="flex items-start gap-2 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+              <HiOutlineInformationCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>Dibuat otomatis dari formulir serah terima <b>{h.parent_form_number}</b>. Daftar linen, kotor, TTD dan status mengikuti formulir induk. Isi qty bersih, P × L (linen tipe m²) dan catatan; qty bersih ikut tersimpan di formulir induk.</p>
+            </div>
+
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
+              <input type="checkbox" checked={isExpress} onChange={(e) => setIsExpress(e.target.checked)} className="h-4 w-4 accent-amber-500" />
+              Layanan Express
+            </label>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full min-w-[900px] text-left text-xs">
+                <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <tr>
+                    <th className="px-3 py-3 text-center">No</th>
+                    <th className="px-3 py-3">Ruangan</th>
+                    <th className="px-3 py-3">Nama Linen</th>
+                    <th className="px-3 py-3 text-center">Hitungan</th>
+                    <th className="px-3 py-3 text-center">Kotor</th>
+                    <th className="px-3 py-3 text-center">Bersih</th>
+                    <th className="px-3 py-3 text-center">P (m)</th>
+                    <th className="px-3 py-3 text-center">L (m)</th>
+                    <th className="px-3 py-3 text-center">Hasil</th>
+                    <th className="px-3 py-3">Catatan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {rows.map((r, i) => {
+                    const m = komersilMeasureOf(r);
+                    const isM2 = r.type === "M2";
+                    return (
+                      <tr key={r.id}>
+                        <td className="px-3 py-2.5 text-center text-slate-400">{i + 1}</td>
+                        <td className="px-3 py-2.5 font-semibold">{r.room}</td>
+                        <td className="px-3 py-2.5 font-semibold text-slate-800">{r.name}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                            {KOMERSIL_TYPE_LABEL[r.type] || r.type}{r.type === "KG" && r.grammage ? ` · ${childFmt(r.grammage)} g` : ""}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-bold">{r.kotor}</td>
+                        <td className="px-3 py-2.5 text-center"><input type="number" min="0" max={r.kotor} value={r.bersih} onChange={(e) => setRow(r.id, "bersih", e.target.value)} className={input} placeholder="0" /></td>
+                        <td className="px-3 py-2.5 text-center">{isM2 ? <input type="number" min="0" step="0.01" value={r.length} onChange={(e) => setRow(r.id, "length", e.target.value)} className={input} placeholder="0,00" /> : <span className="text-slate-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-center">{isM2 ? <input type="number" min="0" step="0.01" value={r.width} onChange={(e) => setRow(r.id, "width", e.target.value)} className={input} placeholder="0,00" /> : <span className="text-slate-300">—</span>}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-center font-bold text-indigo-700">{childFmt(m.value)} {m.unit}</td>
+                        <td className="px-3 py-2.5"><input value={r.notes} onChange={(e) => setRow(r.id, "notes", e.target.value)} placeholder="Catatan…" className="w-full min-w-[140px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 outline-none focus:border-indigo-400 focus:bg-white" /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="bg-slate-50 font-bold text-slate-700">
+                  <tr>
+                    <td colSpan={4} className="px-3 py-3 text-right uppercase tracking-wider text-slate-500">Total</td>
+                    <td className="px-3 py-3 text-center">{totals.kotor}</td>
+                    <td className="px-3 py-3 text-center">{totals.bersih}</td>
+                    <td colSpan={4} className="px-3 py-3 text-indigo-700">
+                      {[totals.Pcs ? `${childFmt(totals.Pcs)} Pcs` : "", totals.Kg ? `${childFmt(totals.Kg)} Kg` : "", totals["m²"] ? `${childFmt(totals["m²"])} m²` : ""].filter(Boolean).join(" · ") || "—"}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-[11px] font-bold uppercase text-indigo-600">TTD Pengambilan (induk)</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <ChildSig label="Valet IKM" sig={h.signature_valet_pickup} name={h.pickup_by_name} />
+                  <ChildSig label="Petugas RS" sig={h.signature_hospital_pickup} name={h.hospital_staff_pickup} />
+                  <ChildSig label="Perawat RS" sig={h.signature_assistant_pickup} name={h.hospital_assistant_pickup} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-[11px] font-bold uppercase text-emerald-600">TTD Pengiriman (induk)</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <ChildSig label="Valet IKM" sig={h.signature_valet_delivery} name={h.delivery_by_name} />
+                  <ChildSig label="Petugas RS" sig={h.signature_hospital_delivery} name={h.hospital_staff_delivery} />
+                  <ChildSig label="Perawat RS" sig={h.signature_assistant_delivery} name={h.hospital_assistant_delivery} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 pt-4">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Tutup</button>
+          <button type="button" disabled={saving || !data} onClick={save} className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50">
+            {saving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function DeleteModal({ open, transaction, onClose, onDeleteConfirm, onError }) {
   const [deleting, setDeleting] = useState(false);
 
@@ -1805,6 +2025,14 @@ export default function LinenTransactionKomersil() {
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [formModalMode, setFormModalMode] = useState("edit"); // 'create', 'edit'
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+  // Formulir komersil berinduk (otomatis dari Serah Terima Linen) memakai modal sendiri
+  const [childTxId, setChildTxId] = useState(null);
+  const openRow = (row) => {
+    if (row.parent_transaction_id) { setChildTxId(row.id); return; }
+    setSelectedTransactionId(row.id);
+    setFormModalMode("edit");
+    setFormModalOpen(true);
+  };
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -1915,12 +2143,6 @@ export default function LinenTransactionKomersil() {
     loadTransactions();
   };
 
-  const handleTriggerCreate = () => {
-    setSelectedTransactionId(null);
-    setFormModalMode("create");
-    setFormModalOpen(true);
-  };
-
   const handleActionSuccess = (message) => {
     showToast("success", message);
     loadTransactions();
@@ -1944,6 +2166,15 @@ export default function LinenTransactionKomersil() {
           }}
           onSubmitSuccess={handleActionSuccess}
         />
+
+        {childTxId && (
+          <KomersilChildModal
+            transactionId={childTxId}
+            onClose={() => setChildTxId(null)}
+            onSaved={(msg) => { setChildTxId(null); handleActionSuccess(msg); }}
+            onError={(msg) => showToast("error", msg)}
+          />
+        )}
 
         {/* Delete Confirmation Modal */}
         <DeleteModal
@@ -1982,13 +2213,6 @@ export default function LinenTransactionKomersil() {
                 {exportingRekap ? "Mengekspor..." : "Unduh Rekap"}
               </button>
 
-              {/* Tambah Transaksi Trigger */}
-              <button
-                onClick={handleTriggerCreate}
-                className="inline-flex items-center gap-2 rounded-xl bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/25 transition shadow-sm shrink-0"
-              >
-                <HiOutlinePlus className="h-4 w-4" /> Tambah Transaksi
-              </button>
             </div>
           </div>
         </section>
@@ -2181,15 +2405,14 @@ export default function LinenTransactionKomersil() {
                     return (
                       <tr
                         key={row.id}
-                        onClick={() => {
-                          setSelectedTransactionId(row.id);
-                          setFormModalMode("edit");
-                          setFormModalOpen(true);
-                        }}
+                        onClick={() => openRow(row)}
                         className="border-t border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         <td className="px-4 py-3.5 text-center text-xs font-medium text-slate-400 tabular-nums">{number}</td>
-                        <td className="px-4 py-3.5 text-xs font-semibold text-slate-700 whitespace-nowrap">{row.form_number || "—"}</td>
+                        <td className="px-4 py-3.5 text-xs font-semibold text-slate-700 whitespace-nowrap">
+                          {row.form_number || "—"}
+                          {row.parent_form_number && <span className="block text-[10px] font-medium text-slate-400">Induk {row.parent_form_number}</span>}
+                        </td>
                         <td className="px-4 py-3.5 text-xs font-bold text-slate-800">{row.hospital_name}</td>
                         <td className="px-4 py-3.5 text-center text-xs text-slate-500">{fmtDate(row.pickup_date)}</td>
                         <td className="px-4 py-3.5 text-center text-xs text-slate-500">{fmtDate(row.delivery_date) || "-"}</td>
@@ -2207,11 +2430,7 @@ export default function LinenTransactionKomersil() {
                           <div className="inline-flex items-center gap-1.5 justify-center">
                             <button
                               type="button"
-                              onClick={() => {
-                                setSelectedTransactionId(row.id);
-                                setFormModalMode("edit");
-                                setFormModalOpen(true);
-                              }}
+                              onClick={() => openRow(row)}
                               className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition"
                               title="Edit"
                             >
@@ -2230,7 +2449,7 @@ export default function LinenTransactionKomersil() {
                                 <HiOutlineArrowDownTray className="h-3.5 w-3.5" />
                               )}
                             </button>
-                            <button
+                            {!row.parent_transaction_id && <button
                               type="button"
                               onClick={() => {
                                 setDeleteTarget(row);
@@ -2240,7 +2459,7 @@ export default function LinenTransactionKomersil() {
                               title="Hapus"
                             >
                               <HiOutlineTrash className="h-3.5 w-3.5" />
-                            </button>
+                            </button>}
                           </div>
                         </td>
                       </tr>

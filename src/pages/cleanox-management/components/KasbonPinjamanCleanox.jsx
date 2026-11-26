@@ -49,7 +49,7 @@ function fmtDate(v) {
 function fmtDateTime(v) {
 	if (!v) return "-";
 	const normalized =
-		typeof v === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(v) ? `${v.replace(" ", "T")}Z` : v;
+		typeof v === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(v) ? `${v.replace(" ", "T")}+07:00` : v; // database menyimpan WIB (dulu "Z" → tampil +7 jam)
 	const d = new Date(normalized);
 	if (Number.isNaN(d.getTime())) return v;
 	return new Intl.DateTimeFormat("id-ID", {
