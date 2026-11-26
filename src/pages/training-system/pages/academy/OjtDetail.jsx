@@ -27,16 +27,16 @@ export default function OjtDetail() {
     <PageShell
       icon={HiOutlineClipboardDocumentCheck}
       title={ojt ? `OJT ${ojt.full_name}` : "OJT"}
-      subtitle={ojt ? `${ojt.training_name} · ${fmtDate(ojt.start_date)} - ${fmtDate(ojt.end_date)}` : ""}
+      subtitle={ojt ? `${ojt.batch_label} · ${fmtDate(ojt.start_date)} - ${fmtDate(ojt.end_date)}` : ""}
       toast={toast}
       action={
         <div className="flex gap-2">
-          <button type="button" onClick={() => navigate(BASE)} className={ghostBtnCls}>
+          <button type="button" onClick={() => navigate(ojt ? `${BASE}/batch/${ojt.ojt_batch_id}` : BASE)} className={ghostBtnCls}>
             Kembali
           </button>
           {ojt && (
-            <button type="button" onClick={() => navigate(`${BASE}/${id}/edit`)} className={ghostBtnCls}>
-              Ubah
+            <button type="button" onClick={() => navigate(`${BASE}/batch/${ojt.ojt_batch_id}/edit`)} className={ghostBtnCls}>
+              Kelola batch
             </button>
           )}
         </div>

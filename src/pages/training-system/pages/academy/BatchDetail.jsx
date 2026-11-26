@@ -412,7 +412,13 @@ export default function BatchDetail() {
   const backButton = (
     <button
       type="button"
-      onClick={() => navigate("/training-management-system/academy/batches")}
+      onClick={() =>
+        navigate(
+          batch
+            ? `/training-management-system/academy/batches/type/${batch.training_id}`
+            : "/training-management-system/academy/batches",
+        )
+      }
       className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-amber-700 shadow-lg shadow-amber-500/20 transition hover:bg-slate-50"
     >
       <HiOutlineArrowLeft className="h-4 w-4" /> Kembali
@@ -433,7 +439,7 @@ export default function BatchDetail() {
   return (
     <PageShell
       icon={HiOutlineCalendarDays}
-      title={batch.training_name}
+      title={`${batch.master_name} · ${batch.training_name} · Batch ${batch.batch_no}`}
       subtitle={`Versi ${batch.version_no} · Mulai ${fmtDatetime(batch.start_at)}`}
       action={backButton}
       toast={toast}

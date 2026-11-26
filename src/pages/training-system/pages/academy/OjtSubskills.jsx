@@ -5,7 +5,7 @@ import { api } from "../../../../lib/api";
 import { cardCls, ghostBtnCls, inputCls, primaryBtnCls, useToast } from "./helpers";
 import { PageShell, Spinner, StatusBadge } from "./ui";
 
-const BASE = "/training-management-system/academy/kriteria-ojt";
+const BASE = "/training-management-system/academy";
 
 export default function OjtSubskills() {
   const { id } = useParams();
@@ -14,6 +14,7 @@ export default function OjtSubskills() {
   // undefined = sedang dimuat, null = kriteria tidak ditemukan.
   const [criterion, setCriterion] = useState(undefined);
   const [name, setName] = useState("");
+  const [typeName, setTypeName] = useState(null);
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState("");
   const [dragId, setDragId] = useState(null);
@@ -66,8 +67,27 @@ export default function OjtSubskills() {
     send(`/academy/ojt/subskills/${editing.id}`, "PUT", { name: editing.name }, () => setEditing(null));
   };
 
+  const renameType = (e) => {
+    e.preventDefault();
+    send(`/academy/ojt/criteria/${id}`, "PUT", { name: typeName }, () => setTypeName(null));
+  };
+
+  const removeType = async () => {
+    if (!window.confirm(`Hapus jenis ${criterion.name}?`)) return;
+    try {
+      await api(`/academy/ojt/criteria/${id}`, { method: "DELETE" });
+      navigate(`${BASE}/ojt-master/master/${criterion.master_id}`);
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
   const backButton = (
-    <button type="button" onClick={() => navigate(BASE)} className={ghostBtnCls}>
+    <button
+      type="button"
+      onClick={() => navigate(criterion ? `${BASE}/ojt-master/master/${criterion.master_id}` : `${BASE}/ojt-master`)}
+      className={ghostBtnCls}
+    >
       Kembali
     </button>
   );
@@ -82,8 +102,8 @@ export default function OjtSubskills() {
 
   if (criterion === null) {
     return (
-      <PageShell icon={HiOutlineListBullet} title="Sub-skill" subtitle="Kriteria OJT" action={backButton} toast={toast}>
-        <p className={`${cardCls} text-center text-sm text-slate-500`}>Kriteria tidak ditemukan</p>
+      <PageShell icon={HiOutlineListBullet} title="Sub-skill" subtitle="Jenis OJT" action={backButton} toast={toast}>
+        <p className={`${cardCls} text-center text-sm text-slate-500`}>Jenis tidak ditemukan</p>
       </PageShell>
     );
   }
@@ -95,11 +115,33 @@ export default function OjtSubskills() {
   return (
     <PageShell
       icon={HiOutlineListBullet}
-      title={`Sub-skill ${criterion.name}`}
-      subtitle={`Kriteria OJT · ${activeCount} sub-skill aktif`}
+      title={`${criterion.master_name} · ${criterion.name}`}
+      subtitle={`Jenis OJT · ${activeCount} sub-skill aktif`}
       action={backButton}
       toast={toast}
     >
+      <form onSubmit={renameType} className={`${cardCls} flex flex-col gap-3 sm:flex-row`}>
+        <input
+          value={typeName ?? criterion.name}
+          onChange={(e) => setTypeName(e.target.value)}
+          maxLength={200}
+          aria-label="Nama jenis"
+          className={inputCls}
+        />
+        <button
+          type="submit"
+          disabled={!(typeName ?? criterion.name).trim() || (typeName ?? criterion.name).trim() === criterion.name}
+          className={`${primaryBtnCls} shrink-0`}
+        >
+          Simpan Nama
+        </button>
+        {criterion.subskills.length === 0 && criterion.batch_count === 0 && (
+          <button type="button" onClick={removeType} className={`${ghostBtnCls} shrink-0 text-rose-600`}>
+            Hapus Jenis
+          </button>
+        )}
+      </form>
+
       <form onSubmit={add} className={`${cardCls} grid gap-3 md:grid-cols-[1fr_auto]`}>
         <input
           value={name}

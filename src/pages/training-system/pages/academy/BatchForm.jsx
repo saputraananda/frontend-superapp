@@ -25,7 +25,7 @@ export default function BatchForm() {
 
   const [options, setOptions] = useState(null);
   const [form, setForm] = useState({
-    training_id: "",
+    training_id: params.get("training_id") ?? "",
     source: params.get("request_id") ? "REQUEST" : params.get("sm_position_id") ? "SKILL_MATRIX" : "ROUTINE",
     request_id: params.get("request_id") ?? "",
     sm_position_id: params.get("sm_position_id") ?? "",
@@ -56,6 +56,12 @@ export default function BatchForm() {
         setMentors(data.mentors.map(({ employee_id, vendor_name }) => (employee_id ? { employee_id } : { vendor_name })));
         setSelected(new Map(data.participants.map((p) => [p.employee_id, p.topics.map((t) => t.id)])));
         return;
+      }
+
+      const presetTraining = Number(params.get("training_id"));
+      if (presetTraining) {
+        const presetTopics = opts.trainings.find((t) => t.id === presetTraining)?.topics.filter((t) => t.is_active) ?? [];
+        setDefaultTopics(presetTopics.map((t) => t.id));
       }
 
       const preset = params.get("employee_ids");
@@ -138,7 +144,15 @@ export default function BatchForm() {
   const backButton = (
     <button
       type="button"
-      onClick={() => navigate(isEdit ? `/training-management-system/academy/batches/${id}` : "/training-management-system/academy/batches")}
+      onClick={() =>
+        navigate(
+          isEdit
+            ? `/training-management-system/academy/batches/${id}`
+            : form.training_id
+              ? `/training-management-system/academy/batches/type/${form.training_id}`
+              : "/training-management-system/academy/batches",
+        )
+      }
       className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-amber-700 shadow-lg shadow-amber-500/20 transition hover:bg-slate-50"
     >
       <HiOutlineArrowLeft className="h-4 w-4" /> Kembali
@@ -172,7 +186,7 @@ export default function BatchForm() {
             <option value="">Pilih training</option>
             {options.trainings.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name}
+                {t.master_name} · {t.name}
               </option>
             ))}
           </select>
