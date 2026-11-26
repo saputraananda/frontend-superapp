@@ -35,6 +35,7 @@ import ChangeFulfillmentModal from "./ChangeFulfillmentModal";
 import { PhotoViewerModal } from "../HRIS/hrisShared";
 import { fmtEmployeeName } from "../../utils/hrisUtils";
 import { getNotaPricing } from "../../utils/notaPricing";
+import { DeleteRequestPanel } from "./deleteRequestShared";
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -860,6 +861,8 @@ export default function DetailTransaction() {
 
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
+      <DeleteRequestPanel order={order} onChanged={() => load(true)} />
+
       {loading && !data ? (
         <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
           <div className="space-y-3 lg:order-2">
@@ -1144,13 +1147,14 @@ export default function DetailTransaction() {
               ) : (
                 <ol className="relative ml-1.5 space-y-3 border-l-2 border-slate-100 pl-4">
                   {paymentLogs.map((log) => {
-                    const isPay = Number(log.amount) > 0;
+                    const voided = log.log_type === "Dibatalkan";
+                    const isPay = Number(log.amount) > 0 && !voided;
                     return (
                       <li key={log.id || `${log.log_type}-${log.created_at}`} className="relative">
-                        <span className={cn("absolute -left-[22px] top-1 h-3 w-3 rounded-full border-2 border-white", isPay ? "bg-emerald-500" : "bg-amber-400")} />
+                        <span className={cn("absolute -left-[22px] top-1 h-3 w-3 rounded-full border-2 border-white", voided ? "bg-slate-300" : isPay ? "bg-emerald-500" : "bg-amber-400")} />
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-xs font-bold text-slate-800">{log.log_type || "Bayar"}</p>
-                          <p className={cn("text-xs font-bold tabular-nums", isPay ? "text-emerald-700" : "text-slate-400")}>{fmtIDR(log.amount)}</p>
+                          <p className={cn("text-xs font-bold", voided ? "text-slate-400" : "text-slate-800")}>{voided ? "Pembayaran Dibatalkan" : log.log_type || "Bayar"}</p>
+                          <p className={cn("text-xs font-bold tabular-nums", voided ? "text-slate-400 line-through" : isPay ? "text-emerald-700" : "text-slate-400")}>{fmtIDR(log.amount)}</p>
                         </div>
                         <p className="text-[11px] text-slate-500">
                           {[log.payment_method, log.cashier_name ? fmtEmployeeName(log.cashier_name) : null].filter(Boolean).join(" · ") || "—"}

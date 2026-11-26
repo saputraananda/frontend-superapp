@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   HiOutlineClipboardDocumentList,
   HiOutlineArrowPathRoundedSquare,
   HiOutlineTrash,
+  HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
@@ -10,6 +12,7 @@ import PageHero from "../PageHero";
 import HistoryTransaction from "./HistoryTransaction";
 import RequestRefundTransaction from "./RequestRefundTransaction";
 import RequestDeleteTransaction from "./RequestDeleteTransaction";
+import RequestVoidPayment from "./RequestVoidPayment";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -19,6 +22,7 @@ const TABS = [
   { id: "history", label: "Riwayat Transaksi", icon: HiOutlineClipboardDocumentList, accent: "text-[#5f1340]" },
   { id: "refund", label: "Request Refund & Deposit", icon: HiOutlineArrowPathRoundedSquare, accent: "text-sky-600" },
   { id: "delete", label: "Request Delete", icon: HiOutlineTrash, accent: "text-rose-600" },
+  { id: "void", label: "Request Hapus Pelunasan", icon: HiOutlineBanknotes, accent: "text-sky-700" },
 ];
 
 async function fetchMeta() {
@@ -35,7 +39,10 @@ async function fetchMeta() {
 }
 
 export default function History() {
-  const [tab, setTab] = useState("history");
+  // Tab disimpan di URL (?tab=delete) agar "Kembali" dari detail nota membuka tab yang sama
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = TABS.some((t) => t.id === searchParams.get("tab")) ? searchParams.get("tab") : "history";
+  const setTab = (id) => setSearchParams(id === "history" ? {} : { tab: id }, { replace: true });
   const [summary, setSummary] = useState(null);
   const [outlets, setOutlets] = useState([]);
   const [workStatuses, setWorkStatuses] = useState([]);
@@ -68,6 +75,7 @@ export default function History() {
     if (id === "history") return summary.activeCount;
     if (id === "refund") return summary.refundTotal;
     if (id === "delete") return summary.deleteTotal;
+    if (id === "void") return summary.voidPending ?? 0;
     return null;
   };
 
@@ -77,7 +85,7 @@ export default function History() {
         <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">Riwayat Transaksi</h1>
           <p className="mt-2 text-sm leading-6 text-white/75 sm:text-base">
-            Pantau nota, approve refund, dan approve pengajuan hapus
+            Pantau nota, approve refund, pengajuan hapus nota, dan hapus pelunasan
           </p>
         </div>
       </PageHero>
@@ -128,6 +136,9 @@ export default function History() {
       )}
       {tab === "delete" && (
         <RequestDeleteTransaction onChanged={loadMeta} />
+      )}
+      {tab === "void" && (
+        <RequestVoidPayment onChanged={loadMeta} />
       )}
     </div>
   );
