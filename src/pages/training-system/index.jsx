@@ -14,11 +14,14 @@ import {
     HiOutlineChartBar,
     HiOutlineClipboardDocumentCheck,
     HiOutlineListBullet,
+    HiOutlineHandThumbUp,
+    HiOutlineTag,
 } from "react-icons/hi2";
 
 function cn(...classes) { return classes.filter(Boolean).join(" "); }
 
-const MENU_ITEMS = [
+// Dashboard dan Pengajuan Training berdiri sendiri di atas, tanpa judul kelompok.
+const TOP_ITEMS = [
     {
         to: "/training-management-system",
         icon: HiOutlineSquares2X2,
@@ -32,60 +35,97 @@ const MENU_ITEMS = [
         label: "Pengajuan Training",
         description: "Request & approval training",
     },
+];
+
+const MENU_GROUPS = [
     {
-        to: "/training-management-system/academy/dashboard",
-        icon: HiOutlineChartBar,
-        label: "Dashboard Academy",
-        description: "Hasil training & skill",
-        hrOnly: true,
+        label: "Menu Analisis",
+        items: [
+            {
+                to: "/training-management-system/academy/dashboard",
+                icon: HiOutlineChartBar,
+                label: "Dashboard Academy",
+                description: "Hasil training & skill",
+                hrOnly: true,
+            },
+        ],
     },
     {
-        to: "/training-management-system/academy/trainings",
-        icon: HiOutlineBookOpen,
-        label: "Master Training",
-        description: "Soal, feedback, dan materi",
-        hrOnly: true,
+        label: "Menu Pelaksanaan",
+        items: [
+            {
+                to: "/training-management-system/academy/batches",
+                icon: HiOutlineCalendarDays,
+                label: "Batch Training",
+                description: "Jadwal, peserta, dan nilai",
+                hrOnly: true,
+            },
+            {
+                to: "/training-management-system/academy/ojt",
+                icon: HiOutlineClipboardDocumentCheck,
+                label: "OJT",
+                description: "Batch dan penilaian harian",
+                hrOnly: true,
+            },
+        ],
     },
     {
-        to: "/training-management-system/academy/batches",
-        icon: HiOutlineCalendarDays,
-        label: "Batch Training",
-        description: "Jadwal, peserta, dan nilai",
-        hrOnly: true,
-    },
-    {
-        to: "/training-management-system/academy/ojt",
-        icon: HiOutlineClipboardDocumentCheck,
-        label: "OJT",
-        description: "Penilaian harian karyawan",
-        hrOnly: true,
-    },
-    {
-        to: "/training-management-system/academy/kriteria-ojt",
-        icon: HiOutlineListBullet,
-        label: "Kriteria OJT",
-        description: "Master kriteria penilaian",
-        hrOnly: true,
-    },
-    {
-        to: "/training-management-system/academy/skill-matrix",
-        icon: HiOutlineStar,
-        label: "Skill Matrix",
-        description: "Posisi, kategori, dan bobot",
-        hrOnly: true,
-    },
-    {
-        to: "/training-management-system/academy/lo",
-        icon: HiOutlineUserGroup,
-        label: "Manajemen LO",
-        description: "Penilai skill matrix per cabang",
-        hrOnly: true,
+        label: "Menu Master",
+        items: [
+            {
+                to: "/training-management-system/academy/trainings",
+                icon: HiOutlineBookOpen,
+                label: "Master Training",
+                description: "Soal, feedback, dan materi",
+                hrOnly: true,
+            },
+            {
+                to: "/training-management-system/academy/ojt-master",
+                icon: HiOutlineListBullet,
+                label: "Master OJT",
+                description: "Master, jenis, dan kriteria",
+                hrOnly: true,
+            },
+            {
+                to: "/training-management-system/academy/topics",
+                icon: HiOutlineTag,
+                label: "Master Topik",
+                description: "Topik per jenis training",
+                hrOnly: true,
+            },
+            {
+                to: "/training-management-system/academy/master-sikap",
+                icon: HiOutlineHandThumbUp,
+                label: "Master Sikap",
+                description: "Kriteria penilaian sikap",
+                hrOnly: true,
+            },
+            {
+                to: "/training-management-system/academy/skill-matrix",
+                icon: HiOutlineStar,
+                label: "Skill Matrix",
+                description: "Posisi, kategori, dan bobot",
+                hrOnly: true,
+            },
+            {
+                to: "/training-management-system/academy/lo",
+                icon: HiOutlineUserGroup,
+                label: "Manajemen LO",
+                description: "Penilai skill per cabang",
+                hrOnly: true,
+            },
+        ],
     },
 ];
 
+const ALL_MENU_ITEMS = [...TOP_ITEMS, ...MENU_GROUPS.flatMap((group) => group.items)];
+
 const isHRUser = () => {
     const user = JSON.parse(localStorage.getItem("user") ?? "null");
-    return [1, 8, 17, 18, 19].includes(Number(user?.employee?.position_id));
+    return (
+        ["admin", "bod"].includes(user?.role) ||
+        [1, 8, 17, 18, 19].includes(Number(user?.employee?.position_id))
+    );
 };
 
 function NavItem({ to, icon: Icon, label, description, end, onClose, collapsed }) {
@@ -172,15 +212,30 @@ function Sidebar({ collapsed = false, onClose }) {
                 )}
             </div>
 
-            {!collapsed && (
-                <p className="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Menu</p>
-            )}
-            {collapsed && <div className="pt-3" />}
+            <div className="pt-3" />
 
-            <nav className={cn("flex-1 overflow-y-auto space-y-0.5", collapsed ? "px-1.5" : "px-3")}>
-                {MENU_ITEMS.filter(item => !item.hrOnly || isHR).map(({ hrOnly: _hrOnly, ...item }) => (
-                    <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
-                ))}
+            <nav className={cn("flex-1 overflow-y-auto space-y-4 py-2", collapsed ? "px-1.5" : "px-3")}>
+                <div className="space-y-0.5">
+                    {TOP_ITEMS.map((item) => (
+                        <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+                    ))}
+                </div>
+                {MENU_GROUPS.map((group) => {
+                    const items = group.items.filter((item) => !item.hrOnly || isHR);
+                    if (!items.length) return null;
+                    return (
+                        <div key={group.label}>
+                            {!collapsed && (
+                                <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{group.label}</p>
+                            )}
+                            <div className="space-y-0.5">
+                                {items.map(({ hrOnly: _hrOnly, ...item }) => (
+                                    <NavItem key={item.to} {...item} onClose={onClose} collapsed={collapsed} />
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
             </nav>
 
             <div className={cn("border-t border-slate-100 py-3", collapsed ? "px-1.5" : "px-3")}>
@@ -200,9 +255,10 @@ function Sidebar({ collapsed = false, onClose }) {
 
 function ActiveMenuTitle() {
     const { pathname } = useLocation();
+    // Jalur terpanjang yang cocok menang, supaya /academy/ojt-master tidak dikira /academy/ojt.
     const active =
-        MENU_ITEMS.find(m => m.end && pathname === m.to) ??
-        MENU_ITEMS.find(m => !m.end && pathname.startsWith(m.to));
+        ALL_MENU_ITEMS.find(m => m.end && pathname === m.to) ??
+        ALL_MENU_ITEMS.filter(m => !m.end && pathname.startsWith(m.to)).sort((a, b) => b.to.length - a.to.length)[0];
     const label       = active?.label       ?? "Training Management";
     const description = active?.description ?? "Sistem manajemen pelatihan";
     const Icon        = active?.icon        ?? HiOutlineAcademicCap;
@@ -240,7 +296,7 @@ export default function TrainingManagementSystem() {
     }, [mobileOpen]);
 
     return (
-        <div className="flex h-screen overflow-hidden bg-slate-100/70">
+        <div className="fixed inset-0 flex overflow-hidden bg-slate-100/70">
             <aside className={cn(
                 "hidden lg:flex shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden",
                 desktopCollapsed ? "w-20" : "w-64",
