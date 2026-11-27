@@ -135,7 +135,10 @@ function PhotoCard({
   let url;
   // avatarBaseUrl dipakai khusus untuk pas foto (profile)
   const effectiveBase = avatarBaseUrl || baseUrl;
-  if (effectiveBase) {
+  if (filePath?.startsWith("/assets/")) {
+    // Diunggah lewat SuperApp: file ada di server SuperApp, bukan server IKM
+    url = assetUrl(filePath);
+  } else if (effectiveBase) {
     url = fileName ? `${effectiveBase.replace(/\/$/, "")}/${fileName}` : null;
   } else if (filePath) {
     url = assetUrl(filePath);
@@ -608,7 +611,9 @@ export default function EmployeeDetail() {
         const filePath = employee?.[pathKey];
         const fileName = employee?.[nameKey];
         let url;
-        if (baseUrl) {
+        if (filePath?.startsWith("/assets/")) {
+          url = assetUrl(filePath);
+        } else if (baseUrl) {
           url = fileName ? `${baseUrl.replace(/\/$/, "")}/${fileName}` : null;
         } else if (filePath) {
           url = assetUrl(filePath);

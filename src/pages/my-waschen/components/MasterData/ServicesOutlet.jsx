@@ -21,7 +21,7 @@ const num = (v) => (v === null || v === undefined || v === "" ? null : Number(v)
 const isSet = (v) => v !== null && v !== undefined && v !== "";
 const isCustom = (r) =>
   [r.override_name, r.override_category_id, r.override_unit_id, r.override_unit, r.override_price,
-    r.override_duration_days, r.override_min_order_qty, r.override_dc_price_add].some(isSet);
+    r.override_duration_days, r.override_min_order_qty, r.override_dc_price_add, r.override_is_dc_required].some(isSet);
 const available = (r) => Number(r.outlet_active) === 1;
 
 /** Input rupiah dengan pemisah ribuan; nilai disimpan sebagai string angka ("" = kosong). */
@@ -123,11 +123,12 @@ export default function ServicesOutlet({ outlet, categories, units, showToast })
       regular_duration_days: isSet(r.override_duration_days) ? String(Number(r.override_duration_days)) : "",
       min_order_qty: isSet(r.override_min_order_qty) ? String(Number(r.override_min_order_qty)) : "",
       dc_price_add: isSet(r.override_dc_price_add) ? String(Math.round(Number(r.override_dc_price_add))) : "",
+      is_dc_required: isSet(r.override_is_dc_required) ? String(Number(r.override_is_dc_required)) : "",
     });
   };
 
   const resetToMaster = () =>
-    setForm((f) => ({ ...f, name: "", category_id: "", unit_id: "", unit: "", price: "", regular_duration_days: "", min_order_qty: "", dc_price_add: "" }));
+    setForm((f) => ({ ...f, name: "", category_id: "", unit_id: "", unit: "", price: "", regular_duration_days: "", min_order_qty: "", dc_price_add: "", is_dc_required: "" }));
 
   const saveEdit = async (e) => {
     e.preventDefault();
@@ -270,6 +271,14 @@ export default function ServicesOutlet({ outlet, categories, units, showToast })
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 font-semibold text-[#5f1340]">
                         <Val custom={isSet(r.override_price)} master={rupiah(r.master_price)}>{rupiah(r.price)}</Val>
+                        {Number(r.is_dc_required) === 1 && (
+                          <span className={cn("block text-[10px] font-bold", isSet(r.override_is_dc_required) ? "text-amber-700" : "text-violet-700")}>
+                            Wajib DC{isSet(r.override_is_dc_required) ? " (khusus outlet)" : ""}
+                          </span>
+                        )}
+                        {Number(r.is_dc_required) !== 1 && isSet(r.override_is_dc_required) && Number(r.master_is_dc_required) === 1 && (
+                          <span className="block text-[10px] font-bold text-amber-700">Bebas WC/DC (khusus outlet)</span>
+                        )}
                         {Number(r.is_dc_required) !== 1 && Number(r.dc_price_add) > 0 && (
                           <span className="block text-[10px] font-semibold text-amber-800">+{rupiah(r.dc_price_add)} jika DC</span>
                         )}
@@ -425,7 +434,19 @@ export default function ServicesOutlet({ outlet, categories, units, showToast })
                 </Field>
               </div>
 
-              {Number(edit.is_dc_required) !== 1 && (
+              <Field label="Metode DC" hint="Kosong = ikut master. Wajib DC = item selalu Dry Clean di outlet ini.">
+                <select
+                  value={form.is_dc_required}
+                  onChange={(e) => setForm((f) => ({ ...f, is_dc_required: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
+                >
+                  <option value="">Ikut master ({Number(edit.master_is_dc_required) === 1 ? "Wajib DC" : "Bebas"})</option>
+                  <option value="1">Wajib DC</option>
+                  <option value="0">Bebas (WC / DC)</option>
+                </select>
+              </Field>
+
+              {(form.is_dc_required === "" ? Number(edit.master_is_dc_required) !== 1 : form.is_dc_required !== "1") && (
                 <Field label="Tambahan harga jika DC (Rp)" hint="Kosong = ikut master. Isi 0 = tanpa tambahan DC di outlet ini.">
                   <RupiahInput
                     value={form.dc_price_add}
