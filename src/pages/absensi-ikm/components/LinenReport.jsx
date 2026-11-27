@@ -11,6 +11,10 @@ import {
 } from "react-icons/hi2";
 import { api, apiUpload } from "../../../lib/api";
 import { exportLinenReportExcel } from "../utils/exportLinenReportExcel";
+import kopSuratIkm from "../../../assets/images/kop_surat_ikm.png";
+import ttdPelapor from "../utils/sony.png";
+import ttdSiswati from "../utils/siswati.png";
+import capIkm from "../utils/cap_Ikm.png";
 import LinenReportDashboard from "./LinenReportDashboard";
 import { TabBar } from "./DashboardParts";
 
@@ -691,9 +695,81 @@ function DeleteModal({ open, onClose, onConfirm, target, loading }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+// ─── Cap tinta ────────────────────────────────────────────────────────────────
+// Ubah gambar cap (latar abu) menjadi latar transparan dengan tinta yang sedikit tidak rata,
+// supaya terlihat seperti dicap, bukan gambar ditempel. Warna cap tetap warna aslinya.
+let inkStampPromise = null;
+function buildInkStamp(src) {
+  if (inkStampPromise) return inkStampPromise;
+  inkStampPromise = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = 480 / Math.max(img.width, img.height);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const p = imgData.data;
+
+        // Noise kasar (bercak tinta) — grid acak yang diinterpolasi
+        const cell = 7;
+        const gw = Math.ceil(w / cell) + 2;
+        const grid = Array.from({ length: gw * (Math.ceil(h / cell) + 2) }, () => Math.random());
+        const blotch = (x, y) => {
+          const gx = x / cell, gy = y / cell;
+          const x0 = Math.floor(gx), y0 = Math.floor(gy);
+          const fx = gx - x0, fy = gy - y0;
+          const g = (i, j) => grid[j * gw + i];
+          const top = g(x0, y0) * (1 - fx) + g(x0 + 1, y0) * fx;
+          const bot = g(x0, y0 + 1) * (1 - fx) + g(x0 + 1, y0 + 1) * fx;
+          return top * (1 - fy) + bot * fy;
+        };
+        // Tekanan cap tidak rata: satu sisi sedikit lebih tipis
+        const press = (x, y) => 0.78 + 0.22 * ((x / w) * 0.6 + (1 - y / h) * 0.4);
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const lum = (0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]) / 255;
+            let a = Math.min(1, Math.max(0, (0.84 - lum) / 0.42));
+            if (a > 0) {
+              a = Math.min(1, a * 1.15 * (0.72 + 0.28 * blotch(x, y)) * press(x, y));
+              if (Math.random() < 0.06) a *= 0.35; // bintik tinta tidak menempel
+            }
+            // Warna asli cap dipertahankan; hanya latar dibuat transparan + tekstur tinta
+            p[i + 3] = Math.round(a * 255);
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(src);
+      }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+  return inkStampPromise;
+}
+
 // ─── Print/PDF Linen Report ───────────────────────────────────────────────────
-function printLinenReport(row) {
-  const logoUrl = `${window.location.origin}/ikm.png`;
+async function printLinenReport(row) {
+  // Buka jendela dulu (masih dalam klik user) supaya tidak diblokir popup
+  const win = window.open("", "_blank", "width=860,height=1100");
+  if (!win) { alert("Popup diblokir browser. Izinkan popup untuk halaman ini."); return; }
+  win.document.write('<p style="font-family:sans-serif;padding:24px;color:#64748b">Menyiapkan dokumen…</p>');
+
+  // Kop surat disamakan dengan export Serah Terima Linen
+  const abs = (src) => new URL(src, window.location.origin).href;
+  const kopSrc = abs(kopSuratIkm);
+  const ttdPelaporSrc = abs(ttdPelapor);
+  const ttdSiswatiSrc = abs(ttdSiswati);
+  const capSrc = await buildInkStamp(abs(capIkm));
   const reportNo = `LR-${String(row.id).padStart(5, "0")}`;
 
   const fmt = (v) => {
@@ -722,22 +798,17 @@ function printLinenReport(row) {
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: "Times New Roman", Times, serif; font-size: 11pt; color: #1a1a1a; background: #fff; }
-    .page { padding: 20mm 18mm; min-height: 297mm; page-break-after: always; }
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto; page-break-after: always; }
     .page:last-of-type { page-break-after: auto; }
+    .page-body { padding: 0 18mm 14mm; }
 
-    /* --- HEADER --- */
-    .doc-header { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 10px; border-bottom: 3px double #1e3a5f; margin-bottom: 14px; }
-    .doc-header img { height: 60px; width: auto; }
-    .doc-header-info { flex: 1; }
-    .doc-header-info .co-name { font-size: 13pt; font-weight: bold; text-transform: uppercase; color: #1e3a5f; letter-spacing: 0.4px; }
-    .doc-header-info .co-sub { font-size: 9pt; color: #555; margin-top: 2px; }
-    .doc-header-badge { text-align: right; }
-    .doc-no-box { font-size: 9pt; font-weight: bold; color: #1e3a5f; border: 1.5px solid #1e3a5f; padding: 4px 12px; display: inline-block; }
-    .print-date { font-size: 8pt; color: #777; margin-top: 4px; }
+    /* --- KOP SURAT (sama dengan Serah Terima Linen) --- */
+    .kop { width: 100%; display: block; }
 
     /* --- TITLE --- */
-    .doc-title { text-align: center; margin: 14px 0 12px; }
+    .doc-title { text-align: center; margin: -55px 0 14px; }
     .doc-title h1 { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #1e3a5f; text-decoration: underline; }
+    .doc-title .doc-no { font-size: 9pt; font-weight: bold; color: #64748b; margin-top: 5px; letter-spacing: 0.4px; }
 
     /* --- SECTION --- */
     .sec-title { font-size: 10.5pt; font-weight: bold; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1.5px solid #1e3a5f; padding-bottom: 3px; margin-bottom: 7px; }
@@ -758,10 +829,12 @@ function printLinenReport(row) {
     .proc-table td { border: 1px solid #c8d0db; padding: 5px 8px; }
 
     /* --- SIGNATURE --- */
-    .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 22px; }
+    .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 22px; padding: 0 10mm; break-inside: avoid; page-break-inside: avoid; }
     .sig-box { text-align: center; }
     .sig-label { font-size: 9.5pt; font-weight: bold; color: #1e3a5f; }
-    .sig-line { height: 58px; border-bottom: 1px solid #555; margin: 8px 4px 4px; }
+    .sig-area { position: relative; height: 84px; border-bottom: 1px solid #555; margin: 6px 4px 4px; display: flex; align-items: center; justify-content: center; }
+    .sig-area .ttd { max-height: 72px; max-width: 70%; object-fit: contain; position: relative; z-index: 2; }
+    .sig-area .cap { position: absolute; height: 86px; width: auto; left: 50%; top: -2px; transform: translateX(-92%) rotate(-14deg); opacity: 0.9; mix-blend-mode: multiply; z-index: 1; }
     .sig-name { font-size: 9pt; color: #333; }
 
     /* --- FOOTER --- */
@@ -785,20 +858,13 @@ function printLinenReport(row) {
 
   <!-- PAGE 1 -->
   <div class="page">
-  <div class="doc-header">
-    <img src="${logoUrl}" alt="Logo IKM" onerror="this.style.display='none'" />
-    <div class="doc-header-info">
-      <div class="co-name">PT Intersolusi Karya Mandiri</div>
-      <div class="co-sub">Alora Group Indonesia</div>
-      <div class="co-sub">Unit Layanan Linen Rumah Sakit</div>
-    </div>
-    <div class="doc-header-badge">
-      <div class="doc-no-box">${reportNo}</div>
-      <div class="print-date">Dicetak: ${today}</div>
-    </div>
-  </div>
+  <img src="${kopSrc}" class="kop" alt="Kop Surat PT Intersolusi Karya Mandiri" />
+  <div class="page-body">
 
-  <div class="doc-title"><h1>Laporan Temuan Linen</h1></div>
+  <div class="doc-title">
+    <h1>Laporan Temuan Linen</h1>
+    <div class="doc-no">No. Laporan: ${reportNo} &nbsp;·&nbsp; Dicetak: ${today}</div>
+  </div>
 
   <!-- Informasi Umum -->
   <div class="sec-title">A. Informasi Laporan</div>
@@ -834,46 +900,34 @@ function printLinenReport(row) {
   <div class="sig-grid">
     <div class="sig-box">
       <div class="sig-label">Pelapor</div>
-      <div class="sig-line"></div>
+      <div class="sig-area"><img class="ttd" src="${ttdPelaporSrc}" alt="TTD Pelapor" /></div>
       <div class="sig-name" style="text-transform:capitalize;">${reporterName}</div>
-      <div class="sig-name" style="font-size:8.5pt;color:#555;">Staff Operational</div>
+      <div class="sig-name" style="font-size:8.5pt;color:#555;">Staff Produksi IKM</div>
     </div>
     <div class="sig-box">
-      <div class="sig-label">Diketahui Oleh</div>
-      <div class="sig-line"></div>
+      <div class="sig-label">Mengetahui</div>
+      <div class="sig-area">
+        <img class="cap" src="${capSrc}" alt="Cap IKM" />
+        <img class="ttd" src="${ttdSiswatiSrc}" alt="TTD Siswati" />
+      </div>
       <div class="sig-name">Siswati</div>
       <div class="sig-name" style="font-size:8.5pt;color:#555;">Supervisor Marketing &amp; Public Relations</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-label">Disetujui Oleh</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">Rahmi Solehah</div>
-      <div class="sig-name" style="font-size:8.5pt;color:#555;">Direktur</div>
     </div>
   </div>
 
   <div class="doc-footer">
     Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Dicetak: ${today} &nbsp;·&nbsp; Halaman 1 ${row.attachment_url ? "dari 2" : "dari 1"}
   </div>
+  </div><!-- end page-body -->
   </div><!-- end page 1 -->
 
   ${row.attachment_url ? `
   <!-- PAGE 2 — LAMPIRAN -->
   <div class="page">
-  <div class="doc-header">
-    <img src="${logoUrl}" alt="Logo PT Intersolusi Karya Mandiri" onerror="this.style.display='none'" />
-    <div class="doc-header-info">
-      <div class="co-name">PT Intersolusi Karya Mandiri</div>
-      <div class="co-sub">Alora Group Indonesia</div>
-      <div class="co-sub">Unit Layanan Linen Rumah Sakit</div>
-    </div>
-    <div class="doc-header-badge">
-      <div class="doc-no-box">${reportNo}</div>
-      <div class="print-date">Lampiran — Halaman 2</div>
-    </div>
-  </div>
+  <img src="${kopSrc}" class="kop" alt="Kop Surat PT Intersolusi Karya Mandiri" />
+  <div class="page-body">
 
-  <div class="att-title">
+  <div class="att-title" style="margin-top:-40px;">
     <h2>Lampiran — Dokumentasi Temuan Linen</h2>
     <p>Ref: ${reportNo} &nbsp;·&nbsp; ${row.linen_type} &nbsp;·&nbsp; ${row.finding_type} &nbsp;·&nbsp; ${row.finding_qty} pcs</p>
   </div>
@@ -887,16 +941,19 @@ function printLinenReport(row) {
   <div class="doc-footer">
     Dokumen resmi PT Intersolusi Karya Mandiri &nbsp;·&nbsp; ${reportNo} &nbsp;·&nbsp; Lampiran &nbsp;·&nbsp; Halaman 2 dari 2
   </div>
+  </div><!-- end page-body -->
   </div><!-- end page 2 -->
   ` : ""}
+  <script>
+    // Tunggu kop, TTD & cap selesai dimuat sebelum dialog cetak
+    window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });
+  </script>
 </body>
 </html>`;
 
-  const win = window.open("", "_blank", "width=860,height=1100");
-  if (!win) { alert("Popup diblokir browser. Izinkan popup untuk halaman ini."); return; }
+  win.document.open();
   win.document.write(html);
   win.document.close();
-  win.onload = () => win.print();
 }
 
 const LINEN_TABS = [
