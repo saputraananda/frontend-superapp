@@ -9,6 +9,7 @@ import {
   HiOutlineLink,
 } from "react-icons/hi2";
 import ThermalNotaBody from "./ThermalNotaBody";
+import { useMemberNotaReceipt } from "../../utils/memberNotaInfo";
 import { useThermalPrinter } from "../../context/ThermalPrinterContext";
 import {
   DEFAULT_CUSTOMER_SETTINGS,
@@ -26,7 +27,9 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function ThermalNota({ createdOrderReceipt, onClose, outletId = 0 }) {
+export default function ThermalNota({ createdOrderReceipt: baseReceipt, onClose, outletId = 0 }) {
+  // Nota member: tambah Tipe Member, Saldo Sebelum, Saldo Terakhir, Masa Aktif
+  const createdOrderReceipt = useMemberNotaReceipt(baseReceipt);
   const { supported, connected, connecting, printing, connect, printNota } = useThermalPrinter();
 
   const receiptKey = createdOrderReceipt?.id ?? null;
