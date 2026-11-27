@@ -9,7 +9,9 @@ import {
   HiOutlineBuildingStorefront,
   HiOutlineXMark,
   HiOutlinePhoto,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2";
+import { exportTableExcel, periodLabel } from "../../utils/exportTableExcel";
 import { api } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import useCutoffPeriod from "../../hooks/useCutoffPeriod";
@@ -66,6 +68,8 @@ function shiftLabel(sn) {
 /** Status satu hari: pending menang atas uploaded bila ada lebih dari satu closing Final. */
 function dayState(shifts) {
   if (!shifts?.length) return "none";
+  // Semua closing hari itu tanpa pembayaran tunai → Tidak Perlu Setor (sama dengan POS)
+  if (shifts.every((s) => s.deposit?.status === "none")) return "nocash";
   const pending = shifts.filter((s) => s.deposit?.status === "pending");
   if (pending.length) return pending.some((s) => s.deposit.isLate) ? "late" : "pending";
   return "done";
@@ -75,6 +79,7 @@ const DAY_UI = {
   done: { tone: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100", label: "Sudah setoran" },
   pending: { tone: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100", label: "Belum setoran" },
   late: { tone: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100", label: "Terlambat" },
+  nocash: { tone: "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100", label: "Tidak perlu setor" },
 };
 
 function Kpi({ label, value, hint, tone = "slate", onClick, active }) {
@@ -116,21 +121,28 @@ function Row({ label, children }) {
 function DepositDetail({ s, onViewProof }) {
   const d = s.deposit;
   const uploaded = d?.status === "uploaded";
+  const noCash = d?.status === "none";
   const isImage = d?.proofUrl && /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(d.proofUrl);
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-black text-[#5f1340]">Shift {shiftLabel(s.shiftNumber)}</span>
-        <span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-black", uploaded ? "bg-emerald-100 text-emerald-700" : d?.isLate ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-800")}>
-          {uploaded ? "Sudah diupload" : d?.isLate ? `Belum diupload · terlambat ${d.lateDays} hari` : "Belum diupload"}
+        <span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-black", uploaded ? "bg-emerald-100 text-emerald-700" : noCash ? "bg-sky-100 text-sky-700" : d?.isLate ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-800")}>
+          {uploaded ? "Sudah diupload" : noCash ? "Tidak perlu setor · tidak ada tunai" : d?.isLate ? `Belum diupload · terlambat ${d.lateDays} hari` : "Belum diupload"}
         </span>
+        {s.autoClosed && (
+          <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600">Ditutup otomatis (ganti hari)</span>
+        )}
         {uploaded && d.isLate && (
           <span className="rounded-lg bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700">Terlambat {d.lateDays} hari</span>
         )}
       </div>
       <div className="space-y-1.5">
         <Row label="Ditutup oleh">{fmtEmployeeName(s.closedByName)} · {fmtDateTime(s.closedAt)}</Row>
-        <Row label="Revenue tunai (masuk)">{fmtIDR(s.revenueTunai)}</Row>
+        <Row label="Tunai disetor">{fmtIDR(d?.cashAmount ?? s.revenueTunai)}</Row>
+        {d?.cashReported != null && d?.cashAmount != null && Math.round(d.cashReported) !== Math.round(d.cashAmount) && (
+          <Row label="Laporan kasir (tunai)"><span className="text-amber-700">{fmtIDR(d.cashReported)}</span></Row>
+        )}
         <Row label="Cash seharusnya">{fmtIDR(s.expectedCash)}</Row>
         <Row label="Cash aktual saat close">{s.actualCash != null ? fmtIDR(s.actualCash) : "—"}</Row>
         {uploaded && <Row label="Diupload oleh">{fmtEmployeeName(d.uploadedByName)} · {fmtDateTime(d.uploadedAt)}</Row>}
@@ -170,6 +182,8 @@ export default function CashDeposit() {
   const [error, setError] = useState("");
   const [detail, setDetail] = useState(null); // { outletName, date, shifts }
   const [proof, setProof] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   useEffect(() => {
     api("/waschen/outlets").then((res) => setOutlets(res.data || [])).catch(() => setOutlets([]));
@@ -223,7 +237,7 @@ export default function CashDeposit() {
       return {
         ...g,
         total: states.length,
-        done: states.filter((x) => x === "done").length,
+        done: states.filter((x) => x === "done" || x === "nocash").length,
         pending: states.filter((x) => x === "pending" || x === "late").length,
         late: states.filter((x) => x === "late").length,
       };
@@ -252,6 +266,80 @@ export default function CashDeposit() {
     pending: groups.reduce((a, g) => a + g.pending, 0),
     late: groups.reduce((a, g) => a + g.late, 0),
   }), [groups]);
+
+  /** Download Excel: satu baris per closing Final, sesuai filter periode/outlet/status/cari. */
+  const downloadExcel = async () => {
+    setExportError("");
+    const q = search.trim().toLowerCase();
+    const depositLabel = (s) => {
+      const d = s.deposit;
+      if (!d) return "—";
+      if (d.status === "uploaded") return d.isLate ? `Sudah upload (telat ${d.lateDays} hari)` : "Sudah upload";
+      if (d.status === "none") return "Tidak perlu setor (tanpa tunai)";
+      return d.isLate ? `Belum upload (telat ${d.lateDays} hari)` : "Belum upload";
+    };
+    const list = shifts
+      .filter((s) => {
+        const d = s.deposit;
+        if (statusFilter === "pending" && d?.status !== "pending") return false;
+        if (statusFilter === "late" && !(d?.status === "pending" && d?.isLate)) return false;
+        if (statusFilter === "done" && !["uploaded", "none"].includes(d?.status)) return false;
+        if (!q) return true;
+        const hay = [s.outletFullName, s.outletName, s.closedByName, s.openerName, d?.uploadedByName, d?.notes]
+          .filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(q);
+      })
+      .sort((a, b) => String(a.closeDate).localeCompare(String(b.closeDate))
+        || String(a.outletFullName || a.outletName).localeCompare(String(b.outletFullName || b.outletName)));
+    if (!list.length) {
+      setExportError("Tidak ada data setoran untuk diunduh dengan filter ini");
+      return;
+    }
+    setExporting(true);
+    try {
+      const outletLabel = outletIds.length
+        ? outletOptions.filter((o) => outletIds.includes(o.value)).map((o) => o.label).join(", ")
+        : "Semua outlet";
+      const statusLabel = Object.fromEntries(STATUS_FILTERS)[statusFilter] || "Semua";
+      const cashOf = (s) => (s.deposit?.cashAmount ?? s.revenueTunai ?? 0);
+      await exportTableExcel({
+        title: "Setoran Tunai",
+        sheetName: "Setoran Tunai",
+        fileName: `SetoranTunai_${dateFrom}_${dateTo}`,
+        filters: [
+          ["Periode", periodLabel(dateFrom, dateTo)],
+          ["Outlet", outletLabel],
+          ["Status", statusLabel],
+          ...(search.trim() ? [["Pencarian", search.trim()]] : []),
+        ],
+        columns: [
+          { header: "Tanggal Closing", key: "closeDate", type: "date", width: 15 },
+          { header: "Jam Close", key: "closedAt", type: "datetime", width: 18 },
+          { header: "Outlet", value: (s) => s.outletFullName || s.outletName, width: 28 },
+          { header: "Shift", value: (s) => shiftLabel(s.shiftNumber), width: 8, align: "center" },
+          { header: "Dibuka Oleh", value: (s) => fmtEmployeeName(s.openerName) || "", width: 22 },
+          { header: "Ditutup Oleh", value: (s) => fmtEmployeeName(s.closedByName) || "", width: 24 },
+          { header: "Revenue Total", key: "revenueTotal", type: "money", width: 15 },
+          { header: "Tunai Disetor", key: "cash", value: cashOf, type: "money", width: 15 },
+          { header: "Laporan Kasir (Tunai)", value: (s) => s.deposit?.cashReported ?? null, type: "money", width: 17 },
+          { header: "Status Setoran", value: depositLabel, width: 28 },
+          { header: "Diupload Oleh", value: (s) => fmtEmployeeName(s.deposit?.uploadedByName) || "", width: 22 },
+          { header: "Tgl Upload", value: (s) => s.deposit?.uploadedAt || null, type: "datetime", width: 18 },
+          { header: "Catatan", value: (s) => s.deposit?.notes || "", width: 28, wrap: true },
+          { header: "Bukti Setoran", value: (s) => s.deposit?.proofUrl || "", width: 40 },
+        ],
+        rows: list,
+        totals: {
+          revenueTotal: list.reduce((a, s) => a + (Number(s.revenueTotal) || 0), 0),
+          cash: list.reduce((a, s) => a + (Number(cashOf(s)) || 0), 0),
+        },
+      });
+    } catch (err) {
+      setExportError(err.message || "Gagal mengunduh Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const toggleOutlet = (id) => setOpenOutlets((prev) => {
     const next = new Set(prev);
@@ -290,6 +378,16 @@ export default function CashDeposit() {
           <button type="button" onClick={() => load()} title="Muat ulang" className="shrink-0 rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
             <HiOutlineArrowPath className={cn("h-4 w-4", loading && "animate-spin")} />
           </button>
+          <button
+            type="button"
+            onClick={downloadExcel}
+            disabled={exporting || loading}
+            title="Download Excel sesuai filter"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#5f1340] px-3 py-2 text-xs font-bold text-white hover:bg-[#4d0f33] disabled:opacity-60"
+          >
+            <HiOutlineArrowDownTray className="h-4 w-4" />
+            <span className="hidden sm:inline">{exporting ? "Mengunduh..." : "Download Excel"}</span>
+          </button>
         </div>
         <div className="space-y-3">
           <CutoffPeriodFilter cutoff={cutoff} showToday />
@@ -319,8 +417,8 @@ export default function CashDeposit() {
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">{error}</div>
+      {(error || exportError) && (
+        <div className="rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">{error || exportError}</div>
       )}
 
       {loading ? (
@@ -375,6 +473,7 @@ export default function CashDeposit() {
                 <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm border border-emerald-300 bg-emerald-100" />Sudah setoran</span>
                 <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm border border-amber-300 bg-amber-100" />Belum setoran</span>
                 <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm border border-rose-300 bg-rose-100" />Terlambat</span>
+                <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm border border-sky-300 bg-sky-100" />Tidak perlu setor (tanpa tunai)</span>
                 <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm border border-slate-200 bg-slate-100" />Tidak ada closing Final</span>
               </div>
 
@@ -434,7 +533,7 @@ export default function CashDeposit() {
                                   className={cn("rounded-lg border px-2 py-1.5 text-left transition", ui.tone)}
                                 >
                                   <p className="text-[10px] font-semibold text-slate-500">{fmtDay(date)}</p>
-                                  <p className="text-sm font-bold">{state === "done" ? "Selesai" : state === "late" ? "Telat" : "Belum"}</p>
+                                  <p className="text-sm font-bold">{state === "done" ? "Selesai" : state === "nocash" ? "Tanpa tunai" : state === "late" ? "Telat" : "Belum"}</p>
                                   <p className="text-[10px] font-semibold">
                                     {state === "done" ? "Lihat bukti" : ui.label}
                                     {dayShifts.length > 1 ? ` · ${dayShifts.length} closing` : ""}

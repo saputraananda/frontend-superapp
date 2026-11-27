@@ -9,7 +9,9 @@ import {
   HiOutlinePrinter,
   HiOutlineXMark,
   HiOutlinePaperClip,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2";
+import { exportTableExcel, periodLabel } from "../../utils/exportTableExcel";
 import { api, apiUpload } from "../../../../lib/api";
 import useLiveRefresh from "../../hooks/useLiveRefresh";
 import ThermalNota, { mapTxnToThermalReceipt } from "./ThermalNota";
@@ -238,6 +240,7 @@ export default function HistoryTransaction({
   const [payMethod, setPayMethod] = useState("Tunai");
   const [payMethods, setPayMethods] = useState([]);
   const [toast, setToast] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [thermalReceipt, setThermalReceipt] = useState(null);
   const [printingId, setPrintingId] = useState(null);
 
@@ -298,6 +301,79 @@ export default function HistoryTransaction({
     load();
   }, [load]);
   useLiveRefresh(() => load(true));
+
+  /** Download Excel: semua halaman dengan filter yang sedang aktif. */
+  const downloadExcel = async () => {
+    setExporting(true);
+    try {
+      const base = new URLSearchParams({ listType: "active", pageSize: "200" });
+      if (workTab !== "Semua") base.set("workTab", workTab);
+      if (debouncedSearch) base.set("search", debouncedSearch);
+      if (outletId) base.set("outletId", outletId);
+      if (useDateFilter && cutoff.dateFrom) base.set("dateFrom", cutoff.dateFrom);
+      if (useDateFilter && cutoff.dateTo) base.set("dateTo", cutoff.dateTo);
+      if (paymentStatus && paymentStatus !== "Semua") base.set("paymentStatus", paymentStatus);
+
+      const all = [];
+      for (let pg = 1; pg <= 200; pg += 1) {
+        base.set("page", String(pg));
+        const res = await api(`/waschen/transactions?${base}`);
+        const data = res.data || [];
+        all.push(...data);
+        const totalPages = Number(res.meta?.totalPages) || 1;
+        if (!data.length || pg >= totalPages) break;
+      }
+      if (!all.length) {
+        showToast("error", "Tidak ada transaksi untuk diunduh dengan filter ini");
+        return;
+      }
+
+      const outletName = outletId
+        ? (outlets.find((o) => String(o.id) === String(outletId))?.full_name || outlets.find((o) => String(o.id) === String(outletId))?.name || outletId)
+        : allOutletsLabel;
+      const remaining = (r) => Math.max(0, (Number(r.grandTotal) || 0) - (Number(r.paidAmount) || 0));
+      await exportTableExcel({
+        title: title || "Riwayat Transaksi",
+        sheetName: "Transaksi",
+        fileName: `Transaksi_${outletName}_${useDateFilter ? `${cutoff.dateFrom}_${cutoff.dateTo}` : "semua-periode"}`,
+        filters: [
+          ["Periode", useDateFilter ? periodLabel(cutoff.dateFrom, cutoff.dateTo) : "Semua periode"],
+          ["Outlet", outletName],
+          ["Status bayar", paymentStatus],
+          ["Status pengerjaan", workTab],
+          ...(debouncedSearch ? [["Pencarian", debouncedSearch]] : []),
+        ],
+        columns: [
+          { header: "Tanggal Order", key: "orderDate", type: "datetime", width: 18 },
+          { header: "No. Nota", key: "orderNo", width: 22 },
+          { header: "Outlet", value: (r) => r.branch || r.outletName, width: 26 },
+          { header: "Customer", key: "customerName", width: 24 },
+          { header: "No. HP", key: "customerPhone", width: 16 },
+          { header: "Kasir", key: "cashierName", width: 20 },
+          { header: "Status Bayar", key: "paymentStatus", width: 13, align: "center" },
+          { header: "Metode Bayar", key: "paymentMethod", width: 20 },
+          { header: "Tgl Lunas", value: (r) => r.settledAt || (r.paymentStatus === "Lunas" ? r.paidAt : null), type: "datetime", width: 18 },
+          { header: "Grand Total", key: "grandTotal", type: "money", width: 15 },
+          { header: "Dibayar", key: "paidAmount", type: "money", width: 15 },
+          { header: "Sisa Tagihan", key: "remaining", value: remaining, type: "money", width: 15 },
+          { header: "Progres (%)", key: "workStatus", type: "number", width: 11 },
+          { header: "Antar", value: (r) => (r.isDelivery ? "Delivery" : "Ambil di outlet"), width: 15 },
+          { header: "Express", value: (r) => (r.isExpress ? "Ya" : "Tidak"), width: 9, align: "center" },
+        ],
+        rows: all,
+        totals: {
+          grandTotal: all.reduce((a, r) => a + (Number(r.grandTotal) || 0), 0),
+          paidAmount: all.reduce((a, r) => a + (Number(r.paidAmount) || 0), 0),
+          remaining: all.reduce((a, r) => a + remaining(r), 0),
+        },
+      });
+      showToast("success", `${all.length} transaksi diunduh`);
+    } catch (err) {
+      showToast("error", err.message || "Gagal mengunduh Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     api("/waschen/payment-methods")
@@ -446,7 +522,7 @@ export default function HistoryTransaction({
             <span className="shrink-0 rounded-full bg-[#5f1340]/10 px-2 py-0.5 text-[10px] font-bold text-[#5f1340]">{total} Order</span>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto] gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto_auto] gap-2">
           <div className="relative sm:col-span-2 xl:col-span-1 min-w-0">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -472,6 +548,16 @@ export default function HistoryTransaction({
           <button type="button" onClick={load} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
             <HiOutlineArrowPath className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={downloadExcel}
+            disabled={exporting || loading}
+            title="Download Excel sesuai filter"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#5f1340] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#4d0f33] disabled:opacity-60"
+          >
+            <HiOutlineArrowDownTray className={cn("h-3.5 w-3.5", exporting && "animate-bounce")} />
+            {exporting ? "Mengunduh..." : "Download Excel"}
           </button>
         </div>
         <CutoffPeriodFilter
