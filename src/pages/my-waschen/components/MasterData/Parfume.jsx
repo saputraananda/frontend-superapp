@@ -65,10 +65,22 @@ function StatusBadge({ isActive }) {
   );
 }
 
+const rupiah = (val) =>
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(val) || 0);
+
+function PriceBadge({ price }) {
+  if (Number(price) > 0) return <span className="font-semibold text-[#5f1340] tabular-nums">{rupiah(price)}</span>;
+  return (
+    <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+      Free
+    </span>
+  );
+}
+
 function SkeletonRow() {
   return (
     <tr className="border-t border-slate-100 animate-pulse">
-      {[16, 36, 48, 24, 24].map((w, i) => (
+      {[16, 36, 48, 24, 28, 24, 24].map((w, i) => (
         <td key={i} className="px-4 py-4">
           <div className="h-3.5 rounded bg-slate-200" style={{ width: `${w * 3}px` }} />
         </td>
@@ -81,6 +93,8 @@ const EMPTY_FORM = {
   id: null,
   name: "",
   description: "",
+  price: "",
+  outlet_id: "",
   is_active: 1,
 };
 
@@ -89,6 +103,8 @@ export default function Parfume() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState("");
+  const [filterOutlet, setFilterOutlet] = useState("");
+  const [outlets, setOutlets] = useState([]);
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
 
@@ -116,6 +132,7 @@ export default function Parfume() {
       const query = new URLSearchParams();
       if (search) query.set("search", search);
       if (filterActive) query.set("isActive", filterActive);
+      if (filterOutlet) query.set("outletId", filterOutlet);
       if (sortBy) query.set("sortBy", sortBy);
       if (sortDir) query.set("sortDir", sortDir);
 
@@ -132,7 +149,13 @@ export default function Parfume() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filterActive, sortBy, sortDir]);
+  }, [search, filterActive, filterOutlet, sortBy, sortDir]);
+
+  useEffect(() => {
+    api("/waschen/outlets?sortBy=name&sortDir=asc")
+      .then((res) => setOutlets(res.data || []))
+      .catch(() => setOutlets([]));
+  }, []);
 
   const handleSort = (col) => {
     if (sortBy === col) {
@@ -154,6 +177,8 @@ export default function Parfume() {
       id: item.id,
       name: item.name,
       description: item.description || "",
+      price: Number(item.price) > 0 ? String(Math.round(Number(item.price))) : "",
+      outlet_id: item.outlet_id ?? "",
       is_active: item.is_active,
     });
     setFormError("");
@@ -311,6 +336,17 @@ export default function Parfume() {
               <option value="1">Aktif</option>
               <option value="0">Nonaktif</option>
             </select>
+            <select
+              value={filterOutlet}
+              onChange={(e) => setFilterOutlet(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#5f1340] text-slate-600"
+            >
+              <option value="">Semua Parfum</option>
+              <option value="all">Berlaku semua outlet</option>
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id}>Khusus {o.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -322,6 +358,8 @@ export default function Parfume() {
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider w-12 text-center">No</th>
                 <SortTh col="name" label="Nama Aroma" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider">Deskripsi</th>
+                <SortTh col="price" label="Harga / Item" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <th className="px-4 py-3 font-semibold uppercase tracking-wider">Outlet</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-center">Status</th>
                 <th className="px-4 py-3 font-semibold uppercase tracking-wider text-right">Aksi</th>
               </tr>
@@ -331,7 +369,7 @@ export default function Parfume() {
                 Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                     Tidak ada data aroma parfum
                   </td>
                 </tr>
@@ -341,6 +379,18 @@ export default function Parfume() {
                     <td className="px-4 py-3.5 text-center text-slate-400 font-medium tabular-nums">{idx + 1}</td>
                     <td className="px-4 py-3.5 font-semibold text-slate-800 whitespace-nowrap">{item.name}</td>
                     <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate">{item.description || "-"}</td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <PriceBadge price={item.price} />
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      {item.outlet_id ? (
+                        <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                          {item.outlet_name || `Outlet #${item.outlet_id}`}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Semua outlet</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <StatusBadge isActive={item.is_active} />
                     </td>
@@ -418,6 +468,38 @@ export default function Parfume() {
                   onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Harga per Item (Rp)</label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">Rp</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0 (Free)"
+                      value={formData.price === "" ? "" : Number(formData.price).toLocaleString("id-ID")}
+                      onChange={(e) => setFormData((p) => ({ ...p, price: e.target.value.replace(/[^0-9]/g, "") }))}
+                      className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs outline-none focus:border-[#5f1340]"
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-400">Kosong / 0 = Free.</p>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Outlet</label>
+                  <select
+                    value={formData.outlet_id}
+                    onChange={(e) => setFormData((p) => ({ ...p, outlet_id: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#5f1340]"
+                  >
+                    <option value="">Semua outlet</option>
+                    {outlets.map((o) => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] text-slate-400">Outlet yang punya parfum khusus memakai mode parfum per item di POS.</p>
+                </div>
               </div>
 
               <div>

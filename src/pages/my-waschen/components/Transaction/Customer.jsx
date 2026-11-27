@@ -831,7 +831,7 @@ export default function Customer() {
               Member
               <select aria-label="Filter member" value={filterPackageId} onChange={(e) => setFilterPackageId(e.target.value)} className="mt-1 block w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#5f1340]/40 focus:ring-2 focus:ring-[#5f1340]/10">
                 <option value="">Semua Member</option>
-                {packages.map((p) => <option key={p.id} value={p.id}>{p.name || p.tier}</option>)}
+                {packages.map((p) => <option key={p.id} value={p.id}>{p.name || p.tier}{p.outlet_name ? ` · ${p.outlet_name}` : ""}</option>)}
               </select>
             </label>
           </div>

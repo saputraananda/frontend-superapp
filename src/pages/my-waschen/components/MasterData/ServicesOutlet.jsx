@@ -124,6 +124,8 @@ export default function ServicesOutlet({ outlet, categories, units, showToast })
       min_order_qty: isSet(r.override_min_order_qty) ? String(Number(r.override_min_order_qty)) : "",
       dc_price_add: isSet(r.override_dc_price_add) ? String(Math.round(Number(r.override_dc_price_add))) : "",
       is_dc_required: isSet(r.override_is_dc_required) ? String(Number(r.override_is_dc_required)) : "",
+      is_special_parfume: Number(r.is_special_parfume) === 1 ? 1 : 0,
+      go_green_discount: Number(r.go_green_discount) > 0 ? String(Math.round(Number(r.go_green_discount))) : "",
     });
   };
 
@@ -281,6 +283,12 @@ export default function ServicesOutlet({ outlet, categories, units, showToast })
                         )}
                         {Number(r.is_dc_required) !== 1 && Number(r.dc_price_add) > 0 && (
                           <span className="block text-[10px] font-semibold text-amber-800">+{rupiah(r.dc_price_add)} jika DC</span>
+                        )}
+                        {Number(r.is_special_parfume) === 1 && (
+                          <span className="block text-[10px] font-bold text-fuchsia-700">Special Parfum (gratis)</span>
+                        )}
+                        {Number(r.go_green_discount) > 0 && (
+                          <span className="block text-[10px] font-bold text-emerald-700">Go-Green -{rupiah(r.go_green_discount)}</span>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
@@ -455,6 +463,28 @@ export default function ServicesOutlet({ outlet, categories, units, showToast })
                   />
                 </Field>
               )}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+                  <span>
+                    <span className="block font-semibold text-slate-800">Special Parfum</span>
+                    <span className="text-[11px] text-slate-500">Parfum berbayar jadi gratis untuk layanan ini di outlet ini.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={Number(form.is_special_parfume) === 1}
+                    onChange={(e) => setForm((f) => ({ ...f, is_special_parfume: e.target.checked ? 1 : 0 }))}
+                    className="h-5 w-5 accent-[#5f1340]"
+                  />
+                </label>
+                <Field label="Potongan Go-Green (Rp)" hint="Potongan per item untuk &quot;Kemasan Go-Green Waschen?&quot;. Kosong / 0 = opsi tidak tersedia.">
+                  <RupiahInput
+                    value={form.go_green_discount}
+                    placeholder="0 (tidak tersedia)"
+                    onChange={(v) => setForm((f) => ({ ...f, go_green_discount: v }))}
+                  />
+                </Field>
+              </div>
 
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
                 <button

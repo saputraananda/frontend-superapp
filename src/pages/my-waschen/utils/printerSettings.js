@@ -1,5 +1,6 @@
 import { api } from "../../../lib/api";
 import { formatEmployeeName } from "./FormatName.js";
+import { itemExtrasFromRow, orderExtrasFromRow } from "./notaPricing.js";
 
 export const PERHATIAN_ITEMS = [
   "Pengambilan barang harap disertai nota",
@@ -185,6 +186,16 @@ export function mapDbTransactionToReceipt(payload) {
         brand: item.brand || "-",
         color: item.color || "-",
         note: item.condition_notes || item.note || "-",
+        // Phase 20: parfum per item & Kemasan Go-Green (snapshot tr_transaction_detail)
+        ...(item.parfumeName !== undefined || item.goGreenDiscount !== undefined
+          ? {
+              parfumeId: item.parfumeId ?? null,
+              parfumeName: item.parfumeName || null,
+              parfumePrice: Number(item.parfumePrice) || 0,
+              isGoGreen: Boolean(item.isGoGreen),
+              goGreenDiscount: Number(item.goGreenDiscount) || 0,
+            }
+          : itemExtrasFromRow(item)),
       };
     }),
     perfume: order.parfumeName || order.parfume_name || "Tanpa parfum",
@@ -193,6 +204,9 @@ export function mapDbTransactionToReceipt(payload) {
     subtotal: Number(order.subtotal) || 0,
     speedSurcharge: Number(order.speedSurcharge ?? order.speed_surcharge) || 0,
     discountAmount: Number(order.discountAmount ?? order.discount_amount) || 0,
+    memberDiscountAmount: order.memberDiscountAmount !== undefined
+      ? Number(order.memberDiscountAmount) || 0
+      : orderExtrasFromRow(order).memberDiscountAmount,
     promoName: order.promoName || order.discount_notes || "",
     grandTotal: grand,
     paidAmount: paid,

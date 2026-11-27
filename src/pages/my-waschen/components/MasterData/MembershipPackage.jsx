@@ -45,7 +45,7 @@ function StatusBadge({ isActive }) {
 }
 
 function TierBadge({ tier }) {
-  const colors = { Gold: "bg-amber-50 text-amber-700 border-amber-200", Diamond: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+  const colors = { Gold: "bg-amber-50 text-amber-700 border-amber-200", Platinum: "bg-slate-100 text-slate-700 border-slate-300", Diamond: "bg-cyan-50 text-cyan-700 border-cyan-200" };
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold border", colors[tier] || colors.Gold)}>
       <HiOutlineSparkles className="h-3 w-3" />{tier}
@@ -58,6 +58,7 @@ const EMPTY_FORM = {
   code: "",
   name: "",
   tier: "Gold",
+  outlet_id: "",
   top_up_amount: 0,
   validity_days: 180,
   description: "",
@@ -70,6 +71,8 @@ export default function MembershipPackage() {
   const [search, setSearch] = useState("");
   const [filterTier, setFilterTier] = useState("");
   const [filterActive, setFilterActive] = useState("");
+  const [filterOutlet, setFilterOutlet] = useState("");
+  const [outlets, setOutlets] = useState([]);
   const [sortBy, setSortBy] = useState("top_up_amount");
   const [sortDir, setSortDir] = useState("asc");
   const [modalOpen, setModalOpen] = useState(false);
@@ -89,6 +92,7 @@ export default function MembershipPackage() {
       if (search) query.set("search", search);
       if (filterTier) query.set("tier", filterTier);
       if (filterActive) query.set("isActive", filterActive);
+      if (filterOutlet) query.set("outletId", filterOutlet);
       if (sortBy) query.set("sortBy", sortBy);
       if (sortDir) query.set("sortDir", sortDir);
       const res = await api(`/waschen/membership-packages?${query.toString()}`);
@@ -97,7 +101,11 @@ export default function MembershipPackage() {
   };
 
   useLiveRefresh(() => loadData(true));
-  useEffect(() => { loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [search, filterTier, filterActive, sortBy, sortDir]);
+  useEffect(() => { loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [search, filterTier, filterActive, filterOutlet, sortBy, sortDir]);
+
+  useEffect(() => {
+    api("/waschen/outlets?sortBy=name&sortDir=asc").then((res) => setOutlets(res.data || [])).catch(() => setOutlets([]));
+  }, []);
 
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("asc"); } };
 
@@ -109,7 +117,7 @@ export default function MembershipPackage() {
     }
     setSubmitting(true); setFormError("");
     try {
-      const payload = { ...formData, top_up_amount: Number(formData.top_up_amount), validity_days: Number(formData.validity_days) || 180 };
+      const payload = { ...formData, top_up_amount: Number(formData.top_up_amount), validity_days: Number(formData.validity_days) || 180, outlet_id: formData.outlet_id || null };
       if (formData.id) {
         await api(`/waschen/membership-packages/${formData.id}`, { method: "PUT", body: JSON.stringify(payload) });
         showToast("Paket membership berhasil diperbarui");
@@ -134,6 +142,7 @@ export default function MembershipPackage() {
     total: data.length,
     active: data.filter((d) => Number(d.is_active) === 1).length,
     gold: data.filter((d) => d.tier === "Gold").length,
+    platinum: data.filter((d) => d.tier === "Platinum").length,
     diamond: data.filter((d) => d.tier === "Diamond").length,
   }), [data]);
 
@@ -148,7 +157,7 @@ export default function MembershipPackage() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Paket Membership</h1>
               <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">
-                Kelola paket deposit member Gold dan Diamond
+                Kelola paket deposit member Gold, Platinum, dan Diamond
               </p>
             </div>
             <button
@@ -163,8 +172,8 @@ export default function MembershipPackage() {
         
       </PageHero>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[{ l: "Total Paket", v: stats.total }, { l: "Aktif", v: stats.active, c: "text-emerald-600" }, { l: "Gold", v: stats.gold, c: "text-amber-600" }, { l: "Diamond", v: stats.diamond, c: "text-cyan-600" }].map((s) => (
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        {[{ l: "Total Paket", v: stats.total }, { l: "Aktif", v: stats.active, c: "text-emerald-600" }, { l: "Gold", v: stats.gold, c: "text-amber-600" }, { l: "Platinum", v: stats.platinum, c: "text-slate-600" }, { l: "Diamond", v: stats.diamond, c: "text-cyan-600" }].map((s) => (
           <div key={s.l} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.l}</p><p className={cn("text-2xl font-bold mt-0.5", s.c || "text-slate-800")}>{s.v}</p></div>
         ))}
       </div>
@@ -175,7 +184,8 @@ export default function MembershipPackage() {
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input type="text" placeholder="Cari kode, nama paket..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-[#5f1340]" />
           </div>
-          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"><option value="">Semua Tier</option><option value="Gold">Gold</option><option value="Diamond">Diamond</option></select>
+          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"><option value="">Semua Tier</option><option value="Gold">Gold</option><option value="Platinum">Platinum</option><option value="Diamond">Diamond</option></select>
+          <select value={filterOutlet} onChange={(e) => setFilterOutlet(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"><option value="">Semua Paket</option><option value="all">Paket umum saja</option>{outlets.map((o) => <option key={o.id} value={o.id}>Berlaku di {o.name}</option>)}</select>
           <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"><option value="">Semua Status</option><option value="1">Aktif</option><option value="0">Nonaktif</option></select>
         </div>
         <div className="overflow-x-auto">
@@ -186,6 +196,7 @@ export default function MembershipPackage() {
                 <SortTh col="code" label="Kode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="name" label="Nama Paket" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="tier" label="Tier" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <th className="px-4 py-3">Outlet</th>
                 <SortTh col="top_up_amount" label="Nominal Top Up" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortTh col="validity_days" label="Masa Berlaku" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 text-center">Status</th>
@@ -193,20 +204,21 @@ export default function MembershipPackage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading ? Array.from({ length: 3 }).map((_, i) => <tr key={i}><td colSpan={8} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>) : data.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400">Tidak ada data paket membership</td></tr>
+              {loading ? Array.from({ length: 3 }).map((_, i) => <tr key={i}><td colSpan={9} className="px-4 py-4"><div className="h-3.5 bg-slate-200 rounded animate-pulse" /></td></tr>) : data.length === 0 ? (
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">Tidak ada data paket membership</td></tr>
               ) : data.map((item, idx) => (
                 <tr key={item.id} className="hover:bg-slate-50/80">
                   <td className="px-4 py-3.5 text-center text-slate-400">{idx + 1}</td>
                   <td className="px-4 py-3.5 font-mono font-bold text-[#5f1340]">{item.code}</td>
                   <td className="px-4 py-3.5 font-semibold text-slate-800">{item.name}</td>
                   <td className="px-4 py-3.5"><TierBadge tier={item.tier} /></td>
+                  <td className="px-4 py-3.5 whitespace-nowrap">{item.outlet_id ? <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">{item.outlet_name || `Outlet #${item.outlet_id}`}</span> : <span className="text-slate-400">Umum</span>}</td>
                   <td className="px-4 py-3.5 font-bold text-emerald-700">{formatRupiah(item.top_up_amount)}</td>
                   <td className="px-4 py-3.5 text-slate-600">{item.validity_days} hari ({Math.round(item.validity_days / 30)} bln)</td>
                   <td className="px-4 py-3.5 text-center"><StatusBadge isActive={item.is_active} /></td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="inline-flex gap-1">
-                      <button type="button" onClick={() => { setFormData({ ...item, top_up_amount: Number(item.top_up_amount), validity_days: Number(item.validity_days) }); setFormError(""); setModalOpen(true); }} className="rounded-lg border p-1.5 hover:border-amber-300 hover:bg-amber-50"><HiOutlinePencilSquare className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => { setFormData({ ...item, top_up_amount: Number(item.top_up_amount), validity_days: Number(item.validity_days), outlet_id: item.outlet_id ?? "" }); setFormError(""); setModalOpen(true); }} className="rounded-lg border p-1.5 hover:border-amber-300 hover:bg-amber-50"><HiOutlinePencilSquare className="h-4 w-4" /></button>
                       <button type="button" onClick={() => setDeleteTarget(item)} className="rounded-lg border p-1.5 hover:border-rose-300 hover:bg-rose-50"><HiOutlineTrash className="h-4 w-4" /></button>
                     </div>
                   </td>
@@ -229,9 +241,10 @@ export default function MembershipPackage() {
               <div><label className="block font-semibold mb-1">Kode Paket *</label><input type="text" value={formData.code} onChange={(e) => setFormData((p) => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="MEMBER_GOLD" className={cn(inputCls, "font-mono uppercase")} required /></div>
               <div><label className="block font-semibold mb-1">Nama Paket *</label><input type="text" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} className={inputCls} required /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block font-semibold mb-1">Tier Paket *</label><select value={formData.tier} onChange={(e) => setFormData((p) => ({ ...p, tier: e.target.value }))} className={inputCls}><option value="Gold">Gold</option><option value="Diamond">Diamond</option></select></div>
+                <div><label className="block font-semibold mb-1">Tier Paket *</label><select value={formData.tier} onChange={(e) => setFormData((p) => ({ ...p, tier: e.target.value }))} className={inputCls}><option value="Gold">Gold</option><option value="Platinum">Platinum</option><option value="Diamond">Diamond</option></select></div>
                 <div><label className="block font-semibold mb-1">Masa Berlaku (Hari)</label><input type="number" min="1" value={formData.validity_days} onChange={(e) => setFormData((p) => ({ ...p, validity_days: e.target.value }))} className={inputCls} /></div>
               </div>
+              <div><label className="block font-semibold mb-1">Outlet</label><select value={formData.outlet_id ?? ""} onChange={(e) => setFormData((p) => ({ ...p, outlet_id: e.target.value }))} className={inputCls}><option value="">Paket umum (semua outlet)</option>{outlets.map((o) => <option key={o.id} value={o.id}>Khusus {o.name}</option>)}</select><p className="mt-1 text-[10px] text-slate-400">Paket khusus outlet tidak mendapat bonus saldo.</p></div>
               <div><label className="block font-semibold mb-1">Nominal Top Up (Rp) *</label><input type="number" min="0" value={formData.top_up_amount} onChange={(e) => setFormData((p) => ({ ...p, top_up_amount: e.target.value }))} className={inputCls} required /></div>
               <div><label className="block font-semibold mb-1">Deskripsi</label><textarea rows={2} value={formData.description} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} className={inputCls} /></div>
               <div><label className="block font-semibold mb-1">Status</label><select value={formData.is_active} onChange={(e) => setFormData((p) => ({ ...p, is_active: Number(e.target.value) }))} className={inputCls}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>

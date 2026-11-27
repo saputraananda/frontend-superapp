@@ -551,6 +551,17 @@ function ItemCard({ item, index, saving, onStatusChange, open, onToggle, onViewP
               <span>·</span>
               <span className="font-semibold tabular-nums text-slate-700">{fmtIDR(item.subtotal)}</span>
               <span className={cn("rounded px-1 text-[9px] font-black", methodCode === "DC" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700")}>{methodCode}</span>
+              {hasText(item.parfume_name) && (
+                <Chip className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700" title="Parfum item">
+                  {item.parfume_name}
+                  {Number(item.parfume_price) > 0 ? ` +${fmtIDR(item.parfume_price)}` : ""}
+                </Chip>
+              )}
+              {Number(item.is_go_green) === 1 && (
+                <Chip className="border-emerald-200 bg-emerald-50 text-emerald-700" title="Kemasan Go-Green Waschen">
+                  Go-Green{Number(item.go_green_discount) > 0 ? ` −${fmtIDR(item.go_green_discount)}` : ""}
+                </Chip>
+              )}
               {Number(item.has_finding) === 1 && <Chip className="border-amber-200 bg-amber-50 text-amber-800">Temuan</Chip>}
               {Number(item.is_on_hold) === 1 && <Chip className="border-rose-200 bg-rose-50 text-rose-700">Hold</Chip>}
               {photoCount > 0 && (
@@ -743,7 +754,14 @@ export default function DetailTransaction() {
   const remaining = Math.max(0, (order?.grandTotal || 0) - (order?.paidAmount || 0));
   const paidPct = order?.grandTotal ? Math.min(100, Math.round(((order.paidAmount || 0) / order.grandTotal) * 100)) : 0;
   const cancelled = Number(order?.workStatus) <= 0 && order != null;
-  const pricing = getNotaPricing(order);
+  // Phase 20: parfum per item (+) & Kemasan Go-Green (−) dari snapshot tr_transaction_detail
+  const pricing = getNotaPricing(
+    order && {
+      ...order,
+      parfumeTotal: items.reduce((s, it) => s + (Number(it.parfume_price) || 0), 0),
+      goGreenTotal: items.reduce((s, it) => s + (Number(it.go_green_discount) || 0), 0),
+    },
+  );
 
   const visibleItems = useMemo(() => {
     if (!stepFilter) return items;
@@ -976,10 +994,10 @@ export default function DetailTransaction() {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total tagihan</p>
                   <p className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 tabular-nums">{fmtIDR(order.grandTotal)}</p>
-                  {pricing.hasPromo && (
+                  {(pricing.hasPromo || pricing.hasGoGreen) && (
                     <p className="mt-0.5 text-xs text-slate-400">
-                      <span className="line-through tabular-nums">{fmtIDR(pricing.original)}</span>
-                      <span className="ml-1.5 font-bold text-emerald-700">hemat {fmtIDR(pricing.discount)}</span>
+                      <span className="line-through tabular-nums">{fmtIDR(pricing.original + pricing.goGreenTotal)}</span>
+                      <span className="ml-1.5 font-bold text-emerald-700">hemat {fmtIDR(pricing.saved)}</span>
                     </p>
                   )}
                 </div>
@@ -987,32 +1005,57 @@ export default function DetailTransaction() {
               </div>
               {pricing.showBreakdown && (
                 <div className="mt-3 space-y-1 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 text-xs">
-                  {pricing.hasSurcharge && (
+                  {(pricing.hasSurcharge || pricing.hasParfume || pricing.hasGoGreen) && (
                     <>
                       <div className="flex justify-between gap-3">
                         <span className="text-slate-500">Subtotal layanan</span>
                         <span className="font-semibold text-slate-800 tabular-nums">{fmtIDR(pricing.subtotal)}</span>
                       </div>
-                      <div className="flex justify-between gap-3">
-                        <span className="inline-flex items-center gap-1 text-amber-700">
-                          <HiOutlineBolt className="h-3.5 w-3.5" />
-                          Biaya express
-                        </span>
-                        <span className="font-semibold text-amber-700 tabular-nums">+{fmtIDR(pricing.surcharge)}</span>
-                      </div>
+                      {pricing.hasSurcharge && (
+                        <div className="flex justify-between gap-3">
+                          <span className="inline-flex items-center gap-1 text-amber-700">
+                            <HiOutlineBolt className="h-3.5 w-3.5" />
+                            Biaya express
+                          </span>
+                          <span className="font-semibold text-amber-700 tabular-nums">+{fmtIDR(pricing.surcharge)}</span>
+                        </div>
+                      )}
+                      {pricing.hasParfume && (
+                        <div className="flex justify-between gap-3">
+                          <span className="text-fuchsia-700">Parfum</span>
+                          <span className="font-semibold text-fuchsia-700 tabular-nums">+{fmtIDR(pricing.parfumeTotal)}</span>
+                        </div>
+                      )}
+                      {pricing.hasGoGreen && (
+                        <div className="flex justify-between gap-3">
+                          <span className="text-emerald-700">Kemasan Go-Green</span>
+                          <span className="font-semibold text-emerald-700 tabular-nums">−{fmtIDR(pricing.goGreenTotal)}</span>
+                        </div>
+                      )}
                     </>
                   )}
                   <div className="flex justify-between gap-3">
                     <span className="text-slate-500">Harga normal</span>
                     <span className="font-semibold text-slate-800 tabular-nums">{fmtIDR(pricing.original)}</span>
                   </div>
-                  {pricing.hasPromo && (
+                  {pricing.hasManualPromo && (
                     <div className="flex justify-between gap-3">
                       <span className="inline-flex min-w-0 items-center gap-1 text-emerald-700">
                         <HiOutlineTicket className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate" title={pricing.promoName}>Promo {pricing.promoName}</span>
                       </span>
-                      <span className="shrink-0 font-semibold text-emerald-700 tabular-nums">−{fmtIDR(pricing.discount)}</span>
+                      <span className="shrink-0 font-semibold text-emerald-700 tabular-nums">−{fmtIDR(pricing.manualDiscount)}</span>
+                    </div>
+                  )}
+                  {pricing.hasMemberPromo && (
+                    <div className="flex justify-between gap-3">
+                      <span className="inline-flex min-w-0 items-center gap-1 text-emerald-700">
+                        <HiOutlineTicket className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate" title={pricing.memberPromoName}>
+                          {/^promo member/i.test(pricing.memberPromoName) ? pricing.memberPromoName : `Promo Member ${pricing.memberPromoName}`}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-semibold text-emerald-700 tabular-nums">−{fmtIDR(pricing.memberDiscount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between gap-3 border-t border-dashed border-slate-200 pt-1.5">
